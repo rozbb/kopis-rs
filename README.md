@@ -64,7 +64,15 @@ We have implemented benchmarks for key generation, encapsulation, and decapsulat
 
 # Formal Verification
 
-We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`.
+We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates `lean/ExtractedRust.lean`.
+
+That extracted code is then proved to match an audited Lean specification of Kopis. The proofs live in [`lean/`](lean/); see [`lean/README.md`](lean/README.md) for the layout. To check them:
+
+```sh
+cd lean
+make prove-kopis      # build + kernel-verify the correspondence proofs
+make test-kopis-spec  # run the audited spec against the Kopis test vectors
+```
 
 # License
 
