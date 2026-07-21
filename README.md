@@ -1,5 +1,4 @@
-kopis-rs
-========
+# kopis-rs
 
 This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation mechanism (KEM). Kopis is a lattice-based KEM that is designed to be secure against classical and quantum adversaries. It comes in three variants:
 
@@ -7,13 +6,7 @@ This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation 
 * Kopis-768, which is designed to have security roughly equivalent to AES-192
 * Kopis-1024, which is designed to have security roughly equivalent to AES-256
 
-Warning
--------
-
-This crate has not been audited in any sense of the word. Use at your own risk.
-
-Example code
-------------
+# Example code
 
 The following code can be found in [`examples/simple.rs`](examples/simple.rs).
 
@@ -65,13 +58,15 @@ assert_eq!(ss1.as_bytes(), ss2.as_bytes());
 println!("KEM ran successfully");
 ```
 
-Benchmarks
-----------
+# Benchmarks
 
 We have implemented benchmarks for key generation, encapsulation, and decapsulation for all variants. Simply run `cargo bench`.
 
-License
--------
+# Formal Verification
+
+We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`.
+
+# License
 
 Licensed under either of
 
