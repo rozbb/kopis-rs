@@ -1,5 +1,5 @@
 import Kopis.Properties.GenSecretLoops
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open scoped BigOperators
 open Spec (𝔹 bytesToBits)
 open scoped Spec.Notations

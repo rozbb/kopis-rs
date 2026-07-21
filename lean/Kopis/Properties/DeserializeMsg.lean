@@ -16,7 +16,7 @@
 import Kopis.Properties.SerializeTop
 
 open Aeneas Aeneas.Std Result
-open kopis_kem
+open kopis
 open Spec (𝔹 bytesToBits)
 open scoped BigOperators
 

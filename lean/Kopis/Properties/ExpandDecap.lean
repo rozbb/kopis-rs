@@ -1,7 +1,7 @@
 import Kopis.Properties.PkeHash
 import Kopis.Properties.RoundTop
 import Kopis.Properties.MulTranspose
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256 turboSHAKE256_getElem_prefix)

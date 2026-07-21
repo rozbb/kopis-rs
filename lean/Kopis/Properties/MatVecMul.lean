@@ -1,5 +1,5 @@
 import Kopis.Properties.GenMatrix
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open scoped BigOperators
 namespace Kopis.Properties
 

@@ -1,6 +1,6 @@
 import Kopis.Properties.KeyGenHyps
 import Kopis.Properties.Impls
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open Spec (𝔹)
 namespace Kopis.Properties
 set_option maxHeartbeats 4000000

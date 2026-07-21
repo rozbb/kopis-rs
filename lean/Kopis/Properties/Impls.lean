@@ -1,5 +1,5 @@
 import Kopis.Properties.KemDecap
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open Spec (𝔹)
 open Spec.TurboSHAKE (turboSHAKE256)
 open Spec.Kopis (DOMSEP_PKHASH)

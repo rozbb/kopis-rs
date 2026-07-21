@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use kopis_kem::kopis768::{Kopis768PublicKey, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN};
+use kopis::kopis768::{Kopis768PublicKey, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN};
 use rand::{CryptoRng, Rng};
 use sha3::{Digest, Sha3_512};
 use shake::{

@@ -25,7 +25,7 @@ use std::{
     path::Path,
 };
 
-use kopis_kem::{kopis1024, kopis512, kopis768};
+use kopis::{kopis1024, kopis512, kopis768};
 use serde::Deserialize;
 
 /// A single known-answer test vector. All byte strings are stored as lowercase hex.

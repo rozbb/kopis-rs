@@ -2,7 +2,7 @@ import Kopis.Properties.RingArith
 import Kopis.Properties.GenMatrix
 import Spec.Kopis.Spec
 import Kopis.Properties.Serialize
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open scoped BigOperators
 namespace Kopis.Properties
 

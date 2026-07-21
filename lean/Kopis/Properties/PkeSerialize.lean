@@ -1,6 +1,6 @@
 import Kopis.Properties.MatrixSerialize
 import Kopis.Properties.GenMatrix
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open Spec (𝔹)
 namespace Kopis.Properties
 set_option maxHeartbeats 2000000

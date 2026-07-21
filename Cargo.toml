@@ -1,5 +1,5 @@
 [package]
-name = "kopis_kem"
+name = "kopis"
 authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
 license = "MIT/Apache-2.0"
 version = "0.1.0"

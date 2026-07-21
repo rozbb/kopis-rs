@@ -1,5 +1,5 @@
 import Kopis.Properties.RoundTop
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 namespace Kopis.Properties
 
 open arithmetic.ring_arith (RingElem)

@@ -11,7 +11,7 @@ This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation 
 The following code can be found in [`examples/simple.rs`](examples/simple.rs).
 
 ```rust
-use kopis_kem::{
+use kopis::{
     kopis512::{Kopis512Ciphertext, Kopis512PublicKey, Kopis512SecretKey, KOPIS512_CIPHERTEXT_LEN},
     SharedSecret
 };

@@ -1,5 +1,5 @@
 import Kopis.Properties.ExpandDecap
-open Aeneas Aeneas.Std Result kopis_kem
+open Aeneas Aeneas.Std Result kopis
 open Spec (𝔹)
 namespace Kopis.Properties
 set_option maxHeartbeats 1000000

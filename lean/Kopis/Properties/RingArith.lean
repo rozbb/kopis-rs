@@ -26,7 +26,7 @@ import ExtractedRust
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
-open kopis_kem
+open kopis
 
 namespace Kopis.Properties
 
