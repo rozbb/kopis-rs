@@ -27,19 +27,19 @@ def Array.Insts.CoreCmpPartialEqArray {T : Type} {U : Type} (N : Std.Usize)
   eq := core.array.equality.PartialEqArray.eq cmpPartialEqInst
 }
 
-/-- [core::num::{u8}::count_ones]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
-    Name pattern: [core::num::{u8}::count_ones]
-    Visibility: public -/
-@[rust_fun "core::num::{u8}::count_ones"]
-axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
-
 /-- [core::num::{u32}::count_ones]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
     Name pattern: [core::num::{u32}::count_ones]
     Visibility: public -/
 @[rust_fun "core::num::{u32}::count_ones"]
 axiom core.num.U32.count_ones : Std.U32 → Result Std.U32
+
+/-- [core::num::{u8}::count_ones]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
+    Name pattern: [core::num::{u8}::count_ones]
+    Visibility: public -/
+@[rust_fun "core::num::{u8}::count_ones"]
+axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 
 /-- Trait declaration: [core::ops::arith::Add]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 76:0-76:31
@@ -488,7 +488,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
 }
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_right]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 65:8-67:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 73:8-75:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.shift_right_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -508,7 +508,7 @@ def arithmetic.ring_arith.RingElem.shift_right_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_right]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 64:4-68:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 72:4-76:5 -/
 def arithmetic.ring_arith.RingElem.shift_right
   (self : arithmetic.ring_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -593,12 +593,12 @@ def arithmetic.matrix_arith.Matrix.shift_right
 @[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
 
 /-- [kopis::arithmetic::ring_arith::HALF]
-    Source: 'src/arithmetic/ring_arith.rs', lines 100:0-100:33 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 108:0-108:33 -/
 @[global_simps, irreducible]
 def arithmetic.ring_arith.HALF : Result Std.Usize := consts.RING_DEG / 2#usize
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 114:8-116:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 122:8-124:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.schoolbook_128_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.U16 256#usize)
@@ -620,7 +620,7 @@ def arithmetic.ring_arith.schoolbook_128_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 112:4-117:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 120:4-125:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.schoolbook_128_loop0
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -641,7 +641,7 @@ def arithmetic.ring_arith.schoolbook_128_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 109:0-118:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 117:0-126:1 -/
 def arithmetic.ring_arith.schoolbook_128
   (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
   (b : Array Std.U16 128#usize) :
@@ -652,7 +652,7 @@ def arithmetic.ring_arith.schoolbook_128
     { start := 0#usize, «end» := i } out a b
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 154:4-157:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 162:4-165:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.ring_mul_acc_loop0
   (iter : core.ops.range.Range Std.Usize) (a_lo : Array Std.U16 128#usize)
@@ -678,7 +678,7 @@ def arithmetic.ring_arith.ring_mul_acc_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 163:4-183:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 171:4-191:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.ring_mul_acc_loop1
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -724,7 +724,7 @@ def arithmetic.ring_arith.ring_mul_acc_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 125:0-184:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 133:0-192:1 -/
 def arithmetic.ring_arith.ring_mul_acc
   (acc : arithmetic.ring_arith.RingElem) (a : arithmetic.ring_arith.RingElem)
   (b : arithmetic.ring_arith.RingElem) :
@@ -954,7 +954,7 @@ def arithmetic.matrix_arith.Matrix.mul_transpose
     { start := 0#usize, «end» := X } self other result
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 81:8-83:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 89:8-91:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -974,7 +974,7 @@ def arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 80:4-84:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 88:4-92:5 -/
 def arithmetic.ring_arith.RingElem.wrapping_add_to_all
   (self : arithmetic.ring_arith.RingElem) (val : Std.U16) :
   Result arithmetic.ring_arith.RingElem
@@ -1057,7 +1057,7 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all
   ok a
 
 /-- [kopis::ser::serialize]: loop 1:
-    Source: 'src/ser.rs', lines 97:8-102:9 -/
+    Source: 'src/ser.rs', lines 116:8-121:9 -/
 @[rust_loop]
 def ser.serialize_loop0_loop0
   (out_buf : Slice Std.U8) (window : Std.U32) (bits_in_window : Std.Usize)
@@ -1076,7 +1076,7 @@ def ser.serialize_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::ser::serialize]: loop 0:
-    Source: 'src/ser.rs', lines 91:4-103:5 -/
+    Source: 'src/ser.rs', lines 110:4-122:5 -/
 @[rust_loop]
 def ser.serialize_loop0
   (iter : core.slice.iter.Iter Std.U16) (out_buf : Slice Std.U8)
@@ -1100,7 +1100,7 @@ def ser.serialize_loop0
 partial_fixpoint
 
 /-- [kopis::ser::serialize]:
-    Source: 'src/ser.rs', lines 80:0-107:1 -/
+    Source: 'src/ser.rs', lines 99:0-126:1 -/
 def ser.serialize
   (data : Slice Std.U16) (out_buf : Slice Std.U8) (bits_per_elem : Std.Usize) :
   Result (Slice Std.U8)
@@ -1119,8 +1119,90 @@ def ser.serialize
   massert (bits_in_window = 0#usize)
   ok out_buf1
 
+/-- [kopis::ser::serialize_10::closure]
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+def ser.serialize_10.closure := Array Std.U16 256#usize × Std.Usize
+
+/-- [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call]:
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
+  (c : ser.serialize_10.closure) (tupled_args : Std.Usize) :
+  Result Std.U16
+  := do
+  let (a, i) := c
+  let i1 ← i + tupled_args
+  let i2 ← Array.index_usize a i1
+  ok (i2 &&& 1023#u16)
+
+/-- [kopis::ser::serialize_10]: loop 0:
+    Source: 'src/ser.rs', lines 82:4-93:5 -/
+@[rust_loop]
+def ser.serialize_10_loop
+  (iter : core.ops.range.Range Std.Usize) (data : Array Std.U16 256#usize)
+  (out_buf : Array Std.U8 320#usize) :
+  Result (Array Std.U8 320#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out_buf
+  | some g =>
+    let o1 ← 4#usize * g
+    let b ← 5#usize * g
+    let i ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 0#usize
+    let i1 ← lift (UScalar.cast .U8 i)
+    let out_buf1 ← Array.update out_buf b i1
+    let i2 ← i >>> 8#i32
+    let i3 ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 1#usize
+    let i4 ← i3 <<< 2#i32
+    let i5 ← lift (i2 ||| i4)
+    let i6 ← b + 1#usize
+    let i7 ← lift (UScalar.cast .U8 i5)
+    let out_buf2 ← Array.update out_buf1 i6 i7
+    let i8 ← i3 >>> 6#i32
+    let i9 ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 2#usize
+    let i10 ← i9 <<< 4#i32
+    let i11 ← lift (i8 ||| i10)
+    let i12 ← b + 2#usize
+    let i13 ← lift (UScalar.cast .U8 i11)
+    let out_buf3 ← Array.update out_buf2 i12 i13
+    let i14 ← i9 >>> 4#i32
+    let i15 ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 3#usize
+    let i16 ← i15 <<< 6#i32
+    let i17 ← lift (i14 ||| i16)
+    let i18 ← b + 3#usize
+    let i19 ← lift (UScalar.cast .U8 i17)
+    let out_buf4 ← Array.update out_buf3 i18 i19
+    let i20 ← i15 >>> 2#i32
+    let i21 ← b + 4#usize
+    let i22 ← lift (UScalar.cast .U8 i20)
+    let a ← Array.update out_buf4 i21 i22
+    ser.serialize_10_loop iter1 data a
+partial_fixpoint
+
+/-- [kopis::ser::serialize_10]:
+    Source: 'src/ser.rs', lines 80:0-94:1 -/
+@[reducible]
+def ser.serialize_10
+  (data : Array Std.U16 256#usize) (out_buf : Array Std.U8 320#usize) :
+  Result (Array Std.U8 320#usize)
+  := do
+  ser.serialize_10_loop { start := 0#usize, «end» := 64#usize } data out_buf
+
+/-- [kopis::consts::MODULUS_P_BITS]
+    Source: 'src/consts.rs', lines 4:0-4:44 -/
+@[global_simps, irreducible] def consts.MODULUS_P_BITS : Std.Usize := 10#usize
+
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::serialize]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 56:4-59:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 57:4-67:5 -/
 def arithmetic.ring_arith.RingElem.serialize
   (self : arithmetic.ring_arith.RingElem) (out_buf : Slice Std.U8)
   (bits_per_elem : Std.Usize) :
@@ -1130,8 +1212,18 @@ def arithmetic.ring_arith.RingElem.serialize
   let i ← bits_per_elem * consts.RING_DEG
   let right_val ← i / 8#usize
   massert (left_val = right_val)
-  let s ← lift (Array.to_slice self)
-  ser.serialize s out_buf bits_per_elem
+  if bits_per_elem = consts.MODULUS_P_BITS
+  then
+    let (r, try_from_back) ←
+      core.array.TryFromMutArraySlice.try_from 320#usize out_buf
+    let (arr, unwrap_back) ←
+      core.result.Result.unwrap.mut core.fmt.DebugTryFromSliceError r
+    let arr1 ← ser.serialize_10 self arr
+    let r1 := unwrap_back arr1
+    ok (try_from_back r1)
+  else
+    let s ← lift (Array.to_slice self)
+    ser.serialize s out_buf bits_per_elem
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]: loop 1:
     Source: 'src/arithmetic/matrix_arith.rs', lines 110:12-114:13 -/
@@ -1487,10 +1579,6 @@ def ser.deserialize_13
   let out := Array.repeat 256#usize 0#u16
   ser.deserialize_13_loop { start := 0#usize, «end» := 32#usize } bytes out
 
-/-- [kopis::consts::MODULUS_P_BITS]
-    Source: 'src/consts.rs', lines 4:0-4:44 -/
-@[global_simps, irreducible] def consts.MODULUS_P_BITS : Std.Usize := 10#usize
-
 /-- [kopis::consts::MODULUS_Q_BITS]
     Source: 'src/consts.rs', lines 2:0-2:44 -/
 @[global_simps, irreducible] def consts.MODULUS_Q_BITS : Std.Usize := 13#usize
@@ -1595,7 +1683,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10
     { start := 0#usize, «end» := X } bytes result chunk_len
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::add]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 191:8-193:9
+    Source: 'src/arithmetic/ring_arith.rs', lines 199:8-201:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
@@ -1619,7 +1707,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::add]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 189:4-195:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 197:4-203:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
   (self : arithmetic.ring_arith.RingElem)
@@ -1749,7 +1837,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault :
 }
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_left]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 74:8-76:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 82:8-84:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.shift_left_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -1769,7 +1857,7 @@ def arithmetic.ring_arith.RingElem.shift_left_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_left]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 73:4-77:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 81:4-85:5 -/
 def arithmetic.ring_arith.RingElem.shift_left
   (self : arithmetic.ring_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -1783,7 +1871,7 @@ def arithmetic.ring_arith.RingElem.shift_left
   ok a
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::mul]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 90:4-94:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 98:4-102:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
   (self : arithmetic.ring_arith.RingElem)
@@ -1794,7 +1882,7 @@ def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
   arithmetic.ring_arith.ring_mul_acc ret self other
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 87:0-95:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 95:0-103:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
   core.ops.arith.Mul arithmetic.ring_arith.RingElem
@@ -1803,7 +1891,7 @@ def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
 }
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 186:0-196:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 194:0-204:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
   core.ops.arith.Add arithmetic.ring_arith.RingElem
@@ -1812,7 +1900,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
 }
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::sub]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 203:8-205:9
+    Source: 'src/arithmetic/ring_arith.rs', lines 211:8-213:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
@@ -1836,7 +1924,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::sub]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 201:4-207:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 209:4-215:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   (self : arithmetic.ring_arith.RingElem)
@@ -1848,7 +1936,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 198:0-208:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 206:0-216:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   core.ops.arith.Sub arithmetic.ring_arith.RingElem
@@ -1928,8 +2016,21 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
     Source: 'src/consts.rs', lines 45:0-45:44 -/
 @[global_simps, irreducible] def consts.DOMSEP_NOREJECT : Std.U8 := 6#u8
 
+/-- [kopis::gen::cbd_diff]:
+    Source: 'src/gen.rs', lines 18:0-22:1 -/
+def gen.cbd_diff
+  (raw1 : Std.U32) (half : Std.U32) (mask : Std.U32) : Result Std.U16 := do
+  let i ← lift (raw1 &&& mask)
+  let i1 ← core.num.U32.count_ones i
+  let a ← lift (UScalar.cast .U16 i1)
+  let i2 ← raw1 >>> half
+  let i3 ← lift (i2 &&& mask)
+  let i4 ← core.num.U32.count_ones i3
+  let b ← lift (UScalar.cast .U16 i4)
+  ok (core.num.U16.wrapping_sub a b)
+
 /-- [kopis::gen::cbd]: loop 0:
-    Source: 'src/gen.rs', lines 21:8-25:9 -/
+    Source: 'src/gen.rs', lines 34:8-38:9 -/
 @[rust_loop]
 def gen.cbd_loop0
   (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
@@ -1955,9 +2056,107 @@ def gen.cbd_loop0
 partial_fixpoint
 
 /-- [kopis::gen::cbd]: loop 1:
-    Source: 'src/gen.rs', lines 30:8-50:9 -/
+    Source: 'src/gen.rs', lines 43:8-55:9 -/
 @[rust_loop]
 def gen.cbd_loop1
+  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some g =>
+    let i ← 5#usize * g
+    let i1 ← Slice.index_usize buf i
+    let b0 ← lift (UScalar.cast .U32 i1)
+    let i2 ← i + 1#usize
+    let i3 ← Slice.index_usize buf i2
+    let b1 ← lift (UScalar.cast .U32 i3)
+    let i4 ← i + 2#usize
+    let i5 ← Slice.index_usize buf i4
+    let b2 ← lift (UScalar.cast .U32 i5)
+    let i6 ← i + 3#usize
+    let i7 ← Slice.index_usize buf i6
+    let b3 ← lift (UScalar.cast .U32 i7)
+    let i8 ← i + 4#usize
+    let i9 ← Slice.index_usize buf i8
+    let b4 ← lift (UScalar.cast .U32 i9)
+    let o1 ← 4#usize * g
+    let i10 ← b1 <<< 8#i32
+    let i11 ← lift (b0 ||| i10)
+    let i12 ← gen.cbd_diff i11 5#u32 31#u32
+    let a ← Array.update out o1 i12
+    let i13 ← b2 <<< 8#i32
+    let i14 ← lift (b1 ||| i13)
+    let i15 ← i14 >>> 2#i32
+    let i16 ← gen.cbd_diff i15 5#u32 31#u32
+    let i17 ← o1 + 1#usize
+    let a1 ← Array.update a i17 i16
+    let i18 ← b3 <<< 8#i32
+    let i19 ← lift (b2 ||| i18)
+    let i20 ← i19 >>> 4#i32
+    let i21 ← gen.cbd_diff i20 5#u32 31#u32
+    let i22 ← o1 + 2#usize
+    let a2 ← Array.update a1 i22 i21
+    let i23 ← b4 <<< 8#i32
+    let i24 ← lift (b3 ||| i23)
+    let i25 ← i24 >>> 6#i32
+    let i26 ← gen.cbd_diff i25 5#u32 31#u32
+    let i27 ← o1 + 3#usize
+    let a3 ← Array.update a2 i27 i26
+    gen.cbd_loop1 iter1 buf a3
+partial_fixpoint
+
+/-- [kopis::gen::cbd]: loop 2:
+    Source: 'src/gen.rs', lines 59:8-69:9 -/
+@[rust_loop]
+def gen.cbd_loop2
+  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some g =>
+    let i ← 3#usize * g
+    let i1 ← Slice.index_usize buf i
+    let b0 ← lift (UScalar.cast .U32 i1)
+    let i2 ← i + 1#usize
+    let i3 ← Slice.index_usize buf i2
+    let b1 ← lift (UScalar.cast .U32 i3)
+    let i4 ← i + 2#usize
+    let i5 ← Slice.index_usize buf i4
+    let b2 ← lift (UScalar.cast .U32 i5)
+    let o1 ← 4#usize * g
+    let i6 ← gen.cbd_diff b0 3#u32 7#u32
+    let a ← Array.update out o1 i6
+    let i7 ← b1 <<< 8#i32
+    let i8 ← lift (b0 ||| i7)
+    let i9 ← i8 >>> 6#i32
+    let i10 ← gen.cbd_diff i9 3#u32 7#u32
+    let i11 ← o1 + 1#usize
+    let a1 ← Array.update a i11 i10
+    let i12 ← b2 <<< 8#i32
+    let i13 ← lift (b1 ||| i12)
+    let i14 ← i13 >>> 4#i32
+    let i15 ← gen.cbd_diff i14 3#u32 7#u32
+    let i16 ← o1 + 2#usize
+    let a2 ← Array.update a1 i16 i15
+    let i17 ← b2 >>> 2#i32
+    let i18 ← gen.cbd_diff i17 3#u32 7#u32
+    let i19 ← o1 + 3#usize
+    let a3 ← Array.update a2 i19 i18
+    gen.cbd_loop2 iter1 buf a3
+partial_fixpoint
+
+/-- [kopis::gen::cbd]: loop 3:
+    Source: 'src/gen.rs', lines 77:8-95:9 -/
+@[rust_loop]
+def gen.cbd_loop3
   (MU : Std.Usize) (iter : core.slice.iter.IterMut Std.U16)
   (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
   (buf : Slice Std.U8) (half : Std.Usize) (mask : Std.U32)
@@ -2006,20 +2205,22 @@ def gen.cbd_loop1
     let b ← lift (UScalar.cast .U16 i9)
     let coeff ← lift (core.num.U16.wrapping_sub a b)
     let bit_pos1 ← bit_pos + MU
-    gen.cbd_loop1 MU iter1 (fun im => let im1 := back1 coeff im
+    gen.cbd_loop3 MU iter1 (fun im => let im1 := back1 coeff im
                                       back im1) buf half mask bit_pos1
 partial_fixpoint
 
 /-- [kopis::gen::cbd]:
-    Source: 'src/gen.rs', lines 12:0-52:1 -/
+    Source: 'src/gen.rs', lines 25:0-97:1 -/
 def gen.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.ring_arith.RingElem)
   :
   Result arithmetic.ring_arith.RingElem
   := do
-  let half ← MU / 2#usize
-  let i ← 1#u32 <<< half
-  let mask ← i - 1#u32
+  let left_val := Slice.len buf
+  let _ ← consts.RING_DEG * MU
+  let i ← lift (Std.Usize.wrapping_mul consts.RING_DEG MU)
+  let right_val ← i / 8#usize
+  massert (left_val = right_val)
   if MU = 8#usize
   then
     let i1 ← core.slice.Slice.iter buf
@@ -2028,15 +2229,28 @@ def gen.cbd
         (core.iter.traits.iterator.IteratorSliceIter Std.U8) i1
     gen.cbd_loop0 iter out
   else
-    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
-    let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-    let back ← gen.cbd_loop1 MU iter (fun im => im) buf half mask 0#usize
-    let s1 := iter_mut_back back
-    let a := to_slice_mut_back s1
-    ok a
+    if MU = 10#usize
+    then
+      let i1 ← consts.RING_DEG / 4#usize
+      gen.cbd_loop1 { start := 0#usize, «end» := i1 } buf out
+    else
+      if MU = 6#usize
+      then
+        let i1 ← consts.RING_DEG / 4#usize
+        gen.cbd_loop2 { start := 0#usize, «end» := i1 } buf out
+      else
+        let half ← MU / 2#usize
+        let i1 ← 1#u32 <<< half
+        let mask ← i1 - 1#u32
+        let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+        let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+        let back ← gen.cbd_loop3 MU iter (fun im => im) buf half mask 0#usize
+        let s1 := iter_mut_back back
+        let a := to_slice_mut_back s1
+        ok a
 
 /-- [kopis::gen::gen_secret_from_seed]: loop 0:
-    Source: 'src/gen.rs', lines 66:4-73:5 -/
+    Source: 'src/gen.rs', lines 111:4-118:5 -/
 @[rust_loop]
 def gen.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -2070,7 +2284,7 @@ def gen.gen_secret_from_seed_loop
 partial_fixpoint
 
 /-- [kopis::gen::gen_secret_from_seed]:
-    Source: 'src/gen.rs', lines 56:0-76:1 -/
+    Source: 'src/gen.rs', lines 101:0-121:1 -/
 def gen.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L 1#usize)
@@ -2088,7 +2302,7 @@ def gen.gen_secret_from_seed
     secret buf
 
 /-- [kopis::gen::gen_matrix_from_seed]: loop 1:
-    Source: 'src/gen.rs', lines 89:8-97:9 -/
+    Source: 'src/gen.rs', lines 134:8-142:9 -/
 @[rust_loop]
 def gen.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2128,7 +2342,7 @@ def gen.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::gen::gen_matrix_from_seed]: loop 0:
-    Source: 'src/gen.rs', lines 88:4-98:5 -/
+    Source: 'src/gen.rs', lines 133:4-143:5 -/
 @[rust_loop]
 def gen.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2148,7 +2362,7 @@ def gen.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::gen::gen_matrix_from_seed]:
-    Source: 'src/gen.rs', lines 81:0-101:1 -/
+    Source: 'src/gen.rs', lines 126:0-146:1 -/
 def gen.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L L)
@@ -3157,6 +3371,55 @@ def ser.deserialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
   FnMutInst :=
     ser.deserialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16
   call := ser.deserialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
+}
+
+/-- [kopis::ser::serialize_10::{impl core::ops::function::FnMut<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call_mut]:
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut
+  (state : ser.serialize_10.closure) (args : Std.Usize) :
+  Result (Std.U16 × ser.serialize_10.closure)
+  := do
+  let i ←
+    ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call state
+      args
+  ok (i, state)
+
+/-- [kopis::ser::serialize_10::{impl core::ops::function::FnOnce<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call_once]:
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16.call_once
+  (c : ser.serialize_10.closure) (i : Std.Usize) : Result Std.U16 := do
+  let (i1, _) ←
+    ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut c
+      i
+  ok i1
+
+/-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::FnOnce<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+@[reducible]
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16 :
+  core.ops.function.FnOnce ser.serialize_10.closure Std.Usize Std.U16 := {
+  call_once :=
+    ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16.call_once
+}
+
+/-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::FnMut<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+@[reducible]
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16 :
+  core.ops.function.FnMut ser.serialize_10.closure Std.Usize Std.U16 := {
+  FnOnceInst :=
+    ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16
+  call_mut :=
+    ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut
+}
+
+/-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
+    Source: 'src/ser.rs', lines 86:16-86:46 -/
+@[reducible]
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
+  core.ops.function.Fn ser.serialize_10.closure Std.Usize Std.U16 := {
+  FnMutInst := ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16
+  call := ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
 }
 
 end RustKopis

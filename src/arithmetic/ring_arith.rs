@@ -53,9 +53,17 @@ impl RingElem {
 
     /// Serializes this ring element, treating each coefficient as having only `bits_per_elem`
     /// bits. In Saber terms, this runs POLYk2BS where k = bits_per_elem
+    #[allow(clippy::unwrap_used)]
     pub(crate) fn serialize(&self, out_buf: &mut [u8], bits_per_elem: usize) {
         assert_eq!(out_buf.len(), bits_per_elem * RING_DEG / 8);
-        serialize(&self.0, out_buf, bits_per_elem)
+
+        // Specialize based on bits_per_elem. unwrap is okay because of the check above
+        if bits_per_elem == crate::consts::MODULUS_P_BITS {
+            let arr: &mut [u8; 10 * RING_DEG / 8] = out_buf.try_into().unwrap();
+            crate::ser::serialize_10(&self.0, arr)
+        } else {
+            serialize(&self.0, out_buf, bits_per_elem)
+        }
     }
 
     // Algorithm 8, ShiftRight

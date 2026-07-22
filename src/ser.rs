@@ -74,6 +74,25 @@ pub(crate) fn deserialize_generic<const N: usize>(bytes: &[u8], bits_per_elem: u
     out
 }
 
+/// Fast specialization of `serialize` for the 10-bit case (ciphertext/public-key vector
+/// packing), which is by far the hottest serialization width. Packs each 4-coefficient
+/// group into 5 bytes with fixed shifts and no per-element branching.
+pub(crate) fn serialize_10(data: &[u16; 256], out_buf: &mut [u8; 10 * 256 / 8]) {
+    // 256 coeffs = 64 groups of 4, each group packed into 5 bytes.
+    for g in 0..64 {
+        let o = 4 * g;
+        // Mask to 10 bits like the generic path does: coefficients may carry garbage in their
+        // high bits, and serialization is where values get reduced mod 2^10
+        let d = |k: usize| data[o + k] & 0x3ff;
+        let b = 5 * g;
+        out_buf[b] = d(0) as u8;
+        out_buf[b + 1] = ((d(0) >> 8) | (d(1) << 2)) as u8;
+        out_buf[b + 2] = ((d(1) >> 6) | (d(2) << 4)) as u8;
+        out_buf[b + 3] = ((d(2) >> 4) | (d(3) << 6)) as u8;
+        out_buf[b + 4] = (d(3) >> 2) as u8;
+    }
+}
+
 // Algorithm 10, POLN2BS
 /// Serializes the given u16 array into a bitstring. Every element of the array has `bits_per_elem`
 /// bits (must be ≤ 13), encoded in the lower bits of the word.
@@ -125,6 +144,23 @@ fn specialized_deser_matches_generic() {
         let bytes: [u8; 10 * 256 / 8] = rng.random();
         let generic: [u16; 256] = deserialize_generic(&bytes, 10);
         let fast = deserialize_10(&bytes);
+        assert_eq!(generic, fast);
+    }
+}
+
+// The fast 10-bit serialization path must agree with the generic sliding-window serializer.
+#[test]
+fn specialized_ser_matches_generic() {
+    use rand::Rng;
+    let mut rng = rand::rng();
+
+    // Use full-range u16 coefficients so the test also covers the 10-bit masking behavior
+    for _ in 0..100 {
+        let data: [u16; 256] = rng.random();
+        let mut generic = [0u8; 10 * 256 / 8];
+        let mut fast = [0u8; 10 * 256 / 8];
+        serialize(&data, &mut generic, 10);
+        serialize_10(&data, &mut fast);
         assert_eq!(generic, fast);
     }
 }

@@ -1,5 +1,6 @@
 import Kopis.Properties.SerializeSpec2
 import Kopis.Properties.Serialize
+import Kopis.Properties.Serialize10
 open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 open scoped BigOperators
@@ -32,6 +33,26 @@ theorem packedVal_toPolyN (n : ℕ) (re : RingElem) :
   rw [Finset.mem_range] at hi
   rw [toPolyN_val n re i hi, Array.val_to_slice]
 
+/-- The shared tail of both serialization paths: from "the output bytes are the packed
+coefficients" to "the output is the spec's `serialize`". -/
+theorem serialize_conclusion (re : RingElem) (n : ℕ) (hrng : 1 ≤ n ∧ n ≤ 13) (r : Slice U8)
+    (hrlen : r.val.length = 32 * n)
+    (hbv : byteVal r (32 * n) = packedVal (Array.to_slice re) n 256) :
+    ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h
+      = Spec.Kopis.serialize n (toPolyN n re) := by
+  have hrlen' : r.length = 32 * n := by rw [Slice.length]; exact hrlen
+  refine ⟨hrlen', ?_⟩
+  apply Vector.ext
+  intro p hp
+  simp only [sliceToBytes, Vector.getElem_ofFn]
+  apply BitVec.eq_of_toNat_eq
+  have hp' : p < 32 * n := by simpa using hp
+  have hbyte_p : (r.val[p]'(by simp only [Slice.length] at hrlen'; omega)).bv.toNat
+      = (r.val[p]!).val := by
+    rw [getElem!_pos r.val p (by simp only [Slice.length] at hrlen'; omega)]; rfl
+  rw [hbyte_p, ← byteVal_getByte r (32 * n) p hp', hbv, packedVal_toPolyN,
+    ← serialize_byteVal n (toPolyN n re) p hp' (by omega)]
+
 /-- **`RingElem.serialize` correctness.**  Serializing a `RingElem` with `n`-bit
 coefficients produces the spec `serialize n (toPolyN n re)`. -/
 theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n : ℕ)
@@ -51,22 +72,32 @@ theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n :
   rw [show massert (Slice.len out = i1) = ok () from by
     have : Slice.len out = i1 := by scalar_tac
     simp only [massert, if_pos this], bind_tc_ok]
-  rw [show (lift (Array.to_slice re) : Result (Slice U16)) = ok (Array.to_slice re) from rfl, bind_tc_ok]
   have hslen : (Array.to_slice re).val.length = 256 := by rw [Array.val_to_slice]; exact re.property
-  apply WP.spec_mono (ser_serialize_spec (Array.to_slice re) out bits n hn hrng hslen hlen)
-  intro r ⟨hrlen, hbv⟩
-  have hrlen' : r.length = 32 * n := by rw [Slice.length]; exact hrlen
-  refine ⟨hrlen', ?_⟩
-  apply Vector.ext
-  intro p hp
-  simp only [sliceToBytes, Vector.getElem_ofFn]
-  -- both bytes equal via toNat
-  apply BitVec.eq_of_toNat_eq
-  have hp' : p < 32 * n := by simpa using hp
-  have hbyte_p : (r.val[p]'(by simp only [Slice.length] at hrlen'; omega)).bv.toNat
-      = (r.val[p]!).val := by
-    rw [getElem!_pos r.val p (by simp only [Slice.length] at hrlen'; omega)]; rfl
-  rw [hbyte_p, ← byteVal_getByte r (32 * n) p hp', hbv, packedVal_toPolyN,
-    ← serialize_byteVal n (toPolyN n re) p hp' (by omega)]
+  by_cases hfast : bits = consts.MODULUS_P_BITS
+  · -- the branchless 10-bit fast path
+    simp only [hfast, reduceIte]
+    have hn10 : n = 10 := by
+      rw [← hn, hfast]; simp [consts.MODULUS_P_BITS]
+    have houtlen : out.val.length = 320 := by rw [hlen, hn10]
+    have hlenu : Slice.len out = 320#usize :=
+      UScalar.eq_of_val_eq (by rw [Slice.len_val]; exact houtlen)
+    simp only [core.array.TryFromMutArraySlice.try_from, dif_pos hlenu, bind_tc_ok,
+      core.result.Result.unwrap.mut]
+    let* ⟨ arr1, hbv ⟩ ← serialize_10_spec re ⟨out.val, by rw [houtlen]; scalar_tac⟩
+    have harrlen : arr1.val.length = 320 := arr1.property
+    rw [if_pos (show arr1.length = out.length from by
+      show arr1.val.length = out.val.length
+      rw [harrlen, houtlen])]
+    refine serialize_conclusion re n hrng _ (by rw [hn10]; exact harrlen) ?_
+    rw [hn10]
+    refine Eq.trans ?_ hbv
+    exact byteVal_congr _ _ _ (fun q _ => by simp [Array.val_to_slice])
+  · -- the generic sliding-window path
+    simp only [hfast, reduceIte]
+    rw [show (lift (Array.to_slice re) : Result (Slice U16)) = ok (Array.to_slice re) from rfl,
+      bind_tc_ok]
+    apply WP.spec_mono (ser_serialize_spec (Array.to_slice re) out bits n hn hrng hslen hlen)
+    intro r ⟨hrlen, hbv⟩
+    exact serialize_conclusion re n hrng r hrlen hbv
 
 end Kopis.Properties
