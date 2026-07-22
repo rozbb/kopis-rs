@@ -14,7 +14,7 @@ import ExtractedRust
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
-open kopis
+open RustKopis
 open Spec (𝔹 bytesToBits)
 
 namespace Kopis.Properties

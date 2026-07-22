@@ -1,5 +1,5 @@
 import Kopis.Properties.GenSecretSpec
-open Aeneas Aeneas.Std Result kopis
+open Aeneas Aeneas.Std Result RustKopis
 open scoped BigOperators
 open Spec (𝔹 bytesToBits)
 open scoped Spec.Notations

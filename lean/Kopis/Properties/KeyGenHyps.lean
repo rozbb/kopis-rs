@@ -1,7 +1,7 @@
 import Kopis.Properties.KeyGen
 import Kopis.Properties.EncodeRoundtrip
 import Kopis.Properties.KemDecap
-open Aeneas Aeneas.Std Result kopis
+open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)

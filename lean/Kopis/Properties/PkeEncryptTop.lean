@@ -10,7 +10,7 @@ import Kopis.Properties.RingArith
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.GenSecretTop
 import Kopis.Properties.ExpandDecap
-open Aeneas Aeneas.Std Result kopis
+open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 open scoped Spec.Notations
 namespace Kopis.Properties

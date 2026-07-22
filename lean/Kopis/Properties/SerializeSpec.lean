@@ -1,5 +1,5 @@
 import Kopis.Properties.SerializeEnc2
-open Aeneas Aeneas.Std Result kopis
+open Aeneas Aeneas.Std Result RustKopis
 open scoped BigOperators
 namespace Kopis.Properties
 

@@ -14,7 +14,7 @@
 import Kopis.Properties.PkeFromBytes
 import Kopis.Properties.SerializeRoundtrip
 import Kopis.Properties.Impls
-open Aeneas Aeneas.Std Result kopis
+open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
