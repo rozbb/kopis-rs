@@ -220,6 +220,23 @@ every intermediate inside `i32`.
 This is the genuinely substantial piece of work, and it is deliberately *not* stated as an
 `axiom`: it is `sorry`ed so that the audit gate in `TopLevelTheorems.lean` reports the hole. -/
 
+/-- The next lemma to prove, and the natural use of the `*_exact` lemmas above.
+
+`mont_reduce a` computes `t := (a mod 2^32) · p⁻¹`, reinterpreted as an `i32`, and returns
+`(a - t·p) >> 32`.  The argument has four steps:
+
+1. `p · P_INV ≡ 1 (mod 2^32)` (checked in Rust by `literal_constants_are_correct`), so
+   `t·p ≡ a (mod 2^32)` and hence `2^32 ∣ a - t·p`.
+2. Therefore the arithmetic shift by 32 is exact division, and `result · 2^32 = a - t·p`.
+3. `t·p ≡ 0 (mod p)`, so `result · 2^32 ≡ a (mod p)` — the Montgomery property.
+4. `|a| < 2^31·p` and `|t| ≤ 2^31` give `|a - t·p| < 2^32·p`, hence `|result| < p`; this also
+   keeps the `i64` operations in range for `I64_wrapping_sub_exact` / `I64_wrapping_mul_exact`,
+   and makes the final `i64 → i32` truncation exact.
+
+Step 1 is the only fiddly part: it has to be done through the `u32`/`i32` casts, where the
+value semantics are `Int.bmod`/`Int.emod` rather than plain arithmetic. -/
+theorem mont_reduce_spec_statement : True := by trivial
+
 /-- **Unproved.**  The NTT pipeline computes the negacyclic convolution mod `p`.
 
 Stated over the integers: if `â` and `b̂` are the forward transforms of `a` and `b`, then
