@@ -21,14 +21,12 @@ pub(crate) struct PkeSecretKey<const L: usize>(Matrix<L, 1>);
 /// A public key for the IND-CPA-secure Kopis PKE scheme
 #[derive(Clone)]
 pub struct PkePublicKey<const L: usize> {
+    /// The seed used to generate `mat_a`
     matrix_seed: [u8; 32],
-    vec: Matrix<L, 1>,
-    /// The public matrix A, expanded from `matrix_seed`. Cached here so that repeated
-    /// encryptions (e.g. every encapsulation and every FO re-encryption during decapsulation)
-    /// don't have to re-run the XOF that derives A from the seed. This mirrors the "unpacked"
-    /// public-key form used by other KEM implementations. It is never serialized: `serialize`
-    /// still writes only `vec || matrix_seed`, and `from_bytes` re-derives it.
+    /// The expanded public matrix
     mat_a: Matrix<L, L>,
+    /// The public vector (`mat_a` times the secret vector)
+    vec: Matrix<L, 1>,
 }
 
 impl<const L: usize> PkePublicKey<L> {
