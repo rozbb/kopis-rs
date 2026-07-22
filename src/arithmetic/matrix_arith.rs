@@ -1,9 +1,10 @@
 //! This file defines and implements matrices over our ring
 
-use crate::{
-    arithmetic::{ring_arith::ring_mul_acc, RingElem},
-    consts::RING_DEG,
-};
+use crate::{arithmetic::RingElem, consts::RING_DEG};
+
+// Only the test-only schoolbook multiplication methods below still use ring_mul_acc
+#[cfg(test)]
+use crate::arithmetic::ring_arith::ring_mul_acc;
 
 use zeroize::Zeroize;
 
@@ -31,6 +32,9 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
 
     /// Multiplies two matrices, using multiply-accumulate to avoid intermediate temporaries.
     /// Each ring product is accumulated directly into the result element.
+    // Test-only: production multiplication goes through NttMatrix (see ntt.rs); this schoolbook
+    // version is kept as the reference implementation the NTT is checked against.
+    #[cfg(test)]
     pub(crate) fn mul<const Z: usize>(&self, other: &Matrix<Y, Z>) -> Matrix<X, Z> {
         let mut result = Matrix::default();
         for i in 0..X {
@@ -46,6 +50,9 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
 
     /// Multiplies the transpose of this matrix by the given vector, using multiply-accumulate
     /// to avoid intermediate temporaries.
+    // Test-only: production multiplication goes through NttMatrix (see ntt.rs); this schoolbook
+    // version is kept as the reference implementation the NTT is checked against.
+    #[cfg(test)]
     pub(crate) fn mul_transpose<const Z: usize>(&self, other: &Matrix<X, Z>) -> Matrix<Y, Z> {
         let mut result = Matrix::default();
         for i in 0..X {

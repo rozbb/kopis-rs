@@ -1,8 +1,10 @@
 //! Contains modules for ring and matrix arithmetic
 
 mod matrix_arith;
+mod ntt;
 mod ring_arith;
 
 // Export all the underlying types
 pub(crate) use matrix_arith::*;
+pub(crate) use ntt::*;
 pub(crate) use ring_arith::*;

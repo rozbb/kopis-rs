@@ -1,7 +1,7 @@
 //! This file implements the IND-CPA-secure Kopis PKE scheme
 
 use crate::{
-    arithmetic::{Matrix, RingElem},
+    arithmetic::{Matrix, NttMatrix, RingElem},
     consts::{
         DOMSEP_KGEXPAND, DOMSEP_PKHASH, MAX_L, MAX_T, MODULUS_P_BITS, MODULUS_Q_BITS, RING_DEG,
     },
@@ -16,21 +16,29 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const H1_VAL: u16 = 1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1);
 
-/// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form).
+/// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form, NTT domain).
 ///
-/// This wraps the secret vector `s`, so it zeroes itself from memory when dropped.
+/// This wraps the secret vector `s`, so it zeroes itself from memory when dropped. Note that
+/// `s` is stored in the NTT domain, which is an invertible linear image of the coefficient
+/// form, so it is exactly as sensitive and must be zeroed just the same.
 #[derive(Zeroize, ZeroizeOnDrop)]
-pub(crate) struct PkeSecretKey<const L: usize>(Matrix<L, 1>);
+pub(crate) struct PkeSecretKey<const L: usize>(NttMatrix<L, 1>);
 
 /// A public key for the IND-CPA-secure Kopis PKE scheme
 #[derive(Clone)]
 pub struct PkePublicKey<const L: usize> {
-    /// The seed used to generate `mat_a`
+    /// The seed used to generate `mat_a_ntt`
     matrix_seed: [u8; 32],
-    /// The expanded public matrix
-    mat_a: Matrix<L, L>,
-    /// The public vector (`mat_a` times the secret vector)
+    /// The expanded public matrix, in NTT form. Precomputed here so that repeated encryptions
+    /// (e.g. every encapsulation and every FO re-encryption during decapsulation) don't have to
+    /// re-run the XOF that derives it from `matrix_seed`, nor re-transform it. This mirrors the
+    /// "unpacked" public-key form used by other KEM implementations. It is never serialized:
+    /// `serialize` still writes only `vec || matrix_seed`, and `from_bytes` re-derives it.
+    mat_a_ntt: NttMatrix<L, L>,
+    /// The public vector (the public matrix times the secret vector, rounded)
     vec: Matrix<L, 1>,
+    /// `vec` in NTT form, precomputed for the inner product in every encryption
+    vec_ntt: NttMatrix<L, 1>,
 }
 
 impl<const L: usize> PkePublicKey<L> {
@@ -56,10 +64,13 @@ impl<const L: usize> PkePublicKey<L> {
         let vec = Matrix::deserialize_10(vec_bytes);
         let matrix_seed: [u8; 32] = seed.try_into().unwrap(); // checked above
         let mat_a = gen_matrix_from_seed::<L>(&matrix_seed);
+        let mat_a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
+        let vec_ntt = NttMatrix::from_uniform_matrix(&vec);
         Self {
             matrix_seed,
             vec,
-            mat_a,
+            mat_a_ntt,
+            vec_ntt,
         }
     }
 
@@ -119,23 +130,29 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
 
     let mat_a = gen_matrix_from_seed::<L>(&mat_seed);
     let vec_s = gen_secret_from_seed::<L, MU>(&secret_seed);
+    let mat_a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
+    let vec_s_ntt = NttMatrix::from_secret_matrix(&vec_s);
 
     // vec_b = RoundToR10(transpose(mat_A) * vec_s)
     let b = {
-        let mut prod = mat_a.mul_transpose(&vec_s);
+        let mut prod = mat_a_ntt.mul_transpose(&vec_s_ntt);
         prod.wrapping_add_to_all(H1_VAL);
         prod.shift_right(MODULUS_Q_BITS - MODULUS_P_BITS);
         prod
     };
 
+    // b's coefficients are 10-bit after the rounding shift, so it transforms as uniform
+    let vec_ntt = NttMatrix::from_uniform_matrix(&b);
+
     let pk = PkePublicKey {
         matrix_seed: mat_seed,
         vec: b,
-        mat_a,
+        mat_a_ntt,
+        vec_ntt,
     };
     let pkh = pk.hash();
 
-    (PkeSecretKey(vec_s), z, pk, pkh)
+    (PkeSecretKey(vec_s_ntt), z, pk, pkh)
 }
 
 /// Decrypts a ciphertext using the given secret key. `ciphertext` MUST have length
@@ -149,11 +166,12 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
     let (bprime_bytes, c_bytes) = ciphertext.split_at(L * MODULUS_P_BITS * RING_DEG / 8);
 
     let bprime: Matrix<L, 1> = Matrix::deserialize_10(bprime_bytes);
+    let bprime_ntt = NttMatrix::from_uniform_matrix(&bprime);
 
     let mut c = RingElem::deserialize(c_bytes, T);
     c.shift_left(MODULUS_P_BITS - T);
 
-    let v = bprime.mul_transpose(&sk.0);
+    let v = bprime_ntt.mul_transpose(&sk.0);
     let v = v.0[0][0];
 
     // Compute v - c + h₂
@@ -179,15 +197,16 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
     assert_eq!(out_buf.len(), ciphertext_len::<L, T>());
 
     let vec_sprime = gen_secret_from_seed::<L, MU>(randomness);
+    let sprime_ntt = NttMatrix::from_secret_matrix(&vec_sprime);
 
     let bprime = {
-        let mut prod = pk.mat_a.mul(&vec_sprime);
+        let mut prod = pk.mat_a_ntt.mul(&sprime_ntt);
         prod.wrapping_add_to_all(H1_VAL);
         prod.shift_right(MODULUS_Q_BITS - MODULUS_P_BITS);
         prod
     };
 
-    let vprime: Matrix<1, 1> = pk.vec.mul_transpose(&vec_sprime);
+    let vprime: Matrix<1, 1> = pk.vec_ntt.mul_transpose(&sprime_ntt);
     let vprime = vprime.0[0][0];
 
     let mut msg_polyn = RingElem(deserialize_generic(msg, 1));
