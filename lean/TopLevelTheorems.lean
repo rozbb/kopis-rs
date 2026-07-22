@@ -262,18 +262,25 @@ halves agree about what the public key is, which is what makes the composition
 meaningful rather than each half matching a different notion of "public key".
 
 `encapsulate_deterministic` takes its randomness as an argument; the `encapsulate`
-wrapper that draws from an RNG is discussed in §5. -/
+wrapper that draws from an RNG is discussed in §5.
+
+**Watch the pair ordering.** Rust returns `(ciphertext, shared_secret)`; the spec's
+`KemEncap` returns `(shared_secret, ciphertext)`. The two conventions are opposite, so
+the postconditions below equate `ct` with the `.2` of the spec result and `ss` with the
+`.1`. That crossover is deliberate, not a transposition slip. The binders are named
+`ct`/`ss` rather than projected out of a single `r` precisely so the mismatch is visible
+on the page. -/
 
 /-- **Kopis-512: key-gen → public key → encapsulate matches `KemEncap`.** -/
 theorem kopis512_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
     (do let ksk ← RustKopis.kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
         let kpk ← RustKopis.impls.kopis512.Kopis512SecretKey.public_key ksk
         RustKopis.impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 736#usize × RustKopis.impls.SharedSecret) =>
-          Properties.arrayToBytes r.1
+      ⦃ (ct : Array U8 736#usize) (ss : RustKopis.impls.SharedSecret) =>
+          Properties.arrayToBytes ct
               = (Spec.Kopis.KemEncap .Kopis_512 ((Properties.arrayToBytes randomness).cast rfl)
                   (Spec.Kopis.SkToPk .Kopis_512 (Properties.skBytes seed))).2
-          ∧ Properties.arrayToBytes r.2
+          ∧ Properties.arrayToBytes ss
               = (Spec.Kopis.KemEncap .Kopis_512 ((Properties.arrayToBytes randomness).cast rfl)
                   (Spec.Kopis.SkToPk .Kopis_512 (Properties.skBytes seed))).1 ⦄ :=
   Kopis.Properties.kopis512_keygen_encap_spec seed randomness
@@ -283,11 +290,11 @@ theorem kopis768_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
     (do let ksk ← RustKopis.kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
         let kpk ← RustKopis.impls.kopis768.Kopis768SecretKey.public_key ksk
         RustKopis.impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1088#usize × RustKopis.impls.SharedSecret) =>
-          Properties.arrayToBytes r.1
+      ⦃ (ct : Array U8 1088#usize) (ss : RustKopis.impls.SharedSecret) =>
+          Properties.arrayToBytes ct
               = (Spec.Kopis.KemEncap .Kopis_768 ((Properties.arrayToBytes randomness).cast rfl)
                   (Spec.Kopis.SkToPk .Kopis_768 (Properties.skBytes seed))).2
-          ∧ Properties.arrayToBytes r.2
+          ∧ Properties.arrayToBytes ss
               = (Spec.Kopis.KemEncap .Kopis_768 ((Properties.arrayToBytes randomness).cast rfl)
                   (Spec.Kopis.SkToPk .Kopis_768 (Properties.skBytes seed))).1 ⦄ :=
   Kopis.Properties.kopis768_keygen_encap_spec seed randomness
@@ -297,11 +304,11 @@ theorem kopis1024_keygen_then_encapsulate (seed randomness : Array U8 32#usize) 
     (do let ksk ← RustKopis.kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
         let kpk ← RustKopis.impls.kopis1024.Kopis1024SecretKey.public_key ksk
         RustKopis.impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1472#usize × RustKopis.impls.SharedSecret) =>
-          Properties.arrayToBytes r.1
+      ⦃ (ct : Array U8 1472#usize) (ss : RustKopis.impls.SharedSecret) =>
+          Properties.arrayToBytes ct
               = (Spec.Kopis.KemEncap .Kopis_1024 ((Properties.arrayToBytes randomness).cast rfl)
                   (Spec.Kopis.SkToPk .Kopis_1024 (Properties.skBytes seed))).2
-          ∧ Properties.arrayToBytes r.2
+          ∧ Properties.arrayToBytes ss
               = (Spec.Kopis.KemEncap .Kopis_1024 ((Properties.arrayToBytes randomness).cast rfl)
                   (Spec.Kopis.SkToPk .Kopis_1024 (Properties.skBytes seed))).1 ⦄ :=
   Kopis.Properties.kopis1024_keygen_encap_spec seed randomness
@@ -315,18 +322,20 @@ exactly those bytes.
 
 Nothing constrains the input bytes beyond their length, so a malformed or
 adversarially chosen public-key encoding is covered — and, this being a `⦃ … ⦄` triple,
-the composite is also proved not to panic on one. -/
+the composite is also proved not to panic on one.
+
+The `ct`/`ss` pair ordering is the same crossover noted in §3.2. -/
 
 /-- **Kopis-512: parse a received public key, then encapsulate to it.** -/
 theorem kopis512_from_bytes_then_encapsulate (pk_bytes : Array U8 672#usize)
     (randomness : Array U8 32#usize) :
     (do let kpk ← RustKopis.impls.kopis512.Kopis512PublicKey.from_bytes pk_bytes
         RustKopis.impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 736#usize × RustKopis.impls.SharedSecret) =>
-          Properties.arrayToBytes r.1
+      ⦃ (ct : Array U8 736#usize) (ss : RustKopis.impls.SharedSecret) =>
+          Properties.arrayToBytes ct
               = (Spec.Kopis.KemEncap .Kopis_512 ((Properties.arrayToBytes randomness).cast rfl)
                   ((Properties.arrayToBytes pk_bytes).cast rfl)).2
-          ∧ Properties.arrayToBytes r.2
+          ∧ Properties.arrayToBytes ss
               = (Spec.Kopis.KemEncap .Kopis_512 ((Properties.arrayToBytes randomness).cast rfl)
                   ((Properties.arrayToBytes pk_bytes).cast rfl)).1 ⦄ :=
   Kopis.Properties.kopis512_from_bytes_encap_spec pk_bytes randomness
@@ -336,11 +345,11 @@ theorem kopis768_from_bytes_then_encapsulate (pk_bytes : Array U8 992#usize)
     (randomness : Array U8 32#usize) :
     (do let kpk ← RustKopis.impls.kopis768.Kopis768PublicKey.from_bytes pk_bytes
         RustKopis.impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1088#usize × RustKopis.impls.SharedSecret) =>
-          Properties.arrayToBytes r.1
+      ⦃ (ct : Array U8 1088#usize) (ss : RustKopis.impls.SharedSecret) =>
+          Properties.arrayToBytes ct
               = (Spec.Kopis.KemEncap .Kopis_768 ((Properties.arrayToBytes randomness).cast rfl)
                   ((Properties.arrayToBytes pk_bytes).cast rfl)).2
-          ∧ Properties.arrayToBytes r.2
+          ∧ Properties.arrayToBytes ss
               = (Spec.Kopis.KemEncap .Kopis_768 ((Properties.arrayToBytes randomness).cast rfl)
                   ((Properties.arrayToBytes pk_bytes).cast rfl)).1 ⦄ :=
   Kopis.Properties.kopis768_from_bytes_encap_spec pk_bytes randomness
@@ -350,11 +359,11 @@ theorem kopis1024_from_bytes_then_encapsulate (pk_bytes : Array U8 1312#usize)
     (randomness : Array U8 32#usize) :
     (do let kpk ← RustKopis.impls.kopis1024.Kopis1024PublicKey.from_bytes pk_bytes
         RustKopis.impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1472#usize × RustKopis.impls.SharedSecret) =>
-          Properties.arrayToBytes r.1
+      ⦃ (ct : Array U8 1472#usize) (ss : RustKopis.impls.SharedSecret) =>
+          Properties.arrayToBytes ct
               = (Spec.Kopis.KemEncap .Kopis_1024 ((Properties.arrayToBytes randomness).cast rfl)
                   ((Properties.arrayToBytes pk_bytes).cast rfl)).2
-          ∧ Properties.arrayToBytes r.2
+          ∧ Properties.arrayToBytes ss
               = (Spec.Kopis.KemEncap .Kopis_1024 ((Properties.arrayToBytes randomness).cast rfl)
                   ((Properties.arrayToBytes pk_bytes).cast rfl)).1 ⦄ :=
   Kopis.Properties.kopis1024_from_bytes_encap_spec pk_bytes randomness
