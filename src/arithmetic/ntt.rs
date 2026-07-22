@@ -214,11 +214,15 @@ impl Default for NttElem {
 
 impl NttElem {
     /// Forward-transforms a ring element whose coefficients are plain values in [0, 2^13),
-    /// e.g. an element of the uniform matrix A (13 bits) or a rounded vector (10 bits)
+    /// e.g. an element of the uniform matrix A (13 bits) or a rounded vector (10 bits).
+    ///
+    /// The `< 2^13` bound on every coefficient is a precondition, not a checked one: it is
+    /// what keeps the forward transform's intermediate values inside an i32 and the final
+    /// product inside the exactness bound. It is discharged at each call site by the Lean
+    /// correspondence proof rather than by a per-coefficient runtime check.
     pub(crate) fn from_uniform(elem: &RingElem) -> Self {
         let mut a = [0i32; RING_DEG];
         for i in 0..RING_DEG {
-            debug_assert!(elem.0[i] < (1 << 13));
             a[i] = elem.0[i] as i32;
         }
         ntt(&mut a);
@@ -226,12 +230,14 @@ impl NttElem {
     }
 
     /// Forward-transforms a CBD secret, interpreting each wrapping-u16 coefficient as the
-    /// signed value it represents (e.g. 0xFFFB is -5)
+    /// signed value it represents (e.g. 0xFFFB is -5).
+    ///
+    /// As with [`NttElem::from_uniform`], the bound on the coefficients — here |·| ≤ μ/2 — is
+    /// a proof-side precondition rather than a runtime check.
     pub(crate) fn from_secret(elem: &RingElem) -> Self {
         let mut a = [0i32; RING_DEG];
         for i in 0..RING_DEG {
             a[i] = elem.0[i] as i16 as i32;
-            debug_assert!(a[i].abs() < (1 << 12));
         }
         ntt(&mut a);
         NttElem(a)

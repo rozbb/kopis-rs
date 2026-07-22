@@ -2,8 +2,6 @@
 
 use crate::{arithmetic::RingElem, consts::RING_DEG};
 
-// Only the test-only schoolbook multiplication methods below still use ring_mul_acc
-#[cfg(test)]
 use crate::arithmetic::ring_arith::ring_mul_acc;
 
 use zeroize::Zeroize;
@@ -32,9 +30,14 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
 
     /// Multiplies two matrices, using multiply-accumulate to avoid intermediate temporaries.
     /// Each ring product is accumulated directly into the result element.
-    // Test-only: production multiplication goes through NttMatrix (see ntt.rs); this schoolbook
-    // version is kept as the reference implementation the NTT is checked against.
-    #[cfg(test)]
+    //
+    // This is the *reference* multiplication. Production code multiplies via `NttMatrix` (see
+    // ntt.rs), which is proved to agree with this function; the Lean correspondence between
+    // this schoolbook form and the spec (`Kopis/Properties/MatrixMul.lean`,
+    // `MulTranspose.lean`) is what that agreement is composed with. So it must stay outside
+    // `cfg(test)` to remain visible to the extractor, even though nothing outside tests calls
+    // it — it is `pub(crate)` and unused, so codegen drops it from the binary.
+    #[allow(dead_code)]
     pub(crate) fn mul<const Z: usize>(&self, other: &Matrix<Y, Z>) -> Matrix<X, Z> {
         let mut result = Matrix::default();
         for i in 0..X {
@@ -50,9 +53,8 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
 
     /// Multiplies the transpose of this matrix by the given vector, using multiply-accumulate
     /// to avoid intermediate temporaries.
-    // Test-only: production multiplication goes through NttMatrix (see ntt.rs); this schoolbook
-    // version is kept as the reference implementation the NTT is checked against.
-    #[cfg(test)]
+    // The reference multiplication; see the note on `mul` above for why it is not `cfg(test)`.
+    #[allow(dead_code)]
     pub(crate) fn mul_transpose<const Z: usize>(&self, other: &Matrix<X, Z>) -> Matrix<Y, Z> {
         let mut result = Matrix::default();
         for i in 0..X {

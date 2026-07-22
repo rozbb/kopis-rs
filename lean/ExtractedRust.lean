@@ -34,13 +34,6 @@ def Array.Insts.CoreCmpPartialEqArray {T : Type} {U : Type} (N : Std.Usize)
 @[rust_fun "core::num::{i64}::wrapping_neg"]
 axiom core.num.I64.wrapping_neg : Std.I64 → Result Std.I64
 
-/-- [core::num::{i32}::abs]:
-    Source: '/rustc/library/core/src/num/int_macros.rs', lines 3644:8-3644:38
-    Name pattern: [core::num::{i32}::abs]
-    Visibility: public -/
-@[rust_fun "core::num::{i32}::abs"]
-axiom core.num.I32.abs : Std.I32 → Result Std.I32
-
 /-- [core::num::{u32}::count_ones]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
     Name pattern: [core::num::{u32}::count_ones]
@@ -349,7 +342,7 @@ axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
 def arithmetic.ring_arith.RingElem := Array Std.U16 256#usize
 
 /-- [kopis::arithmetic::matrix_arith::Matrix]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 15:0-15:88 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:0-13:88 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.ring_arith.RingElem Y) X
@@ -374,7 +367,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem :
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::cmp::PartialEq<kopis::arithmetic::matrix_arith::Matrix<X, Y>> for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::eq]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:13-14:22
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:13-12:22
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
@@ -385,7 +378,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
     arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem) self other
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::cmp::PartialEq<kopis::arithmetic::matrix_arith::Matrix<X, Y>> for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:13-14:22 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:13-12:22 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
   (Y : Std.Usize) : core.cmp.PartialEq (arithmetic.matrix_arith.Matrix X Y)
@@ -394,7 +387,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::cmp::Eq for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:9-14:11
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:9-12:11
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
@@ -403,7 +396,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
   ok ()
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::cmp::Eq for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:9-14:11 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:9-12:11 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
   Std.Usize) : core.cmp.Eq (arithmetic.matrix_arith.Matrix X Y) := {
@@ -414,7 +407,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
 }
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:13-14:22 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:13-12:22 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreMarkerStructuralPartialEq (X :
   Std.Usize) (Y : Std.Usize) : core.marker.StructuralPartialEq
@@ -442,7 +435,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::fmt::Debug for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::fmt]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:24-14:29
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:24-12:29
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug.fmt
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
@@ -456,7 +449,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Matrix") dyn
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::fmt::Debug for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:24-14:29 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:24-12:29 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug (X : Std.Usize) (Y :
   Std.Usize) : core.fmt.Debug (arithmetic.matrix_arith.Matrix X Y) := {
@@ -481,7 +474,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::clone::Clone for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:31-14:36
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:31-12:36
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
@@ -493,7 +486,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::clone::Clone for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:31-14:36 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:31-12:36 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
   Std.Usize) : core.clone.Clone (arithmetic.matrix_arith.Matrix X Y) := {
@@ -521,7 +514,7 @@ def arithmetic.ring_arith.RingElem.Insts.ZeroizeZeroize : zeroize.Zeroize
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl zeroize::Zeroize for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:38-14:45
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:38-12:45
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize.zeroize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
@@ -533,7 +526,7 @@ def arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl zeroize::Zeroize for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:38-14:45 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 12:38-12:45 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
   Std.Usize) : zeroize.Zeroize (arithmetic.matrix_arith.Matrix X Y) := {
@@ -549,7 +542,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default
   ok a
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::default::Default for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::default]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 18:4-20:5
+    Source: 'src/arithmetic/matrix_arith.rs', lines 16:4-18:5
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default
   (X : Std.Usize) (Y : Std.Usize) :
@@ -561,7 +554,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default
   ok a1
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::default::Default for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 17:0-21:1 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 15:0-19:1 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
   : Std.Usize) : core.default.Default (arithmetic.matrix_arith.Matrix X Y) := {
@@ -604,7 +597,7 @@ def arithmetic.ring_arith.RingElem.shift_right
   ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::shift_right]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 27:12-29:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 25:12-27:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.shift_right_loop0_loop0
   (iter : core.slice.iter.IterMut arithmetic.ring_arith.RingElem)
@@ -626,7 +619,7 @@ def arithmetic.matrix_arith.Matrix.shift_right_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::shift_right]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 26:8-30:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 24:8-28:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.shift_right_loop0
   {Y : Std.Usize}
@@ -656,7 +649,7 @@ def arithmetic.matrix_arith.Matrix.shift_right_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::shift_right]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 25:4-31:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 23:4-29:5 -/
 def arithmetic.matrix_arith.Matrix.shift_right
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
   (shift : Std.Usize) :
@@ -669,6 +662,371 @@ def arithmetic.matrix_arith.Matrix.shift_right
   let s1 := iter_mut_back back
   let a := to_slice_mut_back s1
   ok a
+
+/-- [kopis::consts::RING_DEG]
+    Source: 'src/consts.rs', lines 6:0-6:39 -/
+@[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
+
+/-- [kopis::arithmetic::ring_arith::HALF]
+    Source: 'src/arithmetic/ring_arith.rs', lines 110:0-110:33 -/
+@[global_simps, irreducible]
+def arithmetic.ring_arith.HALF : Result Std.Usize := consts.RING_DEG / 2#usize
+
+/-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 1:
+    Source: 'src/arithmetic/ring_arith.rs', lines 124:8-126:9 -/
+@[rust_loop]
+def arithmetic.ring_arith.schoolbook_128_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (out : Array Std.U16 256#usize)
+  (b : Array Std.U16 128#usize) (i : Std.Usize) (ai : Std.U16) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some j =>
+    let i1 ← i + j
+    let i2 ← Array.index_usize out i1
+    let i3 ← Array.index_usize b j
+    let i4 ← lift (core.num.U16.wrapping_mul ai i3)
+    let i5 ← lift (core.num.U16.wrapping_add i2 i4)
+    let a ← Array.update out i1 i5
+    arithmetic.ring_arith.schoolbook_128_loop0_loop0 iter1 a b i ai
+partial_fixpoint
+
+/-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 0:
+    Source: 'src/arithmetic/ring_arith.rs', lines 122:4-127:5 -/
+@[rust_loop]
+def arithmetic.ring_arith.schoolbook_128_loop0
+  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
+  (b : Array Std.U16 128#usize) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i1 =>
+    let ai ← Array.index_usize a i1
+    let out1 ←
+      arithmetic.ring_arith.schoolbook_128_loop0_loop0
+        { start := 0#usize, «end» := i } out b i1 ai
+    arithmetic.ring_arith.schoolbook_128_loop0 i iter1 out1 a b
+partial_fixpoint
+
+/-- [kopis::arithmetic::ring_arith::schoolbook_128]:
+    Source: 'src/arithmetic/ring_arith.rs', lines 119:0-128:1 -/
+def arithmetic.ring_arith.schoolbook_128
+  (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
+  (b : Array Std.U16 128#usize) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let i ← arithmetic.ring_arith.HALF
+  arithmetic.ring_arith.schoolbook_128_loop0 i
+    { start := 0#usize, «end» := i } out a b
+
+/-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 0:
+    Source: 'src/arithmetic/ring_arith.rs', lines 164:4-167:5 -/
+@[rust_loop]
+def arithmetic.ring_arith.ring_mul_acc_loop0
+  (iter : core.ops.range.Range Std.Usize) (a_lo : Array Std.U16 128#usize)
+  (a_hi : Array Std.U16 128#usize) (b_lo : Array Std.U16 128#usize)
+  (b_hi : Array Std.U16 128#usize) (a_sum : Array Std.U16 128#usize)
+  (b_sum : Array Std.U16 128#usize) :
+  Result ((Array Std.U16 128#usize) × (Array Std.U16 128#usize))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (a_sum, b_sum)
+  | some i =>
+    let i1 ← Array.index_usize a_lo i
+    let i2 ← Array.index_usize a_hi i
+    let i3 ← lift (core.num.U16.wrapping_add i1 i2)
+    let a ← Array.update a_sum i i3
+    let i4 ← Array.index_usize b_lo i
+    let i5 ← Array.index_usize b_hi i
+    let i6 ← lift (core.num.U16.wrapping_add i4 i5)
+    let a1 ← Array.update b_sum i i6
+    arithmetic.ring_arith.ring_mul_acc_loop0 iter1 a_lo a_hi b_lo b_hi a a1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 1:
+    Source: 'src/arithmetic/ring_arith.rs', lines 173:4-193:5 -/
+@[rust_loop]
+def arithmetic.ring_arith.ring_mul_acc_loop1
+  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (acc : arithmetic.ring_arith.RingElem) (z0 : Array Std.U16 256#usize)
+  (z2 : Array Std.U16 256#usize) (z3 : Array Std.U16 256#usize) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok acc
+  | some j =>
+    let i1 ← j + i
+    let i2 ← Array.index_usize z3 i1
+    let i3 ← j + i
+    let i4 ← Array.index_usize z0 i3
+    let i5 ← lift (core.num.U16.wrapping_sub i2 i4)
+    let i6 ← j + i
+    let i7 ← Array.index_usize z2 i6
+    let z1_wrap ← lift (core.num.U16.wrapping_sub i5 i7)
+    let i8 ← Array.index_usize acc j
+    let i9 ← Array.index_usize z0 j
+    let i10 ← lift (core.num.U16.wrapping_add i8 i9)
+    let i11 ← Array.index_usize z2 j
+    let i12 ← lift (core.num.U16.wrapping_sub i10 i11)
+    let i13 ← lift (core.num.U16.wrapping_sub i12 z1_wrap)
+    let a ← Array.update acc j i13
+    let i14 ← Array.index_usize z3 j
+    let i15 ← lift (core.num.U16.wrapping_sub i14 i9)
+    let z1_direct ← lift (core.num.U16.wrapping_sub i15 i11)
+    let i16 ← j + i
+    let i17 ← Array.index_usize a i16
+    let i18 ← j + i
+    let i19 ← Array.index_usize z0 i18
+    let i20 ← lift (core.num.U16.wrapping_add i17 i19)
+    let i21 ← j + i
+    let i22 ← Array.index_usize z2 i21
+    let i23 ← lift (core.num.U16.wrapping_sub i20 i22)
+    let i24 ← lift (core.num.U16.wrapping_add i23 z1_direct)
+    let i25 ← j + i
+    let a1 ← Array.update a i25 i24
+    arithmetic.ring_arith.ring_mul_acc_loop1 i iter1 a1 z0 z2 z3
+partial_fixpoint
+
+/-- [kopis::arithmetic::ring_arith::ring_mul_acc]:
+    Source: 'src/arithmetic/ring_arith.rs', lines 135:0-194:1 -/
+def arithmetic.ring_arith.ring_mul_acc
+  (acc : arithmetic.ring_arith.RingElem) (a : arithmetic.ring_arith.RingElem)
+  (b : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let i ← arithmetic.ring_arith.HALF
+  let s ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U16)) a
+      { «end» := i }
+  let r ← core.array.TryFromSharedArraySlice.try_from 128#usize s
+  let a_lo ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+  let s1 ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U16)) a
+      { start := i }
+  let r1 ← core.array.TryFromSharedArraySlice.try_from 128#usize s1
+  let a_hi ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r1
+  let s2 ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U16)) b
+      { «end» := i }
+  let r2 ← core.array.TryFromSharedArraySlice.try_from 128#usize s2
+  let b_lo ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r2
+  let s3 ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U16)) b
+      { start := i }
+  let r3 ← core.array.TryFromSharedArraySlice.try_from 128#usize s3
+  let b_hi ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r3
+  let z0 := Array.repeat 256#usize 0#u16
+  let z2 := Array.repeat 256#usize 0#u16
+  let z01 ← arithmetic.ring_arith.schoolbook_128 z0 a_lo b_lo
+  let z21 ← arithmetic.ring_arith.schoolbook_128 z2 a_hi b_hi
+  let a_sum := Array.repeat 128#usize 0#u16
+  let b_sum := Array.repeat 128#usize 0#u16
+  let (a_sum1, b_sum1) ←
+    arithmetic.ring_arith.ring_mul_acc_loop0 { start := 0#usize, «end» := i }
+      a_lo a_hi b_lo b_hi a_sum b_sum
+  let z3 := Array.repeat 256#usize 0#u16
+  let z31 ← arithmetic.ring_arith.schoolbook_128 z3 a_sum1 b_sum1
+  arithmetic.ring_arith.ring_mul_acc_loop1 i { start := 0#usize, «end» := i }
+    acc z01 z21 z31
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]: loop 2:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 45:16-47:17 -/
+@[rust_loop]
+def arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix Y Z)
+  (result : arithmetic.matrix_arith.Matrix X Z) (i : Std.Usize) (j : Std.Usize)
+  :
+  Result ((arithmetic.matrix_arith.Matrix X Y) ×
+    (arithmetic.matrix_arith.Matrix Y Z) × (arithmetic.matrix_arith.Matrix X
+    Z))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, result)
+  | some k =>
+    let (a, index_mut_back) ← Array.index_mut_usize result i
+    let (re, index_mut_back1) ← Array.index_mut_usize a k
+    let a1 ← Array.index_usize self i
+    let re1 ← Array.index_usize a1 j
+    let a2 ← Array.index_usize other j
+    let re2 ← Array.index_usize a2 k
+    let re3 ← arithmetic.ring_arith.ring_mul_acc re re1 re2
+    let a3 := index_mut_back1 re3
+    let a4 := index_mut_back a3
+    arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0 iter1 self other a4 i
+      j
+partial_fixpoint
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]: loop 1:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 44:12-48:13 -/
+@[rust_loop]
+def arithmetic.matrix_arith.Matrix.mul_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix Y Z)
+  (result : arithmetic.matrix_arith.Matrix X Z) (i : Std.Usize) :
+  Result ((arithmetic.matrix_arith.Matrix X Y) ×
+    (arithmetic.matrix_arith.Matrix Y Z) × (arithmetic.matrix_arith.Matrix X
+    Z))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, result)
+  | some j =>
+    let (self1, other1, result1) ←
+      arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0
+        { start := 0#usize, «end» := Z } self other result i j
+    arithmetic.matrix_arith.Matrix.mul_loop0_loop0 iter1 self1 other1 result1 i
+partial_fixpoint
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]: loop 0:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 43:8-49:9 -/
+@[rust_loop]
+def arithmetic.matrix_arith.Matrix.mul_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix Y Z)
+  (result : arithmetic.matrix_arith.Matrix X Z) :
+  Result (arithmetic.matrix_arith.Matrix X Z)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some i =>
+    let (self1, other1, result1) ←
+      arithmetic.matrix_arith.Matrix.mul_loop0_loop0
+        { start := 0#usize, «end» := Y } self other result i
+    arithmetic.matrix_arith.Matrix.mul_loop0 iter1 self1 other1 result1
+partial_fixpoint
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 41:4-52:5 -/
+def arithmetic.matrix_arith.Matrix.mul
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix Y Z) :
+  Result (arithmetic.matrix_arith.Matrix X Z)
+  := do
+  let result ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default X Z
+  arithmetic.matrix_arith.Matrix.mul_loop0 { start := 0#usize, «end» := X }
+    self other result
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]: loop 2:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 62:16-64:17 -/
+@[rust_loop]
+def arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix X Z)
+  (result : arithmetic.matrix_arith.Matrix Y Z) (i : Std.Usize) (j : Std.Usize)
+  :
+  Result ((arithmetic.matrix_arith.Matrix X Y) ×
+    (arithmetic.matrix_arith.Matrix X Z) × (arithmetic.matrix_arith.Matrix Y
+    Z))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, result)
+  | some k =>
+    let (a, index_mut_back) ← Array.index_mut_usize result j
+    let (re, index_mut_back1) ← Array.index_mut_usize a k
+    let a1 ← Array.index_usize self i
+    let re1 ← Array.index_usize a1 j
+    let a2 ← Array.index_usize other i
+    let re2 ← Array.index_usize a2 k
+    let re3 ← arithmetic.ring_arith.ring_mul_acc re re1 re2
+    let a3 := index_mut_back1 re3
+    let a4 := index_mut_back a3
+    arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0 iter1 self
+      other a4 i j
+partial_fixpoint
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]: loop 1:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 61:12-65:13 -/
+@[rust_loop]
+def arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix X Z)
+  (result : arithmetic.matrix_arith.Matrix Y Z) (i : Std.Usize) :
+  Result ((arithmetic.matrix_arith.Matrix X Y) ×
+    (arithmetic.matrix_arith.Matrix X Z) × (arithmetic.matrix_arith.Matrix Y
+    Z))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, result)
+  | some j =>
+    let (self1, other1, result1) ←
+      arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0
+        { start := 0#usize, «end» := Z } self other result i j
+    arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0 iter1 self1 other1
+      result1 i
+partial_fixpoint
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]: loop 0:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 60:8-66:9 -/
+@[rust_loop]
+def arithmetic.matrix_arith.Matrix.mul_transpose_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix X Z)
+  (result : arithmetic.matrix_arith.Matrix Y Z) :
+  Result (arithmetic.matrix_arith.Matrix Y Z)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some i =>
+    let (self1, other1, result1) ←
+      arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0
+        { start := 0#usize, «end» := Y } self other result i
+    arithmetic.matrix_arith.Matrix.mul_transpose_loop0 iter1 self1 other1
+      result1
+partial_fixpoint
+
+/-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 58:4-69:5 -/
+def arithmetic.matrix_arith.Matrix.mul_transpose
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (self : arithmetic.matrix_arith.Matrix X Y)
+  (other : arithmetic.matrix_arith.Matrix X Z) :
+  Result (arithmetic.matrix_arith.Matrix Y Z)
+  := do
+  let result ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default Y Z
+  arithmetic.matrix_arith.Matrix.mul_transpose_loop0
+    { start := 0#usize, «end» := X } self other result
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]: loop 0:
     Source: 'src/arithmetic/ring_arith.rs', lines 91:8-93:9 -/
@@ -706,7 +1064,7 @@ def arithmetic.ring_arith.RingElem.wrapping_add_to_all
   ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 72:12-74:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 74:12-76:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0_loop0
   (iter : core.slice.iter.IterMut arithmetic.ring_arith.RingElem)
@@ -728,7 +1086,7 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 71:8-75:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 73:8-77:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0
   {Y : Std.Usize}
@@ -758,7 +1116,7 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 70:4-76:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 72:4-78:5 -/
 def arithmetic.matrix_arith.Matrix.wrapping_add_to_all
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
   (val : Std.U16) :
@@ -772,10 +1130,6 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all
   let s1 := iter_mut_back back
   let a := to_slice_mut_back s1
   ok a
-
-/-- [kopis::consts::RING_DEG]
-    Source: 'src/consts.rs', lines 6:0-6:39 -/
-@[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
 
 /-- [kopis::ser::serialize]: loop 1:
     Source: 'src/ser.rs', lines 117:8-122:9 -/
@@ -947,7 +1301,7 @@ def arithmetic.ring_arith.RingElem.serialize
     ser.serialize s out_buf bits_per_elem
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 96:12-100:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 98:12-102:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.serialize_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -979,7 +1333,7 @@ def arithmetic.matrix_arith.Matrix.serialize_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 95:8-101:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 97:8-103:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.serialize_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1001,7 +1355,7 @@ def arithmetic.matrix_arith.Matrix.serialize_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 81:4-102:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 83:4-104:5 -/
 def arithmetic.matrix_arith.Matrix.serialize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
   (out_buf : Slice Std.U8) (bits_per_elem : Std.Usize) :
@@ -1331,7 +1685,7 @@ def arithmetic.ring_arith.RingElem.deserialize
          ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 123:12-127:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 125:12-129:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1361,7 +1715,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 122:8-128:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 124:8-130:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.deserialize_10_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1382,7 +1736,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 105:4-131:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 107:4-133:5 -/
 def arithmetic.matrix_arith.Matrix.deserialize_10
   (X : Std.Usize) (Y : Std.Usize) (bytes : Slice Std.U8) :
   Result (arithmetic.matrix_arith.Matrix X Y)
@@ -1440,7 +1794,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}::add]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 140:12-142:13
+    Source: 'src/arithmetic/matrix_arith.rs', lines 142:12-144:13
     Visibility: public -/
 @[rust_loop]
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
@@ -1471,7 +1825,7 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}::add]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 139:8-143:9
+    Source: 'src/arithmetic/matrix_arith.rs', lines 141:8-145:9
     Visibility: public -/
 @[rust_loop]
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0
@@ -1494,7 +1848,7 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}::add]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 137:4-146:5
+    Source: 'src/arithmetic/matrix_arith.rs', lines 139:4-148:5
     Visibility: public -/
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
@@ -1507,7 +1861,7 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add
     { start := 0#usize, «end» := X } self other result
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 134:0-147:1 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 136:0-149:1 -/
 @[reducible]
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix (X : Std.Usize) (Y :
   Std.Usize) : core.ops.arith.Add (arithmetic.matrix_arith.Matrix X Y)
@@ -1939,7 +2293,7 @@ def arithmetic.ntt.NttElem.Insts.CoreDefaultDefault : core.default.Default
 }
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_uniform]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 220:12-220:28 -/
+    Source: 'src/arithmetic/ntt.rs', lines 225:8-227:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttElem.from_uniform_loop
   (iter : core.ops.range.Range Std.Usize)
@@ -1952,15 +2306,13 @@ def arithmetic.ntt.NttElem.from_uniform_loop
   | none => ok a
   | some i =>
     let i1 ← Array.index_usize elem i
-    let i2 ← 1#u16 <<< 13#i32
-    massert (i1 < i2)
-    let i3 ← lift (UScalar.hcast .I32 i1)
-    let a1 ← Array.update a i i3
+    let i2 ← lift (UScalar.hcast .I32 i1)
+    let a1 ← Array.update a i i2
     arithmetic.ntt.NttElem.from_uniform_loop iter1 elem a1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_uniform]:
-    Source: 'src/arithmetic/ntt.rs', lines 218:4-226:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 223:4-230:5 -/
 def arithmetic.ntt.NttElem.from_uniform
   (elem : arithmetic.ring_arith.RingElem) : Result arithmetic.ntt.NttElem := do
   let a := Array.repeat 256#usize 0#i32
@@ -1971,7 +2323,7 @@ def arithmetic.ntt.NttElem.from_uniform
   ok a2
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_secret]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 232:12-233:43 -/
+    Source: 'src/arithmetic/ntt.rs', lines 239:8-241:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttElem.from_secret_loop
   (iter : core.ops.range.Range Std.Usize)
@@ -1987,15 +2339,11 @@ def arithmetic.ntt.NttElem.from_secret_loop
     let i2 ← lift (UScalar.hcast .I16 i1)
     let i3 ← lift (IScalar.cast .I32 i2)
     let a1 ← Array.update a i i3
-    let i4 ← Array.index_usize a1 i
-    let i5 ← core.num.I32.abs i4
-    let i6 ← 1#i32 <<< 12#i32
-    massert (i5 < i6)
     arithmetic.ntt.NttElem.from_secret_loop iter1 elem a1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_secret]:
-    Source: 'src/arithmetic/ntt.rs', lines 230:4-238:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 237:4-244:5 -/
 def arithmetic.ntt.NttElem.from_secret
   (elem : arithmetic.ring_arith.RingElem) : Result arithmetic.ntt.NttElem := do
   let a := Array.repeat 256#usize 0#i32
@@ -2006,13 +2354,13 @@ def arithmetic.ntt.NttElem.from_secret
   ok a2
 
 /-- [kopis::arithmetic::ntt::NttMatrix]
-    Source: 'src/arithmetic/ntt.rs', lines 243:0-243:90 -/
+    Source: 'src/arithmetic/ntt.rs', lines 249:0-249:90 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.ntt.NttElem Y) X
 
 /-- [kopis::arithmetic::ntt::{impl core::clone::Clone for kopis::arithmetic::ntt::NttMatrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/ntt.rs', lines 242:9-242:14
+    Source: 'src/arithmetic/ntt.rs', lines 248:9-248:14
     Visibility: public -/
 def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt.NttMatrix X Y) :
@@ -2024,7 +2372,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::clone::Clone for kopis::arithmetic::ntt::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt.rs', lines 242:9-242:14 -/
+    Source: 'src/arithmetic/ntt.rs', lines 248:9-248:14 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
   Std.Usize) : core.clone.Clone (arithmetic.ntt.NttMatrix X Y) := {
@@ -2032,7 +2380,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt::{impl zeroize::Zeroize for kopis::arithmetic::ntt::NttMatrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/ntt.rs', lines 242:16-242:23
+    Source: 'src/arithmetic/ntt.rs', lines 248:16-248:23
     Visibility: public -/
 def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize.zeroize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt.NttMatrix X Y) :
@@ -2044,7 +2392,7 @@ def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl zeroize::Zeroize for kopis::arithmetic::ntt::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt.rs', lines 242:16-242:23 -/
+    Source: 'src/arithmetic/ntt.rs', lines 248:16-248:23 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
   Std.Usize) : zeroize.Zeroize (arithmetic.ntt.NttMatrix X Y) := {
@@ -2052,7 +2400,7 @@ def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt::{impl core::default::Default for kopis::arithmetic::ntt::NttMatrix<X, Y>}::default]:
-    Source: 'src/arithmetic/ntt.rs', lines 246:4-248:5
+    Source: 'src/arithmetic/ntt.rs', lines 252:4-254:5
     Visibility: public -/
 def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default
   (X : Std.Usize) (Y : Std.Usize) : Result (arithmetic.ntt.NttMatrix X Y) := do
@@ -2062,7 +2410,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default
   ok a1
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::default::Default for kopis::arithmetic::ntt::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt.rs', lines 245:0-249:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 251:0-255:1 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
   Std.Usize) : core.default.Default (arithmetic.ntt.NttMatrix X Y) := {
@@ -2070,7 +2418,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt::pointwise_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 257:4-259:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 263:4-265:5 -/
 @[rust_loop]
 def arithmetic.ntt.pointwise_mul_acc_loop
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -2094,7 +2442,7 @@ def arithmetic.ntt.pointwise_mul_acc_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::pointwise_mul_acc]:
-    Source: 'src/arithmetic/ntt.rs', lines 256:0-260:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 262:0-266:1 -/
 @[reducible]
 def arithmetic.ntt.pointwise_mul_acc
   (acc : Array Std.I64 256#usize) (lhs : arithmetic.ntt.NttElem)
@@ -2105,7 +2453,7 @@ def arithmetic.ntt.pointwise_mul_acc
     { start := 0#usize, «end» := consts.RING_DEG } acc lhs rhs
 
 /-- [kopis::arithmetic::ntt::reduce_invntt_to_ring_elem]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 266:4-268:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 272:4-274:5 -/
 @[rust_loop]
 def arithmetic.ntt.reduce_invntt_to_ring_elem_loop0
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -2124,7 +2472,7 @@ def arithmetic.ntt.reduce_invntt_to_ring_elem_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::reduce_invntt_to_ring_elem]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 272:4-274:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 278:4-280:5 -/
 @[rust_loop]
 def arithmetic.ntt.reduce_invntt_to_ring_elem_loop1
   (iter : core.ops.range.Range Std.Usize) (v : Array Std.I32 256#usize)
@@ -2143,7 +2491,7 @@ def arithmetic.ntt.reduce_invntt_to_ring_elem_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::reduce_invntt_to_ring_elem]:
-    Source: 'src/arithmetic/ntt.rs', lines 264:0-276:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 270:0-282:1 -/
 def arithmetic.ntt.reduce_invntt_to_ring_elem
   (acc : Array Std.I64 256#usize) : Result arithmetic.ring_arith.RingElem := do
   let v := Array.repeat 256#usize 0#i32
@@ -2156,7 +2504,7 @@ def arithmetic.ntt.reduce_invntt_to_ring_elem
     { start := 0#usize, «end» := consts.RING_DEG } v2 out
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 283:12-285:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 289:12-291:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2180,7 +2528,7 @@ def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 282:8-286:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 288:8-292:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2200,7 +2548,7 @@ def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]:
-    Source: 'src/arithmetic/ntt.rs', lines 280:4-288:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 286:4-294:5 -/
 def arithmetic.ntt.NttMatrix.from_uniform_matrix
   {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.matrix_arith.Matrix X Y) :
   Result (arithmetic.ntt.NttMatrix X Y)
@@ -2210,7 +2558,7 @@ def arithmetic.ntt.NttMatrix.from_uniform_matrix
     { start := 0#usize, «end» := X } mat ret
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_secret_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 294:12-296:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 300:12-302:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2234,7 +2582,7 @@ def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_secret_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 293:8-297:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 299:8-303:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2254,7 +2602,7 @@ def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_secret_matrix]:
-    Source: 'src/arithmetic/ntt.rs', lines 291:4-299:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 297:4-305:5 -/
 def arithmetic.ntt.NttMatrix.from_secret_matrix
   {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.matrix_arith.Matrix X Y) :
   Result (arithmetic.ntt.NttMatrix X Y)
@@ -2268,7 +2616,7 @@ def arithmetic.ntt.NttMatrix.from_secret_matrix
 @[global_simps, irreducible] def consts.MAX_L : Std.Usize := 4#usize
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]: loop 2:
-    Source: 'src/arithmetic/ntt.rs', lines 311:16-313:17 -/
+    Source: 'src/arithmetic/ntt.rs', lines 317:16-319:17 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2292,7 +2640,7 @@ def arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 309:12-315:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 315:12-321:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2319,7 +2667,7 @@ def arithmetic.ntt.NttMatrix.mul_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 308:8-316:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 314:8-322:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2340,7 +2688,7 @@ def arithmetic.ntt.NttMatrix.mul_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]:
-    Source: 'src/arithmetic/ntt.rs', lines 303:4-318:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 309:4-324:5 -/
 def arithmetic.ntt.NttMatrix.mul
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix Y Z)
@@ -2354,7 +2702,7 @@ def arithmetic.ntt.NttMatrix.mul
     other result
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]: loop 2:
-    Source: 'src/arithmetic/ntt.rs', lines 330:16-332:17 -/
+    Source: 'src/arithmetic/ntt.rs', lines 336:16-338:17 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2379,7 +2727,7 @@ def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 328:12-334:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 334:12-340:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2406,7 +2754,7 @@ def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 327:8-335:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 333:8-341:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_transpose_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2427,7 +2775,7 @@ def arithmetic.ntt.NttMatrix.mul_transpose_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]:
-    Source: 'src/arithmetic/ntt.rs', lines 322:4-337:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 328:4-343:5 -/
 def arithmetic.ntt.NttMatrix.mul_transpose
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix X Z)
@@ -2514,183 +2862,6 @@ def arithmetic.ring_arith.RingElem.shift_left
   let s1 := iter_mut_back back
   let a := to_slice_mut_back s1
   ok a
-
-/-- [kopis::arithmetic::ring_arith::HALF]
-    Source: 'src/arithmetic/ring_arith.rs', lines 110:0-110:33 -/
-@[global_simps, irreducible]
-def arithmetic.ring_arith.HALF : Result Std.Usize := consts.RING_DEG / 2#usize
-
-/-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 124:8-126:9 -/
-@[rust_loop]
-def arithmetic.ring_arith.schoolbook_128_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (out : Array Std.U16 256#usize)
-  (b : Array Std.U16 128#usize) (i : Std.Usize) (ai : Std.U16) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some j =>
-    let i1 ← i + j
-    let i2 ← Array.index_usize out i1
-    let i3 ← Array.index_usize b j
-    let i4 ← lift (core.num.U16.wrapping_mul ai i3)
-    let i5 ← lift (core.num.U16.wrapping_add i2 i4)
-    let a ← Array.update out i1 i5
-    arithmetic.ring_arith.schoolbook_128_loop0_loop0 iter1 a b i ai
-partial_fixpoint
-
-/-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 122:4-127:5 -/
-@[rust_loop]
-def arithmetic.ring_arith.schoolbook_128_loop0
-  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
-  (b : Array Std.U16 128#usize) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some i1 =>
-    let ai ← Array.index_usize a i1
-    let out1 ←
-      arithmetic.ring_arith.schoolbook_128_loop0_loop0
-        { start := 0#usize, «end» := i } out b i1 ai
-    arithmetic.ring_arith.schoolbook_128_loop0 i iter1 out1 a b
-partial_fixpoint
-
-/-- [kopis::arithmetic::ring_arith::schoolbook_128]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 119:0-128:1 -/
-def arithmetic.ring_arith.schoolbook_128
-  (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
-  (b : Array Std.U16 128#usize) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let i ← arithmetic.ring_arith.HALF
-  arithmetic.ring_arith.schoolbook_128_loop0 i
-    { start := 0#usize, «end» := i } out a b
-
-/-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 164:4-167:5 -/
-@[rust_loop]
-def arithmetic.ring_arith.ring_mul_acc_loop0
-  (iter : core.ops.range.Range Std.Usize) (a_lo : Array Std.U16 128#usize)
-  (a_hi : Array Std.U16 128#usize) (b_lo : Array Std.U16 128#usize)
-  (b_hi : Array Std.U16 128#usize) (a_sum : Array Std.U16 128#usize)
-  (b_sum : Array Std.U16 128#usize) :
-  Result ((Array Std.U16 128#usize) × (Array Std.U16 128#usize))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (a_sum, b_sum)
-  | some i =>
-    let i1 ← Array.index_usize a_lo i
-    let i2 ← Array.index_usize a_hi i
-    let i3 ← lift (core.num.U16.wrapping_add i1 i2)
-    let a ← Array.update a_sum i i3
-    let i4 ← Array.index_usize b_lo i
-    let i5 ← Array.index_usize b_hi i
-    let i6 ← lift (core.num.U16.wrapping_add i4 i5)
-    let a1 ← Array.update b_sum i i6
-    arithmetic.ring_arith.ring_mul_acc_loop0 iter1 a_lo a_hi b_lo b_hi a a1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 173:4-193:5 -/
-@[rust_loop]
-def arithmetic.ring_arith.ring_mul_acc_loop1
-  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (acc : arithmetic.ring_arith.RingElem) (z0 : Array Std.U16 256#usize)
-  (z2 : Array Std.U16 256#usize) (z3 : Array Std.U16 256#usize) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok acc
-  | some j =>
-    let i1 ← j + i
-    let i2 ← Array.index_usize z3 i1
-    let i3 ← j + i
-    let i4 ← Array.index_usize z0 i3
-    let i5 ← lift (core.num.U16.wrapping_sub i2 i4)
-    let i6 ← j + i
-    let i7 ← Array.index_usize z2 i6
-    let z1_wrap ← lift (core.num.U16.wrapping_sub i5 i7)
-    let i8 ← Array.index_usize acc j
-    let i9 ← Array.index_usize z0 j
-    let i10 ← lift (core.num.U16.wrapping_add i8 i9)
-    let i11 ← Array.index_usize z2 j
-    let i12 ← lift (core.num.U16.wrapping_sub i10 i11)
-    let i13 ← lift (core.num.U16.wrapping_sub i12 z1_wrap)
-    let a ← Array.update acc j i13
-    let i14 ← Array.index_usize z3 j
-    let i15 ← lift (core.num.U16.wrapping_sub i14 i9)
-    let z1_direct ← lift (core.num.U16.wrapping_sub i15 i11)
-    let i16 ← j + i
-    let i17 ← Array.index_usize a i16
-    let i18 ← j + i
-    let i19 ← Array.index_usize z0 i18
-    let i20 ← lift (core.num.U16.wrapping_add i17 i19)
-    let i21 ← j + i
-    let i22 ← Array.index_usize z2 i21
-    let i23 ← lift (core.num.U16.wrapping_sub i20 i22)
-    let i24 ← lift (core.num.U16.wrapping_add i23 z1_direct)
-    let i25 ← j + i
-    let a1 ← Array.update a i25 i24
-    arithmetic.ring_arith.ring_mul_acc_loop1 i iter1 a1 z0 z2 z3
-partial_fixpoint
-
-/-- [kopis::arithmetic::ring_arith::ring_mul_acc]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 135:0-194:1 -/
-def arithmetic.ring_arith.ring_mul_acc
-  (acc : arithmetic.ring_arith.RingElem) (a : arithmetic.ring_arith.RingElem)
-  (b : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let i ← arithmetic.ring_arith.HALF
-  let s ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U16)) a
-      { «end» := i }
-  let r ← core.array.TryFromSharedArraySlice.try_from 128#usize s
-  let a_lo ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-  let s1 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U16)) a
-      { start := i }
-  let r1 ← core.array.TryFromSharedArraySlice.try_from 128#usize s1
-  let a_hi ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r1
-  let s2 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U16)) b
-      { «end» := i }
-  let r2 ← core.array.TryFromSharedArraySlice.try_from 128#usize s2
-  let b_lo ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r2
-  let s3 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U16)) b
-      { start := i }
-  let r3 ← core.array.TryFromSharedArraySlice.try_from 128#usize s3
-  let b_hi ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r3
-  let z0 := Array.repeat 256#usize 0#u16
-  let z2 := Array.repeat 256#usize 0#u16
-  let z01 ← arithmetic.ring_arith.schoolbook_128 z0 a_lo b_lo
-  let z21 ← arithmetic.ring_arith.schoolbook_128 z2 a_hi b_hi
-  let a_sum := Array.repeat 128#usize 0#u16
-  let b_sum := Array.repeat 128#usize 0#u16
-  let (a_sum1, b_sum1) ←
-    arithmetic.ring_arith.ring_mul_acc_loop0 { start := 0#usize, «end» := i }
-      a_lo a_hi b_lo b_hi a_sum b_sum
-  let z3 := Array.repeat 256#usize 0#u16
-  let z31 ← arithmetic.ring_arith.schoolbook_128 z3 a_sum1 b_sum1
-  arithmetic.ring_arith.ring_mul_acc_loop1 i { start := 0#usize, «end» := i }
-    acc z01 z21 z31
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::mul]:
     Source: 'src/arithmetic/ring_arith.rs', lines 100:4-104:5
