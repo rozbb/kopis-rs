@@ -8,9 +8,11 @@ use crate::{
 
 use core::ops::{Add, Mul, Sub};
 
+use zeroize::Zeroize;
+
 /// An element of the ring (Z/2^13 Z)[X] / (X^256 + 1)
 // The coefficients are in order of ascending powers, i.e., `self.0[0]` is the constant term
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Eq, PartialEq, Debug, Clone, Copy, Zeroize)]
 pub struct RingElem(pub(crate) [u16; RING_DEG]);
 
 impl Default for RingElem {

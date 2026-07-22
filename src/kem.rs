@@ -10,6 +10,7 @@ use rand_core::CryptoRng;
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::CTurboShake256;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// A public key for the IND-CCA-secure Kopis KEM scheme
 pub struct KemPublicKey<const L: usize> {
@@ -46,6 +47,11 @@ pub type SharedSecret = [u8; 32];
 ///
 /// The canonical secret key is a 32-byte seed. This struct stores the expanded form for
 /// efficiency (avoiding re-expansion on every decapsulation).
+///
+/// The secret components (`seed`, `z`, and `pke_sk`) are zeroed from memory when the key is
+/// dropped. The remaining fields (`pke_pk`, `hash_pke_pk`) are public values, so they are left
+/// untouched.
+#[derive(ZeroizeOnDrop)]
 pub struct KemSecretKey<const L: usize> {
     /// The 32-byte seed (the canonical secret key, used for serialization)
     seed: [u8; 32],
@@ -54,8 +60,10 @@ pub struct KemSecretKey<const L: usize> {
     /// The PKE secret key (expanded from seed)
     pke_sk: PkeSecretKey<L>,
     /// The PKE public key that `pke_sk` generated
+    #[zeroize(skip)]
     pke_pk: PkePublicKey<L>,
     /// The hash of `pke_pk`
+    #[zeroize(skip)]
     hash_pke_pk: [u8; 32],
 }
 
@@ -77,12 +85,15 @@ impl<const L: usize> KemSecretKey<L> {
     pub fn generate<const MU: usize>(rng: &mut impl CryptoRng) -> KemSecretKey<L> {
         let mut seed = [0u8; 32];
         rng.fill_bytes(&mut seed);
-        Self::expand_from_seed::<MU>(&seed)
+        let out = Self::expand_from_seed::<MU>(&seed);
+
+        seed.zeroize();
+        out
     }
 
     /// Returns the seed that produced this secret key
-    pub fn seed(&self) -> [u8; 32] {
-        self.seed
+    pub fn seed(&self) -> &[u8; 32] {
+        &self.seed
     }
 
     pub(crate) fn public_key(&self) -> KemPublicKey<L> {

@@ -5,10 +5,12 @@ use crate::{
     consts::RING_DEG,
 };
 
+use zeroize::Zeroize;
+
 /// An element of R^{x×y} where R is a [`RingElem`], stored in row-major order
 // We store the matrix in row-major order, so the outer array is the number of rows, i.e., the
 // height, i.e., X
-#[derive(Eq, PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone, Zeroize)]
 pub(crate) struct Matrix<const X: usize, const Y: usize>(pub(crate) [[RingElem; Y]; X]);
 
 impl<const X: usize, const Y: usize> Default for Matrix<X, Y> {
@@ -18,17 +20,6 @@ impl<const X: usize, const Y: usize> Default for Matrix<X, Y> {
 }
 
 impl<const X: usize, const Y: usize> Matrix<X, Y> {
-    #[cfg(test)]
-    pub fn rand(rng: &mut impl rand_core::CryptoRng) -> Self {
-        let mut mat = Matrix::default();
-        for i in 0..X {
-            for j in 0..Y {
-                mat.0[i][j] = RingElem::rand(rng);
-            }
-        }
-        mat
-    }
-
     /// Applies [`RingElem::shift_right`] to each element in the matrix
     pub(crate) fn shift_right(&mut self, shift: usize) {
         for row in self.0.iter_mut() {
@@ -36,18 +27,6 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
                 elem.shift_right(shift)
             }
         }
-    }
-
-    /// Returns the matrix transpose
-    #[cfg(test)]
-    pub(crate) fn transpose(&self) -> Matrix<Y, X> {
-        let mut ret = Matrix::default();
-        for i in 0..X {
-            for j in 0..Y {
-                ret.0[j][i] = self.0[i][j];
-            }
-        }
-        ret
     }
 
     /// Multiplies two matrices, using multiply-accumulate to avoid intermediate temporaries.
@@ -163,6 +142,30 @@ impl<'a, const X: usize, const Y: usize> core::ops::Add<&'a Matrix<X, Y>> for &'
 #[cfg(test)]
 mod test {
     use super::*;
+
+    impl<const X: usize, const Y: usize> Matrix<X, Y> {
+        #[cfg(test)]
+        pub fn rand(rng: &mut impl rand_core::CryptoRng) -> Self {
+            let mut mat = Matrix::default();
+            for i in 0..X {
+                for j in 0..Y {
+                    mat.0[i][j] = RingElem::rand(rng);
+                }
+            }
+            mat
+        }
+
+        /// Returns the matrix transpose
+        pub(crate) fn transpose(&self) -> Matrix<Y, X> {
+            let mut ret = Matrix::default();
+            for i in 0..X {
+                for j in 0..Y {
+                    ret.0[j][i] = self.0[i][j];
+                }
+            }
+            ret
+        }
+    }
 
     // Checks that mul and mul_transpose distribute over addition on the RHS
     #[test]

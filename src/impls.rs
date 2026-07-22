@@ -40,6 +40,7 @@ macro_rules! variant_impl {
             use super::*;
 
             /// A secret key for this KEM
+            #[derive(ZeroizeOnDrop)]
             pub struct $privkey_name(KemSecretKey<$variant_ell>);
 
             /// A public key for this KEM
@@ -62,7 +63,7 @@ macro_rules! variant_impl {
                 }
 
                 /// Returns the seed that produced this secret key
-                pub fn seed(&self) -> [u8; 32] {
+                pub fn seed(&self) -> &[u8; 32] {
                     self.0.seed()
                 }
 
@@ -100,8 +101,10 @@ macro_rules! variant_impl {
                 ) -> ($ciphertext_name, SharedSecret) {
                     let mut randomness = [0u8; 32];
                     rng.fill_bytes(&mut randomness);
+                    let out = self.encapsulate_deterministic(&randomness);
 
-                    self.encapsulate_deterministic(&randomness)
+                    randomness.zeroize();
+                    out
                 }
 
                 /// Encapsulates a shared secret using the given 32-byte `randomness`. This is

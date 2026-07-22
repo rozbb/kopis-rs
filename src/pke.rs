@@ -12,10 +12,14 @@ use crate::{
 
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::CTurboShake256;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const H1_VAL: u16 = 1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1);
 
-/// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form)
+/// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form).
+///
+/// This wraps the secret vector `s`, so it zeroes itself from memory when dropped.
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub(crate) struct PkeSecretKey<const L: usize>(Matrix<L, 1>);
 
 /// A public key for the IND-CPA-secure Kopis PKE scheme
@@ -169,12 +173,12 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
 pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: usize>(
     pk: &PkePublicKey<L>,
     msg: &[u8; 32],
-    coins: &[u8; 32],
+    randomness: &[u8; 32],
     out_buf: &mut [u8],
 ) {
     assert_eq!(out_buf.len(), ciphertext_len::<L, T>());
 
-    let vec_sprime = gen_secret_from_seed::<L, MU>(coins);
+    let vec_sprime = gen_secret_from_seed::<L, MU>(randomness);
 
     let bprime = {
         let mut prod = pk.mat_a.mul(&vec_sprime);
