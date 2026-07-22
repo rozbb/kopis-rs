@@ -122,6 +122,82 @@ theorem signedOfU16_emod (v : U16) : signedOfU16 v % 65536 = (v.val : ℤ) % 655
   · rfl
   · omega
 
+/-! ## Wrapping arithmetic is exact in range
+
+`src/arithmetic/ntt.rs` writes every value-domain operation as an explicit `wrapping_*` so that
+aeneas extracts total functions instead of `Result`-monadic ones with a panic-freedom side
+condition each (see the comment above `mont_reduce` there).  The price is that correctness must
+now say "the wrapping never actually wrapped", and these are the lemmas that discharge it.
+
+Aeneas gives signed wrapping operations the value semantics `Int.bmod _ (2^numBits)`, so the
+whole question reduces to: `Int.bmod` is the identity on its own balanced range. -/
+
+/-- `Int.bmod` is the identity on `[-2^31, 2^31)` — the `i32` case. -/
+theorem bmod_i32_exact {z : ℤ} (hlo : -2147483648 ≤ z) (hhi : z < 2147483648) :
+    Int.bmod z (2 ^ 32) = z := by
+  rw [Int.bmod_def]
+  norm_num
+  omega
+
+/-- `Int.bmod` is the identity on `[-2^63, 2^63)` — the `i64` case. -/
+theorem bmod_i64_exact {z : ℤ} (hlo : -9223372036854775808 ≤ z) (hhi : z < 9223372036854775808) :
+    Int.bmod z (2 ^ 64) = z := by
+  rw [Int.bmod_def]
+  norm_num
+  omega
+
+/-- A wrapping `i32` multiplication is exact when the true product is in range. -/
+theorem I32_wrapping_mul_exact (x y : I32)
+    (hlo : -2147483648 ≤ x.val * y.val) (hhi : x.val * y.val < 2147483648) :
+    (core.num.I32.wrapping_mul x y).val = x.val * y.val := by
+  rw [core.num.I32.wrapping_mul, IScalar.wrapping_mul_val_eq]
+  exact bmod_i32_exact hlo hhi
+
+/-- A wrapping `i32` subtraction is exact when the true difference is in range. -/
+theorem I32_wrapping_sub_exact (x y : I32)
+    (hlo : -2147483648 ≤ x.val - y.val) (hhi : x.val - y.val < 2147483648) :
+    (core.num.I32.wrapping_sub x y).val = x.val - y.val := by
+  rw [core.num.I32.wrapping_sub, IScalar.wrapping_sub_val_eq]
+  exact bmod_i32_exact hlo hhi
+
+/-- A wrapping `i32` addition is exact when the true sum is in range.  This is the one the
+butterfly loops need: the forward transform's `a[j] + t` and the inverse transform's un-reduced
+sum path both rely on the magnitude analysis keeping them inside `i32`. -/
+theorem I32_wrapping_add_exact (x y : I32)
+    (hlo : -2147483648 ≤ x.val + y.val) (hhi : x.val + y.val < 2147483648) :
+    (core.num.I32.wrapping_add x y).val = x.val + y.val := by
+  rw [core.num.I32.wrapping_add, IScalar.wrapping_add_val_eq]
+  exact bmod_i32_exact hlo hhi
+
+/-- A wrapping `i64` multiplication is exact when the true product is in range.  Used for
+`zeta * a[j+len]` in the butterflies and for the pointwise products, both of which are bounded
+by `p²` and so are nowhere near `2^63`. -/
+theorem I64_wrapping_mul_exact (x y : I64)
+    (hlo : -9223372036854775808 ≤ x.val * y.val)
+    (hhi : x.val * y.val < 9223372036854775808) :
+    (core.num.I64.wrapping_mul x y).val = x.val * y.val := by
+  rw [core.num.I64.wrapping_mul, IScalar.wrapping_mul_val_eq]
+  exact bmod_i64_exact hlo hhi
+
+/-- A wrapping `i64` subtraction is exact when the true difference is in range.  This is the
+one `mont_reduce` needs for `a - t·p`: with `|a| < 2^31·p` and `|t| ≤ 2^31`, the difference is
+below `2^32·p ≈ 2^57.6`, comfortably inside `i64`. -/
+theorem I64_wrapping_sub_exact (x y : I64)
+    (hlo : -9223372036854775808 ≤ x.val - y.val)
+    (hhi : x.val - y.val < 9223372036854775808) :
+    (core.num.I64.wrapping_sub x y).val = x.val - y.val := by
+  rw [core.num.I64.wrapping_sub, IScalar.wrapping_sub_val_eq]
+  exact bmod_i64_exact hlo hhi
+
+/-- A wrapping `i64` addition is exact when the true sum is in range (the Barrett rounding
+addend `+2^47`). -/
+theorem I64_wrapping_add_exact (x y : I64)
+    (hlo : -9223372036854775808 ≤ x.val + y.val)
+    (hhi : x.val + y.val < 9223372036854775808) :
+    (core.num.I64.wrapping_add x y).val = x.val + y.val := by
+  rw [core.num.I64.wrapping_add, IScalar.wrapping_add_val_eq]
+  exact bmod_i64_exact hlo hhi
+
 /-! ## The outstanding obligation
 
 Everything above is arithmetic bookkeeping.  The mathematical content of the NTT is isolated
