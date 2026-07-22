@@ -46,6 +46,7 @@ impl<const L: usize> PkePublicKey<L> {
         out_buf[out_size - 32..].copy_from_slice(&self.matrix_seed);
     }
 
+    #[allow(clippy::unwrap_used)]
     pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
         assert_eq!(bytes.len(), Self::SERIALIZED_LEN);
 

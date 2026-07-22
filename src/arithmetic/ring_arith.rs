@@ -35,6 +35,7 @@ impl RingElem {
     }
 
     /// Deserializes a ring element, treating each coefficient as having only `bits_per_elem` bits.
+    #[allow(clippy::unwrap_used)]
     pub(crate) fn deserialize(bytes: &[u8], bits_per_elem: usize) -> Self {
         assert_eq!(bytes.len(), bits_per_elem * RING_DEG / 8);
 
