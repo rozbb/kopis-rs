@@ -488,7 +488,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
 }
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_right]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 64:8-66:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 65:8-67:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.shift_right_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -508,7 +508,7 @@ def arithmetic.ring_arith.RingElem.shift_right_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_right]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 63:4-67:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 64:4-68:5 -/
 def arithmetic.ring_arith.RingElem.shift_right
   (self : arithmetic.ring_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -593,12 +593,12 @@ def arithmetic.matrix_arith.Matrix.shift_right
 @[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
 
 /-- [kopis::arithmetic::ring_arith::HALF]
-    Source: 'src/arithmetic/ring_arith.rs', lines 99:0-99:33 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 100:0-100:33 -/
 @[global_simps, irreducible]
 def arithmetic.ring_arith.HALF : Result Std.Usize := consts.RING_DEG / 2#usize
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 113:8-115:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 114:8-116:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.schoolbook_128_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.U16 256#usize)
@@ -620,7 +620,7 @@ def arithmetic.ring_arith.schoolbook_128_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 111:4-116:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 112:4-117:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.schoolbook_128_loop0
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -641,7 +641,7 @@ def arithmetic.ring_arith.schoolbook_128_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 108:0-117:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 109:0-118:1 -/
 def arithmetic.ring_arith.schoolbook_128
   (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
   (b : Array Std.U16 128#usize) :
@@ -652,7 +652,7 @@ def arithmetic.ring_arith.schoolbook_128
     { start := 0#usize, «end» := i } out a b
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 153:4-156:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 154:4-157:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.ring_mul_acc_loop0
   (iter : core.ops.range.Range Std.Usize) (a_lo : Array Std.U16 128#usize)
@@ -678,7 +678,7 @@ def arithmetic.ring_arith.ring_mul_acc_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 162:4-182:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 163:4-183:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.ring_mul_acc_loop1
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -724,7 +724,7 @@ def arithmetic.ring_arith.ring_mul_acc_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 124:0-183:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 125:0-184:1 -/
 def arithmetic.ring_arith.ring_mul_acc
   (acc : arithmetic.ring_arith.RingElem) (a : arithmetic.ring_arith.RingElem)
   (b : arithmetic.ring_arith.RingElem) :
@@ -954,7 +954,7 @@ def arithmetic.matrix_arith.Matrix.mul_transpose
     { start := 0#usize, «end» := X } self other result
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 80:8-82:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 81:8-83:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -974,7 +974,7 @@ def arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 79:4-83:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 80:4-84:5 -/
 def arithmetic.ring_arith.RingElem.wrapping_add_to_all
   (self : arithmetic.ring_arith.RingElem) (val : Std.U16) :
   Result arithmetic.ring_arith.RingElem
@@ -1120,7 +1120,7 @@ def ser.serialize
   ok out_buf1
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::serialize]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 55:4-58:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 56:4-59:5 -/
 def arithmetic.ring_arith.RingElem.serialize
   (self : arithmetic.ring_arith.RingElem) (out_buf : Slice Std.U8)
   (bits_per_elem : Std.Usize) :
@@ -1496,7 +1496,7 @@ def ser.deserialize_13
 @[global_simps, irreducible] def consts.MODULUS_Q_BITS : Std.Usize := 13#usize
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::deserialize]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 38:4-51:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 39:4-52:5 -/
 def arithmetic.ring_arith.RingElem.deserialize
   (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -1595,7 +1595,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10
     { start := 0#usize, «end» := X } bytes result chunk_len
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::add]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 190:8-192:9
+    Source: 'src/arithmetic/ring_arith.rs', lines 191:8-193:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
@@ -1619,7 +1619,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::add]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 188:4-194:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 189:4-195:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
   (self : arithmetic.ring_arith.RingElem)
@@ -1749,7 +1749,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault :
 }
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_left]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 73:8-75:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 74:8-76:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.shift_left_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -1769,7 +1769,7 @@ def arithmetic.ring_arith.RingElem.shift_left_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_left]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 72:4-76:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 73:4-77:5 -/
 def arithmetic.ring_arith.RingElem.shift_left
   (self : arithmetic.ring_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -1783,7 +1783,7 @@ def arithmetic.ring_arith.RingElem.shift_left
   ok a
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::mul]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 89:4-93:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 90:4-94:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
   (self : arithmetic.ring_arith.RingElem)
@@ -1794,7 +1794,7 @@ def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
   arithmetic.ring_arith.ring_mul_acc ret self other
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 86:0-94:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 87:0-95:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
   core.ops.arith.Mul arithmetic.ring_arith.RingElem
@@ -1803,7 +1803,7 @@ def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
 }
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 185:0-195:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 186:0-196:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
   core.ops.arith.Add arithmetic.ring_arith.RingElem
@@ -1812,7 +1812,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
 }
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::sub]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 202:8-204:9
+    Source: 'src/arithmetic/ring_arith.rs', lines 203:8-205:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
@@ -1836,7 +1836,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::sub]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 200:4-206:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 201:4-207:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   (self : arithmetic.ring_arith.RingElem)
@@ -1848,7 +1848,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 197:0-207:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 198:0-208:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   core.ops.arith.Sub arithmetic.ring_arith.RingElem
@@ -2284,7 +2284,7 @@ def impls.kopis768.Kopis768PublicKey := kem.KemPublicKey 3#usize
 def impls.kopis1024.Kopis1024PublicKey := kem.KemPublicKey 4#usize
 
 /-- [kopis::pke::ciphertext_len]:
-    Source: 'src/pke.rs', lines 87:0-90:1
+    Source: 'src/pke.rs', lines 88:0-91:1
     Visibility: public -/
 def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   let i ← L * consts.MODULUS_P_BITS
@@ -2371,7 +2371,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]:
-    Source: 'src/pke.rs', lines 64:4-70:5 -/
+    Source: 'src/pke.rs', lines 65:4-71:5 -/
 def pke.PkePublicKey.hash
   {L : Std.Usize} (self : pke.PkePublicKey L) :
   Result (Array Std.U8 32#usize)
@@ -2395,7 +2395,7 @@ def pke.H1_VAL : Result Std.U16 := do
   1#u16 <<< i1
 
 /-- [kopis::pke::expand_decap_key]:
-    Source: 'src/pke.rs', lines 99:0-136:1 -/
+    Source: 'src/pke.rs', lines 100:0-137:1 -/
 def pke.expand_decap_key
   (L : Std.Usize) (MU : Std.Usize) (sk : Array Std.U8 32#usize) :
   Result ((pke.PkeSecretKey L) × (Array Std.U8 32#usize) × (pke.PkePublicKey
@@ -2685,7 +2685,7 @@ def impls.kopis1024.Kopis1024PublicKey.serialize
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]:
-    Source: 'src/pke.rs', lines 49:4-61:5 -/
+    Source: 'src/pke.rs', lines 50:4-62:5 -/
 def pke.PkePublicKey.from_bytes
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (pke.PkePublicKey L) := do
   let left_val := Slice.len bytes
@@ -2743,7 +2743,7 @@ def impls.kopis1024.Kopis1024PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::pke::encrypt_deterministic]:
-    Source: 'src/pke.rs', lines 170:0-202:1 -/
+    Source: 'src/pke.rs', lines 171:0-203:1 -/
 def pke.encrypt_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (pk : pke.PkePublicKey L)
   (msg : Array Std.U8 32#usize) (coins : Array Std.U8 32#usize)
@@ -2906,7 +2906,7 @@ def impls.kopis1024.Kopis1024PublicKey.encapsulate
   ok (p, rng1)
 
 /-- [kopis::pke::decrypt]:
-    Source: 'src/pke.rs', lines 140:0-166:1 -/
+    Source: 'src/pke.rs', lines 141:0-167:1 -/
 def pke.decrypt
   {L : Std.Usize} (T : Std.Usize) (sk : pke.PkeSecretKey L)
   (ciphertext : Slice Std.U8) :
@@ -3039,7 +3039,7 @@ def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
 }
 
 /-- [kopis::pke::max_pke_pubkey_serialized_len]:
-    Source: 'src/pke.rs', lines 74:0-76:1 -/
+    Source: 'src/pke.rs', lines 75:0-77:1 -/
 def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
   let i ← consts.MAX_L * consts.MODULUS_P_BITS
   let i1 ← i * consts.RING_DEG
@@ -3047,7 +3047,7 @@ def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
   32#usize + i2
 
 /-- [kopis::pke::max_ciphertext_len]:
-    Source: 'src/pke.rs', lines 80:0-83:1
+    Source: 'src/pke.rs', lines 81:0-84:1
     Visibility: public -/
 def pke.max_ciphertext_len : Result Std.Usize := do
   let i ← consts.MAX_T * consts.RING_DEG
