@@ -45,3 +45,6 @@ import Kopis.Properties.EncodeRoundtrip
 import Kopis.Properties.KeyGen
 import Kopis.Properties.KeyGenHyps
 import Kopis.Properties.KeyGenCapstone
+import Kopis.Properties.PkeFromBytes
+import Kopis.Properties.SerializeRoundtrip
+import Kopis.Properties.KemFromBytes

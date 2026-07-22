@@ -1,0 +1,123 @@
+/-
+  # Kopis/Properties/SerializeRoundtrip.lean — the *other* encoding round-trip.
+
+  `Kopis/Properties/EncodeRoundtrip.lean` proves `deserialize ∘ serialize = id`
+  (decoding recovers what was encoded).  This file proves the converse,
+  `serialize ∘ deserialize = id`: re-encoding an arbitrary byte string that has been
+  decoded gives that byte string back.  It is what ties `PkePublicKey::from_bytes`
+  to the bytes it was handed, and hence what lets `KemPublicKey::from_bytes` — which
+  hashes the parsed key — be related to the *input* rather than to its own
+  re-serialization.
+
+  The proof is a counting argument rather than a bit-level one.  `serialize n` is
+  injective (that is exactly `deserialize_serialize`), and its domain and codomain are
+  finite of the same size — `(2ⁿ)²⁵⁶` polynomials and `(2⁸)^(32n)` byte strings are both
+  `2^(256n)` — so it is a bijection and its left inverse is also a right inverse.
+
+  This requires `Fintype` instances for `BitVec` and `Vector`, which are not in scope
+  here; they are declared as file-local instances, so nothing leaks to importers.
+-/
+import Kopis.Properties.EncodeRoundtrip
+open Aeneas Aeneas.Std Result
+open Spec (𝔹)
+
+namespace Kopis.Properties
+
+/-! ## Finiteness plumbing
+
+Neither `BitVec w` nor `Vector α m` has a `Fintype` instance in this import closure.
+Both are immediate, and both are kept `local` to this file. -/
+
+/-- `BitVec w` is `Fin (2^w)` in disguise. -/
+private def bitVecEquivFin {w : ℕ} : BitVec w ≃ Fin (2 ^ w) where
+  toFun := BitVec.toFin
+  invFun := BitVec.ofFin
+  left_inv _ := rfl
+  right_inv _ := rfl
+
+@[reducible] private def instFintypeBitVec {w : ℕ} : Fintype (BitVec w) :=
+  Fintype.ofEquiv _ bitVecEquivFin.symm
+
+attribute [local instance] instFintypeBitVec
+
+private theorem card_bitVec {w : ℕ} : Fintype.card (BitVec w) = 2 ^ w := by
+  rw [Fintype.card_congr (bitVecEquivFin (w := w)), Fintype.card_fin]
+
+/-- A `Vector α m` is exactly a function `Fin m → α`. -/
+private def vectorEquivFun {α : Type*} {m : ℕ} : Vector α m ≃ (Fin m → α) where
+  toFun v i := v[i.val]
+  invFun f := Vector.ofFn f
+  left_inv _ := by apply Vector.ext; intro i hi; simp
+  right_inv _ := by funext i; simp
+
+@[reducible] private def instFintypeVector {α : Type*} {m : ℕ} [Fintype α] : Fintype (Vector α m) :=
+  Fintype.ofEquiv _ vectorEquivFun.symm
+
+attribute [local instance] instFintypeVector
+
+private theorem card_vector {α : Type*} {m : ℕ} [Fintype α] :
+    Fintype.card (Vector α m) = Fintype.card α ^ m := by
+  rw [Fintype.card_congr (vectorEquivFun (α := α) (m := m)), Fintype.card_fun, Fintype.card_fin]
+
+/-- **Byte strings and polynomials are equinumerous.**  `32n` bytes hold `256^(32n) =
+2^(256n)` values; a degree-256 polynomial over `ZMod (2ⁿ)` holds `(2ⁿ)^256 = 2^(256n)`.
+This is the whole content of "the `n`-bit packing wastes no space". -/
+private theorem card_bytes_eq_card_poly (n : ℕ) :
+    Fintype.card (𝔹 (32 * n)) = Fintype.card (Spec.Kopis.Polynomial (2 ^ n)) := by
+  haveI : NeZero (2 ^ n) := ⟨by positivity⟩
+  rw [card_vector, card_vector, card_bitVec, ZMod.card, ← pow_mul, ← pow_mul]
+  congr 1
+  ring
+
+/-- Rewriting a vector under `getElem`, without `rw`'s motive problems. -/
+private theorem getElem_congr_vec {α : Type*} {m : ℕ} {v w : Vector α m} (h : v = w)
+    (i : ℕ) (hi : i < m) : v[i]'hi = w[i]'hi := by rw [h]
+
+/-! ## The round-trip -/
+
+/-- **Per-polynomial: serialize inverts deserialize.**  Re-encoding the decoding of an
+arbitrary `32n`-byte string returns that string unchanged.  Note this holds for *every*
+byte string, with no canonicity side condition — because `n`-bit packing of 256
+coefficients into `32n` bytes is exactly size-preserving, every byte string is the
+encoding of something. -/
+theorem serialize_deserialize (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 13) (B : 𝔹 (32 * n)) :
+    Spec.Kopis.serialize n (Spec.Kopis.deserialize n B) = B := by
+  haveI : NeZero (2 ^ n) := ⟨by positivity⟩
+  exact Function.LeftInverse.rightInverse_of_card_le
+    (f := Spec.Kopis.deserialize n) (g := Spec.Kopis.serialize n)
+    (fun r => deserialize_serialize n hn r)
+    (le_of_eq (card_bytes_eq_card_poly n)) B
+
+/-- **`PolyVector` lift.**  Same statement for a vector of `ℓ` polynomials: the
+concatenated re-encoding of a decoded byte string is that byte string. -/
+theorem polyVector_serialize_deserialize {ℓ : ℕ} (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 13)
+    (x : 𝔹 (32 * n * ℓ)) :
+    ((Spec.Kopis.PolyVector.serialize n (Spec.Kopis.PolyVector.deserialize n x)).cast
+      (by ring) : 𝔹 (32 * n * ℓ)) = x := by
+  have hn0 : 0 < n := hn.1
+  have hmpos : 0 < 32 * n := by omega
+  apply Vector.ext
+  intro p hp
+  obtain ⟨i, t, hi, ht, rfl⟩ : ∃ i t, i < ℓ ∧ t < 32 * n ∧ p = 32 * n * i + t := by
+    refine ⟨p / (32 * n), p % (32 * n), ?_, Nat.mod_lt _ hmpos,
+      (Nat.div_add_mod p (32 * n)).symm⟩
+    exact Nat.div_lt_of_lt_mul (by omega)
+  have hkbound : 32 * n * i + t < ℓ * (32 * n) := by
+    calc 32 * n * i + t < 32 * n * i + 32 * n := by omega
+      _ = 32 * n * (i + 1) := by ring
+      _ ≤ 32 * n * ℓ := Nat.mul_le_mul_left _ hi
+      _ = ℓ * (32 * n) := by ring
+  have hdiv : (32 * n * i + t) / (32 * n) = i := by
+    rw [Nat.mul_add_div hmpos, Nat.div_eq_of_lt ht, Nat.add_zero]
+  have hmod : (32 * n * i + t) % (32 * n) = t := by
+    rw [Nat.mul_add_mod, Nat.mod_eq_of_lt ht]
+  simp only [Vector.getElem_cast]
+  rw [show Spec.Kopis.PolyVector.serialize n (Spec.Kopis.PolyVector.deserialize n x)
+      = ((Spec.Kopis.PolyVector.deserialize n x).map (Spec.Kopis.serialize n)).flatten from rfl,
+    Vector.getElem_flatten hkbound]
+  simp only [hdiv, hmod, Vector.getElem_map, Spec.Kopis.PolyVector.deserialize,
+    Vector.getElem_ofFn]
+  refine (getElem_congr_vec (serialize_deserialize n hn _) t ht).trans ?_
+  simp [Spec.slice]
+
+end Kopis.Properties

@@ -124,9 +124,33 @@ theorem pk_serialize_matches_translation {L : Usize} (self : pke.PkePublicKey L)
             ++ (arrayToBytes self.matrix_seed).toList ⦄ :=
   Kopis.Properties.pke_serialize_spec self out_buf hlen hfit
 
+/-- **The Rust public-key parser reads back exactly what the spec reads.** The dual of
+the theorem above: where `serialize` writes `pkStructBytes`, `from_bytes` recovers, from
+an arbitrary byte string of the right length, precisely the three things the audited
+spec's `PkeEncrypt` reads out of a public key — the 10-bit-decoded vector, the matrix
+seed, and the matrix regenerated from that seed via `GenMat`.
+
+Nothing constrains the *contents* of the input, so this covers arbitrary and
+adversarially chosen encodings; and being a `⦃ … ⦄` triple it also says the parser never
+panics on them. -/
+theorem pk_from_bytes_matches_spec {L : Usize} (bytes : Slice U8)
+    (hlen : bytes.length = 320 * L.val + 32)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) :
+    pke.PkePublicKey.from_bytes L bytes
+      ⦃ (pk : pke.PkePublicKey L) =>
+          toVecN 10 pk.vec
+            = Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
+                (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
+                  (32 * 10 * L.val) (by omega)) ∧
+          matSeedBytes pk
+            = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
+                (32 * 10 * L.val) 32 (by omega) ∧
+          toMatrix13 pk.mat_a = Spec.Kopis.GenMat L.val (arrayToBytes pk.matrix_seed) ⦄ :=
+  Kopis.Properties.pke_from_bytes_spec bytes hlen hfit
+
 /-! ## §3. The theorems
 
-Three operations × three parameter sets. Every one is **unconditional**: the only
+Four operations × three parameter sets. Every one is **unconditional**: the only
 arguments are the inputs themselves, there are no hypotheses to discharge and no
 side conditions hiding a restricted input range. Read them as:
 
@@ -236,6 +260,53 @@ theorem kopis1024_keygen_then_encapsulate (seed randomness : Array U8 32#usize) 
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).1 ⦄ :=
   Kopis.Properties.kopis1024_keygen_encap_spec seed randomness
+
+/-! ### §3.2b Receiving a public key — parse then encapsulate matches `KemEncap`
+
+The theorems above start from a locally generated key. These start from a public key
+*received as bytes*, which is what a caller does with a key off the wire: parse it with
+`from_bytes`, then encapsulate to it. The result is the spec's `KemEncap` applied to
+exactly those bytes.
+
+Nothing constrains the input bytes beyond their length, so a malformed or
+adversarially chosen public-key encoding is covered — and, this being a `⦃ … ⦄` triple,
+the composite is also proved not to panic on one. -/
+
+/-- **Kopis-512: parse a received public key, then encapsulate to it.** -/
+theorem kopis512_from_bytes_then_encapsulate (pk_bytes : Array U8 672#usize)
+    (randomness : Array U8 32#usize) :
+    (do let kpk ← impls.kopis512.Kopis512PublicKey.from_bytes pk_bytes
+        impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 736#usize × impls.SharedSecret) =>
+          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).2
+          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ :=
+  Kopis.Properties.kopis512_from_bytes_encap_spec pk_bytes randomness
+
+/-- **Kopis-768: parse a received public key, then encapsulate to it.** -/
+theorem kopis768_from_bytes_then_encapsulate (pk_bytes : Array U8 992#usize)
+    (randomness : Array U8 32#usize) :
+    (do let kpk ← impls.kopis768.Kopis768PublicKey.from_bytes pk_bytes
+        impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1088#usize × impls.SharedSecret) =>
+          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).2
+          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ :=
+  Kopis.Properties.kopis768_from_bytes_encap_spec pk_bytes randomness
+
+/-- **Kopis-1024: parse a received public key, then encapsulate to it.** -/
+theorem kopis1024_from_bytes_then_encapsulate (pk_bytes : Array U8 1312#usize)
+    (randomness : Array U8 32#usize) :
+    (do let kpk ← impls.kopis1024.Kopis1024PublicKey.from_bytes pk_bytes
+        impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1472#usize × impls.SharedSecret) =>
+          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).2
+          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ :=
+  Kopis.Properties.kopis1024_from_bytes_encap_spec pk_bytes randomness
 
 /-! ### §3.3 Decapsulation — key generation then decapsulate matches `KemDecap`
 
@@ -362,7 +433,9 @@ run_cmd do
      ``kopis1024_keygen_then_encapsulate,
      ``kopis512_keygen_then_decapsulate, ``kopis768_keygen_then_decapsulate,
      ``kopis1024_keygen_then_decapsulate,
-     ``pk_serialize_matches_translation]
+     ``pk_serialize_matches_translation, ``pk_from_bytes_matches_spec,
+     ``kopis512_from_bytes_then_encapsulate, ``kopis768_from_bytes_then_encapsulate,
+     ``kopis1024_from_bytes_then_encapsulate]
   let mut found : Array String := #[]
   for t in topLevel do
     for a in (← Lean.collectAxioms t) do
@@ -386,11 +459,9 @@ functions of the seed / randomness they are handed. Nothing here says anything
 about the quality of the RNG, and nothing checks that the wrappers pass the random
 bytes through faithfully.
 
-**Public-key deserialization.** `PkePublicKey::from_bytes` (and the
-`Kopis512PublicKey::from_bytes` wrapper) is extracted but has *no* correspondence
-theorem. So round-tripping a public key through `serialize`/`from_bytes` is
-unverified: §2 proves what `serialize` writes, but nothing proves `from_bytes`
-reads it back. This is the largest gap in API coverage.
+**Nothing about public-key deserialization** — this gap is now closed, by
+`pk_from_bytes_matches_spec` in §2 and the three parse-then-encapsulate theorems in
+§3.2b.
 
 **Trivial accessors.** `SecretKey::seed`, `SharedSecret::as_bytes` and similar
 getters have no theorems.
