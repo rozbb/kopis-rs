@@ -16,6 +16,24 @@ Lean kernel re-checks every proof term. What *is* trusted is (a) the audited
 spec in `Spec/`, which you should read against `kopis-spec.md`, and (b) the
 charon/aeneas extraction that produced `ExtractedRust.lean` from the Rust.
 
+## Reviewing this: start with `TopLevelTheorems.lean`
+
+**[`TopLevelTheorems.lean`](TopLevelTheorems.lean) is the file to read.** It is
+written for a human reviewer and collects, in one place, everything you need in
+order to judge what has actually been proved:
+
+- the nine top-level theorems (key generation, encapsulation, decapsulation × three
+  parameter sets), each unconditional and quantified over all inputs;
+- the translation functions relating Rust values to spec values, pinned down so you
+  can confirm the theorems are not vacuous;
+- the complete list of assumed axioms, with an explanation of each;
+- an explicit list of what is *not* covered.
+
+It re-proves nothing — each statement is discharged by the corresponding theorem in
+`Kopis/Properties/`, so a restatement that drifted from what was proved would fail
+to compile. It also contains a build-time check that fails if the set of axioms
+ever changes, so §4 of that file cannot silently go stale.
+
 ## Usage
 
 ```sh
@@ -33,6 +51,7 @@ theorem checked, with no `sorry`s and no errors.
 
 | Path                   | Trusted? | Contents                                                                                       |
 | ---------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `TopLevelTheorems.lean`| *proved* | **Start here.** The audit surface: top-level statements, translations, axioms, and known gaps.    |
 | `ExtractedRust.lean`   | trusted  | Aeneas output. **Generated — never edit.** Re-run `../extract_rust_to_lean.sh` instead.          |
 | `Spec/Kopis/Spec.lean` | trusted  | The audited Kopis specification, transcribed from `kopis-spec.md`.                               |
 | `Spec/TurboSHAKE/`     | trusted  | TurboSHAKE (RFC 9861), the XOF Kopis samples from. See `turboshake_rfc.txt`.                     |

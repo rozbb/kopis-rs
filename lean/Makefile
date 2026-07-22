@@ -3,7 +3,7 @@
 # Run from this directory (kopis-rs/lean).  These wrap the `lake` invocations
 # for the Kopis KEM correspondence proofs and the spec test-vector runner.
 # Extraction (Rust -> Lean) lives in `../extract_rust_to_lean.sh`, which
-# regenerates `KopisKem.lean`; this file only builds/checks what is already
+# regenerates `ExtractedRust.lean`; this file only builds/checks what is already
 # extracted.
 
 LAKE ?= lake
@@ -14,12 +14,13 @@ LAKE ?= lake
 # Proofs
 # ---------------------------------------------------------------------------
 
-# Build (= kernel-verify) the Kopis proof library: the extracted KopisKem.lean
-# plus every Kopis/Properties/*.lean.  A green build IS the machine-checked
-# proof.
+# Build (= kernel-verify) the Kopis proof library: the extracted ExtractedRust.lean
+# plus every Kopis/Properties/*.lean, then TopLevelTheorems.lean, which restates
+# the top-level results and re-checks the axiom footprint.  A green build IS the
+# machine-checked proof.
 .PHONY: prove-kopis
 prove-kopis:
-	$(LAKE) build Kopis
+	$(LAKE) build Kopis TopLevelTheorems
 
 # ---------------------------------------------------------------------------
 # Spec tests

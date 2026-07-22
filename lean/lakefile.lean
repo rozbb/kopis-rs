@@ -32,6 +32,18 @@ lean_lib «Spec»
 @[default_target]
 lean_lib «Kopis»
 
+/-! ## The audit surface
+
+    `TopLevelTheorems.lean` restates the top-level correspondence theorems, the
+    translation functions they are stated through, and the full list of assumed
+    axioms — everything a human reviewer needs to read in order to check what has
+    actually been proved. It re-proves nothing (each statement is discharged by
+    the theorem proved in `Kopis`), so a restatement that drifted would fail to
+    compile, and it contains a build-time check that fails if the trust base ever
+    changes. Start here when reviewing. -/
+@[default_target]
+lean_lib «TopLevelTheorems»
+
 /-! ## Spec test vectors
 
     `SpecTests` runs the audited specification against the Kopis test vectors
