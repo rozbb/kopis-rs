@@ -141,7 +141,7 @@ example (seed : Array U8 32#usize) (i j : U8) (buf : Array U8 416#usize) :
   have hs4 : s4.val.length = 416 := by rw [← Slice.length, _rd_post1, hs3]
   rw [reader_post1, reader_post2] at _rd_post2
   dsimp only at _rd_post2
-  simp only [Nat.zero_add, List.drop_zero] at _rd_post2
+  simp only [List.drop_zero] at _rd_post2
   rw [habs, hs3] at _rd_post2
   rw [s3_post2, Array.from_slice_val buf s4 hs4]
   exact _rd_post2
@@ -340,7 +340,7 @@ theorem hash_block_spec (seed : Array U8 32#usize) (i j : Usize) (buf : Array U8
   have hs4 : s4.val.length = 416 := by rw [← Slice.length, _rd_post1, hs3]
   rw [reader_post1, reader_post2] at _rd_post2
   dsimp only at _rd_post2
-  simp only [Nat.zero_add, List.drop_zero] at _rd_post2
+  simp only [List.drop_zero] at _rd_post2
   rw [habs, hs3] at _rd_post2
   rw [s3_post2]
   have harr : arrayToBytes (buf.from_slice s4)
@@ -396,7 +396,7 @@ theorem gen_matrix_loop0_loop0_spec {L : Usize} (iter : core.ops.range.Range Usi
     have hs4 : s4.val.length = 416 := by rw [← Slice.length, __post1, hs3]
     rw [reader_post1, reader_post2] at __post2
     dsimp only at __post2
-    simp only [Nat.zero_add, List.drop_zero] at __post2
+    simp only [List.drop_zero] at __post2
     rw [habs, hs3] at __post2
     simp only [s5_post, s3_post2]
     have hs5len : ((buf.from_slice s4).to_slice).length = 32 * 13 := by

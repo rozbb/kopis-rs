@@ -37,7 +37,7 @@ theorem pke_hash_spec {L : Usize} (self : pke.PkePublicKey L)
   -- index_mut buf
   have hbnd : ({ «end» := out_size } : core.ops.range.RangeTo Usize).«end» ≤ (1312#usize) := by
     rw [UScalar.le_equiv, hosv]; exact hbuf
-  progress with Array.index_mut_SliceIndexRangeToUsizeSlice as
+  step with Array.index_mut_SliceIndexRangeToUsizeSlice as
     ⟨ pk_slice, back, hpk_val, hpk_len, hpk_back ⟩
   have hpkvlen : pk_slice.val.length = L.val * 320 + 32 := by
     rw [← Slice.length, hpk_len, hosv]
@@ -50,7 +50,7 @@ theorem pke_hash_spec {L : Usize} (self : pke.PkePublicKey L)
     rw [hasher2_post, hasher1_post, hasher_post]
     simp [Array.to_slice, Std.Array.empty]
   have hslen : s.length = 32 := by
-    rw [Slice.length, s_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s_post1]; simp
   have hs1len : s1.length = 32 := by rw [__post1, hslen]
   rw [reader_post1, reader_post2] at __post2
   dsimp only at __post2

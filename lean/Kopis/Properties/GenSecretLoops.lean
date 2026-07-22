@@ -385,7 +385,7 @@ theorem cbd_loop0_spec
       ⦃ (r : RingElem) => ∀ k, k < 256 → (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 8 4 k ⦄ := by
   unfold gen.cbd_loop0
   have hlen_slice : iter.iter.slice.len.val = 256 := by
-    rw [hbuf]; simp [Slice.len, Slice.length, hlen]
+    rw [hbuf]; simp [Slice.len, hlen]
   by_cases hlt : iter.iter.i < iter.iter.slice.len
   · -- SOME branch
     have hi_lt256 : iter.iter.i < 256 := by
@@ -572,13 +572,13 @@ theorem cbdVal_eq_specCoeff (buf1 : Slice U8) (μ k : ℕ) (h : buf1.length = 32
             ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[μ * k + j.val]'(by
               have h2 : μ * k + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
               have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
-              have h4 : μ * 256 = 8 * (32 * μ) := by ring
+              have _h4 : μ * 256 = 8 * (32 * μ) := by ring
               simpa using (by omega : μ * k + j.val < 8 * (32 * μ)))).toNat : ℕ) : ZMod (2 ^ 13))
       - ((∑ j : Fin (μ / 2),
             ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[μ * k + μ / 2 + j.val]'(by
               have h2 : μ * k + μ / 2 + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
               have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
-              have h4 : μ * 256 = 8 * (32 * μ) := by ring
+              have _h4 : μ * 256 = 8 * (32 * μ) := by ring
               simpa using (by omega : μ * k + μ / 2 + j.val < 8 * (32 * μ)))).toNat : ℕ) : ZMod (2 ^ 13)) := by
   unfold cbdVal
   rw [cbdX_eq_specSum buf1 μ (μ * k) (μ / 2) h (fun j => by

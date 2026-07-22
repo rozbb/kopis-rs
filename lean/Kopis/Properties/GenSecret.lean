@@ -86,7 +86,7 @@ theorem wrapping_sub_toZMod13 (a b : U16) :
 window `raw4 = W >> bit_in_byte` equals the spec's `∑ streamBit` over the
 corresponding `half` stream positions. -/
 theorem window_popcount (buf : Slice U8) (byte_idx off half : ℕ)
-    (shifted : U32) (hoff : off + half ≤ 24) (hhalf : half ≤ 8)
+    (shifted : U32) (hoff : off + half ≤ 24) (_hhalf : half ≤ 8)
     (hshift : shifted.val = ((buf.val[byte_idx]!).val + 2 ^ 8 * (buf.val[byte_idx+1]!).val
         + 2 ^ 16 * (buf.val[byte_idx+2]!).val) >>> off) :
     ∑ i ∈ Finset.range half, (shifted.bv.getLsbD i).toNat

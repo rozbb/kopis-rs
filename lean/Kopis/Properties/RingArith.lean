@@ -1150,9 +1150,7 @@ theorem shift_right_loop_spec
         have hlv : iter.slice.val = orig_slice.val := by rw [h_slice]
         have helem : iter.slice[iter.i]'(by have := hi_lt; have := hi_pe; scalar_tac)
             = orig_slice.val[iter.i]'(by have := hi_lt; scalar_tac) := List.getElem_of_eq hlv _
-        first
-          | exact congrArg (fun x => x.val >>> shift.val) helem
-          | exact congrArg (fun x => (x.val <<< shift.val) % U16.size) helem
+        exact congrArg (fun x => x.val >>> shift.val) helem
       · have hjlt : j < iter.i := by omega
         exact hback_writes (next_back im (some coeff1)) him_set j hjlt
     case rest =>

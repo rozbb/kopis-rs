@@ -74,9 +74,9 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   have hrm1 : readerModel xof1 = (5#u8, randomness.val ++ sk.hash_pke_pk.val) := by
     rw [xof1_post4, hrm0]
   have hs2len : s2.length = 32 := by
-    rw [Slice.length, s2_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s2_post1]; simp
   have hs4len : s4.length = 32 := by
-    rw [Slice.length, s4_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s4_post1]; simp
   have hoff1 : readerOffset xof1 = 32 := by rw [xof1_post3, xof_post2, hs2len]
   set b := turboSHAKE256 (arrayToBytes randomness ‖ arrayToBytes sk.hash_pke_pk) DOMSEP_FO 64 with hb
   have hkbytes : s3.val.map (·.bv) = (Spec.slice b 0 32 (by omega)).toList := by

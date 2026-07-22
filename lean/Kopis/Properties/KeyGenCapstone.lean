@@ -92,7 +92,6 @@ theorem public_key_spec {L : Usize} (self : kem.KemSecretKey L) :
   first
     | exact ⟨hppk, rfl⟩
     | exact hppk
-    | (refine ⟨?_, ?_⟩ <;> first | exact hppk | rfl)
 
 /-- Kopis-512 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
 theorem kopis512_public_key_spec (self : impls.kopis512.Kopis512SecretKey) :

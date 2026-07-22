@@ -37,7 +37,7 @@ theorem kopis512_encapsulate_deterministic_spec
   have hlenout : s.length = Spec.Kopis.ctSize .Kopis_512 := by
     rw [Slice.length, hs_val]
     show (Array.repeat 736#usize 0#u8).val.length = 736
-    simpa using (Array.repeat 736#usize 0#u8).property
+    simp
   let* ⟨ss, s1, hss, h1, hct⟩ ← encap_deterministic_spec 10#usize 3#usize randomness self s
     .Kopis_512 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkmat hpkh
   refine ⟨?_, hss⟩
@@ -72,7 +72,7 @@ theorem kopis512_decapsulate_spec
   have hlenct : (Array.to_slice encapsulated_key).length = Spec.Kopis.ctSize .Kopis_512 := by
     rw [Slice.length, Array.val_to_slice]
     show encapsulated_key.val.length = 736
-    simpa using encapsulated_key.property
+    simp
   let* ⟨a, ha⟩ ← decap_spec 10#usize 3#usize self (Array.to_slice encapsulated_key)
     .Kopis_512 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
     hlenct hsk hz hpk hpkvec hpkmat hpkh
@@ -101,7 +101,7 @@ theorem kopis768_encapsulate_deterministic_spec
   have hlenout : s.length = Spec.Kopis.ctSize .Kopis_768 := by
     rw [Slice.length, hs_val]
     show (Array.repeat 1088#usize 0#u8).val.length = 1088
-    simpa using (Array.repeat 1088#usize 0#u8).property
+    simp
   let* ⟨ss, s1, hss, h1, hct⟩ ← encap_deterministic_spec 8#usize 4#usize randomness self s
     .Kopis_768 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkmat hpkh
   refine ⟨?_, hss⟩
@@ -136,7 +136,7 @@ theorem kopis768_decapsulate_spec
   have hlenct : (Array.to_slice encapsulated_key).length = Spec.Kopis.ctSize .Kopis_768 := by
     rw [Slice.length, Array.val_to_slice]
     show encapsulated_key.val.length = 1088
-    simpa using encapsulated_key.property
+    simp
   let* ⟨a, ha⟩ ← decap_spec 8#usize 4#usize self (Array.to_slice encapsulated_key)
     .Kopis_768 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
     hlenct hsk hz hpk hpkvec hpkmat hpkh
@@ -165,7 +165,7 @@ theorem kopis1024_encapsulate_deterministic_spec
   have hlenout : s.length = Spec.Kopis.ctSize .Kopis_1024 := by
     rw [Slice.length, hs_val]
     show (Array.repeat 1472#usize 0#u8).val.length = 1472
-    simpa using (Array.repeat 1472#usize 0#u8).property
+    simp
   let* ⟨ss, s1, hss, h1, hct⟩ ← encap_deterministic_spec 6#usize 6#usize randomness self s
     .Kopis_1024 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkmat hpkh
   refine ⟨?_, hss⟩
@@ -200,7 +200,7 @@ theorem kopis1024_decapsulate_spec
   have hlenct : (Array.to_slice encapsulated_key).length = Spec.Kopis.ctSize .Kopis_1024 := by
     rw [Slice.length, Array.val_to_slice]
     show encapsulated_key.val.length = 1472
-    simpa using encapsulated_key.property
+    simp
   let* ⟨a, ha⟩ ← decap_spec 6#usize 6#usize self (Array.to_slice encapsulated_key)
     .Kopis_1024 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
     hlenct hsk hz hpk hpkvec hpkmat hpkh

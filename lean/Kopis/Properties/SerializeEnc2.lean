@@ -129,7 +129,7 @@ theorem serialize_loop0_spec (iter : core.slice.iter.Iter U16) (out_buf : Slice 
           r.1.val.length = 32 * n ∧ r.2.val = 0 ∧ byteVal r.1 (32 * n) = packedVal orig n 256 ⦄ := by
   unfold ser.serialize_loop0
   have hlen256 : iter.slice.len.val = 256 := by
-    rw [hslice]; simp [Slice.len, Slice.length, horiglen]
+    rw [hslice]; simp [Slice.len, horiglen]
   by_cases hlt : iter.i < iter.slice.len
   · have hi_lt256 : iter.i < 256 := by have : iter.i < iter.slice.len.val := hlt; omega
     let* ⟨ o, iter1, ho, hslice1, hi1 ⟩ ← sliceIter_next_spec'
@@ -261,8 +261,8 @@ theorem ser_serialize_spec (data : Slice U16) (out_buf : Slice U8) (bits_per_ele
     ser.serialize data out_buf bits_per_elem
       ⦃ (r : Slice U8) => r.val.length = 32 * n ∧ byteVal r (32 * n) = packedVal data n 256 ⦄ := by
   unfold ser.serialize
-  have hdlen : (Slice.len data).val = 256 := by simp [Slice.len, Slice.length, hdata]
-  have holen : (Slice.len out_buf).val = 32 * n := by simp [Slice.len, Slice.length, hbuflen]
+  have hdlen : (Slice.len data).val = 256 := by simp [Slice.len, hdata]
+  have holen : (Slice.len out_buf).val = 32 * n := by simp [Slice.len, hbuflen]
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (show bits_per_elem.val * (Slice.len data).val ≤ Usize.max by
     rw [hn, hdlen]; have : (n * 256 : ℕ) ≤ 3328 := by omega
     have : (3328 : ℕ) ≤ Usize.max := by scalar_tac
@@ -279,7 +279,7 @@ theorem ser_serialize_spec (data : Slice U16) (out_buf : Slice U8) (bits_per_ele
     calc 2 ^ n ≤ 2 ^ 13 := Nat.pow_le_pow_right (by norm_num) (by omega)
       _ < U32.size := by simp [Std.U32.size, Std.U32.numBits]
   let* ⟨ bitmask, hbm ⟩ ← Std.U32.sub_spec (x := i2) (y := 1#u32) (by
-    rw [hi2v]; have : 1 ≤ 2 ^ n := Nat.one_le_two_pow; simpa using this)
+    rw [hi2v]; have : 1 ≤ 2 ^ n := Nat.one_le_two_pow; simp)
   have hbmv : bitmask.val = 2 ^ n - 1 := by rw [hbm, hi2v]
   let* ⟨ iter, hit_slice, hit_i ⟩ ← sliceIter_spec'
   let* ⟨ out_buf1, biw, hlen, hzero, hbv ⟩ ← serialize_loop0_spec iter out_buf bits_per_elem bitmask

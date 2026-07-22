@@ -76,9 +76,9 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     rw [xof1_post4, hrm0]
   -- offsets
   have hs2len : s2.length = 32 := by
-    rw [Slice.length, s2_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s2_post1]; simp
   have hs4len : s4.length = 32 := by
-    rw [Slice.length, s4_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s4_post1]; simp
   have hoff1 : readerOffset xof1 = 32 := by rw [xof1_post3, xof_post2, hs2len]
   -- the 64-byte FO squeeze
   set b := turboSHAKE256 (arrayToBytes randomness ‖ arrayToBytes kem_pk.hash_pke_pk)

@@ -34,7 +34,7 @@ theorem pke_serialize_spec {L : Usize} (self : pke.PkePublicKey L) (out_buf : Sl
   -- s = out_buf[0 .. L*320]
   have hbnd1 : ({ «end» := ii } : core.ops.range.RangeTo Usize).«end» ≤ out_buf.length := by
     show ii.val ≤ out_buf.length; rw [hoblen, hiiv]; omega
-  progress with core.slice.index.SliceIndexRangeToUsizeSlice.index_mut.step_spec as
+  step with core.slice.index.SliceIndexRangeToUsizeSlice.index_mut.step_spec as
     ⟨ s, index_mut_back, hs_val, hs_len, hs_back ⟩
   have hsvlen : s.val.length = L.val * (32 * 10) := by
     rw [← Slice.length, hs_len, hiiv]
@@ -45,7 +45,7 @@ theorem pke_serialize_spec {L : Usize} (self : pke.PkePublicKey L) (out_buf : Sl
     rw [Slice.length, hs_back s1, List.length_setSlice!, ← Slice.length, hoblen]
   have hbnd2 : ({ start := ii } : core.ops.range.RangeFrom Usize).start ≤ (index_mut_back s1).length := by
     show ii.val ≤ (index_mut_back s1).length; rw [hob1len, hiiv]; omega
-  progress with core.slice.index.SliceIndexRangeFromUsizeSlice.index_mut.step_spec as
+  step with core.slice.index.SliceIndexRangeFromUsizeSlice.index_mut.step_spec as
     ⟨ s2, index_mut_back1, hs2_val, hs2_len, hs2_back ⟩
   rw [show (lift self.matrix_seed.to_slice : Result (Slice U8))
       = ok (Array.to_slice self.matrix_seed) from rfl, bind_tc_ok]
@@ -55,7 +55,7 @@ theorem pke_serialize_spec {L : Usize} (self : pke.PkePublicKey L) (out_buf : Sl
     simp only [hs3def, Slice.length, Array.val_to_slice]; exact self.matrix_seed.property
   have hs2len32 : s2.length = 32 := by rw [hs2_len, hob1len, hiiv]; omega
   have hcpbnd : s2.length = s3.length := by rw [hs2len32, hs3len]
-  progress with core.slice.Slice.copy_from_slice.step_spec as ⟨ s4, hs4 ⟩
+  step with core.slice.Slice.copy_from_slice.step_spec as ⟨ s4, hs4 ⟩
   -- final reconstruction
   have hs1L : s1.length = L.val * 320 := by rw [hs1_len]
   have hreslen : (index_mut_back1 s4).length = L.val * (32 * 10) + 32 := by
@@ -79,7 +79,7 @@ theorem pke_serialize_spec {L : Usize} (self : pke.PkePublicKey L) (out_buf : Sl
           List.getElem!_setSlice!_middle _ _ _ _ ⟨Nat.zero_le _, by rw [hs1vlen]; omega,
             by rw [hoblen']; omega⟩, Nat.sub_zero,
           List.getElem!_append_left _ _ _ (by rw [hs1vlen]; exact hpc)]
-      · push_neg at hpc
+      · push Not at hpc
         rw [List.getElem!_setSlice!_middle _ _ _ _ ⟨hpc, by rw [hmslen]; omega,
             by rw [List.length_setSlice!, hoblen']; omega⟩,
           List.getElem!_append_right _ _ _ (by rw [hs1vlen]; exact hpc), hs1vlen]

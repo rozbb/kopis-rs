@@ -106,7 +106,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
-    (hL : L.val < 256) :
+    (_hL : L.val < 256) :
     pke.expand_decap_key L MU sk
       ⦃ (r : pke.PkeSecretKey L × Array U8 32#usize × pke.PkePublicKey L × Array U8 32#usize) =>
           toVector13 r.1 = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes sk)).1 ∧
@@ -129,11 +129,11 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   have hrm2 : readerModel xof2 = (1#u8, sk.val ++ [i]) := by rw [xof2_post4, hrm1]
   -- offsets
   have hs2len : s2.length = 32 := by
-    rw [Slice.length, s2_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s2_post1]; simp
   have hs4len : s4.length = 32 := by
-    rw [Slice.length, s4_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s4_post1]; simp
   have hs6len : s6.length = 32 := by
-    rw [Slice.length, s6_post1]; simpa using (Array.repeat 32#usize 0#u8).property
+    rw [Slice.length, s6_post1]; simp
   have hoff1 : readerOffset xof1 = 32 := by rw [xof1_post3, xof_post2, hs2len]
   have hoff2 : readerOffset xof2 = 64 := by rw [xof2_post3, hoff1, hs4len]
   -- the three seed windows equal the spec's slices of the length-96 squeeze
