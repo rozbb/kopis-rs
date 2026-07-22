@@ -41,6 +41,11 @@ const P: i32 = 50330113;
 const P_INV: u32 = 3575907841;
 /// round(2^48 / p), for Barrett reduction
 const BARRETT_M: i64 = 5592576;
+/// The rounding addend for Barrett reduction, 2^47. Spelled as a literal rather than `1 << 47`
+/// so that the extracted Lean contains no shift operation to discharge.
+const BARRETT_ROUND: i64 = 140737488355328;
+/// ⌊p/2⌋, the centering threshold. A literal for the same reason (no division to discharge).
+const P_HALF: i32 = 25165056;
 /// 256^-1 · 2^64 mod p: the inverse-NTT output scale. One Montgomery reduction by this value
 /// undoes both the 1/256 of the inverse transform and the 2^-32 introduced by the Montgomery
 /// reduction in the pointwise multiplication step.
@@ -85,24 +90,36 @@ const ZETAS: [i32; 256] = [
     38847587, 20584729, 27124165, 40492847, 7742348, 43534070, 7422899, 12232461,
 ];
 
+// Every arithmetic operation below is written with an explicit `wrapping_*` / `wrapping_shr`
+// even where the value bounds guarantee no overflow. This is deliberate: aeneas extracts
+// checked `+`/`-`/`*`/`>>` into the `Result` monad, so each one becomes a separate
+// panic-freedom obligation whose discharge needs the full magnitude analysis. The wrapping
+// forms extract as total functions, which keeps the generated Lean in plain (non-monadic)
+// arithmetic and leaves exactly one thing to prove: that the mathematical values are in range,
+// so the wrapping never actually wraps. That argument is made once, in the correctness proof,
+// instead of 36 times inline. Runtime behaviour is unchanged (the KATs pin it down).
+
 /// Signed Montgomery reduction: for |a| < 2^31 · p, returns t ≡ a · 2^-32 (mod p) with |t| < p
 #[inline(always)]
 fn mont_reduce(a: i64) -> i32 {
     let t = (a as u32).wrapping_mul(P_INV) as i32 as i64;
-    ((a - t * (P as i64)) >> 32) as i32
+    a.wrapping_sub(t.wrapping_mul(P as i64)).wrapping_shr(32) as i32
 }
 
 /// Centered Barrett reduction: for any i32 input, returns r ≡ x (mod p) with |r| ≤ p/2 + 1
 #[inline(always)]
 fn barrett_reduce(x: i32) -> i32 {
-    let q = (((x as i64) * BARRETT_M + (1 << 47)) >> 48) as i32;
+    let q = (x as i64)
+        .wrapping_mul(BARRETT_M)
+        .wrapping_add(BARRETT_ROUND)
+        .wrapping_shr(48) as i32;
     x.wrapping_sub(q.wrapping_mul(P))
 }
 
 /// Reduces a value in (-p, p) to the canonical range [0, p), branch-free
 #[inline(always)]
 fn to_canonical(x: i32) -> i32 {
-    x + ((x >> 31) & P)
+    x.wrapping_add(x.wrapping_shr(31) & P)
 }
 
 /// Lifts a value in (-p, p) to its centered representative in (-p/2, p/2] and reduces it
@@ -111,7 +128,7 @@ fn to_canonical(x: i32) -> i32 {
 #[inline(always)]
 fn to_wrapping_u16(x: i32) -> u16 {
     let x = to_canonical(x); // [0, p)
-    let x = x - (P & ((P / 2 - x) >> 31)); // (-p/2, p/2]
+    let x = x.wrapping_sub(P & P_HALF.wrapping_sub(x).wrapping_shr(31)); // (-p/2, p/2]
     x as u16
 }
 
@@ -129,9 +146,9 @@ fn ntt(a: &mut [i32; RING_DEG]) {
             k += 1;
             let zeta = ZETAS[k] as i64;
             for j in start..start + len {
-                let t = mont_reduce(zeta * (a[j + len] as i64));
-                a[j + len] = a[j] - t;
-                a[j] += t;
+                let t = mont_reduce(zeta.wrapping_mul(a[j + len] as i64));
+                a[j + len] = a[j].wrapping_sub(t);
+                a[j] = a[j].wrapping_add(t);
             }
             start += 2 * len;
         }
@@ -160,11 +177,11 @@ fn invntt(a: &mut [i32; RING_DEG]) {
         let mut start = 0;
         while start < RING_DEG {
             k -= 1;
-            let neg_zeta = -(ZETAS[k] as i64);
+            let neg_zeta = (ZETAS[k] as i64).wrapping_neg();
             for j in start..start + len {
                 let t = a[j];
-                a[j] = t + a[j + len];
-                a[j + len] = mont_reduce(neg_zeta * ((t - a[j + len]) as i64));
+                a[j] = t.wrapping_add(a[j + len]);
+                a[j + len] = mont_reduce(neg_zeta.wrapping_mul(t.wrapping_sub(a[j + len]) as i64));
             }
             start += 2 * len;
         }
@@ -179,7 +196,7 @@ fn invntt(a: &mut [i32; RING_DEG]) {
     }
 
     for coeff in a.iter_mut() {
-        *coeff = mont_reduce((*coeff as i64) * (INVNTT_SCALE as i64));
+        *coeff = mont_reduce((*coeff as i64).wrapping_mul(INVNTT_SCALE as i64));
     }
 }
 
@@ -238,7 +255,7 @@ impl<const X: usize, const Y: usize> Default for NttMatrix<X, Y> {
 /// valid input range.
 fn pointwise_mul_acc(acc: &mut [i64; RING_DEG], lhs: &NttElem, rhs: &NttElem) {
     for i in 0..RING_DEG {
-        acc[i] += lhs.0[i] as i64 * rhs.0[i] as i64;
+        acc[i] = acc[i].wrapping_add((lhs.0[i] as i64).wrapping_mul(rhs.0[i] as i64));
     }
 }
 
@@ -340,6 +357,17 @@ mod test {
             exp >>= 1;
         }
         acc
+    }
+
+    // The constants spelled as literals (to keep shifts and divisions out of the extracted
+    // Lean) must equal the expressions they stand for
+    #[test]
+    fn literal_constants_are_correct() {
+        assert_eq!(BARRETT_ROUND, 1i64 << 47);
+        assert_eq!(P_HALF, P / 2);
+        assert_eq!(BARRETT_M, ((1i64 << 48) + (P as i64) / 2) / (P as i64));
+        // P_INV is p^-1 mod 2^32, i.e. p · P_INV ≡ 1
+        assert_eq!((P as u32).wrapping_mul(P_INV), 1);
     }
 
     // Recompute the ZETAS table from ψ and check every entry, plus ψ's defining properties
