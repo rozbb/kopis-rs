@@ -23,10 +23,10 @@ let sk = Kopis512SecretKey::generate(&mut rng);
 let pk = sk.public_key();
 
 // Serialize the secret key, maybe to save on disk
-let sk_seed: [u8; 32] = sk.seed();
+let sk_seed: &[u8; 32] = sk.seed();
 
 // Deserialize the secret key
-let sk = Kopis512SecretKey::expand_from_seed(&sk_seed);
+let sk = Kopis512SecretKey::expand_from_seed(sk_seed);
 
 // Also serialize and deserialize the public key
 let mut pk_bytes = [0u8; Kopis512PublicKey::SERIALIZED_LEN];
