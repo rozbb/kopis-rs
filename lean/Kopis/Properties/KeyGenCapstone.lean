@@ -78,8 +78,8 @@ theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
       ⦃ (r : pke.PkePublicKey L) => r = self ⦄ := by
   unfold pke.PkePublicKey.Insts.CoreCloneClone.clone
   let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec core.clone.CloneU8 self.matrix_seed (by intro x _; rfl)
-  let* ⟨m, hm⟩ ← matrix_clone_spec self.vec
-  let* ⟨m1, hm1⟩ ← matrix_clone_spec self.mat_a
+  let* ⟨m, hm⟩ ← matrix_clone_spec self.mat_a
+  let* ⟨m1, hm1⟩ ← matrix_clone_spec self.vec
   subst ha hm hm1
   rfl
 

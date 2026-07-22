@@ -125,7 +125,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
   have hseeddrop : seed.val = bytes.val.drop (32 * 10 * L.val) := by
     rw [hseed_val, hiiv]; congr 1; ring
   -- the matrix seed is the [32·10·ℓ, +32) window of the input
-  have hseedbytes : matSeedBytes (L := L) ⟨matrix_seed, vec, mat_a⟩
+  have hseedbytes : matSeedBytes (L := L) ⟨matrix_seed, mat_a, vec⟩
       = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
           (32 * 10 * L.val) 32 (by omega) := by
     rw [matSeed_eq_sliceToBytes _ seed hseedlen (by show matrix_seed.val = _; exact hms_val)]

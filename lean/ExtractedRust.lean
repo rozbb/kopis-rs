@@ -273,6 +273,15 @@ def U8.Insts.ZeroizeDefaultIsZeroes : zeroize.DefaultIsZeroes Std.U8 := {
   coredefaultDefaultInst := core.default.DefaultU8
 }
 
+/-- Trait implementation: [zeroize::{impl zeroize::DefaultIsZeroes for u16}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 282:10-282:40
+    Name pattern: [zeroize::DefaultIsZeroes<u16>] -/
+@[reducible, rust_trait_impl "zeroize::DefaultIsZeroes<u16>"]
+def U16.Insts.ZeroizeDefaultIsZeroes : zeroize.DefaultIsZeroes Std.U16 := {
+  coremarkerCopyInst := core.marker.CopyU16
+  coredefaultDefaultInst := core.default.DefaultU16
+}
+
 /-- [zeroize::{impl zeroize::Zeroize for [Z; N]}::zeroize]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 346:4-346:25
     Name pattern: [zeroize::{zeroize::Zeroize<[@Z; @N]>}::zeroize]
@@ -291,6 +300,16 @@ def Array.Insts.ZeroizeZeroize {Z : Type} (N : Std.Usize) (ZeroizeInst :
   zeroize := Array.Insts.ZeroizeZeroize.zeroize ZeroizeInst
 }
 
+/-- [zeroize::__internal::{impl zeroize::__internal::AssertZeroizeOnDrop for &'_0 &'_1 mut T}::zeroize_or_on_drop]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 837:8-837:35
+    Name pattern: [zeroize::__internal::{zeroize::__internal::AssertZeroizeOnDrop<&'0 &'1 mut @T>}::zeroize_or_on_drop]
+    Visibility: public -/
+@[rust_fun
+  "zeroize::__internal::{zeroize::__internal::AssertZeroizeOnDrop<&'0 &'1 mut @T>}::zeroize_or_on_drop"]
+axiom
+  Shared0Mut1T.Insts.Zeroize__internalAssertZeroizeOnDrop.zeroize_or_on_drop
+  {T : Type} (ZeroizeOnDropInst : zeroize.ZeroizeOnDrop T) : T → Result Unit
+
 /-- [zeroize::__internal::{impl zeroize::__internal::AssertZeroize for T}::zeroize_or_on_drop]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 846:8-846:40
     Name pattern: [zeroize::__internal::{zeroize::__internal::AssertZeroize<@T>}::zeroize_or_on_drop]
@@ -301,19 +320,19 @@ axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
 
 /-- [kopis::arithmetic::ring_arith::RingElem]
-    Source: 'src/arithmetic/ring_arith.rs', lines 14:0-14:48
+    Source: 'src/arithmetic/ring_arith.rs', lines 16:0-16:48
     Visibility: public -/
 @[reducible]
 def arithmetic.ring_arith.RingElem := Array Std.U16 256#usize
 
 /-- [kopis::arithmetic::matrix_arith::Matrix]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 12:0-12:88 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 14:0-14:88 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.ring_arith.RingElem Y) X
 
 /-- [kopis::arithmetic::ring_arith::{impl core::cmp::PartialEq<kopis::arithmetic::ring_arith::RingElem> for kopis::arithmetic::ring_arith::RingElem}::eq]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:13-13:22
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:13-15:22
     Visibility: public -/
 def arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
   (self : arithmetic.ring_arith.RingElem)
@@ -323,7 +342,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
   core.array.equality.PartialEqArray.eq core.cmp.PartialEqU16 self other
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::cmp::PartialEq<kopis::arithmetic::ring_arith::RingElem> for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:13-13:22 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:13-15:22 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem :
   core.cmp.PartialEq arithmetic.ring_arith.RingElem
@@ -332,7 +351,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem :
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::cmp::PartialEq<kopis::arithmetic::matrix_arith::Matrix<X, Y>> for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::eq]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:13-11:22
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:13-13:22
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
@@ -343,7 +362,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
     arithmetic.ring_arith.RingElem.Insts.CoreCmpPartialEqRingElem) self other
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::cmp::PartialEq<kopis::arithmetic::matrix_arith::Matrix<X, Y>> for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:13-11:22 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:13-13:22 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
   (Y : Std.Usize) : core.cmp.PartialEq (arithmetic.matrix_arith.Matrix X Y)
@@ -352,7 +371,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::cmp::Eq for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:9-11:11
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:9-13:11
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
@@ -361,7 +380,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
   ok ()
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::cmp::Eq for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:9-11:11 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:9-13:11 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
   Std.Usize) : core.cmp.Eq (arithmetic.matrix_arith.Matrix X Y) := {
@@ -372,7 +391,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
 }
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:13-11:22 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:13-13:22 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreMarkerStructuralPartialEq (X :
   Std.Usize) (Y : Std.Usize) : core.marker.StructuralPartialEq
@@ -380,7 +399,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreMarkerStructuralPartialEq (X :
 }
 
 /-- [kopis::arithmetic::ring_arith::{impl core::fmt::Debug for kopis::arithmetic::ring_arith::RingElem}::fmt]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:24-13:29
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:24-15:29
     Visibility: public -/
 def arithmetic.ring_arith.RingElem.Insts.CoreFmtDebug.fmt
   (self : arithmetic.ring_arith.RingElem) (f : core.fmt.Formatter) :
@@ -392,7 +411,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "RingElem") dyn
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::fmt::Debug for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:24-13:29 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:24-15:29 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreFmtDebug : core.fmt.Debug
   arithmetic.ring_arith.RingElem := {
@@ -400,7 +419,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::fmt::Debug for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::fmt]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:24-11:29
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:24-13:29
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug.fmt
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
@@ -414,7 +433,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Matrix") dyn
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::fmt::Debug for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:24-11:29 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:24-13:29 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug (X : Std.Usize) (Y :
   Std.Usize) : core.fmt.Debug (arithmetic.matrix_arith.Matrix X Y) := {
@@ -422,7 +441,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreFmtDebug (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ring_arith::{impl core::clone::Clone for kopis::arithmetic::ring_arith::RingElem}::clone]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:31-13:36
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:31-15:36
     Visibility: public -/
 def arithmetic.ring_arith.RingElem.Insts.CoreCloneClone.clone
   (self : arithmetic.ring_arith.RingElem) :
@@ -431,7 +450,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCloneClone.clone
   ok self
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::clone::Clone for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:31-13:36 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:31-15:36 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreCloneClone : core.clone.Clone
   arithmetic.ring_arith.RingElem := {
@@ -439,7 +458,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::clone::Clone for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:31-11:36
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:31-13:36
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
@@ -451,15 +470,55 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::clone::Clone for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 11:31-11:36 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:31-13:36 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
   Std.Usize) : core.clone.Clone (arithmetic.matrix_arith.Matrix X Y) := {
   clone := arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone
 }
 
+/-- [kopis::arithmetic::ring_arith::{impl zeroize::Zeroize for kopis::arithmetic::ring_arith::RingElem}::zeroize]:
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:44-15:51
+    Visibility: public -/
+def arithmetic.ring_arith.RingElem.Insts.ZeroizeZeroize.zeroize
+  (self : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let __zeroize_field_0 ←
+    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
+      U16.Insts.ZeroizeDefaultIsZeroes) self
+  ok __zeroize_field_0
+
+/-- Trait implementation: [kopis::arithmetic::ring_arith::{impl zeroize::Zeroize for kopis::arithmetic::ring_arith::RingElem}]
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:44-15:51 -/
+@[reducible]
+def arithmetic.ring_arith.RingElem.Insts.ZeroizeZeroize : zeroize.Zeroize
+  arithmetic.ring_arith.RingElem := {
+  zeroize := arithmetic.ring_arith.RingElem.Insts.ZeroizeZeroize.zeroize
+}
+
+/-- [kopis::arithmetic::matrix_arith::{impl zeroize::Zeroize for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::zeroize]:
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:38-13:45
+    Visibility: public -/
+def arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize.zeroize
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
+  Result (arithmetic.matrix_arith.Matrix X Y)
+  := do
+  let __zeroize_field_0 ←
+    Array.Insts.ZeroizeZeroize.zeroize (Array.Insts.ZeroizeZeroize Y
+      arithmetic.ring_arith.RingElem.Insts.ZeroizeZeroize) self
+  ok __zeroize_field_0
+
+/-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl zeroize::Zeroize for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/matrix_arith.rs', lines 13:38-13:45 -/
+@[reducible]
+def arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
+  Std.Usize) : zeroize.Zeroize (arithmetic.matrix_arith.Matrix X Y) := {
+  zeroize := arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize.zeroize
+}
+
 /-- [kopis::arithmetic::ring_arith::{impl core::default::Default for kopis::arithmetic::ring_arith::RingElem}::default]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 17:4-19:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 19:4-21:5
     Visibility: public -/
 def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default
   : Result arithmetic.ring_arith.RingElem := do
@@ -467,7 +526,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default
   ok a
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::default::Default for kopis::arithmetic::matrix_arith::Matrix<X, Y>}::default]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 15:4-17:5
+    Source: 'src/arithmetic/matrix_arith.rs', lines 17:4-19:5
     Visibility: public -/
 def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default
   (X : Std.Usize) (Y : Std.Usize) :
@@ -479,7 +538,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default
   ok a1
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::default::Default for kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 14:0-18:1 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 16:0-20:1 -/
 @[reducible]
 def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
   : Std.Usize) : core.default.Default (arithmetic.matrix_arith.Matrix X Y) := {
@@ -488,7 +547,7 @@ def arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
 }
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_right]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 73:8-75:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 75:8-77:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.shift_right_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -508,7 +567,7 @@ def arithmetic.ring_arith.RingElem.shift_right_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_right]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 72:4-76:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 74:4-78:5 -/
 def arithmetic.ring_arith.RingElem.shift_right
   (self : arithmetic.ring_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -522,7 +581,7 @@ def arithmetic.ring_arith.RingElem.shift_right
   ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::shift_right]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 35:12-37:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 26:12-28:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.shift_right_loop0_loop0
   (iter : core.slice.iter.IterMut arithmetic.ring_arith.RingElem)
@@ -544,7 +603,7 @@ def arithmetic.matrix_arith.Matrix.shift_right_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::shift_right]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 34:8-38:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 25:8-29:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.shift_right_loop0
   {Y : Std.Usize}
@@ -574,7 +633,7 @@ def arithmetic.matrix_arith.Matrix.shift_right_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::shift_right]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 33:4-39:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 24:4-30:5 -/
 def arithmetic.matrix_arith.Matrix.shift_right
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
   (shift : Std.Usize) :
@@ -593,12 +652,12 @@ def arithmetic.matrix_arith.Matrix.shift_right
 @[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
 
 /-- [kopis::arithmetic::ring_arith::HALF]
-    Source: 'src/arithmetic/ring_arith.rs', lines 108:0-108:33 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 110:0-110:33 -/
 @[global_simps, irreducible]
 def arithmetic.ring_arith.HALF : Result Std.Usize := consts.RING_DEG / 2#usize
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 122:8-124:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 124:8-126:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.schoolbook_128_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.U16 256#usize)
@@ -620,7 +679,7 @@ def arithmetic.ring_arith.schoolbook_128_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 120:4-125:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 122:4-127:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.schoolbook_128_loop0
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -641,7 +700,7 @@ def arithmetic.ring_arith.schoolbook_128_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::schoolbook_128]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 117:0-126:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 119:0-128:1 -/
 def arithmetic.ring_arith.schoolbook_128
   (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
   (b : Array Std.U16 128#usize) :
@@ -652,7 +711,7 @@ def arithmetic.ring_arith.schoolbook_128
     { start := 0#usize, «end» := i } out a b
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 162:4-165:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 164:4-167:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.ring_mul_acc_loop0
   (iter : core.ops.range.Range Std.Usize) (a_lo : Array Std.U16 128#usize)
@@ -678,7 +737,7 @@ def arithmetic.ring_arith.ring_mul_acc_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]: loop 1:
-    Source: 'src/arithmetic/ring_arith.rs', lines 171:4-191:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 173:4-193:5 -/
 @[rust_loop]
 def arithmetic.ring_arith.ring_mul_acc_loop1
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -724,7 +783,7 @@ def arithmetic.ring_arith.ring_mul_acc_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::ring_mul_acc]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 133:0-192:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 135:0-194:1 -/
 def arithmetic.ring_arith.ring_mul_acc
   (acc : arithmetic.ring_arith.RingElem) (a : arithmetic.ring_arith.RingElem)
   (b : arithmetic.ring_arith.RingElem) :
@@ -770,7 +829,7 @@ def arithmetic.ring_arith.ring_mul_acc
     acc z01 z21 z31
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]: loop 2:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 59:16-61:17 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 38:16-40:17 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -802,7 +861,7 @@ def arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 58:12-62:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 37:12-41:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.mul_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -826,7 +885,7 @@ def arithmetic.matrix_arith.Matrix.mul_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 57:8-63:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 36:8-42:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.mul_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -848,7 +907,7 @@ def arithmetic.matrix_arith.Matrix.mul_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 55:4-66:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 34:4-45:5 -/
 def arithmetic.matrix_arith.Matrix.mul
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.matrix_arith.Matrix X Y)
@@ -861,7 +920,7 @@ def arithmetic.matrix_arith.Matrix.mul
     self other result
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]: loop 2:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 74:16-76:17 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 53:16-55:17 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -893,7 +952,7 @@ def arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 73:12-77:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 52:12-56:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -918,7 +977,7 @@ def arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 72:8-78:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 51:8-57:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.mul_transpose_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -941,7 +1000,7 @@ def arithmetic.matrix_arith.Matrix.mul_transpose_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::mul_transpose]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 70:4-81:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 49:4-60:5 -/
 def arithmetic.matrix_arith.Matrix.mul_transpose
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.matrix_arith.Matrix X Y)
@@ -954,7 +1013,7 @@ def arithmetic.matrix_arith.Matrix.mul_transpose
     { start := 0#usize, «end» := X } self other result
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 89:8-91:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 91:8-93:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -974,7 +1033,7 @@ def arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 88:4-92:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 90:4-94:5 -/
 def arithmetic.ring_arith.RingElem.wrapping_add_to_all
   (self : arithmetic.ring_arith.RingElem) (val : Std.U16) :
   Result arithmetic.ring_arith.RingElem
@@ -989,7 +1048,7 @@ def arithmetic.ring_arith.RingElem.wrapping_add_to_all
   ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 86:12-88:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 65:12-67:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0_loop0
   (iter : core.slice.iter.IterMut arithmetic.ring_arith.RingElem)
@@ -1011,7 +1070,7 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 85:8-89:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 64:8-68:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0
   {Y : Std.Usize}
@@ -1041,7 +1100,7 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 84:4-90:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 63:4-69:5 -/
 def arithmetic.matrix_arith.Matrix.wrapping_add_to_all
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
   (val : Std.U16) :
@@ -1057,7 +1116,7 @@ def arithmetic.matrix_arith.Matrix.wrapping_add_to_all
   ok a
 
 /-- [kopis::ser::serialize]: loop 1:
-    Source: 'src/ser.rs', lines 116:8-121:9 -/
+    Source: 'src/ser.rs', lines 117:8-122:9 -/
 @[rust_loop]
 def ser.serialize_loop0_loop0
   (out_buf : Slice Std.U8) (window : Std.U32) (bits_in_window : Std.Usize)
@@ -1076,7 +1135,7 @@ def ser.serialize_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::ser::serialize]: loop 0:
-    Source: 'src/ser.rs', lines 110:4-122:5 -/
+    Source: 'src/ser.rs', lines 111:4-123:5 -/
 @[rust_loop]
 def ser.serialize_loop0
   (iter : core.slice.iter.Iter Std.U16) (out_buf : Slice Std.U8)
@@ -1100,7 +1159,7 @@ def ser.serialize_loop0
 partial_fixpoint
 
 /-- [kopis::ser::serialize]:
-    Source: 'src/ser.rs', lines 99:0-126:1 -/
+    Source: 'src/ser.rs', lines 100:0-127:1 -/
 def ser.serialize
   (data : Slice Std.U16) (out_buf : Slice Std.U8) (bits_per_elem : Std.Usize) :
   Result (Slice Std.U8)
@@ -1120,11 +1179,11 @@ def ser.serialize
   ok out_buf1
 
 /-- [kopis::ser::serialize_10::closure]
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 def ser.serialize_10.closure := Array Std.U16 256#usize × Std.Usize
 
 /-- [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call]:
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
   (c : ser.serialize_10.closure) (tupled_args : Std.Usize) :
   Result Std.U16
@@ -1135,7 +1194,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
   ok (i2 &&& 1023#u16)
 
 /-- [kopis::ser::serialize_10]: loop 0:
-    Source: 'src/ser.rs', lines 82:4-93:5 -/
+    Source: 'src/ser.rs', lines 83:4-94:5 -/
 @[rust_loop]
 def ser.serialize_10_loop
   (iter : core.ops.range.Range Std.Usize) (data : Array Std.U16 256#usize)
@@ -1189,7 +1248,7 @@ def ser.serialize_10_loop
 partial_fixpoint
 
 /-- [kopis::ser::serialize_10]:
-    Source: 'src/ser.rs', lines 80:0-94:1 -/
+    Source: 'src/ser.rs', lines 81:0-95:1 -/
 @[reducible]
 def ser.serialize_10
   (data : Array Std.U16 256#usize) (out_buf : Array Std.U8 320#usize) :
@@ -1202,7 +1261,7 @@ def ser.serialize_10
 @[global_simps, irreducible] def consts.MODULUS_P_BITS : Std.Usize := 10#usize
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::serialize]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 57:4-67:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 59:4-69:5 -/
 def arithmetic.ring_arith.RingElem.serialize
   (self : arithmetic.ring_arith.RingElem) (out_buf : Slice Std.U8)
   (bits_per_elem : Std.Usize) :
@@ -1226,7 +1285,7 @@ def arithmetic.ring_arith.RingElem.serialize
     ser.serialize s out_buf bits_per_elem
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 110:12-114:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 89:12-93:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.serialize_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1258,7 +1317,7 @@ def arithmetic.matrix_arith.Matrix.serialize_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 109:8-115:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 88:8-94:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.serialize_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1280,7 +1339,7 @@ def arithmetic.matrix_arith.Matrix.serialize_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::serialize]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 95:4-116:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 74:4-95:5 -/
 def arithmetic.matrix_arith.Matrix.serialize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
   (out_buf : Slice Std.U8) (bits_per_elem : Std.Usize) :
@@ -1298,7 +1357,7 @@ def arithmetic.matrix_arith.Matrix.serialize
     { start := 0#usize, «end» := X } self out_buf bits_per_elem chunk_len
 
 /-- [kopis::ser::deserialize_generic]: loop 1:
-    Source: 'src/ser.rs', lines 62:8-66:9 -/
+    Source: 'src/ser.rs', lines 63:8-67:9 -/
 @[rust_loop]
 def ser.deserialize_generic_loop0_loop0
   (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) (window : Std.U32)
@@ -1319,7 +1378,7 @@ def ser.deserialize_generic_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::ser::deserialize_generic]: loop 0:
-    Source: 'src/ser.rs', lines 60:4-72:5 -/
+    Source: 'src/ser.rs', lines 61:4-73:5 -/
 @[rust_loop]
 def ser.deserialize_generic_loop0
   {N : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1346,7 +1405,7 @@ def ser.deserialize_generic_loop0
 partial_fixpoint
 
 /-- [kopis::ser::deserialize_generic]:
-    Source: 'src/ser.rs', lines 46:0-75:1 -/
+    Source: 'src/ser.rs', lines 47:0-76:1 -/
 def ser.deserialize_generic
   (N : Std.Usize) (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) :
   Result (Array Std.U16 N)
@@ -1584,7 +1643,7 @@ def ser.deserialize_13
 @[global_simps, irreducible] def consts.MODULUS_Q_BITS : Std.Usize := 13#usize
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::deserialize]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 39:4-52:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 41:4-54:5 -/
 def arithmetic.ring_arith.RingElem.deserialize
   (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -1610,7 +1669,7 @@ def arithmetic.ring_arith.RingElem.deserialize
          ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 137:12-141:13 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 116:12-120:13 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1640,7 +1699,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 136:8-142:9 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 115:8-121:9 -/
 @[rust_loop]
 def arithmetic.matrix_arith.Matrix.deserialize_10_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1661,7 +1720,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 119:4-145:5 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 98:4-124:5 -/
 def arithmetic.matrix_arith.Matrix.deserialize_10
   (X : Std.Usize) (Y : Std.Usize) (bytes : Slice Std.U8) :
   Result (arithmetic.matrix_arith.Matrix X Y)
@@ -1683,7 +1742,7 @@ def arithmetic.matrix_arith.Matrix.deserialize_10
     { start := 0#usize, «end» := X } bytes result chunk_len
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::add]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 199:8-201:9
+    Source: 'src/arithmetic/ring_arith.rs', lines 201:8-203:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
@@ -1707,7 +1766,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::add]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 197:4-203:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 199:4-205:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
   (self : arithmetic.ring_arith.RingElem)
@@ -1719,7 +1778,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}::add]: loop 1:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 154:12-156:13
+    Source: 'src/arithmetic/matrix_arith.rs', lines 133:12-135:13
     Visibility: public -/
 @[rust_loop]
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
@@ -1750,7 +1809,7 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}::add]: loop 0:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 153:8-157:9
+    Source: 'src/arithmetic/matrix_arith.rs', lines 132:8-136:9
     Visibility: public -/
 @[rust_loop]
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0
@@ -1773,7 +1832,7 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}::add]:
-    Source: 'src/arithmetic/matrix_arith.rs', lines 151:4-160:5
+    Source: 'src/arithmetic/matrix_arith.rs', lines 130:4-139:5
     Visibility: public -/
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.matrix_arith.Matrix X Y)
@@ -1786,7 +1845,7 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add
     { start := 0#usize, «end» := X } self other result
 
 /-- Trait implementation: [kopis::arithmetic::matrix_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::matrix_arith::Matrix<X, Y>, kopis::arithmetic::matrix_arith::Matrix<X, Y>> for &'a kopis::arithmetic::matrix_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/matrix_arith.rs', lines 148:0-161:1 -/
+    Source: 'src/arithmetic/matrix_arith.rs', lines 127:0-140:1 -/
 @[reducible]
 def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix (X : Std.Usize) (Y :
   Std.Usize) : core.ops.arith.Add (arithmetic.matrix_arith.Matrix X Y)
@@ -1796,14 +1855,14 @@ def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ring_arith::{impl core::cmp::Eq for kopis::arithmetic::ring_arith::RingElem}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:9-13:11
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:9-15:11
     Visibility: public -/
 def arithmetic.ring_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
   (self : arithmetic.ring_arith.RingElem) : Result Unit := do
   ok ()
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::cmp::Eq for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:9-13:11 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:9-15:11 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreCmpEq : core.cmp.Eq
   arithmetic.ring_arith.RingElem := {
@@ -1814,14 +1873,14 @@ def arithmetic.ring_arith.RingElem.Insts.CoreCmpEq : core.cmp.Eq
 }
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:13-13:22 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:13-15:22 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreMarkerStructuralPartialEq :
   core.marker.StructuralPartialEq arithmetic.ring_arith.RingElem := {
 }
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::marker::Copy for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 13:38-13:42 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 15:38-15:42 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreMarkerCopy : core.marker.Copy
   arithmetic.ring_arith.RingElem := {
@@ -1829,7 +1888,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::default::Default for kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 16:0-20:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 18:0-22:1 -/
 @[reducible]
 def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault :
   core.default.Default arithmetic.ring_arith.RingElem := {
@@ -1837,7 +1896,7 @@ def arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault :
 }
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_left]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 82:8-84:9 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 84:8-86:9 -/
 @[rust_loop]
 def arithmetic.ring_arith.RingElem.shift_left_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -1857,7 +1916,7 @@ def arithmetic.ring_arith.RingElem.shift_left_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::shift_left]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 81:4-85:5 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 83:4-87:5 -/
 def arithmetic.ring_arith.RingElem.shift_left
   (self : arithmetic.ring_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.ring_arith.RingElem
@@ -1871,7 +1930,7 @@ def arithmetic.ring_arith.RingElem.shift_left
   ok a
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::mul]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 98:4-102:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 100:4-104:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
   (self : arithmetic.ring_arith.RingElem)
@@ -1882,7 +1941,7 @@ def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
   arithmetic.ring_arith.ring_mul_acc ret self other
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 95:0-103:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 97:0-105:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
   core.ops.arith.Mul arithmetic.ring_arith.RingElem
@@ -1891,7 +1950,7 @@ def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
 }
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 194:0-204:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 196:0-206:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
   core.ops.arith.Add arithmetic.ring_arith.RingElem
@@ -1900,7 +1959,7 @@ def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
 }
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::sub]: loop 0:
-    Source: 'src/arithmetic/ring_arith.rs', lines 211:8-213:9
+    Source: 'src/arithmetic/ring_arith.rs', lines 213:8-215:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
@@ -1924,7 +1983,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}::sub]:
-    Source: 'src/arithmetic/ring_arith.rs', lines 209:4-215:5
+    Source: 'src/arithmetic/ring_arith.rs', lines 211:4-217:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   (self : arithmetic.ring_arith.RingElem)
@@ -1936,7 +1995,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- Trait implementation: [kopis::arithmetic::ring_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::ring_arith::RingElem, kopis::arithmetic::ring_arith::RingElem> for &'a kopis::arithmetic::ring_arith::RingElem}]
-    Source: 'src/arithmetic/ring_arith.rs', lines 206:0-216:1 -/
+    Source: 'src/arithmetic/ring_arith.rs', lines 208:0-218:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   core.ops.arith.Sub arithmetic.ring_arith.RingElem
@@ -2431,21 +2490,21 @@ def impls.SharedSecret.as_bytes
   ok self
 
 /-- [kopis::pke::PkePublicKey]
-    Source: 'src/pke.rs', lines 23:0-32:1
+    Source: 'src/pke.rs', lines 27:0-34:1
     Visibility: public -/
 structure pke.PkePublicKey (L : Std.Usize) where
   matrix_seed : Array Std.U8 32#usize
-  vec : arithmetic.matrix_arith.Matrix L 1#usize
   mat_a : arithmetic.matrix_arith.Matrix L L
+  vec : arithmetic.matrix_arith.Matrix L 1#usize
 
 /-- [kopis::pke::PkeSecretKey]
-    Source: 'src/pke.rs', lines 19:0-19:61 -/
+    Source: 'src/pke.rs', lines 23:0-23:61 -/
 @[reducible]
 def pke.PkeSecretKey (L : Std.Usize) :=
   arithmetic.matrix_arith.Matrix L 1#usize
 
 /-- [kopis::kem::KemSecretKey]
-    Source: 'src/kem.rs', lines 49:0-60:1
+    Source: 'src/kem.rs', lines 55:0-68:1
     Visibility: public -/
 structure kem.KemSecretKey (L : Std.Usize) where
   seed : Array Std.U8 32#usize
@@ -2455,50 +2514,135 @@ structure kem.KemSecretKey (L : Std.Usize) where
   hash_pke_pk : Array Std.U8 32#usize
 
 /-- [kopis::impls::kopis512::Kopis512SecretKey]
-    Source: 'src/impls.rs', lines 43:12-43:65
+    Source: 'src/impls.rs', lines 44:12-44:65
     Visibility: public -/
 @[reducible]
 def impls.kopis512.Kopis512SecretKey := kem.KemSecretKey 2#usize
 
+/-- Trait implementation: [kopis::kem::{impl zeroize::ZeroizeOnDrop for kopis::kem::KemSecretKey<L>}]
+    Source: 'src/kem.rs', lines 54:9-54:22 -/
+@[reducible]
+def kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
+  zeroize.ZeroizeOnDrop (kem.KemSecretKey L) := {
+}
+
+/-- [kopis::impls::kopis512::{impl core::ops::drop::Drop for kopis::impls::kopis512::Kopis512SecretKey}::drop]:
+    Source: 'src/impls.rs', lines 43:21-43:34
+    Visibility: public -/
+def impls.kopis512.Kopis512SecretKey.Insts.CoreOpsDropDrop.drop
+  (self : impls.kopis512.Kopis512SecretKey) :
+  Result impls.kopis512.Kopis512SecretKey
+  := do
+  Shared0Mut1T.Insts.Zeroize__internalAssertZeroizeOnDrop.zeroize_or_on_drop
+    (kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop 2#usize) self
+  ok self
+
+/-- Trait implementation: [kopis::impls::kopis512::{impl core::ops::drop::Drop for kopis::impls::kopis512::Kopis512SecretKey}]
+    Source: 'src/impls.rs', lines 43:21-43:34 -/
+@[reducible]
+def impls.kopis512.Kopis512SecretKey.Insts.CoreOpsDropDrop : core.ops.drop.Drop
+  impls.kopis512.Kopis512SecretKey := {
+  drop := impls.kopis512.Kopis512SecretKey.Insts.CoreOpsDropDrop.drop
+}
+
+/-- Trait implementation: [kopis::impls::kopis512::{impl zeroize::ZeroizeOnDrop for kopis::impls::kopis512::Kopis512SecretKey}]
+    Source: 'src/impls.rs', lines 43:21-43:34 -/
+@[reducible]
+def impls.kopis512.Kopis512SecretKey.Insts.ZeroizeZeroizeOnDrop :
+  zeroize.ZeroizeOnDrop impls.kopis512.Kopis512SecretKey := {
+}
+
 /-- [kopis::impls::kopis768::Kopis768SecretKey]
-    Source: 'src/impls.rs', lines 43:12-43:65
+    Source: 'src/impls.rs', lines 44:12-44:65
     Visibility: public -/
 @[reducible]
 def impls.kopis768.Kopis768SecretKey := kem.KemSecretKey 3#usize
 
+/-- [kopis::impls::kopis768::{impl core::ops::drop::Drop for kopis::impls::kopis768::Kopis768SecretKey}::drop]:
+    Source: 'src/impls.rs', lines 43:21-43:34
+    Visibility: public -/
+def impls.kopis768.Kopis768SecretKey.Insts.CoreOpsDropDrop.drop
+  (self : impls.kopis768.Kopis768SecretKey) :
+  Result impls.kopis768.Kopis768SecretKey
+  := do
+  Shared0Mut1T.Insts.Zeroize__internalAssertZeroizeOnDrop.zeroize_or_on_drop
+    (kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop 3#usize) self
+  ok self
+
+/-- Trait implementation: [kopis::impls::kopis768::{impl core::ops::drop::Drop for kopis::impls::kopis768::Kopis768SecretKey}]
+    Source: 'src/impls.rs', lines 43:21-43:34 -/
+@[reducible]
+def impls.kopis768.Kopis768SecretKey.Insts.CoreOpsDropDrop : core.ops.drop.Drop
+  impls.kopis768.Kopis768SecretKey := {
+  drop := impls.kopis768.Kopis768SecretKey.Insts.CoreOpsDropDrop.drop
+}
+
+/-- Trait implementation: [kopis::impls::kopis768::{impl zeroize::ZeroizeOnDrop for kopis::impls::kopis768::Kopis768SecretKey}]
+    Source: 'src/impls.rs', lines 43:21-43:34 -/
+@[reducible]
+def impls.kopis768.Kopis768SecretKey.Insts.ZeroizeZeroizeOnDrop :
+  zeroize.ZeroizeOnDrop impls.kopis768.Kopis768SecretKey := {
+}
+
 /-- [kopis::impls::kopis1024::Kopis1024SecretKey]
-    Source: 'src/impls.rs', lines 43:12-43:65
+    Source: 'src/impls.rs', lines 44:12-44:65
     Visibility: public -/
 @[reducible]
 def impls.kopis1024.Kopis1024SecretKey := kem.KemSecretKey 4#usize
 
+/-- [kopis::impls::kopis1024::{impl core::ops::drop::Drop for kopis::impls::kopis1024::Kopis1024SecretKey}::drop]:
+    Source: 'src/impls.rs', lines 43:21-43:34
+    Visibility: public -/
+def impls.kopis1024.Kopis1024SecretKey.Insts.CoreOpsDropDrop.drop
+  (self : impls.kopis1024.Kopis1024SecretKey) :
+  Result impls.kopis1024.Kopis1024SecretKey
+  := do
+  Shared0Mut1T.Insts.Zeroize__internalAssertZeroizeOnDrop.zeroize_or_on_drop
+    (kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop 4#usize) self
+  ok self
+
+/-- Trait implementation: [kopis::impls::kopis1024::{impl core::ops::drop::Drop for kopis::impls::kopis1024::Kopis1024SecretKey}]
+    Source: 'src/impls.rs', lines 43:21-43:34 -/
+@[reducible]
+def impls.kopis1024.Kopis1024SecretKey.Insts.CoreOpsDropDrop :
+  core.ops.drop.Drop impls.kopis1024.Kopis1024SecretKey := {
+  drop := impls.kopis1024.Kopis1024SecretKey.Insts.CoreOpsDropDrop.drop
+}
+
+/-- Trait implementation: [kopis::impls::kopis1024::{impl zeroize::ZeroizeOnDrop for kopis::impls::kopis1024::Kopis1024SecretKey}]
+    Source: 'src/impls.rs', lines 43:21-43:34 -/
+@[reducible]
+def impls.kopis1024.Kopis1024SecretKey.Insts.ZeroizeZeroizeOnDrop :
+  zeroize.ZeroizeOnDrop impls.kopis1024.Kopis1024SecretKey := {
+}
+
 /-- [kopis::kem::KemPublicKey]
-    Source: 'src/kem.rs', lines 15:0-20:1
+    Source: 'src/kem.rs', lines 16:0-21:1
     Visibility: public -/
 structure kem.KemPublicKey (L : Std.Usize) where
   pke_pk : pke.PkePublicKey L
   hash_pke_pk : Array Std.U8 32#usize
 
 /-- [kopis::impls::kopis512::Kopis512PublicKey]
-    Source: 'src/impls.rs', lines 46:12-46:64
+    Source: 'src/impls.rs', lines 47:12-47:64
     Visibility: public -/
 @[reducible]
 def impls.kopis512.Kopis512PublicKey := kem.KemPublicKey 2#usize
 
 /-- [kopis::impls::kopis768::Kopis768PublicKey]
-    Source: 'src/impls.rs', lines 46:12-46:64
+    Source: 'src/impls.rs', lines 47:12-47:64
     Visibility: public -/
 @[reducible]
 def impls.kopis768.Kopis768PublicKey := kem.KemPublicKey 3#usize
 
 /-- [kopis::impls::kopis1024::Kopis1024PublicKey]
-    Source: 'src/impls.rs', lines 46:12-46:64
+    Source: 'src/impls.rs', lines 47:12-47:64
     Visibility: public -/
 @[reducible]
 def impls.kopis1024.Kopis1024PublicKey := kem.KemPublicKey 4#usize
 
 /-- [kopis::pke::ciphertext_len]:
-    Source: 'src/pke.rs', lines 88:0-91:1
+    Source: 'src/pke.rs', lines 90:0-93:1
     Visibility: public -/
 def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   let i ← L * consts.MODULUS_P_BITS
@@ -2509,28 +2653,28 @@ def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   i2 + i4
 
 /-- [kopis::impls::kopis512::KOPIS512_CIPHERTEXT_LEN]
-    Source: 'src/impls.rs', lines 49:12-50:69
+    Source: 'src/impls.rs', lines 50:12-51:69
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis512.KOPIS512_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 2#usize 3#usize
 
 /-- [kopis::impls::kopis768::KOPIS768_CIPHERTEXT_LEN]
-    Source: 'src/impls.rs', lines 49:12-50:69
+    Source: 'src/impls.rs', lines 50:12-51:69
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis768.KOPIS768_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 3#usize 4#usize
 
 /-- [kopis::impls::kopis1024::KOPIS1024_CIPHERTEXT_LEN]
-    Source: 'src/impls.rs', lines 49:12-50:69
+    Source: 'src/impls.rs', lines 50:12-51:69
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 4#usize 6#usize
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/pke.rs', lines 35:4-35:77
+    Source: 'src/pke.rs', lines 37:4-37:77
     Visibility: public -/
 @[global_simps, irreducible]
 def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
@@ -2540,7 +2684,7 @@ def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
   32#usize + i2
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]:
-    Source: 'src/pke.rs', lines 38:4-47:5 -/
+    Source: 'src/pke.rs', lines 40:4-49:5 -/
 def pke.PkePublicKey.serialize
   {L : Std.Usize} (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
   Result (Slice Std.U8)
@@ -2585,7 +2729,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]:
-    Source: 'src/pke.rs', lines 65:4-71:5 -/
+    Source: 'src/pke.rs', lines 67:4-73:5 -/
 def pke.PkePublicKey.hash
   {L : Std.Usize} (self : pke.PkePublicKey L) :
   Result (Array Std.U8 32#usize)
@@ -2600,8 +2744,20 @@ def pke.PkePublicKey.hash
   let s ← lift (Array.to_slice (Std.Array.empty Std.U8))
   turboshake256_hash 4#u8 pk_slice1 s
 
+/-- [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}::drop]:
+    Source: 'src/pke.rs', lines 22:18-22:31
+    Visibility: public -/
+def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
+  {L : Std.Usize} (self : pke.PkeSecretKey L) :
+  Result (pke.PkeSecretKey L)
+  := do
+  let __zeroize_field_0 ←
+    zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
+      (arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize L 1#usize) self
+  ok __zeroize_field_0
+
 /-- [kopis::pke::H1_VAL]
-    Source: 'src/pke.rs', lines 16:0-16:63 -/
+    Source: 'src/pke.rs', lines 17:0-17:63 -/
 @[global_simps, irreducible]
 def pke.H1_VAL : Result Std.U16 := do
   let i ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
@@ -2609,7 +2765,7 @@ def pke.H1_VAL : Result Std.U16 := do
   1#u16 <<< i1
 
 /-- [kopis::pke::expand_decap_key]:
-    Source: 'src/pke.rs', lines 100:0-137:1 -/
+    Source: 'src/pke.rs', lines 102:0-139:1 -/
 def pke.expand_decap_key
   (L : Std.Usize) (MU : Std.Usize) (sk : Array Std.U8 32#usize) :
   Result ((pke.PkeSecretKey L) × (Array Std.U8 32#usize) × (pke.PkePublicKey
@@ -2647,12 +2803,12 @@ def pke.expand_decap_key
   let i2 ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
   let prod2 ← arithmetic.matrix_arith.Matrix.shift_right prod1 i2
   let pkh ←
-    pke.PkePublicKey.hash { matrix_seed := mat_seed1, vec := prod2, mat_a }
+    pke.PkePublicKey.hash { matrix_seed := mat_seed1, mat_a, vec := prod2 }
   let z1 := to_slice_mut_back2 s7
-  ok (vec_s, z1, { matrix_seed := mat_seed1, vec := prod2, mat_a }, pkh)
+  ok (vec_s, z1, { matrix_seed := mat_seed1, mat_a, vec := prod2 }, pkh)
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::expand_from_seed]:
-    Source: 'src/kem.rs', lines 64:4-74:5
+    Source: 'src/kem.rs', lines 72:4-82:5
     Visibility: public -/
 def kem.KemSecretKey.expand_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
@@ -2661,8 +2817,47 @@ def kem.KemSecretKey.expand_from_seed
   let (pke_sk, z, pke_pk, hash_pke_pk) ← pke.expand_decap_key L MU seed
   ok { seed, z, pke_sk, pke_pk, hash_pke_pk }
 
+/-- [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}::zeroize]:
+    Source: 'src/pke.rs', lines 22:9-22:16
+    Visibility: public -/
+def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
+  {L : Std.Usize} (self : pke.PkeSecretKey L) :
+  Result (pke.PkeSecretKey L)
+  := do
+  let __zeroize_field_0 ←
+    arithmetic.matrix_arith.Matrix.Insts.ZeroizeZeroize.zeroize self
+  ok __zeroize_field_0
+
+/-- Trait implementation: [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}]
+    Source: 'src/pke.rs', lines 22:9-22:16 -/
+@[reducible]
+def pke.PkeSecretKey.Insts.ZeroizeZeroize (L : Std.Usize) : zeroize.Zeroize
+  (pke.PkeSecretKey L) := {
+  zeroize := pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
+}
+
+/-- [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::KemSecretKey<L>}::drop]:
+    Source: 'src/kem.rs', lines 54:9-54:22
+    Visibility: public -/
+def kem.KemSecretKey.Insts.CoreOpsDropDrop.drop
+  {L : Std.Usize} (self : kem.KemSecretKey L) :
+  Result (kem.KemSecretKey L)
+  := do
+  let seed ←
+    zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) self.seed
+  let z ←
+    zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) self.z
+  let pke_sk ←
+    zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
+      (pke.PkeSecretKey.Insts.ZeroizeZeroize L) self.pke_sk
+  ok { self with seed, z, pke_sk }
+
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::generate]:
-    Source: 'src/kem.rs', lines 77:4-81:5
+    Source: 'src/kem.rs', lines 85:4-92:5
     Visibility: public -/
 def kem.KemSecretKey.generate
   {T2 : Type} (L : Std.Usize) (MU : Std.Usize) (rand_coreCryptoRngInst :
@@ -2673,11 +2868,14 @@ def kem.KemSecretKey.generate
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut seed)
   let (rng1, s1) ← rand_coreCryptoRngInst.RngCoreInst.fill_bytes rng s
   let seed1 := to_slice_mut_back s1
-  let ksk ← kem.KemSecretKey.expand_from_seed L MU seed1
-  ok (ksk, rng1)
+  let out ← kem.KemSecretKey.expand_from_seed L MU seed1
+  let _ ←
+    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes) seed1
+  ok (out, rng1)
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512SecretKey}::generate]:
-    Source: 'src/impls.rs', lines 60:16-62:17
+    Source: 'src/impls.rs', lines 61:16-63:17
     Visibility: public -/
 def impls.kopis512.Kopis512SecretKey.generate
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0) (rng : T0) :
@@ -2688,7 +2886,7 @@ def impls.kopis512.Kopis512SecretKey.generate
   ok (ksk, rng1)
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768SecretKey}::generate]:
-    Source: 'src/impls.rs', lines 60:16-62:17
+    Source: 'src/impls.rs', lines 61:16-63:17
     Visibility: public -/
 def impls.kopis768.Kopis768SecretKey.generate
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0) (rng : T0) :
@@ -2699,7 +2897,7 @@ def impls.kopis768.Kopis768SecretKey.generate
   ok (ksk, rng1)
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024SecretKey}::generate]:
-    Source: 'src/impls.rs', lines 60:16-62:17
+    Source: 'src/impls.rs', lines 61:16-63:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024SecretKey.generate
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0) (rng : T0) :
@@ -2710,7 +2908,7 @@ def impls.kopis1024.Kopis1024SecretKey.generate
   ok (ksk, rng1)
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::seed]:
-    Source: 'src/kem.rs', lines 84:4-86:5
+    Source: 'src/kem.rs', lines 95:4-97:5
     Visibility: public -/
 def kem.KemSecretKey.impl.seed
   {L : Std.Usize} (self : kem.KemSecretKey L) :
@@ -2719,7 +2917,7 @@ def kem.KemSecretKey.impl.seed
   ok self.seed
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512SecretKey}::seed]:
-    Source: 'src/impls.rs', lines 65:16-67:17
+    Source: 'src/impls.rs', lines 66:16-68:17
     Visibility: public -/
 def impls.kopis512.Kopis512SecretKey.seed
   (self : impls.kopis512.Kopis512SecretKey) :
@@ -2728,7 +2926,7 @@ def impls.kopis512.Kopis512SecretKey.seed
   kem.KemSecretKey.impl.seed self
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768SecretKey}::seed]:
-    Source: 'src/impls.rs', lines 65:16-67:17
+    Source: 'src/impls.rs', lines 66:16-68:17
     Visibility: public -/
 def impls.kopis768.Kopis768SecretKey.seed
   (self : impls.kopis768.Kopis768SecretKey) :
@@ -2737,7 +2935,7 @@ def impls.kopis768.Kopis768SecretKey.seed
   kem.KemSecretKey.impl.seed self
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024SecretKey}::seed]:
-    Source: 'src/impls.rs', lines 65:16-67:17
+    Source: 'src/impls.rs', lines 66:16-68:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024SecretKey.seed
   (self : impls.kopis1024.Kopis1024SecretKey) :
@@ -2746,7 +2944,7 @@ def impls.kopis1024.Kopis1024SecretKey.seed
   kem.KemSecretKey.impl.seed self
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512SecretKey}::expand_from_seed]:
-    Source: 'src/impls.rs', lines 70:16-72:17
+    Source: 'src/impls.rs', lines 71:16-73:17
     Visibility: public -/
 def impls.kopis512.Kopis512SecretKey.expand_from_seed
   (bytes : Array Std.U8 32#usize) :
@@ -2756,7 +2954,7 @@ def impls.kopis512.Kopis512SecretKey.expand_from_seed
   ok ksk
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768SecretKey}::expand_from_seed]:
-    Source: 'src/impls.rs', lines 70:16-72:17
+    Source: 'src/impls.rs', lines 71:16-73:17
     Visibility: public -/
 def impls.kopis768.Kopis768SecretKey.expand_from_seed
   (bytes : Array Std.U8 32#usize) :
@@ -2766,7 +2964,7 @@ def impls.kopis768.Kopis768SecretKey.expand_from_seed
   ok ksk
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024SecretKey}::expand_from_seed]:
-    Source: 'src/impls.rs', lines 70:16-72:17
+    Source: 'src/impls.rs', lines 71:16-73:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024SecretKey.expand_from_seed
   (bytes : Array Std.U8 32#usize) :
@@ -2776,20 +2974,20 @@ def impls.kopis1024.Kopis1024SecretKey.expand_from_seed
   ok ksk
 
 /-- [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}::clone]:
-    Source: 'src/pke.rs', lines 22:9-22:14
+    Source: 'src/pke.rs', lines 26:9-26:14
     Visibility: public -/
 def pke.PkePublicKey.Insts.CoreCloneClone.clone
   {L : Std.Usize} (self : pke.PkePublicKey L) :
   Result (pke.PkePublicKey L)
   := do
   let a ← core.array.CloneArray.clone core.clone.CloneU8 self.matrix_seed
-  let m ← arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone self.vec
-  let m1 ←
+  let m ←
     arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone self.mat_a
-  ok { matrix_seed := a, vec := m, mat_a := m1 }
+  let m1 ← arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone self.vec
+  ok { matrix_seed := a, mat_a := m, vec := m1 }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::public_key]:
-    Source: 'src/kem.rs', lines 88:4-93:5 -/
+    Source: 'src/kem.rs', lines 99:4-104:5 -/
 def kem.KemSecretKey.public_key
   {L : Std.Usize} (self : kem.KemSecretKey L) :
   Result (kem.KemPublicKey L)
@@ -2798,7 +2996,7 @@ def kem.KemSecretKey.public_key
   ok { pke_pk := ppk, hash_pke_pk := self.hash_pke_pk }
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512SecretKey}::public_key]:
-    Source: 'src/impls.rs', lines 75:16-77:17
+    Source: 'src/impls.rs', lines 76:16-78:17
     Visibility: public -/
 def impls.kopis512.Kopis512SecretKey.public_key
   (self : impls.kopis512.Kopis512SecretKey) :
@@ -2808,7 +3006,7 @@ def impls.kopis512.Kopis512SecretKey.public_key
   ok kpk
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768SecretKey}::public_key]:
-    Source: 'src/impls.rs', lines 75:16-77:17
+    Source: 'src/impls.rs', lines 76:16-78:17
     Visibility: public -/
 def impls.kopis768.Kopis768SecretKey.public_key
   (self : impls.kopis768.Kopis768SecretKey) :
@@ -2818,7 +3016,7 @@ def impls.kopis768.Kopis768SecretKey.public_key
   ok kpk
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024SecretKey}::public_key]:
-    Source: 'src/impls.rs', lines 75:16-77:17
+    Source: 'src/impls.rs', lines 76:16-78:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024SecretKey.public_key
   (self : impls.kopis1024.Kopis1024SecretKey) :
@@ -2828,34 +3026,34 @@ def impls.kopis1024.Kopis1024SecretKey.public_key
   ok kpk
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/kem.rs', lines 23:4-23:79 -/
+    Source: 'src/kem.rs', lines 24:4-24:79 -/
 @[global_simps, irreducible]
 def kem.KemPublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize :=
   pke.PkePublicKey.SERIALIZED_LEN L
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512PublicKey}::SERIALIZED_LEN]
-    Source: 'src/impls.rs', lines 82:16-82:95
+    Source: 'src/impls.rs', lines 83:16-83:95
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis512.Kopis512PublicKey.SERIALIZED_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 2#usize
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768PublicKey}::SERIALIZED_LEN]
-    Source: 'src/impls.rs', lines 82:16-82:95
+    Source: 'src/impls.rs', lines 83:16-83:95
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis768.Kopis768PublicKey.SERIALIZED_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 3#usize
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024PublicKey}::SERIALIZED_LEN]
-    Source: 'src/impls.rs', lines 82:16-82:95
+    Source: 'src/impls.rs', lines 83:16-83:95
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis1024.Kopis1024PublicKey.SERIALIZED_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 4#usize
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::serialize]:
-    Source: 'src/kem.rs', lines 26:4-28:5 -/
+    Source: 'src/kem.rs', lines 27:4-29:5 -/
 def kem.KemPublicKey.serialize
   {L : Std.Usize} (self : kem.KemPublicKey L) (out_buf : Slice Std.U8) :
   Result (Slice Std.U8)
@@ -2863,7 +3061,7 @@ def kem.KemPublicKey.serialize
   pke.PkePublicKey.serialize self.pke_pk out_buf
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512PublicKey}::serialize]:
-    Source: 'src/impls.rs', lines 85:16-87:17
+    Source: 'src/impls.rs', lines 86:16-88:17
     Visibility: public -/
 def impls.kopis512.Kopis512PublicKey.serialize
   (self : impls.kopis512.Kopis512PublicKey) (out_buf : Array Std.U8 672#usize)
@@ -2875,7 +3073,7 @@ def impls.kopis512.Kopis512PublicKey.serialize
   ok (to_slice_mut_back s1)
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768PublicKey}::serialize]:
-    Source: 'src/impls.rs', lines 85:16-87:17
+    Source: 'src/impls.rs', lines 86:16-88:17
     Visibility: public -/
 def impls.kopis768.Kopis768PublicKey.serialize
   (self : impls.kopis768.Kopis768PublicKey) (out_buf : Array Std.U8 992#usize)
@@ -2887,7 +3085,7 @@ def impls.kopis768.Kopis768PublicKey.serialize
   ok (to_slice_mut_back s1)
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024PublicKey}::serialize]:
-    Source: 'src/impls.rs', lines 85:16-87:17
+    Source: 'src/impls.rs', lines 86:16-88:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024PublicKey.serialize
   (self : impls.kopis1024.Kopis1024PublicKey)
@@ -2899,7 +3097,7 @@ def impls.kopis1024.Kopis1024PublicKey.serialize
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]:
-    Source: 'src/pke.rs', lines 50:4-62:5 -/
+    Source: 'src/pke.rs', lines 52:4-64:5 -/
 def pke.PkePublicKey.from_bytes
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (pke.PkePublicKey L) := do
   let left_val := Slice.len bytes
@@ -2913,10 +3111,10 @@ def pke.PkePublicKey.from_bytes
   let matrix_seed ←
     core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
   let mat_a ← gen.gen_matrix_from_seed L matrix_seed
-  ok { matrix_seed, vec, mat_a }
+  ok { matrix_seed, mat_a, vec }
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::from_bytes]:
-    Source: 'src/kem.rs', lines 31:4-39:5 -/
+    Source: 'src/kem.rs', lines 32:4-40:5 -/
 def kem.KemPublicKey.from_bytes
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (kem.KemPublicKey L) := do
   let pke_pk ← pke.PkePublicKey.from_bytes L bytes
@@ -2924,7 +3122,7 @@ def kem.KemPublicKey.from_bytes
   ok { pke_pk, hash_pke_pk }
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512PublicKey}::from_bytes]:
-    Source: 'src/impls.rs', lines 90:16-92:17
+    Source: 'src/impls.rs', lines 91:16-93:17
     Visibility: public -/
 def impls.kopis512.Kopis512PublicKey.from_bytes
   (bytes : Array Std.U8 672#usize) :
@@ -2935,7 +3133,7 @@ def impls.kopis512.Kopis512PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768PublicKey}::from_bytes]:
-    Source: 'src/impls.rs', lines 90:16-92:17
+    Source: 'src/impls.rs', lines 91:16-93:17
     Visibility: public -/
 def impls.kopis768.Kopis768PublicKey.from_bytes
   (bytes : Array Std.U8 992#usize) :
@@ -2946,7 +3144,7 @@ def impls.kopis768.Kopis768PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024PublicKey}::from_bytes]:
-    Source: 'src/impls.rs', lines 90:16-92:17
+    Source: 'src/impls.rs', lines 91:16-93:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024PublicKey.from_bytes
   (bytes : Array Std.U8 1312#usize) :
@@ -2957,17 +3155,17 @@ def impls.kopis1024.Kopis1024PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::pke::encrypt_deterministic]:
-    Source: 'src/pke.rs', lines 171:0-203:1 -/
+    Source: 'src/pke.rs', lines 173:0-205:1 -/
 def pke.encrypt_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (pk : pke.PkePublicKey L)
-  (msg : Array Std.U8 32#usize) (coins : Array Std.U8 32#usize)
+  (msg : Array Std.U8 32#usize) (randomness : Array Std.U8 32#usize)
   (out_buf : Slice Std.U8) :
   Result (Slice Std.U8)
   := do
   let left_val := Slice.len out_buf
   let right_val ← pke.ciphertext_len L T
   massert (left_val = right_val)
-  let vec_sprime ← gen.gen_secret_from_seed L MU coins
+  let vec_sprime ← gen.gen_secret_from_seed L MU randomness
   let prod ← arithmetic.matrix_arith.Matrix.mul pk.mat_a vec_sprime
   let i ← pke.H1_VAL
   let prod1 ← arithmetic.matrix_arith.Matrix.wrapping_add_to_all prod i
@@ -2998,7 +3196,7 @@ def pke.encrypt_deterministic
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
 /-- [kopis::kem::encap_deterministic]:
-    Source: 'src/kem.rs', lines 98:0-125:1 -/
+    Source: 'src/kem.rs', lines 109:0-136:1 -/
 def kem.encap_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize)
   (randomness : Array Std.U8 32#usize) (kem_pk : kem.KemPublicKey L)
@@ -3029,7 +3227,7 @@ def kem.encap_deterministic
   ok (k1, out_buf1)
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512PublicKey}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 110:16-122:17
+    Source: 'src/impls.rs', lines 113:16-125:17
     Visibility: public -/
 def impls.kopis512.Kopis512PublicKey.encapsulate_deterministic
   (self : impls.kopis512.Kopis512PublicKey)
@@ -3043,7 +3241,7 @@ def impls.kopis512.Kopis512PublicKey.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512PublicKey}::encapsulate]:
-    Source: 'src/impls.rs', lines 97:16-105:17
+    Source: 'src/impls.rs', lines 98:16-108:17
     Visibility: public -/
 def impls.kopis512.Kopis512PublicKey.encapsulate
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -3054,12 +3252,15 @@ def impls.kopis512.Kopis512PublicKey.encapsulate
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut randomness)
   let (rng1, s1) ← rand_coreCryptoRngInst.RngCoreInst.fill_bytes rng s
   let randomness1 := to_slice_mut_back s1
-  let p ←
+  let out ←
     impls.kopis512.Kopis512PublicKey.encapsulate_deterministic self randomness1
-  ok (p, rng1)
+  let _ ←
+    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes) randomness1
+  ok (out, rng1)
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768PublicKey}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 110:16-122:17
+    Source: 'src/impls.rs', lines 113:16-125:17
     Visibility: public -/
 def impls.kopis768.Kopis768PublicKey.encapsulate_deterministic
   (self : impls.kopis768.Kopis768PublicKey)
@@ -3073,7 +3274,7 @@ def impls.kopis768.Kopis768PublicKey.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768PublicKey}::encapsulate]:
-    Source: 'src/impls.rs', lines 97:16-105:17
+    Source: 'src/impls.rs', lines 98:16-108:17
     Visibility: public -/
 def impls.kopis768.Kopis768PublicKey.encapsulate
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -3084,12 +3285,15 @@ def impls.kopis768.Kopis768PublicKey.encapsulate
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut randomness)
   let (rng1, s1) ← rand_coreCryptoRngInst.RngCoreInst.fill_bytes rng s
   let randomness1 := to_slice_mut_back s1
-  let p ←
+  let out ←
     impls.kopis768.Kopis768PublicKey.encapsulate_deterministic self randomness1
-  ok (p, rng1)
+  let _ ←
+    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes) randomness1
+  ok (out, rng1)
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024PublicKey}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 110:16-122:17
+    Source: 'src/impls.rs', lines 113:16-125:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic
   (self : impls.kopis1024.Kopis1024PublicKey)
@@ -3103,7 +3307,7 @@ def impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024PublicKey}::encapsulate]:
-    Source: 'src/impls.rs', lines 97:16-105:17
+    Source: 'src/impls.rs', lines 98:16-108:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024PublicKey.encapsulate
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -3114,13 +3318,16 @@ def impls.kopis1024.Kopis1024PublicKey.encapsulate
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut randomness)
   let (rng1, s1) ← rand_coreCryptoRngInst.RngCoreInst.fill_bytes rng s
   let randomness1 := to_slice_mut_back s1
-  let p ←
+  let out ←
     impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic self
       randomness1
-  ok (p, rng1)
+  let _ ←
+    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes) randomness1
+  ok (out, rng1)
 
 /-- [kopis::pke::decrypt]:
-    Source: 'src/pke.rs', lines 141:0-167:1 -/
+    Source: 'src/pke.rs', lines 143:0-169:1 -/
 def pke.decrypt
   {L : Std.Usize} (T : Std.Usize) (sk : pke.PkeSecretKey L)
   (ciphertext : Slice Std.U8) :
@@ -3162,7 +3369,7 @@ def pke.decrypt
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
-    Source: 'src/kem.rs', lines 130:0-163:1
+    Source: 'src/kem.rs', lines 141:0-174:1
     Visibility: public -/
 def kem.decap
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (sk : kem.KemSecretKey L)
@@ -3209,7 +3416,7 @@ def kem.decap
     U8.Insts.SubtleConditionallySelectable reject_val k1 reconstruction_matched
 
 /-- [kopis::impls::kopis512::{kopis::impls::kopis512::Kopis512SecretKey}::decapsulate]:
-    Source: 'src/impls.rs', lines 129:16-135:17
+    Source: 'src/impls.rs', lines 132:16-138:17
     Visibility: public -/
 def impls.kopis512.Kopis512SecretKey.decapsulate
   (self : impls.kopis512.Kopis512SecretKey)
@@ -3221,7 +3428,7 @@ def impls.kopis512.Kopis512SecretKey.decapsulate
   ok a
 
 /-- [kopis::impls::kopis768::{kopis::impls::kopis768::Kopis768SecretKey}::decapsulate]:
-    Source: 'src/impls.rs', lines 129:16-135:17
+    Source: 'src/impls.rs', lines 132:16-138:17
     Visibility: public -/
 def impls.kopis768.Kopis768SecretKey.decapsulate
   (self : impls.kopis768.Kopis768SecretKey)
@@ -3233,7 +3440,7 @@ def impls.kopis768.Kopis768SecretKey.decapsulate
   ok a
 
 /-- [kopis::impls::kopis1024::{kopis::impls::kopis1024::Kopis1024SecretKey}::decapsulate]:
-    Source: 'src/impls.rs', lines 129:16-135:17
+    Source: 'src/impls.rs', lines 132:16-138:17
     Visibility: public -/
 def impls.kopis1024.Kopis1024SecretKey.decapsulate
   (self : impls.kopis1024.Kopis1024SecretKey)
@@ -3244,8 +3451,31 @@ def impls.kopis1024.Kopis1024SecretKey.decapsulate
   let a ← kem.decap 6#usize 6#usize self s
   ok a
 
+/-- Trait implementation: [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::KemSecretKey<L>}]
+    Source: 'src/kem.rs', lines 54:9-54:22 -/
+@[reducible]
+def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
+  (kem.KemSecretKey L) := {
+  drop := kem.KemSecretKey.Insts.CoreOpsDropDrop.drop
+}
+
+/-- Trait implementation: [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}]
+    Source: 'src/pke.rs', lines 22:18-22:31 -/
+@[reducible]
+def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
+  (pke.PkeSecretKey L) := {
+  drop := pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
+}
+
+/-- Trait implementation: [kopis::pke::{impl zeroize::ZeroizeOnDrop for kopis::pke::PkeSecretKey<L>}]
+    Source: 'src/pke.rs', lines 22:18-22:31 -/
+@[reducible]
+def pke.PkeSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
+  zeroize.ZeroizeOnDrop (pke.PkeSecretKey L) := {
+}
+
 /-- Trait implementation: [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}]
-    Source: 'src/pke.rs', lines 22:9-22:14 -/
+    Source: 'src/pke.rs', lines 26:9-26:14 -/
 @[reducible]
 def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
   (pke.PkePublicKey L) := {
@@ -3253,7 +3483,7 @@ def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
 }
 
 /-- [kopis::pke::max_pke_pubkey_serialized_len]:
-    Source: 'src/pke.rs', lines 75:0-77:1 -/
+    Source: 'src/pke.rs', lines 77:0-79:1 -/
 def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
   let i ← consts.MAX_L * consts.MODULUS_P_BITS
   let i1 ← i * consts.RING_DEG
@@ -3261,7 +3491,7 @@ def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
   32#usize + i2
 
 /-- [kopis::pke::max_ciphertext_len]:
-    Source: 'src/pke.rs', lines 81:0-84:1
+    Source: 'src/pke.rs', lines 83:0-86:1
     Visibility: public -/
 def pke.max_ciphertext_len : Result Std.Usize := do
   let i ← consts.MAX_T * consts.RING_DEG
@@ -3374,7 +3604,7 @@ def ser.deserialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
 }
 
 /-- [kopis::ser::serialize_10::{impl core::ops::function::FnMut<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call_mut]:
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut
   (state : ser.serialize_10.closure) (args : Std.Usize) :
   Result (Std.U16 × ser.serialize_10.closure)
@@ -3385,7 +3615,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut
   ok (i, state)
 
 /-- [kopis::ser::serialize_10::{impl core::ops::function::FnOnce<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call_once]:
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16.call_once
   (c : ser.serialize_10.closure) (i : Std.Usize) : Result Std.U16 := do
   let (i1, _) ←
@@ -3394,7 +3624,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16.call_once
   ok i1
 
 /-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::FnOnce<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 @[reducible]
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16 :
   core.ops.function.FnOnce ser.serialize_10.closure Std.Usize Std.U16 := {
@@ -3403,7 +3633,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16 :
 }
 
 /-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::FnMut<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 @[reducible]
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16 :
   core.ops.function.FnMut ser.serialize_10.closure Std.Usize Std.U16 := {
@@ -3414,7 +3644,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16 :
 }
 
 /-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
-    Source: 'src/ser.rs', lines 86:16-86:46 -/
+    Source: 'src/ser.rs', lines 87:16-87:46 -/
 @[reducible]
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
   core.ops.function.Fn ser.serialize_10.closure Std.Usize Std.U16 := {

@@ -43,6 +43,7 @@ pub(crate) fn deserialize_10(bytes: &[u8; 10 * 256 / 8]) -> [u16; 256] {
 
 /// Deserializes the given bitstring into a u16 array. Every element of the array has
 /// `bits_per_elem` bits (must be ≤ 13), encoded in the lower bits of the word.
+#[allow(clippy::needless_range_loop)]
 pub(crate) fn deserialize_generic<const N: usize>(bytes: &[u8], bits_per_elem: usize) -> [u16; N] {
     // Serialized bitlength must be a multiple of 8, and `bytes` must be the correct length
     assert_eq!((bits_per_elem * N) % 8, 0);
