@@ -4,9 +4,10 @@ open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 namespace Kopis.Properties
 -- The `keygen_encap_spec` composites elaborate large (but finite) spec-level terms; the
--- `generalize` in each keeps `kabstract` out of `KemEncap`, but Kopis-1024's larger ℓ=4
--- matrices still need a modestly raised budget.
-set_option maxHeartbeats 12000000
+-- `generalize` in each keeps `kabstract` out of `KemEncap`.  The residual cost is
+-- heartbeat-nondeterministic under parallel build load (memory pressure inflates the count),
+-- so the budget is set well above the observed worst case.
+set_option maxHeartbeats 60000000
 
 /-! ## Unconditional decapsulation for a key-gen output.
 
