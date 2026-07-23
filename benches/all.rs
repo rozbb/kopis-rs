@@ -1,8 +1,8 @@
 use kopis::{
-    kopis1024::Kopis1024SecretKey, kopis512::Kopis512SecretKey, kopis768::Kopis768SecretKey,
+    kopis512::Kopis512SecretKey, kopis768::Kopis768SecretKey, kopis1024::Kopis1024SecretKey,
 };
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 macro_rules! bench_kopis_variant {
     ($bench_name:ident, $privkey_name:ident) => {

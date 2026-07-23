@@ -5,7 +5,7 @@ use crate::{
     consts::{
         DOMSEP_KGEXPAND, DOMSEP_PKHASH, MAX_L, MAX_T, MODULUS_P_BITS, MODULUS_Q_BITS, RING_DEG,
     },
-    gen::{gen_matrix_from_seed, gen_secret_from_seed},
+    sample::{gen_matrix_from_seed, gen_secret_from_seed},
     ser::deserialize_generic,
     turboshake256_hash,
 };

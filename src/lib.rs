@@ -11,7 +11,7 @@
 
 mod arithmetic;
 mod consts;
-mod gen;
+mod sample;
 mod impls;
 mod kem;
 mod pke;
