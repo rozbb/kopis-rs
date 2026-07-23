@@ -222,7 +222,7 @@ mod test {
     use super::*;
     use crate::consts::RING_DEG;
 
-    use rand::{rng, Rng, RngCore};
+    use rand::{Rng, RngCore, rng};
 
     // Checks that a * b == b * a and a + b == b + a for ring elements a, b
     #[test]

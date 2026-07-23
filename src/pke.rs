@@ -10,8 +10,8 @@ use crate::{
     turboshake256_hash,
 };
 
-use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::CTurboShake256;
+use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const H1_VAL: u16 = 1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1);

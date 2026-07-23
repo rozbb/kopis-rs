@@ -2,14 +2,14 @@
 
 use crate::{
     consts::{DOMSEP_FO, DOMSEP_NOREJECT},
-    pke::{self, ciphertext_len, expand_decap_key, max_ciphertext_len, PkePublicKey, PkeSecretKey},
+    pke::{self, PkePublicKey, PkeSecretKey, ciphertext_len, expand_decap_key, max_ciphertext_len},
     turboshake256_hash,
 };
 
 use rand_core::CryptoRng;
 use subtle::{ConditionallySelectable, ConstantTimeEq};
-use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::CTurboShake256;
+use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// A public key for the IND-CCA-secure Kopis KEM scheme

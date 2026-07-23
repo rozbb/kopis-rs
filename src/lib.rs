@@ -11,17 +11,17 @@
 
 mod arithmetic;
 mod consts;
-mod sample;
 mod impls;
 mod kem;
 mod pke;
+mod sample;
 mod ser;
 
 pub use impls::*;
 
 use turboshake::{
-    digest::{ExtendableOutput, Update, XofReader},
     CTurboShake256,
+    digest::{ExtendableOutput, Update, XofReader},
 };
 
 /// Helper function that computes the 32-bytes digest of the concatenation of the given inputs

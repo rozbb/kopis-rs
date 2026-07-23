@@ -347,7 +347,7 @@ impl<const X: usize, const Y: usize> NttMatrix<X, Y> {
 mod test {
     use super::*;
 
-    use rand::{rng, Rng};
+    use rand::{Rng, rng};
 
     /// ψ, the primitive 512th root of unity underlying ZETAS
     const PSI: u64 = 49118445;
