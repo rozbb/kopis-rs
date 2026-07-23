@@ -140,18 +140,16 @@ theorem kopis512_keygen_encap_spec (seed randomness : Array U8 32#usize) :
   have hpk3 : pkStructBytes kpk.pke_pk .Kopis_512 rfl
       = Spec.Kopis.SkToPk .Kopis_512 (skBytes seed) := by
     rw [hkvec]; exact h3
-  let* ⟨r, hc, hk⟩ ← kopis512_encapsulate_deterministic_spec kpk randomness
-    (pkStructBytes kpk.pke_pk .Kopis_512 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h9))
+  -- pass `SkToPk` as `pk_bytes` so the spec's conclusion is the goal verbatim (as on the
+  -- decap side); transport the key-gen public-key facts along `hpk3`.
+  exact kopis512_encapsulate_deterministic_spec kpk randomness
+    (Spec.Kopis.SkToPk .Kopis_512 (skBytes seed))
+    (hpk3 ▸ keygen_hpkvec kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h9))
     (by rw [hkvec]; exact h8)
-    (keygen_hpkmat kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h6))
+    (hpk3 ▸ keygen_hpkmat kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h6))
     (by rw [hkvec]; exact h7)
-    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_512 rfl (skBytes seed) (by rw [hkhash]; exact h4)
-      (by rw [hkvec]; exact h3))
-  exact ⟨hc.trans (congrArg (fun x =>
-      (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl) x).2) hpk3),
-    hk.trans (congrArg (fun x =>
-      (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl) x).1) hpk3)⟩
+    (hpk3 ▸ keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_512 rfl (skBytes seed)
+      (by rw [hkhash]; exact h4) (by rw [hkvec]; exact h3))
 
 /-- Kopis-768 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
 theorem kopis768_public_key_spec (self : impls.kopis768.Kopis768SecretKey) :
@@ -178,18 +176,14 @@ theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
   have hpk3 : pkStructBytes kpk.pke_pk .Kopis_768 rfl
       = Spec.Kopis.SkToPk .Kopis_768 (skBytes seed) := by
     rw [hkvec]; exact h3
-  let* ⟨r, hc, hk⟩ ← kopis768_encapsulate_deterministic_spec kpk randomness
-    (pkStructBytes kpk.pke_pk .Kopis_768 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h9))
+  exact kopis768_encapsulate_deterministic_spec kpk randomness
+    (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))
+    (hpk3 ▸ keygen_hpkvec kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h9))
     (by rw [hkvec]; exact h8)
-    (keygen_hpkmat kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h6))
+    (hpk3 ▸ keygen_hpkmat kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h6))
     (by rw [hkvec]; exact h7)
-    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_768 rfl (skBytes seed) (by rw [hkhash]; exact h4)
-      (by rw [hkvec]; exact h3))
-  exact ⟨hc.trans (congrArg (fun x =>
-      (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl) x).2) hpk3),
-    hk.trans (congrArg (fun x =>
-      (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl) x).1) hpk3)⟩
+    (hpk3 ▸ keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_768 rfl (skBytes seed)
+      (by rw [hkhash]; exact h4) (by rw [hkvec]; exact h3))
 
 /-- Kopis-1024 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
 theorem kopis1024_public_key_spec (self : impls.kopis1024.Kopis1024SecretKey) :
@@ -216,17 +210,13 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
   have hpk3 : pkStructBytes kpk.pke_pk .Kopis_1024 rfl
       = Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed) := by
     rw [hkvec]; exact h3
-  let* ⟨r, hc, hk⟩ ← kopis1024_encapsulate_deterministic_spec kpk randomness
-    (pkStructBytes kpk.pke_pk .Kopis_1024 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h9))
+  exact kopis1024_encapsulate_deterministic_spec kpk randomness
+    (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))
+    (hpk3 ▸ keygen_hpkvec kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h9))
     (by rw [hkvec]; exact h8)
-    (keygen_hpkmat kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h6))
+    (hpk3 ▸ keygen_hpkmat kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h6))
     (by rw [hkvec]; exact h7)
-    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) (by rw [hkhash]; exact h4)
-      (by rw [hkvec]; exact h3))
-  exact ⟨hc.trans (congrArg (fun x =>
-      (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl) x).2) hpk3),
-    hk.trans (congrArg (fun x =>
-      (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl) x).1) hpk3)⟩
+    (hpk3 ▸ keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_1024 rfl (skBytes seed)
+      (by rw [hkhash]; exact h4) (by rw [hkvec]; exact h3))
 
 end Kopis.Properties
