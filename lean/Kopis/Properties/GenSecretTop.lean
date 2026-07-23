@@ -60,14 +60,14 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuflen : buf.val.length = 32 * MU.val)
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    gen.gen_secret_from_seed_loop MU iter seed secret buf
+    sample.gen_secret_from_seed_loop MU iter seed secret buf
       ⦃ (result : arithmetic.matrix_arith.Matrix L 1#usize) =>
           ∀ (a : ℕ) (_ : a < L.val),
             toRingElem13 ((result.val[a]!).val[0]!)
               = if iter.start.val ≤ a
                 then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
                 else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
-  unfold gen.gen_secret_from_seed_loop
+  unfold sample.gen_secret_from_seed_loop
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -131,10 +131,10 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
 the spec's `GenSecret` vector (mod `2¹³`). -/
 theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
-    gen.gen_secret_from_seed L MU seed
+    sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
           toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
-  unfold gen.gen_secret_from_seed
+  unfold sample.gen_secret_from_seed
   simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
   have hMUle : MU.val ≤ 10 := by omega

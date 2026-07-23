@@ -117,12 +117,12 @@ theorem cbd_loop3_spec (MU : Usize) (iter : core.slice.iter.IterMut U16)
       (_him : im.slice.length = orig_slice.length) (j : Nat)
       (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
         (back im).slice.val[j]! = im.slice.val[j]!) :
-    gen.cbd_loop3 MU iter back buf half mask bit_pos
+    sample.cbd_loop3 MU iter back buf half mask bit_pos
       ⦃ (r : core.slice.iter.IterMut U16) =>
           ∃ (_h_len : r.slice.length = orig_slice.length),
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               (((r.slice.val[j]!).val : ZMod (2 ^ 13))) = cbdVal buf MU.val half.val j ⦄ := by
-  unfold gen.cbd_loop3
+  unfold sample.cbd_loop3
   by_cases hlt : iter.i < iter.slice.len
   · -- SOME branch
     have hi_pe : iter.slice.length = orig_slice.length := by rw [h_slice]
@@ -381,9 +381,9 @@ theorem cbd_loop0_spec
     (hcount : iter.count.val = iter.iter.i)
     (hi_le : iter.iter.i ≤ 256)
     (hinv : ∀ k, k < iter.iter.i → (((out.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 8 4 k) :
-    gen.cbd_loop0 iter out
+    sample.cbd_loop0 iter out
       ⦃ (r : RingElem) => ∀ k, k < 256 → (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 8 4 k ⦄ := by
-  unfold gen.cbd_loop0
+  unfold sample.cbd_loop0
   have hlen_slice : iter.iter.slice.len.val = 256 := by
     rw [hbuf]; simp [Slice.len, hlen]
   by_cases hlt : iter.iter.i < iter.iter.slice.len
@@ -404,7 +404,7 @@ theorem cbd_loop0_spec
         let b ← lift (UScalar.cast UScalarTy.U16 i4)
         let i5 ← lift (core.num.U16.wrapping_sub a b)
         let a1 ← Array.update out iter.count i5
-        gen.cbd_loop0 iter1 a1)
+        sample.cbd_loop0 iter1 a1)
       ⦃ (r : RingElem) => ∀ k, k < 256 → (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 8 4 k ⦄
     have hout_len : out.val.length = 256 := List.Vector.length_val out
     have hb_bound : iter.iter.i < iter.iter.slice.val.length := by rw [hbuf, hlen]; exact hi_lt256
@@ -523,16 +523,16 @@ theorem window1_testBit (buf : Slice U8) (bi b : ℕ) (hb : b < 8) :
 Given that the low `2·half` bits of `raw` are the stream bits `[base, base + 2·half)`,
 its result is the CBD value at that position. -/
 
-/-- **Spec for the extracted `gen.cbd_diff`.** -/
+/-- **Spec for the extracted `sample.cbd_diff`.** -/
 theorem cbd_diff_spec (buf : Slice U8) (base : ℕ) (raw : U32) (half : U32) (mask : U32)
     (hhalf : half.val ≤ 8) (hmask : mask.val = 2 ^ half.val - 1)
     (hbits : ∀ i, i < 2 * half.val →
       raw.val.testBit i = (buf.val[(base + i) / 8]!).val.testBit ((base + i) % 8)) :
-    gen.cbd_diff raw half mask
+    sample.cbd_diff raw half mask
       ⦃ (r : U16) => ((r.val : ℕ) : ZMod (2 ^ 13))
           = ((cbdX buf half.val base : ℕ) : ZMod (2 ^ 13))
             - ((cbdX buf half.val (base + half.val) : ℕ) : ZMod (2 ^ 13)) ⦄ := by
-  unfold gen.cbd_diff
+  unfold sample.cbd_diff
   -- x = popcount (raw &&& mask)
   rw [show lift (raw &&& mask) = ok (raw &&& mask) from rfl, bind_tc_ok]
   let* ⟨ i1, hi1 ⟩ ← U32.count_ones_spec
@@ -601,7 +601,7 @@ theorem cbd_diff_coeff_spec (buf : Slice U8) (mu half k : ℕ) (raw hf mk : U32)
     (hmk : mk.val = 2 ^ half - 1)
     (hbits : ∀ i, i < mu → raw.val.testBit i
       = (buf.val[(mu * k + i) / 8]!).val.testBit ((mu * k + i) % 8)) :
-    gen.cbd_diff raw hf mk
+    sample.cbd_diff raw hf mk
       ⦃ (r : U16) => ((r.val : ℕ) : ZMod (2 ^ 13)) = cbdVal buf mu half k ⦄ := by
   have h := cbd_diff_spec buf (mu * k) raw hf mk (by omega) (by rw [hhf]; exact hmk)
     (by rw [hhf]; intro i hi; exact hbits i (by omega))
@@ -624,10 +624,10 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
     (hlen : buf.val.length = 32 * 6)
     (hinv : ∀ k, k < 4 * iter.start.val →
       (((out.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 6 3 k) :
-    gen.cbd_loop2 iter buf out
+    sample.cbd_loop2 iter buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 →
           (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 6 3 k ⦄ := by
-  unfold gen.cbd_loop2
+  unfold sample.cbd_loop2
   have hout_len : out.val.length = 256 := List.Vector.length_val out
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -792,10 +792,10 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
     (hlen : buf.val.length = 32 * 10)
     (hinv : ∀ k, k < 4 * iter.start.val →
       (((out.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 10 5 k) :
-    gen.cbd_loop1 iter buf out
+    sample.cbd_loop1 iter buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 →
           (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 10 5 k ⦄ := by
-  unfold gen.cbd_loop1
+  unfold sample.cbd_loop1
   have hout_len : out.val.length = 256 := List.Vector.length_val out
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -987,15 +987,15 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
   termination_by iter.«end».val - iter.start.val
   decreasing_by scalar_decr_tac
 
-/-! ## `gen.cbd` — dispatch on `MU = 8` (nibble path vs general). -/
+/-! ## `sample.cbd` — dispatch on `MU = 8` (nibble path vs general). -/
 
 theorem cbd_spec (MU : Usize) (buf : Slice U8) (out : RingElem)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hlen : buf.val.length = 32 * MU.val) :
-    gen.cbd MU buf out
+    sample.cbd MU buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 →
           (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf MU.val (MU.val / 2) k ⦄ := by
-  unfold gen.cbd
+  unfold sample.cbd
   -- the `assert_eq!(buf.len(), RING_DEG * MU / 8)` prologue
   have hMUle10' : MU.val ≤ 10 := by omega
   have hRD : (consts.RING_DEG).val = 256 := by simp [consts.RING_DEG]

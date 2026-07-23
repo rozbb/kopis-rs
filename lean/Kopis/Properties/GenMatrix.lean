@@ -1,7 +1,7 @@
 /-
   # Kopis/Properties/GenMatrix.lean — Correspondence proof for `gen_matrix_from_seed`.
 
-  Relates the Aeneas-extracted `RustKopis.gen.gen_matrix_from_seed` to the audited
+  Relates the Aeneas-extracted `RustKopis.sample.gen_matrix_from_seed` to the audited
   spec `Spec.Kopis.GenMat`.  The procedure decomposes into three layers:
 
   * **(A) TurboSHAKE — trust boundary.**  The `turboshake` crate is an external
@@ -375,13 +375,13 @@ theorem gen_matrix_loop0_loop0_spec {L : Usize} (iter : core.ops.range.Range Usi
     (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
     (buf : Array U8 416#usize) (i : Usize)
     (hi : i.val < L.val) (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    gen.gen_matrix_from_seed_loop0_loop0 iter seed mat buf i
+    sample.gen_matrix_from_seed_loop0_loop0 iter seed mat buf i
       ⦃ (result : arithmetic.matrix_arith.Matrix L L × Array U8 416#usize) =>
           ∀ (a b : ℕ) (_ : a < L.val) (_ : b < L.val),
             toRingElem13 ((result.1.val[a]!).val[b]!)
               = if a = i.val ∧ iter.start.val ≤ b then HDEntry seed i.val b
                 else toRingElem13 ((mat.val[a]!).val[b]!) ⦄ := by
-  unfold gen.gen_matrix_from_seed_loop0_loop0
+  unfold sample.gen_matrix_from_seed_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -446,13 +446,13 @@ theorem gen_matrix_loop0_spec {L : Usize} (iter : core.ops.range.Range Usize)
     (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
     (buf : Array U8 416#usize)
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    gen.gen_matrix_from_seed_loop0 iter seed mat buf
+    sample.gen_matrix_from_seed_loop0 iter seed mat buf
       ⦃ (result : arithmetic.matrix_arith.Matrix L L) =>
           ∀ (a b : ℕ) (_ : a < L.val) (_ : b < L.val),
             toRingElem13 ((result.val[a]!).val[b]!)
               = if iter.start.val ≤ a then HDEntry seed a b
                 else toRingElem13 ((mat.val[a]!).val[b]!) ⦄ := by
-  unfold gen.gen_matrix_from_seed_loop0
+  unfold sample.gen_matrix_from_seed_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -481,10 +481,10 @@ theorem gen_matrix_loop0_spec {L : Usize} (iter : core.ops.range.Range Usize)
 /-- **`gen_matrix_from_seed` correctness.**  The Rust matrix generator produces exactly the
 spec's `GenMat` matrix (interpreted mod `2¹³`). -/
 theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize) :
-    gen.gen_matrix_from_seed L seed
+    sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
           toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
-  unfold gen.gen_matrix_from_seed
+  unfold sample.gen_matrix_from_seed
   simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
