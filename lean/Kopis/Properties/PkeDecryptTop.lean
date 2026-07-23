@@ -54,12 +54,14 @@ theorem deserialize_slice_coerce_cast {p : Spec.Kopis.ParameterSet} (T : Usize)
 
 /-- **Rust `pke.decrypt` matches the spec `PkeDecrypt`.** -/
 theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
-    (ciphertext : Slice U8) (p : Spec.Kopis.ParameterSet) (sk_seed : 𝔹 32)
+    (ciphertext : Slice U8) (p : Spec.Kopis.ParameterSet) (sk_seed : 𝔹 32) (sBound : ℤ)
     (hℓ : Spec.Kopis.ℓ p = L.val) (ht : Spec.Kopis.t p = T.val)
     (hT : 3 ≤ T.val ∧ T.val ≤ 6)
     (hfit : L.val * 10 * 256 ≤ Usize.max)
+    (hfitex : fitsExactly L.val sBound)
+    (hskbnd : SecretBounded (nttInvS sk) sBound)
     (hlenct : ciphertext.length = Spec.Kopis.ctSize p)
-    (hsk : toVector13 sk = hℓ ▸ (Spec.Kopis.ExpandDecapKey p sk_seed).1) :
+    (hsk : toVector13 (nttInvS sk) = hℓ ▸ (Spec.Kopis.ExpandDecapKey p sk_seed).1) :
     pke.decrypt T sk ciphertext
       ⦃ (r : Array U8 32#usize) => arrayToBytes r
           = Spec.Kopis.PkeDecrypt p sk_seed (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) ⦄ := by
@@ -91,7 +93,9 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     core.slice.Slice.split_at.spec ciphertext m2 hsple
   -- deserialize b' and cm
   have hlen_bb : bprime_bytes.length = L.val * (32 * 10) := by rw [hbb_len, hm2v]
-  let* ⟨bprime, hbprime⟩ ← matrix_deserialize_10_spec bprime_bytes hlen_bb hfit
+  let* ⟨bprime, hbprime, hbpbnd⟩ ← spec_and (matrix_deserialize_10_spec bprime_bytes hlen_bb hfit)
+    (deserialize_10_uniformBounded bprime_bytes)
+  let* ⟨bprime_ntt, hbpntt⟩ ← from_uniform_matrix_spec bprime
   have hlen_cb : c_bytes.length = 32 * T.val := by rw [hcb_len, hlenct, hct, hm2v]; omega
   let* ⟨cm, hcm⟩ ← ringElem_deserialize_gen_spec' c_bytes T T.val rfl
     ⟨by omega, by omega⟩ (by omega) (by omega) hlen_cb
@@ -100,8 +104,13 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
   have hi3v : i3.val = 10 - T.val := by scalar_tac
   -- c1 = cm << (10 - T)
   let* ⟨c1, hc1⟩ ← shift_left_spec cm i3 (by scalar_tac)
-  -- v = <bprime, sk>, v1 = v[0][0]
-  let* ⟨v, hv⟩ ← matrix_mul_transpose_spec bprime sk
+  -- v = <bprime, sk>, v1 = v[0][0]  (through the NTT bridge)
+  let* ⟨v, hv0⟩ ← ntt_mul_transpose_spec bprime_ntt sk sBound hfitex
+    (by rw [hbpntt]; exact hbpbnd) hskbnd
+  have hv : ∀ (j : ℕ), j < 1 → ∀ (k : ℕ), k < 1 →
+      toRingElem ((v.val[j]!).val[k]!) = ∑ ii ∈ Finset.range L.val,
+        toRingElem ((bprime.val[ii]!).val[j]!) * toRingElem (((nttInvS sk).val[ii]!).val[k]!) := by
+    intro j hj k hk; rw [hv0 j hj k hk, hbpntt]
   let* ⟨arow, harow⟩ ← Array.index_usize_spec v 0#usize (by have := v.property; scalar_tac)
   let* ⟨v1, hv1⟩ ← Array.index_usize_spec arow 0#usize (by have := arow.property; scalar_tac)
   -- mprime = v1 - c1
@@ -160,15 +169,15 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
       getElem!_pos v.val 0 (by have := v.property; simp only [Slice.length] at *; scalar_tac),
       getElem!_pos _ 0 (by have := (v.val[0]!).property; simp only [Slice.length] at *; scalar_tac)]
   have hip : toRingElem v1 = ∑ ii ∈ Finset.range L.val,
-      toRingElem ((bprime.val[ii]!).val[0]!) * toRingElem ((sk.val[ii]!).val[0]!) := by
+      toRingElem ((bprime.val[ii]!).val[0]!) * toRingElem (((nttInvS sk).val[ii]!).val[0]!) := by
     rw [hv1_pos]; exact hv 0 (by norm_num) 0 (by norm_num)
-  have hvcoerce := innerProduct_coerce_bridge bprime sk v1 hip
+  have hvcoerce := innerProduct_coerce_bridge bprime (nttInvS sk) v1 hip
   have hc1coerce : (toRingElem c1).coerce (2 ^ 10)
       = ((toPolyN T.val cm).coerce (2 ^ 10)).shiftLeft (10 - T.val) := by
     rw [hc1, hi3v]; exact shiftLeft_coerce_bridge cm T.val (by omega)
   have hmcoerce : (toRingElem mprime).coerce (2 ^ 10)
       = Spec.Kopis.Polynomial.sub
-          (Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 sk).coerce (2 ^ 10)))
+          (Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 (nttInvS sk)).coerce (2 ^ 10)))
           (((toPolyN T.val cm).coerce (2 ^ 10)).shiftLeft (10 - T.val)) := by
     rw [hmprime, coerce_sub10, hvcoerce, hc1coerce]
   have hround : toPolyN 1 mprime2
@@ -197,10 +206,10 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
         (32 * 10 * Spec.Kopis.ℓ p) (32 * T.val) (by rw [hct, hℓ]; omega)) := by
     rw [hcm, sliceToBytes_drop_eq_slice ciphertext c_bytes (Spec.Kopis.ctSize p)
         (32 * 10 * Spec.Kopis.ℓ p) (32 * T.val) hlenct (by rw [hct, hℓ]; ring) hcb_val' hlen_cb]
-  have hvecs_coerce : (toVector13 sk).coerce (2 ^ 10)
+  have hvecs_coerce : (toVector13 (nttInvS sk)).coerce (2 ^ 10)
       = hℓ ▸ ((Spec.Kopis.ExpandDecapKey p sk_seed).1.coerce (2 ^ 10)) := by
     rw [hsk, coerceVec_cast]
-  have hv_spec : Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 sk).coerce (2 ^ 10))
+  have hv_spec : Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 (nttInvS sk)).coerce (2 ^ 10))
       = Spec.Kopis.innerProduct
           (Spec.Kopis.PolyVector.deserialize (ℓ := Spec.Kopis.ℓ p) 10
             (Spec.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) 0
