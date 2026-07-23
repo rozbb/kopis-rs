@@ -16,6 +16,10 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const H1_VAL: u16 = 1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1);
 
+/// The serialized length of one public-vector ring element: an element of `R_p`, packed at
+/// `MODULUS_P_BITS` (10) bits per coefficient, i.e. 320 bytes.
+const PK_VEC_ELEM_BYTES: usize = MODULUS_P_BITS * RING_DEG / 8;
+
 /// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form, NTT domain).
 ///
 /// This wraps the secret vector `s`, so it zeroes itself from memory when dropped. Note that
@@ -24,20 +28,27 @@ const H1_VAL: u16 = 1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1);
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub(crate) struct PkeSecretKey<const L: usize>(NttMatrix<L, 1>);
 
-/// A public key for the IND-CPA-secure Kopis PKE scheme
+/// A public key for the IND-CPA-secure Kopis PKE scheme.
+///
+/// The key stores its own serialized form (`vec_bytes` followed by `matrix_seed` is exactly
+/// what `serialize` emits and `from_bytes` reads) alongside the NTT-domain data the encryptor
+/// needs. It deliberately does *not* keep the structured `Matrix<L, 1>` public vector: that was
+/// held only to be serializable, and the packed bytes serve that purpose with no reconstruction.
 #[derive(Clone)]
 pub struct PkePublicKey<const L: usize> {
-    /// The seed used to generate `mat_a_ntt`
+    /// The seed used to generate `mat_a_ntt`; also the 32-byte tail of the serialization.
     matrix_seed: [u8; 32],
     /// The expanded public matrix, in NTT form. Precomputed here so that repeated encryptions
     /// (e.g. every encapsulation and every FO re-encryption during decapsulation) don't have to
     /// re-run the XOF that derives it from `matrix_seed`, nor re-transform it. This mirrors the
     /// "unpacked" public-key form used by other KEM implementations. It is never serialized:
-    /// `serialize` still writes only `vec || matrix_seed`, and `from_bytes` re-derives it.
+    /// `serialize` writes only `vec_bytes || matrix_seed`, and `from_bytes` re-derives it.
     mat_a_ntt: NttMatrix<L, L>,
-    /// The public vector (the public matrix times the secret vector, rounded)
-    vec: Matrix<L, 1>,
-    /// `vec` in NTT form, precomputed for the inner product in every encryption
+    /// The serialized public vector `b`: `L` ring elements of `R_p`, each packed to 10 bits
+    /// (`PK_VEC_ELEM_BYTES` bytes). This is the head of the wire serialization, held directly so
+    /// serialization is a copy rather than a re-encode of a structured vector.
+    vec_bytes: [[u8; PK_VEC_ELEM_BYTES]; L],
+    /// The public vector in NTT form, precomputed for the inner product in every encryption.
     vec_ntt: NttMatrix<L, 1>,
 }
 
@@ -45,31 +56,47 @@ impl<const L: usize> PkePublicKey<L> {
     pub const SERIALIZED_LEN: usize = 32 + L * MODULUS_P_BITS * RING_DEG / 8;
 
     /// Serializes this public key to a byte string. `out_buf` MUST have length SERIALIZED_LEN
+    // Explicit index loop (not `.iter().enumerate()`) to stay friendly to the aeneas extractor.
+    #[allow(clippy::needless_range_loop)]
     pub(crate) fn serialize(&self, out_buf: &mut [u8]) {
-        let out_size = Self::SERIALIZED_LEN;
-        assert_eq!(out_buf.len(), out_size);
+        assert_eq!(out_buf.len(), Self::SERIALIZED_LEN);
 
-        // Write out the LWR sample, then the seed
-        self.vec
-            .serialize(&mut out_buf[..out_size - 32], MODULUS_P_BITS);
-        // Write out the pubkey seed
-        out_buf[out_size - 32..].copy_from_slice(&self.matrix_seed);
+        // The stored bytes are already the serialization: the L packed vector chunks, then the
+        // seed. Copy each chunk into place, then the seed as the 32-byte tail.
+        for i in 0..L {
+            let start = i * PK_VEC_ELEM_BYTES;
+            out_buf[start..start + PK_VEC_ELEM_BYTES].copy_from_slice(&self.vec_bytes[i]);
+        }
+        out_buf[L * PK_VEC_ELEM_BYTES..].copy_from_slice(&self.matrix_seed);
     }
 
-    #[allow(clippy::unwrap_used)]
+    // `needless_range_loop`: explicit index loop kept for aeneas-extraction friendliness.
+    #[allow(clippy::unwrap_used, clippy::needless_range_loop)]
     pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
         assert_eq!(bytes.len(), Self::SERIALIZED_LEN);
 
-        let (vec_bytes, seed) = bytes.split_at(Self::SERIALIZED_LEN - 32);
-        let vec = Matrix::deserialize_10(vec_bytes);
+        let (vec_slice, seed) = bytes.split_at(Self::SERIALIZED_LEN - 32);
         let matrix_seed: [u8; 32] = seed.try_into().unwrap(); // checked above
+
+        // Deserialize the vector transiently, only to build its NTT form; the structured vector
+        // itself is not kept.
+        let vec = Matrix::deserialize_10(vec_slice);
+        let vec_ntt = NttMatrix::from_uniform_matrix(&vec);
+
+        // Store the vector's packed bytes verbatim (10-bit packing is canonical, so this is
+        // exactly what `serialize` would re-emit).
+        let mut vec_bytes = [[0u8; PK_VEC_ELEM_BYTES]; L];
+        for i in 0..L {
+            let start = i * PK_VEC_ELEM_BYTES;
+            vec_bytes[i].copy_from_slice(&vec_slice[start..start + PK_VEC_ELEM_BYTES]);
+        }
+
         let mat_a = gen_matrix_from_seed::<L>(&matrix_seed);
         let mat_a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
-        let vec_ntt = NttMatrix::from_uniform_matrix(&vec);
         Self {
             matrix_seed,
-            vec,
             mat_a_ntt,
+            vec_bytes,
             vec_ntt,
         }
     }
@@ -110,6 +137,8 @@ pub const fn ciphertext_len<const L: usize, const T: usize>() -> usize {
 /// - z is 32 bytes used for rejection in decapsulation
 /// - pk is the public key
 /// - pkh is the hash of the public key
+// `needless_range_loop`: explicit index loop kept for aeneas-extraction friendliness.
+#[allow(clippy::needless_range_loop)]
 pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
     sk: &[u8; 32],
 ) -> (PkeSecretKey<L>, [u8; 32], PkePublicKey<L>, [u8; 32]) {
@@ -144,10 +173,16 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
     // b's coefficients are 10-bit after the rounding shift, so it transforms as uniform
     let vec_ntt = NttMatrix::from_uniform_matrix(&b);
 
+    // Pack b into its serialized bytes; we keep those, not the structured vector.
+    let mut vec_bytes = [[0u8; PK_VEC_ELEM_BYTES]; L];
+    for i in 0..L {
+        b.0[i][0].serialize(&mut vec_bytes[i], MODULUS_P_BITS);
+    }
+
     let pk = PkePublicKey {
         matrix_seed: mat_seed,
-        vec: b,
         mat_a_ntt,
+        vec_bytes,
         vec_ntt,
     };
     let pkh = pk.hash();
