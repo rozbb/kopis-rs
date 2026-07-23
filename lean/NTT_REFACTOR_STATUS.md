@@ -122,12 +122,44 @@ Reduction specs (`Ntt.lean`) — idioms that WORK:
 - `IScalar.wrapping_shr_bv_eq`, `IScalar.wrapping_{add,sub,mul}_val_eq` give the bv/val forms;
   the `Int.bmod`-exactness corollaries at the top of `Ntt.lean` discharge the no-wrap step.
 
-Reduction specs — the OPEN gap:
-- Proving `(wrapping_shr x 31 &&& P) = (if x.val<0 then P else 0)` — the branchless sign-mask —
-  did NOT close with `bv_decide` even after reverting `x.bv.msb = _` into scope: the `sshiftRight`
-  form still yields a "spurious counterexample" (something isn't bitblasting — likely the shift
-  amount or a residual projection). Also `BitVec.msb_eq_toInt` was not the literal
-  `x.msb = decide (x.toInt < 0)` form I assumed — check its real statement. Resolving this one
-  lemma should unlock `to_canonical` → `to_wrapping_u16`, and the same style should carry
-  `mont_reduce` / `barrett_reduce`. A dedicated `BitVec.sshiftRight`-of-known-msb rewrite (all-ones
-  / all-zeros) is probably cleaner than throwing the whole goal at `bv_decide`.
+Reduction specs — `sign_mask_and_P` (the branchless `(wrapping_shr x 31) &&& P`): nearly done.
+This recipe reduces the goal to a pure BitVec equation:
+```
+have hbv : arithmetic.ntt.P.bv = 50330113#32 := by simp only [global_simps]; rfl
+have hk : (↑(31#u32) : ℕ) % IScalarTy.I32.numBits = 31 := by decide
+by_cases hx : x.val < 0
+· have hmsb : x.bv.msb = true := by
+    rw [BitVec.msb_eq_toInt]; exact decide_eq_true (show x.bv.toInt < 0 from hx)
+  rw [if_pos hx, I32.eq_equiv_bv_eq]
+  simp only [IScalar.and, core.num.I32.wrapping_shr, IScalar.wrapping_shr_bv_eq, hbv, hk]
+  -- goal is now EXACTLY: x.bv.sshiftRight 31 &&& 50330113#32 = 50330113#32
+  revert hmsb; bv_decide         -- ← STILL fails: "potentially spurious counterexample"
+· ... (if_neg hx; msb = false via decide_eq_false; extra `show (0#i32).bv = 0#32 from rfl`)
+```
+`BitVec.msb_eq_toInt : x.msb = decide (x.toInt < 0)` IS the right lemma (verified).
+
+THE REMAINING MYSTERY (needs interactive LSP to crack fast): the reduced goal is **byte-identical**
+to this minimal example that **passes**:
+```
+example (x : BitVec 32) (h : x.msb = true) : x.sshiftRight 31 &&& 50330113#32 = 50330113#32 := by
+  revert h; bv_decide           -- ✓ succeeds
+```
+yet in the real proof `bv_decide` reports a spurious counterexample. Tried and did NOT fix it:
+`revert hmsb`; `generalize x.bv = b at hmsb ⊢`; `clear hx hbv hk`. Prime suspect: `generalize`
+silently no-ops (leaving `x.bv` un-abstracted so `bv_decide` can't case on the msb), OR `hmsb`
+built via `decide_eq_true` has a form `bv_decide` won't ingest. FIRST THING TO CHECK next session:
+`trace_state` / `#check hmsb` right before `bv_decide` to see whether the hyp is really `b.msb = true`
+over a fresh `b`. If `generalize` is the culprit, use `set b := x.bv with hb` or
+`obtain ⟨bv, hbv'⟩ := x` to expose the BitVec, or prove a standalone
+`BitVec.sshiftRight_31_and (b : BitVec 32) : b.sshiftRight 31 &&& c = if b.msb then c else 0`
+and apply it. Once `sign_mask_and_P` lands, `to_canonical_spec` follows via
+`I32_wrapping_add_exact` (already proved) + a `signed 0/P` bound; then `to_wrapping_u16`,
+`mont_reduce`, `barrett_reduce` in the same idiom.
+
+## ENVIRONMENT REQUIREMENT for continuation
+
+This session had **no Lean LSP / MCP access** (`mcp__lean-lsp__*` not exposed), so every proof
+iteration was a ~20s `lake build` + `trace_state` in a throwaway file — far too slow for the
+bit-vector and loop-invariant grinding. **Enable the Lean LSP MCP (or run the `lean4:proof-repair`
+/ `lean4:proof-golfer` subagents, which have it) for the next session.** The math (`ntt_spec`)
+and the per-file rewiring are large but mechanical given interactive goal inspection.
