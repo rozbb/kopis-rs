@@ -19,13 +19,13 @@ theorem kopis512_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 736
       ⦃ (r : impls.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_512 (skBytes seed) ((arrayToBytes ek).cast rfl) ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5⟩ ← expand_from_seed_spec 2#usize 10#usize seed .Kopis_512
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 2#usize 10#usize seed .Kopis_512
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
   exact kopis512_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.pke_pk .Kopis_512 rfl)
-    h1 h2 h3
-    (keygen_hpkvec ksk.pke_pk .Kopis_512 rfl (by decide))
-    (keygen_hpkmat ksk.pke_pk .Kopis_512 rfl (by decide) h5)
-    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_512 rfl (skBytes seed) h4 h3)
+    h1 h2 h3 h4
+    (keygen_hpkvec ksk.pke_pk .Kopis_512 rfl (by decide) h9) h8
+    (keygen_hpkmat ksk.pke_pk .Kopis_512 rfl (by decide) h6) h7
+    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_512 rfl (skBytes seed) h5 h4)
 
 /-- **Kopis-768: key-gen then decapsulate matches `KemDecap` (fully unconditional).** -/
 theorem kopis768_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 1088#usize) :
@@ -34,13 +34,13 @@ theorem kopis768_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 108
       ⦃ (r : impls.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_768 (skBytes seed) ((arrayToBytes ek).cast rfl) ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
   exact kopis768_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.pke_pk .Kopis_768 rfl)
-    h1 h2 h3
-    (keygen_hpkvec ksk.pke_pk .Kopis_768 rfl (by decide))
-    (keygen_hpkmat ksk.pke_pk .Kopis_768 rfl (by decide) h5)
-    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_768 rfl (skBytes seed) h4 h3)
+    h1 h2 h3 h4
+    (keygen_hpkvec ksk.pke_pk .Kopis_768 rfl (by decide) h9) h8
+    (keygen_hpkmat ksk.pke_pk .Kopis_768 rfl (by decide) h6) h7
+    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_768 rfl (skBytes seed) h5 h4)
 
 /-- **Kopis-1024: key-gen then decapsulate matches `KemDecap` (fully unconditional).** -/
 theorem kopis1024_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 1472#usize) :
@@ -49,13 +49,13 @@ theorem kopis1024_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 14
       ⦃ (r : impls.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_1024 (skBytes seed) ((arrayToBytes ek).cast rfl) ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
   exact kopis1024_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.pke_pk .Kopis_1024 rfl)
-    h1 h2 h3
-    (keygen_hpkvec ksk.pke_pk .Kopis_1024 rfl (by decide))
-    (keygen_hpkmat ksk.pke_pk .Kopis_1024 rfl (by decide) h5)
-    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) h4 h3)
+    h1 h2 h3 h4
+    (keygen_hpkvec ksk.pke_pk .Kopis_1024 rfl (by decide) h9) h8
+    (keygen_hpkmat ksk.pke_pk .Kopis_1024 rfl (by decide) h6) h7
+    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) h5 h4)
 
 
 @[step]
@@ -73,14 +73,36 @@ theorem matrix_clone_spec {X Y : Usize} (self : arithmetic.matrix_arith.Matrix X
     rw [hx', ← hxx'])
   exact ha.symm
 
+theorem ntt_matrix_clone_spec {X Y : Usize} (self : arithmetic.ntt.NttMatrix X Y) :
+    arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone self
+      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => r = self ⦄ := by
+  unfold arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone
+  let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec
+    (core.clone.CloneArray Y arithmetic.ntt.NttElem.Insts.CoreCloneClone) self (by
+    intro x _
+    show core.array.CloneArray.clone arithmetic.ntt.NttElem.Insts.CoreCloneClone x = ok x
+    obtain ⟨x', hx', hxx'⟩ :=
+      Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
+        arithmetic.ntt.NttElem.Insts.CoreCloneClone x (fun y _ => rfl))
+    rw [hx', ← hxx'])
+  exact ha.symm
+
 theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
     pke.PkePublicKey.Insts.CoreCloneClone.clone self
       ⦃ (r : pke.PkePublicKey L) => r = self ⦄ := by
   unfold pke.PkePublicKey.Insts.CoreCloneClone.clone
   let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec core.clone.CloneU8 self.matrix_seed (by intro x _; rfl)
-  let* ⟨m, hm⟩ ← matrix_clone_spec self.mat_a
-  let* ⟨m1, hm1⟩ ← matrix_clone_spec self.vec
-  subst ha hm hm1
+  let* ⟨nm, hnm⟩ ← ntt_matrix_clone_spec self.mat_a_ntt
+  let* ⟨a1, ha1⟩ ← core.array.CloneArray.clone_spec
+    (core.clone.CloneArray 320#usize core.clone.CloneU8) self.vec_bytes (by
+    intro x _
+    show core.array.CloneArray.clone core.clone.CloneU8 x = ok x
+    obtain ⟨x', hx', hxx'⟩ :=
+      Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
+        core.clone.CloneU8 x (fun y _ => rfl))
+    rw [hx', ← hxx'])
+  let* ⟨nm1, hnm1⟩ ← ntt_matrix_clone_spec self.vec_ntt
+  subst ha hnm ha1 hnm1
   rfl
 
 theorem public_key_spec {L : Usize} (self : kem.KemSecretKey L) :
@@ -112,7 +134,7 @@ theorem kopis512_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_512 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_512 (skBytes seed))).1 ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5⟩ ← expand_from_seed_spec 2#usize 10#usize seed .Kopis_512
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 2#usize 10#usize seed .Kopis_512
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
   let* ⟨kpk, hkvec, hkhash⟩ ← kopis512_public_key_spec ksk
   have hpk3 : pkStructBytes kpk.pke_pk .Kopis_512 rfl
@@ -120,8 +142,10 @@ theorem kopis512_keygen_encap_spec (seed randomness : Array U8 32#usize) :
     rw [hkvec]; exact h3
   let* ⟨r, hc, hk⟩ ← kopis512_encapsulate_deterministic_spec kpk randomness
     (pkStructBytes kpk.pke_pk .Kopis_512 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_512 rfl (by decide))
-    (keygen_hpkmat kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h5))
+    (keygen_hpkvec kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h9))
+    (by rw [hkvec]; exact h8)
+    (keygen_hpkmat kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h6))
+    (by rw [hkvec]; exact h7)
     (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_512 rfl (skBytes seed) (by rw [hkhash]; exact h4)
       (by rw [hkvec]; exact h3))
   rw [hpk3] at hc hk
@@ -146,7 +170,7 @@ theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).1 ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
   let* ⟨kpk, hkvec, hkhash⟩ ← kopis768_public_key_spec ksk
   have hpk3 : pkStructBytes kpk.pke_pk .Kopis_768 rfl
@@ -154,8 +178,10 @@ theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
     rw [hkvec]; exact h3
   let* ⟨r, hc, hk⟩ ← kopis768_encapsulate_deterministic_spec kpk randomness
     (pkStructBytes kpk.pke_pk .Kopis_768 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_768 rfl (by decide))
-    (keygen_hpkmat kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h5))
+    (keygen_hpkvec kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h9))
+    (by rw [hkvec]; exact h8)
+    (keygen_hpkmat kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h6))
+    (by rw [hkvec]; exact h7)
     (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_768 rfl (skBytes seed) (by rw [hkhash]; exact h4)
       (by rw [hkvec]; exact h3))
   rw [hpk3] at hc hk
@@ -180,7 +206,7 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).1 ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
   let* ⟨kpk, hkvec, hkhash⟩ ← kopis1024_public_key_spec ksk
   have hpk3 : pkStructBytes kpk.pke_pk .Kopis_1024 rfl
@@ -188,8 +214,10 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
     rw [hkvec]; exact h3
   let* ⟨r, hc, hk⟩ ← kopis1024_encapsulate_deterministic_spec kpk randomness
     (pkStructBytes kpk.pke_pk .Kopis_1024 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_1024 rfl (by decide))
-    (keygen_hpkmat kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h5))
+    (keygen_hpkvec kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h9))
+    (by rw [hkvec]; exact h8)
+    (keygen_hpkmat kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h6))
+    (by rw [hkvec]; exact h7)
     (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) (by rw [hkhash]; exact h4)
       (by rw [hkvec]; exact h3))
   rw [hpk3] at hc hk

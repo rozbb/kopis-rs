@@ -22,10 +22,14 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
           pkStructBytes ksk.pke_pk p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.1 ∧
           arrayToBytes ksk.hash_pke_pk = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.2 ∧
           toMatrix13 (nttInvU ksk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat L.val (arrayToBytes ksk.pke_pk.matrix_seed) ⦄ := by
+            = Spec.Kopis.GenMat L.val (arrayToBytes ksk.pke_pk.matrix_seed) ∧
+          UniformBounded (nttInvU ksk.pke_pk.mat_a_ntt) ∧
+          UniformBounded (nttInvU ksk.pke_pk.vec_ntt) ∧
+          vecBytesFlat ksk.pke_pk
+            = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 (nttInvU ksk.pke_pk.vec_ntt)) ⦄ := by
   unfold kem.KemSecretKey.expand_from_seed
-  let* ⟨pke_sk, z, pke_pk, hash_pke_pk, h1, h2, h3, h4, h5, h6⟩ ←
+  let* ⟨pke_sk, z, pke_pk, hash_pke_pk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ←
     expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL
-  exact ⟨h1, h2, h3, h4, h5, h6⟩
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
 
 end Kopis.Properties
