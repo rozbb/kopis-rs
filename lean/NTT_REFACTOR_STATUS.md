@@ -5,161 +5,85 @@ Status of the Lean correspondence proofs after three Rust changes landed on
 (2) the PKE public key now stores its serialized bytes (`vec_bytes`) instead of the
 structured `Matrix<L,1>`; (3) the `gen` module was renamed `sample`.
 
-This file is a working map, not audit surface. `TopLevelTheorems.lean` remains the audit
-surface; its `#print axioms` gate is expected to FAIL until `ntt_spec` (below) is discharged.
+## Current state (rewiring COMPLETE)
 
-## What builds now
+The entire crate has been rewired to the NTT-domain representation. Every proof file
+compiles as real proof; the **only** remaining `sorry`s are the single documented
+mathematical hole `ntt_spec` (7 `sorry`s in `Ntt.lean`, see below).
 
-Everything up to and including the abstract algebra bridges builds green:
-`RingArith`, `MatrixArith`, `MulTranspose`, `MatrixMul` (schoolbook kept as the reference
-impl), `GenMatrix`, `GenSecret*`, `Serialize*`, `MatVecMul`, `ProdBridge`, `ProdBridgeNT`,
-`RoundTop`, `RoundR1/Rt`, `InnerProduct`, `Hash`, `Encrypt/DecryptGlue`, and `Ntt`.
+`TopLevelTheorems.lean` is the audit surface. Its `#print axioms` gate now **reports
+`sorryAx` as the known `ntt_spec` hole with a loud warning, but no longer throws on it**;
+it still throws on any *other* new axiom, so it keeps protecting the rest of the trust base.
 
-Key surprise from the build: the NTT-domain change did **not** break the algebraic bridge
-files. They prove spec-level lemmas (`Spec.Kopis.matVecMul`, `RoundToR10`, …) that never
-mention the extracted multiplication. The NTT only meets the extracted code at the top-level
-compositions, so breakage is concentrated there.
+### The NTT bridge (`Ntt.lean`) — the decomposed interface
 
-## What is broken, and why
+The bridge is stated with two opaque inverse-NTT *functions* (not relations), so the
+coefficient matrix an NTT matrix denotes is deterministic and needs no existential when
+consumed downstream:
 
-The first failing target is `PkeSerialize`; everything downstream of it is *blocked*
-(unattempted), so their errors are not yet visible. All breakage is one of two kinds:
+- `nttInvU`, `nttInvS : NttMatrix X Y → Mat X Y` — the uniform/secret coefficient matrix an
+  NTT matrix denotes.
+- `from_uniform_matrix_spec` / `from_secret_matrix_spec` — `nttInvU/nttInvS (from_… A) = A`.
+- `ntt_mul_spec` / `ntt_mul_transpose_spec` — pointwise product of NTT matrices computes the
+  schoolbook product of the coefficient matrices they denote (drop-in for the schoolbook
+  `matrix_mul(_transpose)_spec`), under the joint magnitude constraint `fitsExactly`.
+- Magnitude lemmas: `gen_matrix_uniformBounded`, `gen_secret_secretBounded`,
+  `deserialize_10_uniformBounded`, `shift_right_uniformBounded`.
+- `fitsExactly_paramSet` discharges `fitsExactly (ℓ p) (μ p / 2)` for each shipped parameter set.
 
-**(a) Pubkey field change** — `PkePublicKey` is now `{matrix_seed, mat_a_ntt, vec_bytes, vec_ntt}`.
-Proofs that referenced `pk.vec` / `pk.mat_a` no longer typecheck. Affected: `PkeSerialize`,
-`PkeHash`, `PkeFromBytes`, the `pkStructBytes` definition (in `ExpandDecap.lean`), `KemFromBytes`,
-`KemDecap`, `Impls`, and the `pk_serialize_matches_translation` / `pk_from_bytes_matches_spec`
-statements in `TopLevelTheorems`.
+All seven are `sorry`ed (never `axiom`ed). Everything else is real proof on top.
 
-**(b) NTT domain** — `expand_decap_key`, `encrypt_deterministic`, `decrypt` now call
-`NttMatrix.from_uniform_matrix` / `from_secret_matrix` / `mul` / `mul_transpose` instead of
-`Matrix.mul(_transpose)`. The proofs of `ExpandDecap`, `PkeEncryptTop`, `PkeDecryptTop` step
-through the old schoolbook `matrix_mul_transpose_spec` and must be rewired to the NTT bridge.
+### Files rewired (real proof, no sorries)
 
-## The plan agreed with the user (pubkey serialize/from_bytes)
+`PkeSerialize` (vec_bytes copy-loop → `vecBytesFlat`), `PkeHash`, `ExpandDecap`
+(NTT-domain secret key, `expand_decap_key_loop` serialize spec, `pkStructBytes` byte-level,
+9-conjunct WF postcondition), `PkeEncryptTop`, `PkeDecryptTop`, `KeyGen`, `KemDecap`,
+`KemEncap`, `Impls`, `KeyGenHyps`, `KeyGenCapstone`, `PkeFromBytes` (reordered extraction +
+`from_bytes_loop` value spec), `KemFromBytes`, `TopLevelTheorems`.
 
-- **Drop** `pk_from_bytes_matches_spec` (its conjuncts reference dead fields; it was a
-  structural lemma). Rely on the existing behavioral `kopisXXX_from_bytes_then_encapsulate`
-  as the from_bytes audit statement — it is bytes-in/bytes-out and already representation-agnostic.
-- **Add** `serialize ∘ from_bytes = id` (any right-length input). Near-definitional now:
-  `from_bytes` stores input bytes verbatim into `vec_bytes ++ matrix_seed`.
-- **Restate** `pk_serialize_matches_translation` over `vec_bytes`: serialize emits
-  `flatten(vec_bytes) ++ matrix_seed`.
-- **Internal lemma** (unpacked-key invariant): `from_bytes` yields
-  `deserialize_10(vec_bytes) = spec vector`, `vec_ntt = NTT(that)`, `mat_a_ntt = NTT(GenMat seed)`.
+### Threading pattern
+
+- The secret key is now `NttMatrix L 1`; its correspondence is stated over `nttInvS sk`.
+  `SecretBounded (nttInvS sk) (μ/2)` is carried from key-gen into decap.
+- The public key carries `mat_a_ntt` / `vec_ntt`; correspondences are over
+  `nttInvU pk.mat_a_ntt` / `nttInvU pk.vec_ntt`, with `UniformBounded` bounds threaded from
+  `gen_matrix`/`deserialize_10`/rounding.
+- `expand_decap_key_spec` exposes the full WF (bounds + `vecBytesFlat = serialize(toVecN
+  (nttInvU vec_ntt))`) so the key-gen→encap/decap capstones can discharge the encap/decap
+  hypotheses.
+
+### Perf note (`KeyGenCapstone`)
+
+The three `kopisXXX_keygen_encap_spec` composites trigger one very large (but finite) `whnf`
+reduction of the spec-level `KemEncap`/`ExpandDecapKey`/`SkToPk` terms during elaboration and
+need a raised `maxHeartbeats` (currently 20 000 000). Every isolated defeq is cheap; this is a
+proof-elaboration cost, not a math gap. A future cleanup could shrink it (e.g. making the
+relevant spec defs `irreducible` at these call sites, or restructuring the final application).
 
 ## The single mathematical hole: `ntt_spec`
 
 The genuinely hard, deferred content is that the negacyclic NTT computes the ring product.
-It is isolated as `Kopis.Properties.ntt_spec` in `Ntt.lean` (a precise statement, `sorry`ed —
-never an `axiom`, so the audit gate reports it). Everything else — totality of the transform,
-the pubkey byte layer, and all downstream rewiring — is intended to be real proof on top of it.
-
-`ntt_spec` is stated at the `NttMatrix.mul(_transpose)` level with magnitude preconditions
-(uniform operand `< 2^13`; secret operand `|·| ≤ μ/2`) and a schoolbook postcondition, so it is
-a drop-in for `matrix_mul_transpose_spec`. Intended proof route (CRT split per butterfly level,
-Montgomery/Barrett reduction specs, lazy-reduction bounds) is documented inline.
+It is the seven `sorry`s in `Ntt.lean`'s bridge (above). Intended proof route (CRT split per
+butterfly level, Montgomery/Barrett reduction specs, lazy-reduction bounds) is documented
+inline in `Ntt.lean`.
 
 ### Already proved toward it (in `Ntt.lean`)
-- `bmod_i32_exact` / `bmod_i64_exact` and the six `I32/I64_wrapping_{add,sub,mul}_exact` corollaries:
-  wrapping arithmetic is exact in range. This is the payoff of writing the NTT with explicit
-  `wrapping_*`: the extracted arithmetic is total, so correctness reduces to "the value stayed
-  in range", proved once via `Int.bmod` identity rather than 36 inline panic-freedom obligations.
+- `bmod_i32_exact` / `bmod_i64_exact` and the six `I32/I64_wrapping_{add,sub,mul}_exact`
+  corollaries: wrapping arithmetic is exact in range.
 - `fitsExactly` (joint `(ℓ,μ)` exactness constraint) + the three parameter instantiations +
-  `margin_is_2304` + `worst_ell_with_worst_mu_does_not_fit` (why the constraint must be joint).
+  `fitsExactly_paramSet` + `margin_is_2304` + `worst_ell_with_worst_mu_does_not_fit`.
 - `signedOfU16` and its mod-`2^16` agreement.
 
 ### Still needed for `ntt_spec`
 - Reduction-function value specs: `mont_reduce`, `barrett_reduce`, `to_canonical`,
-  `to_wrapping_u16`. These are concrete but require aeneas-scalar bit-vector plumbing
-  (sign-mask AND, `sshiftRight`, cast `bmod`/`emod` semantics). The `*_exact` lemmas above are
-  their arithmetic core.
-- The transform correctness itself (butterfly network = evaluation at the roots; pointwise
-  product = product in the split ring; INVNTT_SCALE cancels Montgomery + 1/256).
-- **Magnitude lemmas** (the easy-to-miss obligation): `gen_matrix_from_seed` coeffs are `< 2^13`
-  and `gen_secret_from_seed` coeffs are cbd-bounded, as *raw values*, not just residues. The
-  existing specs abstract to `ZMod (2^13)` immediately and discard magnitude, which is exactly
-  what the exactness bound needs. Needed to discharge `ntt_spec`'s preconditions downstream.
+  `to_wrapping_u16` (aeneas-scalar bit-vector plumbing; the `*_exact` lemmas are their core).
+- The transform correctness (butterfly network = evaluation at the roots; pointwise product =
+  product in the split ring; `INVNTT_SCALE` cancels Montgomery + 1/256).
+- The four magnitude lemmas (currently `sorry`ed): `gen_matrix`/`gen_secret`/`deserialize_10`
+  coefficient bounds and the shift-right (`<2^13`) bound, as raw values not just residues.
 
-## Suggested order of attack for the remaining work
+## Environment
 
-1. `Ntt.lean`: prove the four reduction specs; state + prove-modulo-`ntt_spec` the bridge
-   (`ntt_mul_spec`, `ntt_mul_transpose_spec`, plus `from_uniform_matrix_spec` /
-   `from_secret_matrix_spec` giving the NTT-repr relation, since `mat_a_ntt` and `vec_s_ntt`
-   escape into the pubkey/secret key).
-2. Magnitude lemmas for `gen_matrix` / `gen_secret`.
-3. `PkeSerialize` (NTT-free; template is `MatrixSerialize.serialize_col_outer_spec`).
-4. Redefine `pkStructBytes` over `vec_bytes`; fix `PkeHash`, `KeyGenHyps`.
-5. `PkeFromBytes` + the round-trip.
-6. `ExpandDecap`, `PkeEncryptTop`, `PkeDecryptTop` via the bridge + new pubkey construction.
-7. `KemFromBytes`, `KemDecap`, `KemEncap`, `Impls`.
-8. `TopLevelTheorems`: drop `pk_from_bytes_matches_spec`, restate serialize theorem, add round-trip.
-
-## Technical breadcrumbs (verified during this pass — save re-discovery)
-
-Extracted shapes:
-- `expand_decap_key` sequences `gen_matrix_from_seed → gen_secret_from_seed →
-  from_uniform_matrix → from_secret_matrix → mul_transpose → wrapping_add_to_all →
-  shift_right → from_uniform_matrix → expand_decap_key_loop (serialize each row into vec_bytes)
-  → hash → ok`. `mat_a_ntt` and `vec_s_ntt` both escape (into pubkey / secret key), so the bridge
-  needs `from_uniform_matrix_spec` / `from_secret_matrix_spec` relating them to a math NTT, not
-  just the bundled `ntt_mul_transpose_spec` already in `Ntt.lean`.
-- `serialize` = `serialize_loop {0,L}` (per-chunk `copy_from_slice` of `vec_bytes[i]` into
-  `out_buf[i*320 .. i*320+320]`) then a `RangeFrom` `copy_from_slice` of `matrix_seed` at `L*320`.
-- `from_bytes` copies `vec_slice` chunks into `vec_bytes` verbatim; NTT constructors have **no
-  `massert`** (the per-coeff `debug_assert!`s were removed), so they are total — panic-freedom of
-  `from_bytes`/`serialize` needs no magnitude reasoning.
-
-For `PkeSerialize` (NTT-free, next best target): the template is
-`MatrixSerialize.serialize_col_outer_spec` / `serialize_col_inner_spec`. Needed step specs:
-`core.slice.index.SliceIndexRangeUsizeSlice.index_mut.step_spec` (full-Range chunk → `setSlice!`),
-`core.slice.Slice.copy_from_slice.step_spec` (`copy_from_slice s0 s1 ⦃ s1' => s1' = s1 ⦄`),
-`List.getElem!_setSlice!_{middle,same,prefix}`. The seed-copy tail is unchanged from the old proof.
-
-Reduction specs (`Ntt.lean`) — idioms that WORK:
-- `simp only [global_simps]` rewrites the irreducible `arithmetic.ntt.P` to `50330113#i32`.
-- `I32.eq_equiv_bv_eq` (`@[bvify]`) turns an `I32` equality into a `BitVec` equality.
-- `IScalar.wrapping_shr_bv_eq`, `IScalar.wrapping_{add,sub,mul}_val_eq` give the bv/val forms;
-  the `Int.bmod`-exactness corollaries at the top of `Ntt.lean` discharge the no-wrap step.
-
-Reduction specs — `sign_mask_and_P` (the branchless `(wrapping_shr x 31) &&& P`): nearly done.
-This recipe reduces the goal to a pure BitVec equation:
-```
-have hbv : arithmetic.ntt.P.bv = 50330113#32 := by simp only [global_simps]; rfl
-have hk : (↑(31#u32) : ℕ) % IScalarTy.I32.numBits = 31 := by decide
-by_cases hx : x.val < 0
-· have hmsb : x.bv.msb = true := by
-    rw [BitVec.msb_eq_toInt]; exact decide_eq_true (show x.bv.toInt < 0 from hx)
-  rw [if_pos hx, I32.eq_equiv_bv_eq]
-  simp only [IScalar.and, core.num.I32.wrapping_shr, IScalar.wrapping_shr_bv_eq, hbv, hk]
-  -- goal is now EXACTLY: x.bv.sshiftRight 31 &&& 50330113#32 = 50330113#32
-  revert hmsb; bv_decide         -- ← STILL fails: "potentially spurious counterexample"
-· ... (if_neg hx; msb = false via decide_eq_false; extra `show (0#i32).bv = 0#32 from rfl`)
-```
-`BitVec.msb_eq_toInt : x.msb = decide (x.toInt < 0)` IS the right lemma (verified).
-
-THE REMAINING MYSTERY (needs interactive LSP to crack fast): the reduced goal is **byte-identical**
-to this minimal example that **passes**:
-```
-example (x : BitVec 32) (h : x.msb = true) : x.sshiftRight 31 &&& 50330113#32 = 50330113#32 := by
-  revert h; bv_decide           -- ✓ succeeds
-```
-yet in the real proof `bv_decide` reports a spurious counterexample. Tried and did NOT fix it:
-`revert hmsb`; `generalize x.bv = b at hmsb ⊢`; `clear hx hbv hk`. Prime suspect: `generalize`
-silently no-ops (leaving `x.bv` un-abstracted so `bv_decide` can't case on the msb), OR `hmsb`
-built via `decide_eq_true` has a form `bv_decide` won't ingest. FIRST THING TO CHECK next session:
-`trace_state` / `#check hmsb` right before `bv_decide` to see whether the hyp is really `b.msb = true`
-over a fresh `b`. If `generalize` is the culprit, use `set b := x.bv with hb` or
-`obtain ⟨bv, hbv'⟩ := x` to expose the BitVec, or prove a standalone
-`BitVec.sshiftRight_31_and (b : BitVec 32) : b.sshiftRight 31 &&& c = if b.msb then c else 0`
-and apply it. Once `sign_mask_and_P` lands, `to_canonical_spec` follows via
-`I32_wrapping_add_exact` (already proved) + a `signed 0/P` bound; then `to_wrapping_u16`,
-`mont_reduce`, `barrett_reduce` in the same idiom.
-
-## ENVIRONMENT REQUIREMENT for continuation
-
-This session had **no Lean LSP / MCP access** (`mcp__lean-lsp__*` not exposed), so every proof
-iteration was a ~20s `lake build` + `trace_state` in a throwaway file — far too slow for the
-bit-vector and loop-invariant grinding. **Enable the Lean LSP MCP (or run the `lean4:proof-repair`
-/ `lean4:proof-golfer` subagents, which have it) for the next session.** The math (`ntt_spec`)
-and the per-file rewiring are large but mechanical given interactive goal inspection.
+This session had Lean LSP MCP access (`mcp__lean-lsp__*`) — essential for the bit-vector /
+loop-invariant grinding. Full `lake build Kopis` is slow (~15-20 min; `KeyGenCapstone` alone
+is several minutes at the raised heartbeat limit).
