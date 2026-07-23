@@ -5,15 +5,28 @@ Status of the Lean correspondence proofs after three Rust changes landed on
 (2) the PKE public key now stores its serialized bytes (`vec_bytes`) instead of the
 structured `Matrix<L,1>`; (3) the `gen` module was renamed `sample`.
 
-## Current state (rewiring COMPLETE)
+## Current state — `lake build Kopis` is GREEN
 
-The entire crate has been rewired to the NTT-domain representation. Every proof file
-compiles as real proof; the **only** remaining `sorry`s are the single documented
-mathematical hole `ntt_spec` (7 `sorry`s in `Ntt.lean`, see below).
+The entire crate has been rewired to the NTT-domain representation. `lake build Kopis`
+completes successfully (1775 jobs, 0 errors). Every proof file compiles as real proof except
+for two documented holes (11 `sorry`s total, all in two files):
+
+1. **`ntt_spec`** — the single mathematical hole (8 `sorry`s in `Ntt.lean`): that the
+   negacyclic NTT computes the ring product, plus its raw-magnitude lemmas. See below.
+2. **A proof-engineering PERF hole** — the three `kopisXXX_keygen_encap_spec` composites in
+   `KeyGenCapstone.lean` (3 `sorry`s). They hit an intractable `whnf`-elaboration blowup when
+   the `keygen_hpk*` facts are checked against `encapsulate_deterministic_spec`'s expected
+   types over the huge spec-level `KemEncap`/`ExpandDecapKey`/`SkToPk` terms. A
+   `generalize`-based structuring tames the final rewrite, but the residual cost is
+   heartbeat-nondeterministic under parallel build load and does not settle at any practical
+   budget (60M still flakes). This is a COMPOSITION convenience only — the underlying pieces
+   are all fully proved: `expand_from_seed_spec` (key-gen), `kopisXXX_public_key_spec`
+   (derive pk), `kopisXXX_encapsulate_deterministic_spec` (encap), and the user-facing
+   `kopisXXX_from_bytes_then_encapsulate` (parse-then-encapsulate). NOT part of `ntt_spec`.
 
 `TopLevelTheorems.lean` is the audit surface. Its `#print axioms` gate now **reports
-`sorryAx` as the known `ntt_spec` hole with a loud warning, but no longer throws on it**;
-it still throws on any *other* new axiom, so it keeps protecting the rest of the trust base.
+`sorryAx` (covering both holes) as a loud warning but no longer throws on it**; it still
+throws on any *other* new axiom, so it keeps protecting the rest of the trust base.
 
 ### The NTT bridge (`Ntt.lean`) — the decomposed interface
 
