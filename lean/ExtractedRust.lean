@@ -3005,363 +3005,6 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
     Source: 'src/consts.rs', lines 45:0-45:44 -/
 @[global_simps, irreducible] def consts.DOMSEP_NOREJECT : Std.U8 := 6#u8
 
-/-- [kopis::gen::cbd_diff]:
-    Source: 'src/gen.rs', lines 18:0-22:1 -/
-def gen.cbd_diff
-  (raw1 : Std.U32) (half : Std.U32) (mask : Std.U32) : Result Std.U16 := do
-  let i ← lift (raw1 &&& mask)
-  let i1 ← core.num.U32.count_ones i
-  let a ← lift (UScalar.cast .U16 i1)
-  let i2 ← raw1 >>> half
-  let i3 ← lift (i2 &&& mask)
-  let i4 ← core.num.U32.count_ones i3
-  let b ← lift (UScalar.cast .U16 i4)
-  ok (core.num.U16.wrapping_sub a b)
-
-/-- [kopis::gen::cbd]: loop 0:
-    Source: 'src/gen.rs', lines 34:8-38:9 -/
-@[rust_loop]
-def gen.cbd_loop0
-  (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
-  (out : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.adapters.enumerate.IteratorEnumerate.next
-      (core.iter.traits.iterator.IteratorSliceIter Std.U8) iter
-  match o with
-  | none => ok out
-  | some p =>
-    let (i, byte) := p
-    let i1 ← lift (byte &&& 15#u8)
-    let i2 ← core.num.U8.count_ones i1
-    let a ← lift (UScalar.cast .U16 i2)
-    let i3 ← byte >>> 4#i32
-    let i4 ← core.num.U8.count_ones i3
-    let b ← lift (UScalar.cast .U16 i4)
-    let i5 ← lift (core.num.U16.wrapping_sub a b)
-    let a1 ← Array.update out i i5
-    gen.cbd_loop0 iter1 a1
-partial_fixpoint
-
-/-- [kopis::gen::cbd]: loop 1:
-    Source: 'src/gen.rs', lines 43:8-55:9 -/
-@[rust_loop]
-def gen.cbd_loop1
-  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
-  (out : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some g =>
-    let i ← 5#usize * g
-    let i1 ← Slice.index_usize buf i
-    let b0 ← lift (UScalar.cast .U32 i1)
-    let i2 ← i + 1#usize
-    let i3 ← Slice.index_usize buf i2
-    let b1 ← lift (UScalar.cast .U32 i3)
-    let i4 ← i + 2#usize
-    let i5 ← Slice.index_usize buf i4
-    let b2 ← lift (UScalar.cast .U32 i5)
-    let i6 ← i + 3#usize
-    let i7 ← Slice.index_usize buf i6
-    let b3 ← lift (UScalar.cast .U32 i7)
-    let i8 ← i + 4#usize
-    let i9 ← Slice.index_usize buf i8
-    let b4 ← lift (UScalar.cast .U32 i9)
-    let o1 ← 4#usize * g
-    let i10 ← b1 <<< 8#i32
-    let i11 ← lift (b0 ||| i10)
-    let i12 ← gen.cbd_diff i11 5#u32 31#u32
-    let a ← Array.update out o1 i12
-    let i13 ← b2 <<< 8#i32
-    let i14 ← lift (b1 ||| i13)
-    let i15 ← i14 >>> 2#i32
-    let i16 ← gen.cbd_diff i15 5#u32 31#u32
-    let i17 ← o1 + 1#usize
-    let a1 ← Array.update a i17 i16
-    let i18 ← b3 <<< 8#i32
-    let i19 ← lift (b2 ||| i18)
-    let i20 ← i19 >>> 4#i32
-    let i21 ← gen.cbd_diff i20 5#u32 31#u32
-    let i22 ← o1 + 2#usize
-    let a2 ← Array.update a1 i22 i21
-    let i23 ← b4 <<< 8#i32
-    let i24 ← lift (b3 ||| i23)
-    let i25 ← i24 >>> 6#i32
-    let i26 ← gen.cbd_diff i25 5#u32 31#u32
-    let i27 ← o1 + 3#usize
-    let a3 ← Array.update a2 i27 i26
-    gen.cbd_loop1 iter1 buf a3
-partial_fixpoint
-
-/-- [kopis::gen::cbd]: loop 2:
-    Source: 'src/gen.rs', lines 59:8-69:9 -/
-@[rust_loop]
-def gen.cbd_loop2
-  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
-  (out : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some g =>
-    let i ← 3#usize * g
-    let i1 ← Slice.index_usize buf i
-    let b0 ← lift (UScalar.cast .U32 i1)
-    let i2 ← i + 1#usize
-    let i3 ← Slice.index_usize buf i2
-    let b1 ← lift (UScalar.cast .U32 i3)
-    let i4 ← i + 2#usize
-    let i5 ← Slice.index_usize buf i4
-    let b2 ← lift (UScalar.cast .U32 i5)
-    let o1 ← 4#usize * g
-    let i6 ← gen.cbd_diff b0 3#u32 7#u32
-    let a ← Array.update out o1 i6
-    let i7 ← b1 <<< 8#i32
-    let i8 ← lift (b0 ||| i7)
-    let i9 ← i8 >>> 6#i32
-    let i10 ← gen.cbd_diff i9 3#u32 7#u32
-    let i11 ← o1 + 1#usize
-    let a1 ← Array.update a i11 i10
-    let i12 ← b2 <<< 8#i32
-    let i13 ← lift (b1 ||| i12)
-    let i14 ← i13 >>> 4#i32
-    let i15 ← gen.cbd_diff i14 3#u32 7#u32
-    let i16 ← o1 + 2#usize
-    let a2 ← Array.update a1 i16 i15
-    let i17 ← b2 >>> 2#i32
-    let i18 ← gen.cbd_diff i17 3#u32 7#u32
-    let i19 ← o1 + 3#usize
-    let a3 ← Array.update a2 i19 i18
-    gen.cbd_loop2 iter1 buf a3
-partial_fixpoint
-
-/-- [kopis::gen::cbd]: loop 3:
-    Source: 'src/gen.rs', lines 77:8-95:9 -/
-@[rust_loop]
-def gen.cbd_loop3
-  (MU : Std.Usize) (iter : core.slice.iter.IterMut Std.U16)
-  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
-  (buf : Slice Std.U8) (half : Std.Usize) (mask : Std.U32)
-  (bit_pos : Std.Usize) :
-  Result (core.slice.iter.IterMut Std.U16)
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (let im := next_back iter1 none
-                back im)
-  | some _ =>
-    let byte_idx ← bit_pos / 8#usize
-    let bit_in_byte ← bit_pos % 8#usize
-    let i ← Slice.index_usize buf byte_idx
-    let raw1 ← lift (UScalar.cast .U32 i)
-    let i1 ← byte_idx + 1#usize
-    let i2 := Slice.len buf
-    let (raw2, back1) ←
-      if i1 < i2
-      then
-        do
-        let i3 ← Slice.index_usize buf i1
-        let i4 ← lift (UScalar.cast .U32 i3)
-        let i5 ← i4 <<< 8#i32
-        let raw3 ← lift (raw1 ||| i5)
-        ok (raw3, fun i6 im => next_back im (some i6))
-      else ok (raw1, fun i3 im => next_back im (some i3))
-    let i3 ← byte_idx + 2#usize
-    let i4 := Slice.len buf
-    let raw3 ←
-      if i3 < i4
-      then
-        do
-        let i5 ← Slice.index_usize buf i3
-        let i6 ← lift (UScalar.cast .U32 i5)
-        let i7 ← i6 <<< 16#i32
-        ok (raw2 ||| i7)
-      else ok raw2
-    let raw4 ← raw3 >>> bit_in_byte
-    let i5 ← lift (raw4 &&& mask)
-    let i6 ← core.num.U32.count_ones i5
-    let a ← lift (UScalar.cast .U16 i6)
-    let i7 ← raw4 >>> half
-    let i8 ← lift (i7 &&& mask)
-    let i9 ← core.num.U32.count_ones i8
-    let b ← lift (UScalar.cast .U16 i9)
-    let coeff ← lift (core.num.U16.wrapping_sub a b)
-    let bit_pos1 ← bit_pos + MU
-    gen.cbd_loop3 MU iter1 (fun im => let im1 := back1 coeff im
-                                      back im1) buf half mask bit_pos1
-partial_fixpoint
-
-/-- [kopis::gen::cbd]:
-    Source: 'src/gen.rs', lines 25:0-97:1 -/
-def gen.cbd
-  (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.ring_arith.RingElem)
-  :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let left_val := Slice.len buf
-  let _ ← consts.RING_DEG * MU
-  let i ← lift (Std.Usize.wrapping_mul consts.RING_DEG MU)
-  let right_val ← i / 8#usize
-  massert (left_val = right_val)
-  if MU = 8#usize
-  then
-    let i1 ← core.slice.Slice.iter buf
-    let iter ←
-      core.iter.traits.iterator.Iterator.enumerate.trait_default
-        (core.iter.traits.iterator.IteratorSliceIter Std.U8) i1
-    gen.cbd_loop0 iter out
-  else
-    if MU = 10#usize
-    then
-      let i1 ← consts.RING_DEG / 4#usize
-      gen.cbd_loop1 { start := 0#usize, «end» := i1 } buf out
-    else
-      if MU = 6#usize
-      then
-        let i1 ← consts.RING_DEG / 4#usize
-        gen.cbd_loop2 { start := 0#usize, «end» := i1 } buf out
-      else
-        let half ← MU / 2#usize
-        let i1 ← 1#u32 <<< half
-        let mask ← i1 - 1#u32
-        let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
-        let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-        let back ← gen.cbd_loop3 MU iter (fun im => im) buf half mask 0#usize
-        let s1 := iter_mut_back back
-        let a := to_slice_mut_back s1
-        ok a
-
-/-- [kopis::gen::gen_secret_from_seed]: loop 0:
-    Source: 'src/gen.rs', lines 111:4-118:5 -/
-@[rust_loop]
-def gen.gen_secret_from_seed_loop
-  {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (seed : Array Std.U8 32#usize)
-  (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice Std.U8) :
-  Result (arithmetic.matrix_arith.Matrix L 1#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok secret
-  | some i =>
-    let hasher ←
-      turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 3#u8
-    let s ← lift (Array.to_slice seed)
-    let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
-    let i1 ← lift (UScalar.cast .U8 i)
-    let s1 ← lift (Array.to_slice (Array.make 1#usize [ i1 ]))
-    let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s1
-    let reader ←
-      turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
-        hasher2
-    let (_, buf1) ←
-      turboshake.TurboShakeReader.Insts.DigestXofReader.read reader buf
-    let (a, index_mut_back) ← Array.index_mut_usize secret i
-    let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
-    let re1 ← gen.cbd MU buf1 re
-    let a1 := index_mut_back1 re1
-    let a2 := index_mut_back a1
-    gen.gen_secret_from_seed_loop MU iter1 seed a2 buf1
-partial_fixpoint
-
-/-- [kopis::gen::gen_secret_from_seed]:
-    Source: 'src/gen.rs', lines 101:0-121:1 -/
-def gen.gen_secret_from_seed
-  (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
-  Result (arithmetic.matrix_arith.Matrix L 1#usize)
-  := do
-  let secret ←
-    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
-  let backing_buf := Array.repeat 320#usize 0#u8
-  let i ← consts.RING_DEG * MU
-  let i1 ← i / 8#usize
-  let (buf, _) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
-      { «end» := i1 }
-  gen.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
-    secret buf
-
-/-- [kopis::gen::gen_matrix_from_seed]: loop 1:
-    Source: 'src/gen.rs', lines 134:8-142:9 -/
-@[rust_loop]
-def gen.gen_matrix_from_seed_loop0_loop0
-  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (seed : Array Std.U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
-  (buf : Array Std.U8 416#usize) (i : Std.Usize) :
-  Result ((arithmetic.matrix_arith.Matrix L L) × (Array Std.U8 416#usize))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (mat, buf)
-  | some j =>
-    let hasher ←
-      turboshake.TurboShake.Insts.CoreDefaultDefault.default 168#usize 2#u8
-    let s ← lift (Array.to_slice seed)
-    let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
-    let i1 ← lift (UScalar.cast .U8 i)
-    let s1 ← lift (Array.to_slice (Array.make 1#usize [ i1 ]))
-    let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s1
-    let i2 ← lift (UScalar.cast .U8 j)
-    let s2 ← lift (Array.to_slice (Array.make 1#usize [ i2 ]))
-    let hasher3 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher2 s2
-    let reader ←
-      turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
-        hasher3
-    let (s3, to_slice_mut_back) ← lift (Array.to_slice_mut buf)
-    let (_, s4) ←
-      turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s3
-    let buf1 := to_slice_mut_back s4
-    let s5 ← lift (Array.to_slice buf1)
-    let re ←
-      arithmetic.ring_arith.RingElem.deserialize s5 consts.MODULUS_Q_BITS
-    let (a, index_mut_back) ← Array.index_mut_usize mat i
-    let a1 ← Array.update a j re
-    let a2 := index_mut_back a1
-    gen.gen_matrix_from_seed_loop0_loop0 iter1 seed a2 buf1 i
-partial_fixpoint
-
-/-- [kopis::gen::gen_matrix_from_seed]: loop 0:
-    Source: 'src/gen.rs', lines 133:4-143:5 -/
-@[rust_loop]
-def gen.gen_matrix_from_seed_loop0
-  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (seed : Array Std.U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
-  (buf : Array Std.U8 416#usize) :
-  Result (arithmetic.matrix_arith.Matrix L L)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok mat
-  | some i =>
-    let (mat1, buf1) ←
-      gen.gen_matrix_from_seed_loop0_loop0 { start := 0#usize, «end» := L }
-        seed mat buf i
-    gen.gen_matrix_from_seed_loop0 iter1 seed mat1 buf1
-partial_fixpoint
-
-/-- [kopis::gen::gen_matrix_from_seed]:
-    Source: 'src/gen.rs', lines 126:0-146:1 -/
-def gen.gen_matrix_from_seed
-  (L : Std.Usize) (seed : Array Std.U8 32#usize) :
-  Result (arithmetic.matrix_arith.Matrix L L)
-  := do
-  let mat ←
-    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
-  let buf := Array.repeat 416#usize 0#u8
-  gen.gen_matrix_from_seed_loop0 { start := 0#usize, «end» := L } seed mat
-    buf
-
 /-- [kopis::impls::SharedSecret]
     Source: 'src/impls.rs', lines 15:0-15:34
     Visibility: public -/
@@ -3420,16 +3063,16 @@ def impls.SharedSecret.as_bytes
   ok self
 
 /-- [kopis::pke::PkePublicKey]
-    Source: 'src/pke.rs', lines 29:0-42:1
+    Source: 'src/pke.rs', lines 38:0-53:1
     Visibility: public -/
 structure pke.PkePublicKey (L : Std.Usize) where
   matrix_seed : Array Std.U8 32#usize
   mat_a_ntt : arithmetic.ntt.NttMatrix L L
-  vec : arithmetic.matrix_arith.Matrix L 1#usize
+  vec_bytes : Array (Array Std.U8 320#usize) L
   vec_ntt : arithmetic.ntt.NttMatrix L 1#usize
 
 /-- [kopis::pke::PkeSecretKey]
-    Source: 'src/pke.rs', lines 25:0-25:64 -/
+    Source: 'src/pke.rs', lines 29:0-29:64 -/
 @[reducible]
 def pke.PkeSecretKey (L : Std.Usize) := arithmetic.ntt.NttMatrix L 1#usize
 
@@ -3572,7 +3215,7 @@ def impls.kopis768.Kopis768PublicKey := kem.KemPublicKey 3#usize
 def impls.kopis1024.Kopis1024PublicKey := kem.KemPublicKey 4#usize
 
 /-- [kopis::pke::ciphertext_len]:
-    Source: 'src/pke.rs', lines 101:0-104:1
+    Source: 'src/pke.rs', lines 128:0-131:1
     Visibility: public -/
 def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   let i ← L * consts.MODULUS_P_BITS
@@ -3603,8 +3246,366 @@ def impls.kopis768.KOPIS768_CIPHERTEXT_LEN : Result Std.Usize :=
 def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 4#usize 6#usize
 
+/-- [kopis::sample::gen_matrix_from_seed]: loop 1:
+    Source: 'src/sample.rs', lines 134:8-142:9 -/
+@[rust_loop]
+def sample.gen_matrix_from_seed_loop0_loop0
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (seed : Array Std.U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+  (buf : Array Std.U8 416#usize) (i : Std.Usize) :
+  Result ((arithmetic.matrix_arith.Matrix L L) × (Array Std.U8 416#usize))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (mat, buf)
+  | some j =>
+    let hasher ←
+      turboshake.TurboShake.Insts.CoreDefaultDefault.default 168#usize 2#u8
+    let s ← lift (Array.to_slice seed)
+    let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
+    let i1 ← lift (UScalar.cast .U8 i)
+    let s1 ← lift (Array.to_slice (Array.make 1#usize [ i1 ]))
+    let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s1
+    let i2 ← lift (UScalar.cast .U8 j)
+    let s2 ← lift (Array.to_slice (Array.make 1#usize [ i2 ]))
+    let hasher3 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher2 s2
+    let reader ←
+      turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
+        hasher3
+    let (s3, to_slice_mut_back) ← lift (Array.to_slice_mut buf)
+    let (_, s4) ←
+      turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s3
+    let buf1 := to_slice_mut_back s4
+    let s5 ← lift (Array.to_slice buf1)
+    let re ←
+      arithmetic.ring_arith.RingElem.deserialize s5 consts.MODULUS_Q_BITS
+    let (a, index_mut_back) ← Array.index_mut_usize mat i
+    let a1 ← Array.update a j re
+    let a2 := index_mut_back a1
+    sample.gen_matrix_from_seed_loop0_loop0 iter1 seed a2 buf1 i
+partial_fixpoint
+
+/-- [kopis::sample::gen_matrix_from_seed]: loop 0:
+    Source: 'src/sample.rs', lines 133:4-143:5 -/
+@[rust_loop]
+def sample.gen_matrix_from_seed_loop0
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (seed : Array Std.U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+  (buf : Array Std.U8 416#usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok mat
+  | some i =>
+    let (mat1, buf1) ←
+      sample.gen_matrix_from_seed_loop0_loop0
+        { start := 0#usize, «end» := L } seed mat buf i
+    sample.gen_matrix_from_seed_loop0 iter1 seed mat1 buf1
+partial_fixpoint
+
+/-- [kopis::sample::gen_matrix_from_seed]:
+    Source: 'src/sample.rs', lines 126:0-146:1 -/
+def sample.gen_matrix_from_seed
+  (L : Std.Usize) (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  let mat ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
+  let buf := Array.repeat 416#usize 0#u8
+  sample.gen_matrix_from_seed_loop0 { start := 0#usize, «end» := L } seed mat
+    buf
+
+/-- [kopis::sample::cbd_diff]:
+    Source: 'src/sample.rs', lines 18:0-22:1 -/
+def sample.cbd_diff
+  (raw1 : Std.U32) (half : Std.U32) (mask : Std.U32) : Result Std.U16 := do
+  let i ← lift (raw1 &&& mask)
+  let i1 ← core.num.U32.count_ones i
+  let a ← lift (UScalar.cast .U16 i1)
+  let i2 ← raw1 >>> half
+  let i3 ← lift (i2 &&& mask)
+  let i4 ← core.num.U32.count_ones i3
+  let b ← lift (UScalar.cast .U16 i4)
+  ok (core.num.U16.wrapping_sub a b)
+
+/-- [kopis::sample::cbd]: loop 0:
+    Source: 'src/sample.rs', lines 34:8-38:9 -/
+@[rust_loop]
+def sample.cbd_loop0
+  (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.adapters.enumerate.IteratorEnumerate.next
+      (core.iter.traits.iterator.IteratorSliceIter Std.U8) iter
+  match o with
+  | none => ok out
+  | some p =>
+    let (i, byte) := p
+    let i1 ← lift (byte &&& 15#u8)
+    let i2 ← core.num.U8.count_ones i1
+    let a ← lift (UScalar.cast .U16 i2)
+    let i3 ← byte >>> 4#i32
+    let i4 ← core.num.U8.count_ones i3
+    let b ← lift (UScalar.cast .U16 i4)
+    let i5 ← lift (core.num.U16.wrapping_sub a b)
+    let a1 ← Array.update out i i5
+    sample.cbd_loop0 iter1 a1
+partial_fixpoint
+
+/-- [kopis::sample::cbd]: loop 1:
+    Source: 'src/sample.rs', lines 43:8-55:9 -/
+@[rust_loop]
+def sample.cbd_loop1
+  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some g =>
+    let i ← 5#usize * g
+    let i1 ← Slice.index_usize buf i
+    let b0 ← lift (UScalar.cast .U32 i1)
+    let i2 ← i + 1#usize
+    let i3 ← Slice.index_usize buf i2
+    let b1 ← lift (UScalar.cast .U32 i3)
+    let i4 ← i + 2#usize
+    let i5 ← Slice.index_usize buf i4
+    let b2 ← lift (UScalar.cast .U32 i5)
+    let i6 ← i + 3#usize
+    let i7 ← Slice.index_usize buf i6
+    let b3 ← lift (UScalar.cast .U32 i7)
+    let i8 ← i + 4#usize
+    let i9 ← Slice.index_usize buf i8
+    let b4 ← lift (UScalar.cast .U32 i9)
+    let o1 ← 4#usize * g
+    let i10 ← b1 <<< 8#i32
+    let i11 ← lift (b0 ||| i10)
+    let i12 ← sample.cbd_diff i11 5#u32 31#u32
+    let a ← Array.update out o1 i12
+    let i13 ← b2 <<< 8#i32
+    let i14 ← lift (b1 ||| i13)
+    let i15 ← i14 >>> 2#i32
+    let i16 ← sample.cbd_diff i15 5#u32 31#u32
+    let i17 ← o1 + 1#usize
+    let a1 ← Array.update a i17 i16
+    let i18 ← b3 <<< 8#i32
+    let i19 ← lift (b2 ||| i18)
+    let i20 ← i19 >>> 4#i32
+    let i21 ← sample.cbd_diff i20 5#u32 31#u32
+    let i22 ← o1 + 2#usize
+    let a2 ← Array.update a1 i22 i21
+    let i23 ← b4 <<< 8#i32
+    let i24 ← lift (b3 ||| i23)
+    let i25 ← i24 >>> 6#i32
+    let i26 ← sample.cbd_diff i25 5#u32 31#u32
+    let i27 ← o1 + 3#usize
+    let a3 ← Array.update a2 i27 i26
+    sample.cbd_loop1 iter1 buf a3
+partial_fixpoint
+
+/-- [kopis::sample::cbd]: loop 2:
+    Source: 'src/sample.rs', lines 59:8-69:9 -/
+@[rust_loop]
+def sample.cbd_loop2
+  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some g =>
+    let i ← 3#usize * g
+    let i1 ← Slice.index_usize buf i
+    let b0 ← lift (UScalar.cast .U32 i1)
+    let i2 ← i + 1#usize
+    let i3 ← Slice.index_usize buf i2
+    let b1 ← lift (UScalar.cast .U32 i3)
+    let i4 ← i + 2#usize
+    let i5 ← Slice.index_usize buf i4
+    let b2 ← lift (UScalar.cast .U32 i5)
+    let o1 ← 4#usize * g
+    let i6 ← sample.cbd_diff b0 3#u32 7#u32
+    let a ← Array.update out o1 i6
+    let i7 ← b1 <<< 8#i32
+    let i8 ← lift (b0 ||| i7)
+    let i9 ← i8 >>> 6#i32
+    let i10 ← sample.cbd_diff i9 3#u32 7#u32
+    let i11 ← o1 + 1#usize
+    let a1 ← Array.update a i11 i10
+    let i12 ← b2 <<< 8#i32
+    let i13 ← lift (b1 ||| i12)
+    let i14 ← i13 >>> 4#i32
+    let i15 ← sample.cbd_diff i14 3#u32 7#u32
+    let i16 ← o1 + 2#usize
+    let a2 ← Array.update a1 i16 i15
+    let i17 ← b2 >>> 2#i32
+    let i18 ← sample.cbd_diff i17 3#u32 7#u32
+    let i19 ← o1 + 3#usize
+    let a3 ← Array.update a2 i19 i18
+    sample.cbd_loop2 iter1 buf a3
+partial_fixpoint
+
+/-- [kopis::sample::cbd]: loop 3:
+    Source: 'src/sample.rs', lines 77:8-95:9 -/
+@[rust_loop]
+def sample.cbd_loop3
+  (MU : Std.Usize) (iter : core.slice.iter.IterMut Std.U16)
+  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
+  (buf : Slice Std.U8) (half : Std.Usize) (mask : Std.U32)
+  (bit_pos : Std.Usize) :
+  Result (core.slice.iter.IterMut Std.U16)
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some _ =>
+    let byte_idx ← bit_pos / 8#usize
+    let bit_in_byte ← bit_pos % 8#usize
+    let i ← Slice.index_usize buf byte_idx
+    let raw1 ← lift (UScalar.cast .U32 i)
+    let i1 ← byte_idx + 1#usize
+    let i2 := Slice.len buf
+    let (raw2, back1) ←
+      if i1 < i2
+      then
+        do
+        let i3 ← Slice.index_usize buf i1
+        let i4 ← lift (UScalar.cast .U32 i3)
+        let i5 ← i4 <<< 8#i32
+        let raw3 ← lift (raw1 ||| i5)
+        ok (raw3, fun i6 im => next_back im (some i6))
+      else ok (raw1, fun i3 im => next_back im (some i3))
+    let i3 ← byte_idx + 2#usize
+    let i4 := Slice.len buf
+    let raw3 ←
+      if i3 < i4
+      then
+        do
+        let i5 ← Slice.index_usize buf i3
+        let i6 ← lift (UScalar.cast .U32 i5)
+        let i7 ← i6 <<< 16#i32
+        ok (raw2 ||| i7)
+      else ok raw2
+    let raw4 ← raw3 >>> bit_in_byte
+    let i5 ← lift (raw4 &&& mask)
+    let i6 ← core.num.U32.count_ones i5
+    let a ← lift (UScalar.cast .U16 i6)
+    let i7 ← raw4 >>> half
+    let i8 ← lift (i7 &&& mask)
+    let i9 ← core.num.U32.count_ones i8
+    let b ← lift (UScalar.cast .U16 i9)
+    let coeff ← lift (core.num.U16.wrapping_sub a b)
+    let bit_pos1 ← bit_pos + MU
+    sample.cbd_loop3 MU iter1 (fun im => let im1 := back1 coeff im
+                                         back im1) buf half mask bit_pos1
+partial_fixpoint
+
+/-- [kopis::sample::cbd]:
+    Source: 'src/sample.rs', lines 25:0-97:1 -/
+def sample.cbd
+  (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.ring_arith.RingElem)
+  :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let left_val := Slice.len buf
+  let _ ← consts.RING_DEG * MU
+  let i ← lift (Std.Usize.wrapping_mul consts.RING_DEG MU)
+  let right_val ← i / 8#usize
+  massert (left_val = right_val)
+  if MU = 8#usize
+  then
+    let i1 ← core.slice.Slice.iter buf
+    let iter ←
+      core.iter.traits.iterator.Iterator.enumerate.trait_default
+        (core.iter.traits.iterator.IteratorSliceIter Std.U8) i1
+    sample.cbd_loop0 iter out
+  else
+    if MU = 10#usize
+    then
+      let i1 ← consts.RING_DEG / 4#usize
+      sample.cbd_loop1 { start := 0#usize, «end» := i1 } buf out
+    else
+      if MU = 6#usize
+      then
+        let i1 ← consts.RING_DEG / 4#usize
+        sample.cbd_loop2 { start := 0#usize, «end» := i1 } buf out
+      else
+        let half ← MU / 2#usize
+        let i1 ← 1#u32 <<< half
+        let mask ← i1 - 1#u32
+        let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+        let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+        let back ←
+          sample.cbd_loop3 MU iter (fun im => im) buf half mask 0#usize
+        let s1 := iter_mut_back back
+        let a := to_slice_mut_back s1
+        ok a
+
+/-- [kopis::sample::gen_secret_from_seed]: loop 0:
+    Source: 'src/sample.rs', lines 111:4-118:5 -/
+@[rust_loop]
+def sample.gen_secret_from_seed_loop
+  {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (seed : Array Std.U8 32#usize)
+  (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice Std.U8) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok secret
+  | some i =>
+    let hasher ←
+      turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 3#u8
+    let s ← lift (Array.to_slice seed)
+    let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
+    let i1 ← lift (UScalar.cast .U8 i)
+    let s1 ← lift (Array.to_slice (Array.make 1#usize [ i1 ]))
+    let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s1
+    let reader ←
+      turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
+        hasher2
+    let (_, buf1) ←
+      turboshake.TurboShakeReader.Insts.DigestXofReader.read reader buf
+    let (a, index_mut_back) ← Array.index_mut_usize secret i
+    let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
+    let re1 ← sample.cbd MU buf1 re
+    let a1 := index_mut_back1 re1
+    let a2 := index_mut_back a1
+    sample.gen_secret_from_seed_loop MU iter1 seed a2 buf1
+partial_fixpoint
+
+/-- [kopis::sample::gen_secret_from_seed]:
+    Source: 'src/sample.rs', lines 101:0-121:1 -/
+def sample.gen_secret_from_seed
+  (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  let secret ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+  let backing_buf := Array.repeat 320#usize 0#u8
+  let i ← consts.RING_DEG * MU
+  let i1 ← i / 8#usize
+  let (buf, _) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
+      { «end» := i1 }
+  sample.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
+    secret buf
+
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/pke.rs', lines 45:4-45:77
+    Source: 'src/pke.rs', lines 56:4-56:77
     Visibility: public -/
 @[global_simps, irreducible]
 def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
@@ -3613,30 +3614,61 @@ def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
   let i2 ← i1 / 8#usize
   32#usize + i2
 
+/-- [kopis::pke::PK_VEC_ELEM_BYTES]
+    Source: 'src/pke.rs', lines 21:0-21:63 -/
+@[global_simps, irreducible]
+def pke.PK_VEC_ELEM_BYTES : Result Std.Usize := do
+  let i ← consts.MODULUS_P_BITS * consts.RING_DEG
+  i / 8#usize
+
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]: loop 0:
+    Source: 'src/pke.rs', lines 66:8-69:9 -/
+@[rust_loop]
+def pke.PkePublicKey.serialize_loop
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
+  Result ((pke.PkePublicKey L) × (Slice Std.U8))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, out_buf)
+  | some i =>
+    let i1 ← pke.PK_VEC_ELEM_BYTES
+    let start ← i * i1
+    let i2 ← start + i1
+    let (s, index_mut_back) ←
+      core.slice.index.Slice.index_mut
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
+        { start, «end» := i2 }
+    let a ← Array.index_usize self.vec_bytes i
+    let s1 ← lift (Array.to_slice a)
+    let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+    let out_buf1 := index_mut_back s2
+    pke.PkePublicKey.serialize_loop iter1 self out_buf1
+partial_fixpoint
+
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]:
-    Source: 'src/pke.rs', lines 48:4-57:5 -/
+    Source: 'src/pke.rs', lines 61:4-71:5 -/
 def pke.PkePublicKey.serialize
   {L : Std.Usize} (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
   Result (Slice Std.U8)
   := do
-  let out_size ← pke.PkePublicKey.SERIALIZED_LEN L
   let left_val := Slice.len out_buf
-  massert (left_val = out_size)
-  let i ← out_size - 32#usize
+  let right_val ← pke.PkePublicKey.SERIALIZED_LEN L
+  massert (left_val = right_val)
+  let (self1, out_buf1) ←
+    pke.PkePublicKey.serialize_loop { start := 0#usize, «end» := L } self
+      out_buf
+  let i ← pke.PK_VEC_ELEM_BYTES
+  let i1 ← L * i
   let (s, index_mut_back) ←
     core.slice.index.Slice.index_mut
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8) out_buf
-      { «end» := i }
-  let s1 ←
-    arithmetic.matrix_arith.Matrix.serialize self.vec s consts.MODULUS_P_BITS
-  let out_buf1 := index_mut_back s1
-  let (s2, index_mut_back1) ←
-    core.slice.index.Slice.index_mut
       (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) out_buf1
-      { start := i }
-  let s3 ← lift (Array.to_slice self.matrix_seed)
-  let s4 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s2 s3
-  ok (index_mut_back1 s4)
+      { start := i1 }
+  let s1 ← lift (Array.to_slice self1.matrix_seed)
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+  ok (index_mut_back s2)
 
 /-- [kopis::turboshake256_hash]:
     Source: 'src/lib.rs', lines 32:0-42:1 -/
@@ -3659,7 +3691,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]:
-    Source: 'src/pke.rs', lines 78:4-84:5 -/
+    Source: 'src/pke.rs', lines 105:4-111:5 -/
 def pke.PkePublicKey.hash
   {L : Std.Usize} (self : pke.PkePublicKey L) :
   Result (Array Std.U8 32#usize)
@@ -3675,7 +3707,7 @@ def pke.PkePublicKey.hash
   turboshake256_hash 4#u8 pk_slice1 s
 
 /-- [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}::drop]:
-    Source: 'src/pke.rs', lines 24:18-24:31
+    Source: 'src/pke.rs', lines 28:18-28:31
     Visibility: public -/
 def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
   {L : Std.Usize} (self : pke.PkeSecretKey L) :
@@ -3694,8 +3726,33 @@ def pke.H1_VAL : Result Std.U16 := do
   let i1 ← i - 1#usize
   1#u16 <<< i1
 
+/-- [kopis::pke::expand_decap_key]: loop 0:
+    Source: 'src/pke.rs', lines 178:4-180:5 -/
+@[rust_loop]
+def pke.expand_decap_key_loop
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (b : arithmetic.matrix_arith.Matrix L 1#usize)
+  (vec_bytes : Array (Array Std.U8 320#usize) L) :
+  Result (Array (Array Std.U8 320#usize) L)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok vec_bytes
+  | some i =>
+    let a ← Array.index_usize b i
+    let re ← Array.index_usize a 0#usize
+    let (a1, index_mut_back) ← Array.index_mut_usize vec_bytes i
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut a1)
+    let s1 ←
+      arithmetic.ring_arith.RingElem.serialize re s consts.MODULUS_P_BITS
+    let a2 := to_slice_mut_back s1
+    let a3 := index_mut_back a2
+    pke.expand_decap_key_loop iter1 b a3
+partial_fixpoint
+
 /-- [kopis::pke::expand_decap_key]:
-    Source: 'src/pke.rs', lines 113:0-156:1 -/
+    Source: 'src/pke.rs', lines 142:0-191:1 -/
 def pke.expand_decap_key
   (L : Std.Usize) (MU : Std.Usize) (sk : Array Std.U8 32#usize) :
   Result ((pke.PkeSecretKey L) × (Array Std.U8 32#usize) × (pke.PkePublicKey
@@ -3724,9 +3781,9 @@ def pke.expand_decap_key
   let (_, s7) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof2 s6
   let mat_seed1 := to_slice_mut_back s3
-  let mat_a ← gen.gen_matrix_from_seed L mat_seed1
+  let mat_a ← sample.gen_matrix_from_seed L mat_seed1
   let secret_seed1 := to_slice_mut_back1 s5
-  let vec_s ← gen.gen_secret_from_seed L MU secret_seed1
+  let vec_s ← sample.gen_secret_from_seed L MU secret_seed1
   let mat_a_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix mat_a
   let vec_s_ntt ← arithmetic.ntt.NttMatrix.from_secret_matrix vec_s
   let prod ← arithmetic.ntt.NttMatrix.mul_transpose mat_a_ntt vec_s_ntt
@@ -3735,12 +3792,18 @@ def pke.expand_decap_key
   let i2 ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
   let prod2 ← arithmetic.matrix_arith.Matrix.shift_right prod1 i2
   let vec_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix prod2
+  let a := Array.repeat 320#usize 0#u8
+  let vec_bytes := Array.repeat L a
+  let z1 := to_slice_mut_back2 s7
+  let vec_bytes1 ←
+    pke.expand_decap_key_loop { start := 0#usize, «end» := L } prod2
+      vec_bytes
   let pkh ←
     pke.PkePublicKey.hash
-      { matrix_seed := mat_seed1, mat_a_ntt, vec := prod2, vec_ntt }
-  let z1 := to_slice_mut_back2 s7
+      { matrix_seed := mat_seed1, mat_a_ntt, vec_bytes := vec_bytes1, vec_ntt }
   ok (vec_s_ntt, z1,
-    { matrix_seed := mat_seed1, mat_a_ntt, vec := prod2, vec_ntt }, pkh)
+    { matrix_seed := mat_seed1, mat_a_ntt, vec_bytes := vec_bytes1, vec_ntt },
+    pkh)
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::expand_from_seed]:
     Source: 'src/kem.rs', lines 72:4-82:5
@@ -3753,7 +3816,7 @@ def kem.KemSecretKey.expand_from_seed
   ok { seed, z, pke_sk, pke_pk, hash_pke_pk }
 
 /-- [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}::zeroize]:
-    Source: 'src/pke.rs', lines 24:9-24:16
+    Source: 'src/pke.rs', lines 28:9-28:16
     Visibility: public -/
 def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
   {L : Std.Usize} (self : pke.PkeSecretKey L) :
@@ -3764,7 +3827,7 @@ def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 24:9-24:16 -/
+    Source: 'src/pke.rs', lines 28:9-28:16 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.ZeroizeZeroize (L : Std.Usize) : zeroize.Zeroize
   (pke.PkeSecretKey L) := {
@@ -3909,7 +3972,7 @@ def impls.kopis1024.Kopis1024SecretKey.expand_from_seed
   ok ksk
 
 /-- [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}::clone]:
-    Source: 'src/pke.rs', lines 28:9-28:14
+    Source: 'src/pke.rs', lines 37:9-37:14
     Visibility: public -/
 def pke.PkePublicKey.Insts.CoreCloneClone.clone
   {L : Std.Usize} (self : pke.PkePublicKey L) :
@@ -3917,9 +3980,11 @@ def pke.PkePublicKey.Insts.CoreCloneClone.clone
   := do
   let a ← core.array.CloneArray.clone core.clone.CloneU8 self.matrix_seed
   let nm ← arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone self.mat_a_ntt
-  let m ← arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone self.vec
+  let a1 ←
+    core.array.CloneArray.clone (core.clone.CloneArray 320#usize
+      core.clone.CloneU8) self.vec_bytes
   let nm1 ← arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone self.vec_ntt
-  ok { matrix_seed := a, mat_a_ntt := nm, vec := m, vec_ntt := nm1 }
+  ok { matrix_seed := a, mat_a_ntt := nm, vec_bytes := a1, vec_ntt := nm1 }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::public_key]:
     Source: 'src/kem.rs', lines 99:4-104:5 -/
@@ -4031,24 +4096,56 @@ def impls.kopis1024.Kopis1024PublicKey.serialize
   let s1 ← kem.KemPublicKey.serialize self s
   ok (to_slice_mut_back s1)
 
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]: loop 0:
+    Source: 'src/pke.rs', lines 89:8-92:9 -/
+@[rust_loop]
+def pke.PkePublicKey.from_bytes_loop
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (vec_slice : Slice Std.U8) (vec_bytes : Array (Array Std.U8 320#usize) L) :
+  Result (Array (Array Std.U8 320#usize) L)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok vec_bytes
+  | some i =>
+    let i1 ← pke.PK_VEC_ELEM_BYTES
+    let start ← i * i1
+    let (a, index_mut_back) ← Array.index_mut_usize vec_bytes i
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut a)
+    let i2 ← start + i1
+    let s1 ←
+      core.slice.index.Slice.index (core.slice.index.SliceIndexRangeUsizeSlice
+        Std.U8) vec_slice { start, «end» := i2 }
+    let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+    let a1 := to_slice_mut_back s2
+    let a2 := index_mut_back a1
+    pke.PkePublicKey.from_bytes_loop iter1 vec_slice a2
+partial_fixpoint
+
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]:
-    Source: 'src/pke.rs', lines 60:4-75:5 -/
+    Source: 'src/pke.rs', lines 75:4-102:5 -/
 def pke.PkePublicKey.from_bytes
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (pke.PkePublicKey L) := do
   let left_val := Slice.len bytes
   let right_val ← pke.PkePublicKey.SERIALIZED_LEN L
   massert (left_val = right_val)
   let i ← right_val - 32#usize
-  let (vec_bytes, seed) ← core.slice.Slice.split_at bytes i
-  let vec ← arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize vec_bytes
+  let (vec_slice, seed) ← core.slice.Slice.split_at bytes i
   let r ←
     core.array.TryFromArrayCopySlice.try_from 32#usize core.marker.CopyU8 seed
   let matrix_seed ←
     core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-  let mat_a ← gen.gen_matrix_from_seed L matrix_seed
-  let mat_a_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix mat_a
+  let vec ← arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize vec_slice
   let vec_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix vec
-  ok { matrix_seed, mat_a_ntt, vec, vec_ntt }
+  let a := Array.repeat 320#usize 0#u8
+  let vec_bytes := Array.repeat L a
+  let vec_bytes1 ←
+    pke.PkePublicKey.from_bytes_loop { start := 0#usize, «end» := L }
+      vec_slice vec_bytes
+  let mat_a ← sample.gen_matrix_from_seed L matrix_seed
+  let mat_a_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix mat_a
+  ok { matrix_seed, mat_a_ntt, vec_bytes := vec_bytes1, vec_ntt }
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::from_bytes]:
     Source: 'src/kem.rs', lines 32:4-40:5 -/
@@ -4092,7 +4189,7 @@ def impls.kopis1024.Kopis1024PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::pke::encrypt_deterministic]:
-    Source: 'src/pke.rs', lines 191:0-224:1 -/
+    Source: 'src/pke.rs', lines 226:0-259:1 -/
 def pke.encrypt_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (pk : pke.PkePublicKey L)
   (msg : Array Std.U8 32#usize) (randomness : Array Std.U8 32#usize)
@@ -4102,7 +4199,7 @@ def pke.encrypt_deterministic
   let left_val := Slice.len out_buf
   let right_val ← pke.ciphertext_len L T
   massert (left_val = right_val)
-  let vec_sprime ← gen.gen_secret_from_seed L MU randomness
+  let vec_sprime ← sample.gen_secret_from_seed L MU randomness
   let sprime_ntt ← arithmetic.ntt.NttMatrix.from_secret_matrix vec_sprime
   let prod ← arithmetic.ntt.NttMatrix.mul pk.mat_a_ntt sprime_ntt
   let i ← pke.H1_VAL
@@ -4265,7 +4362,7 @@ def impls.kopis1024.Kopis1024PublicKey.encapsulate
   ok (out, rng1)
 
 /-- [kopis::pke::decrypt]:
-    Source: 'src/pke.rs', lines 160:0-187:1 -/
+    Source: 'src/pke.rs', lines 195:0-222:1 -/
 def pke.decrypt
   {L : Std.Usize} (T : Std.Usize) (sk : pke.PkeSecretKey L)
   (ciphertext : Slice Std.U8) :
@@ -4399,7 +4496,7 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 24:18-24:31 -/
+    Source: 'src/pke.rs', lines 28:18-28:31 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
   (pke.PkeSecretKey L) := {
@@ -4407,14 +4504,14 @@ def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::pke::{impl zeroize::ZeroizeOnDrop for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 24:18-24:31 -/
+    Source: 'src/pke.rs', lines 28:18-28:31 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
   zeroize.ZeroizeOnDrop (pke.PkeSecretKey L) := {
 }
 
 /-- Trait implementation: [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}]
-    Source: 'src/pke.rs', lines 28:9-28:14 -/
+    Source: 'src/pke.rs', lines 37:9-37:14 -/
 @[reducible]
 def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
   (pke.PkePublicKey L) := {
@@ -4422,7 +4519,7 @@ def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
 }
 
 /-- [kopis::pke::max_pke_pubkey_serialized_len]:
-    Source: 'src/pke.rs', lines 88:0-90:1 -/
+    Source: 'src/pke.rs', lines 115:0-117:1 -/
 def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
   let i ← consts.MAX_L * consts.MODULUS_P_BITS
   let i1 ← i * consts.RING_DEG
@@ -4430,7 +4527,7 @@ def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
   32#usize + i2
 
 /-- [kopis::pke::max_ciphertext_len]:
-    Source: 'src/pke.rs', lines 94:0-97:1
+    Source: 'src/pke.rs', lines 121:0-124:1
     Visibility: public -/
 def pke.max_ciphertext_len : Result Std.Usize := do
   let i ← consts.MAX_T * consts.RING_DEG
