@@ -20,9 +20,7 @@ theorem pke_hash_spec {L : Usize} (self : pke.PkePublicKey L)
     (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max) :
     pke.PkePublicKey.hash self
       ⦃ (r : Array U8 32#usize) => arrayToBytes r
-          = turboSHAKE256
-              (Spec.Kopis.PolyVector.serialize 10 (toVecN 10 self.vec) ‖ matSeedBytes self)
-              DOMSEP_PKHASH 32 ⦄ := by
+          = turboSHAKE256 (vecBytesFlat self ‖ matSeedBytes self) DOMSEP_PKHASH 32 ⦄ := by
   have hb0 : L.val * 10 ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit
   have hmax : L.val * 320 + 32 ≤ Usize.max := le_trans hbuf (by scalar_tac)
   have e32 : (32#usize).val = 32 := rfl
@@ -57,22 +55,20 @@ theorem pke_hash_spec {L : Usize} (self : pke.PkePublicKey L)
   rw [Nat.zero_add, hslen] at __post2
   rw [habs] at __post2
   have hlen1 : pk_slice1.val.length = L.val * (32 * 10) + 32 := hpk1_len
-  -- the absorbed bytes (recast to the right length) equal the spec's `serialize ‖ matrix_seed`
+  -- the absorbed bytes (recast to the right length) equal `vecBytesFlat ‖ matrix_seed`
   have hXY : (u8ListToBytes pk_slice1.val).cast hlen1
-      = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 self.vec) ‖ matSeedBytes self := by
+      = vecBytesFlat self ‖ matSeedBytes self := by
     apply Vector.toList_inj.mp
     rw [Vector.toList_cast]
     have hu : (u8ListToBytes pk_slice1.val).toList = pk_slice1.val.map (·.bv) := by
       simp only [u8ListToBytes, Vector.toList_ofFn]; rw [List.ofFn_getElem_eq_map]
     rw [hu, hpk1_bytes]
-    show Vector.toList (Spec.Kopis.PolyVector.serialize 10 (toVecN 10 self.vec))
-        ++ Vector.toList (arrayToBytes self.matrix_seed)
-      = (Spec.Kopis.PolyVector.serialize 10 (toVecN 10 self.vec) ++ matSeedBytes self).toList
+    show Vector.toList (vecBytesFlat self) ++ Vector.toList (arrayToBytes self.matrix_seed)
+      = (vecBytesFlat self ++ matSeedBytes self).toList
     rw [Vector.toList_append]
     rfl
   have hbridge : turboSHAKE256 (u8ListToBytes pk_slice1.val) (4#u8).bv 32
-      = turboSHAKE256 (Spec.Kopis.PolyVector.serialize 10 (toVecN 10 self.vec)
-          ‖ matSeedBytes self) DOMSEP_PKHASH 32 := by
+      = turboSHAKE256 (vecBytesFlat self ‖ matSeedBytes self) DOMSEP_PKHASH 32 := by
     rw [domsep_pkhash_bv, ← turboSHAKE256_cast hlen1 (u8ListToBytes pk_slice1.val) DOMSEP_PKHASH 32, hXY]
   rw [s_post2]
   apply Vector.toList_inj.mp
