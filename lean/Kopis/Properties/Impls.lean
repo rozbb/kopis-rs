@@ -19,12 +19,14 @@ computation, leaving only the public-key/secret-key ↔ `ExpandDecapKey` corresp
 theorem kopis512_encapsulate_deterministic_spec
     (self : impls.kopis512.Kopis512PublicKey) (randomness : Array U8 32#usize)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_512))
-    (hpkvec : toVecN 10 self.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU self.pke_pk.vec_ntt)
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 self.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU self.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU self.pke_pk.mat_a_ntt)
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU self.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis512.Kopis512PublicKey.encapsulate_deterministic self randomness
       ⦃ (r : Array U8 736#usize × impls.SharedSecret) =>
@@ -39,7 +41,8 @@ theorem kopis512_encapsulate_deterministic_spec
     show (Array.repeat 736#usize 0#u8).val.length = 736
     simp
   let* ⟨ss, s1, hss, h1, hct⟩ ← encap_deterministic_spec 10#usize 3#usize randomness self s
-    .Kopis_512 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkmat hpkh
+    .Kopis_512 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkvecbnd
+    hpkmat hpkmatbnd hpkh
   refine ⟨?_, hss⟩
   have hbridge : arrayToBytes (Array.from_slice (Array.repeat 736#usize 0#u8) s1)
       = sliceToBytes s1 (Spec.Kopis.ctSize .Kopis_512) h1 := by
@@ -52,15 +55,18 @@ theorem kopis512_encapsulate_deterministic_spec
 theorem kopis512_decapsulate_spec
     (self : impls.kopis512.Kopis512SecretKey) (encapsulated_key : Array U8 736#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_512))
-    (hsk : toVector13 self.pke_sk = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).1)
+    (hsk : toVector13 (nttInvS self.pke_sk) = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).1)
+    (hskbnd : SecretBounded (nttInvS self.pke_sk) (((10 : ℕ) / 2 : ℕ) : ℤ))
     (hz : arrayToBytes self.z = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).2.1)
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).2.2.1)
-    (hpkvec : toVecN 10 self.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU self.pke_pk.vec_ntt)
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 self.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU self.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU self.pke_pk.mat_a_ntt)
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU self.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis512.Kopis512SecretKey.decapsulate self encapsulated_key
       ⦃ (r : impls.SharedSecret) =>
@@ -75,7 +81,7 @@ theorem kopis512_decapsulate_spec
     simp
   let* ⟨a, ha⟩ ← decap_spec 10#usize 3#usize self (Array.to_slice encapsulated_key)
     .Kopis_512 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-    hlenct hsk hz hpk hpkvec hpkmat hpkh
+    hlenct hsk hskbnd hz hpk hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
   rw [ha]
   congr 1
 
@@ -83,12 +89,14 @@ theorem kopis512_decapsulate_spec
 theorem kopis768_encapsulate_deterministic_spec
     (self : impls.kopis768.Kopis768PublicKey) (randomness : Array U8 32#usize)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_768))
-    (hpkvec : toVecN 10 self.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU self.pke_pk.vec_ntt)
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 self.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU self.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU self.pke_pk.mat_a_ntt)
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU self.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis768.Kopis768PublicKey.encapsulate_deterministic self randomness
       ⦃ (r : Array U8 1088#usize × impls.SharedSecret) =>
@@ -103,7 +111,8 @@ theorem kopis768_encapsulate_deterministic_spec
     show (Array.repeat 1088#usize 0#u8).val.length = 1088
     simp
   let* ⟨ss, s1, hss, h1, hct⟩ ← encap_deterministic_spec 8#usize 4#usize randomness self s
-    .Kopis_768 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkmat hpkh
+    .Kopis_768 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkvecbnd
+    hpkmat hpkmatbnd hpkh
   refine ⟨?_, hss⟩
   have hbridge : arrayToBytes (Array.from_slice (Array.repeat 1088#usize 0#u8) s1)
       = sliceToBytes s1 (Spec.Kopis.ctSize .Kopis_768) h1 := by
@@ -116,15 +125,18 @@ theorem kopis768_encapsulate_deterministic_spec
 theorem kopis768_decapsulate_spec
     (self : impls.kopis768.Kopis768SecretKey) (encapsulated_key : Array U8 1088#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_768))
-    (hsk : toVector13 self.pke_sk = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).1)
+    (hsk : toVector13 (nttInvS self.pke_sk) = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).1)
+    (hskbnd : SecretBounded (nttInvS self.pke_sk) (((8 : ℕ) / 2 : ℕ) : ℤ))
     (hz : arrayToBytes self.z = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).2.1)
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).2.2.1)
-    (hpkvec : toVecN 10 self.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU self.pke_pk.vec_ntt)
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 self.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU self.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU self.pke_pk.mat_a_ntt)
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU self.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis768.Kopis768SecretKey.decapsulate self encapsulated_key
       ⦃ (r : impls.SharedSecret) =>
@@ -139,7 +151,7 @@ theorem kopis768_decapsulate_spec
     simp
   let* ⟨a, ha⟩ ← decap_spec 8#usize 4#usize self (Array.to_slice encapsulated_key)
     .Kopis_768 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-    hlenct hsk hz hpk hpkvec hpkmat hpkh
+    hlenct hsk hskbnd hz hpk hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
   rw [ha]
   congr 1
 
@@ -147,12 +159,14 @@ theorem kopis768_decapsulate_spec
 theorem kopis1024_encapsulate_deterministic_spec
     (self : impls.kopis1024.Kopis1024PublicKey) (randomness : Array U8 32#usize)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_1024))
-    (hpkvec : toVecN 10 self.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU self.pke_pk.vec_ntt)
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 self.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU self.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU self.pke_pk.mat_a_ntt)
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU self.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic self randomness
       ⦃ (r : Array U8 1472#usize × impls.SharedSecret) =>
@@ -167,7 +181,8 @@ theorem kopis1024_encapsulate_deterministic_spec
     show (Array.repeat 1472#usize 0#u8).val.length = 1472
     simp
   let* ⟨ss, s1, hss, h1, hct⟩ ← encap_deterministic_spec 6#usize 6#usize randomness self s
-    .Kopis_1024 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkmat hpkh
+    .Kopis_1024 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) hlenout hpkvec hpkvecbnd
+    hpkmat hpkmatbnd hpkh
   refine ⟨?_, hss⟩
   have hbridge : arrayToBytes (Array.from_slice (Array.repeat 1472#usize 0#u8) s1)
       = sliceToBytes s1 (Spec.Kopis.ctSize .Kopis_1024) h1 := by
@@ -180,15 +195,18 @@ theorem kopis1024_encapsulate_deterministic_spec
 theorem kopis1024_decapsulate_spec
     (self : impls.kopis1024.Kopis1024SecretKey) (encapsulated_key : Array U8 1472#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_1024))
-    (hsk : toVector13 self.pke_sk = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).1)
+    (hsk : toVector13 (nttInvS self.pke_sk) = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).1)
+    (hskbnd : SecretBounded (nttInvS self.pke_sk) (((6 : ℕ) / 2 : ℕ) : ℤ))
     (hz : arrayToBytes self.z = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).2.1)
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).2.2.1)
-    (hpkvec : toVecN 10 self.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU self.pke_pk.vec_ntt)
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 self.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU self.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU self.pke_pk.mat_a_ntt)
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU self.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis1024.Kopis1024SecretKey.decapsulate self encapsulated_key
       ⦃ (r : impls.SharedSecret) =>
@@ -203,7 +221,7 @@ theorem kopis1024_decapsulate_spec
     simp
   let* ⟨a, ha⟩ ← decap_spec 6#usize 6#usize self (Array.to_slice encapsulated_key)
     .Kopis_1024 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-    hlenct hsk hz hpk hpkvec hpkmat hpkh
+    hlenct hsk hskbnd hz hpk hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
   rw [ha]
   congr 1
 

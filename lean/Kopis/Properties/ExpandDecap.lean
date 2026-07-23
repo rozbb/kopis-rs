@@ -225,7 +225,11 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
           pkStructBytes r.2.2.1 p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.1 ∧
           arrayToBytes r.2.2.2 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.2 ∧
           toMatrix13 (nttInvU r.2.2.1.mat_a_ntt)
-            = Spec.Kopis.GenMat L.val (arrayToBytes r.2.2.1.matrix_seed) ⦄ := by
+            = Spec.Kopis.GenMat L.val (arrayToBytes r.2.2.1.matrix_seed) ∧
+          UniformBounded (nttInvU r.2.2.1.mat_a_ntt) ∧
+          UniformBounded (nttInvU r.2.2.1.vec_ntt) ∧
+          vecBytesFlat r.2.2.1
+            = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 (nttInvU r.2.2.1.vec_ntt)) ⦄ := by
   unfold pke.expand_decap_key
   step*
   -- domain separator + injected byte
@@ -326,7 +330,8 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   let* ⟨prod1, hprod1⟩ ← matrix_wrapping_add_to_all_spec prod 4#u16
   let* ⟨j2, hj2, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
   have hj2v : j2.val = 3 := by scalar_tac
-  let* ⟨prod2, hprod2⟩ ← matrix_shift_right_spec prod1 j2 (by scalar_tac)
+  let* ⟨prod2, hprod2, hprod2bnd⟩ ← spec_and (matrix_shift_right_spec prod1 j2 (by scalar_tac))
+    (shift_right_uniformBounded prod1 j2 hj2v)
   -- from_uniform of the rounded vector, then serialize each row into `vec_bytes`
   let* ⟨vec_ntt, hvecntt⟩ ← from_uniform_matrix_spec prod2
   let* ⟨vec_bytes1, hvb⟩ ← expand_decap_key_loop_spec { start := 0#usize, «end» := L } prod2
@@ -368,7 +373,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
             DOMSEP_KGEXPAND 96) 32 32 (by omega)))) := by
     rw [hvecb, hmata, hmatseed, hvecs, hsecseed, roundExpr_cast hℓ, hμ]
   simp only [Spec.Kopis.ExpandDecapKey]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · -- secret key (denoted coefficient vector)
     rw [hvecs_ntt]
     apply Vector.toList_inj.mp
@@ -390,5 +395,11 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     rw [serialize_eqRec_toList, hmsb]
   · -- mat_a denoted by mat_a_ntt equals GenMat
     rw [hmata_ntt]; exact hmata
+  · -- mat_a_ntt magnitude bound
+    rw [hmata_ntt]; exact hmatbnd
+  · -- vec_ntt magnitude bound
+    rw [hvecntt]; exact hprod2bnd
+  · -- vec_bytes are the serialization of what vec_ntt denotes
+    rw [vecBytesFlat_of_loop _ prod2 hbytes, hvecntt]
 
 end Kopis.Properties

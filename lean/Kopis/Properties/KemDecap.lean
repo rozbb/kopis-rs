@@ -32,15 +32,18 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 3 ≤ T.val ∧ T.val ≤ 6)
     (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.ctSize p ≤ 1472)
     (hlenct : ciphertext.length = Spec.Kopis.ctSize p)
-    (hsk : toVector13 sk.pke_sk = hℓ ▸ (Spec.Kopis.ExpandDecapKey p sk_seed).1)
+    (hsk : toVector13 (nttInvS sk.pke_sk) = hℓ ▸ (Spec.Kopis.ExpandDecapKey p sk_seed).1)
+    (hskbnd : SecretBounded (nttInvS sk.pke_sk) ((MU.val / 2 : ℕ) : ℤ))
     (hz : arrayToBytes sk.z = (Spec.Kopis.ExpandDecapKey p sk_seed).2.1)
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.1)
-    (hpkvec : toVecN 10 sk.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU sk.pke_pk.vec_ntt)
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 sk.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU sk.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU sk.pke_pk.mat_a_ntt)
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU sk.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes sk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.decap MU T sk ciphertext
       ⦃ (r : Array U8 32#usize) =>
@@ -64,7 +67,10 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
       UScalar.eq_of_val_eq (by rw [Slice.len_val, hrvv]; exact hlenct)
     simp only [massert, if_pos hlv], bind_tc_ok]
   -- PkeDecrypt
-  let* ⟨randomness, hrand⟩ ← decrypt_spec T sk.pke_sk ciphertext p sk_seed hℓ ht hT hfit hlenct hsk
+  have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
+    have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
+  let* ⟨randomness, hrand⟩ ← decrypt_spec T sk.pke_sk ciphertext p sk_seed ((MU.val / 2 : ℕ) : ℤ)
+    hℓ ht hT hfit hfitex hskbnd hlenct hsk
   -- FO XOF: k / rprime windows from the 64-byte squeeze
   step*
   have habs : hasherAbsorbed hasher2 = randomness.val ++ sk.hash_pke_pk.val := by
@@ -106,7 +112,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   -- re-encrypt with (msg = randomness, coins = rprime)
   let* ⟨reconstructed_ct1, hrc1len, hrc1eq⟩ ← encrypt_deterministic_spec MU T sk.pke_pk randomness
     (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hfit hrclen
-    pk_bytes hpkvec hpkmat
+    pk_bytes hpkvec hpkvecbnd hpkmat hpkmatbnd
   -- reject hash  turboSHAKE256 (z ‖ c) DOMSEP_NOREJECT 32
   rw [show (lift (Array.to_slice sk.z) : Result (Slice U8)) = ok (Array.to_slice sk.z) from rfl,
     bind_tc_ok]

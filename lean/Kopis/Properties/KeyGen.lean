@@ -16,15 +16,16 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hL : L.val < 256) :
     kem.KemSecretKey.expand_from_seed L MU seed
       ⦃ (ksk : kem.KemSecretKey L) =>
-          toVector13 ksk.pke_sk = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes seed)).1 ∧
+          toVector13 (nttInvS ksk.pke_sk) = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes seed)).1 ∧
+          SecretBounded (nttInvS ksk.pke_sk) ((MU.val / 2 : ℕ) : ℤ) ∧
           arrayToBytes ksk.z = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.1 ∧
           pkStructBytes ksk.pke_pk p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.1 ∧
           arrayToBytes ksk.hash_pke_pk = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.2 ∧
-          toMatrix13 ksk.pke_pk.mat_a
+          toMatrix13 (nttInvU ksk.pke_pk.mat_a_ntt)
             = Spec.Kopis.GenMat L.val (arrayToBytes ksk.pke_pk.matrix_seed) ⦄ := by
   unfold kem.KemSecretKey.expand_from_seed
-  let* ⟨pke_sk, z, pke_pk, hash_pke_pk, h1, h2, h3, h4, h5⟩ ←
+  let* ⟨pke_sk, z, pke_pk, hash_pke_pk, h1, h2, h3, h4, h5, h6⟩ ←
     expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL
-  exact ⟨h1, h2, h3, h4, h5⟩
+  exact ⟨h1, h2, h3, h4, h5, h6⟩
 
 end Kopis.Properties

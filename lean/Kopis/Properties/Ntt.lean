@@ -382,4 +382,12 @@ theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8) :
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
   sorry
 
+/-- **Part of the NTT hole.** A right shift by `Q_BITS - P_BITS = 3` produces `u16`
+coefficients `< 2^13` (a 16-bit value shifted right by 3 is `< 2^13`). -/
+theorem shift_right_uniformBounded {L : Usize}
+    (self : arithmetic.matrix_arith.Matrix L 1#usize) (sh : Usize) (h : sh.val = 3) :
+    arithmetic.matrix_arith.Matrix.shift_right self sh
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
+  sorry
+
 end Kopis.Properties

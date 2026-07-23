@@ -50,12 +50,14 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 1 ≤ T.val ∧ T.val ≤ 10)
     (hfit : L.val * 10 * 256 ≤ Usize.max)
     (hlenout : out_buf.length = Spec.Kopis.ctSize p)
-    (hpkvec : toVecN 10 kem_pk.pke_pk.vec
+    (hpkvec : toVecN 10 (nttInvU kem_pk.pke_pk.vec_ntt)
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
-    (hpkmat : toMatrix13 kem_pk.pke_pk.mat_a
+    (hpkvecbnd : UniformBounded (nttInvU kem_pk.pke_pk.vec_ntt))
+    (hpkmat : toMatrix13 (nttInvU kem_pk.pke_pk.mat_a_ntt)
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+    (hpkmatbnd : UniformBounded (nttInvU kem_pk.pke_pk.mat_a_ntt))
     (hpkh : arrayToBytes kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.encap_deterministic MU T randomness kem_pk out_buf
       ⦃ (r : Array U8 32#usize × Slice U8) =>
@@ -109,7 +111,8 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hr1val]; exact hrbytes
   -- run the PKE encryption on (msg = randomness, coins = r1)
   let* ⟨out_buf1, hlen1, hct1⟩ ← encrypt_deterministic_spec MU T kem_pk.pke_pk randomness
-    (to_slice_mut_back1 s5) out_buf p hℓ hμ ht hMU hT hfit hlenout pk_bytes hpkvec hpkmat
+    (to_slice_mut_back1 s5) out_buf p hℓ hμ ht hMU hT hfit hlenout pk_bytes hpkvec hpkvecbnd
+    hpkmat hpkmatbnd
   -- the FO squeeze matches the spec's `b = turboSHAKE256 (randomness ‖ pkh)`
   have hbspec : b = turboSHAKE256 (((arrayToBytes randomness).cast rfl)
       ‖ turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) DOMSEP_FO 64 := by
