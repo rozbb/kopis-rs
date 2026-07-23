@@ -34,7 +34,7 @@ theorem pkStructBytes_eq_of_parts {L : Usize} (pk : pke.PkePublicKey L)
     (pkB : 𝔹 (Spec.Kopis.pkSize p))
     (h1 : 0 + 32 * 10 * L.val ≤ Spec.Kopis.pkSize p)
     (h2 : 32 * 10 * L.val + 32 ≤ Spec.Kopis.pkSize p)
-    (hvecbytes : vecBytesFlat pk = (Spec.slice pkB 0 (32 * 10 * L.val) h1).cast (by rw [hℓ]; ring))
+    (hvecbytes : vecBytesFlat pk = (Spec.slice pkB 0 (32 * 10 * L.val) h1).cast (by ring))
     (hseed : matSeedBytes pk = Spec.slice pkB (32 * 10 * L.val) 32 h2) :
     pkStructBytes pk p hℓ = pkB := by
   have hpk : Spec.Kopis.pkSize p = 320 * L.val + 32 := by
