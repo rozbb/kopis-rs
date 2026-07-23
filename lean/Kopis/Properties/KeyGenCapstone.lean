@@ -3,7 +3,9 @@ import Kopis.Properties.Impls
 open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 namespace Kopis.Properties
-set_option maxHeartbeats 4000000
+-- The three `keygen_encap_spec` composites elaborate a single very large (but finite) `whnf`
+-- reduction of the spec-level `KemEncap`/`ExpandDecapKey` terms; they need a raised budget.
+set_option maxHeartbeats 20000000
 
 /-! ## Unconditional decapsulation for a key-gen output.
 
