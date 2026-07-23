@@ -6,6 +6,7 @@ import Kopis.Properties.Serialize
 import Kopis.Properties.GenMatrix
 import Kopis.Properties.MatrixArith
 import Kopis.Properties.MulTranspose
+import Kopis.Properties.Ntt
 import Kopis.Properties.GenSecretLoops
 import Kopis.Properties.GenSecretSpec
 import Kopis.Properties.GenSecretTop

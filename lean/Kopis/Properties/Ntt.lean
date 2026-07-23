@@ -270,16 +270,70 @@ def SecretBounded {X Z : Usize} (s : Mat X Z) (sBound : ℤ) : Prop :=
   ∀ i k c, i < X.val → k < Z.val → c < 256 →
     |signedOfU16 (((s.val[i]!).val[k]!).val[c]!)| ≤ sBound
 
-/-- **Unproved (the single NTT hole).** `from_uniform A → from_secret s → mul_transpose` computes
-the schoolbook product `Aᵀ·s` in `ℤ[X]/(X²⁵⁶+1)` with `u16` coefficients — the same postcondition
-as `matrix_mul_transpose_spec`. -/
+/-- Two Hoare triples on the same computation combine into one with a conjoined postcondition. -/
+theorem spec_and {α} {m : Result α} {P Q : α → Prop}
+    (hP : m ⦃ r => P r ⦄) (hQ : m ⦃ r => Q r ⦄) : m ⦃ r => P r ∧ Q r ⦄ := by
+  unfold WP.spec WP.theta WP.wp_return at *
+  cases m <;> simp_all
+
+/-! ### The NTT representation relations and the decomposed bridge
+
+`from_uniform_matrix` / `from_secret_matrix` map a coefficient matrix into the NTT domain;
+`mul` / `mul_transpose` multiply pointwise there.  Because the escaping NTT matrices
+(`mat_a_ntt` into the public key, `vec_s_ntt`/`sprime_ntt` into the secret material) are
+consumed at a *different* program point than where they are built, the bridge is stated as
+four decomposed specs — two constructors establishing an abstract representation relation, two
+multipliers consuming it — rather than as one bundled triple.
+
+The relations `IsNttU` / `IsNttS` are opaque.  Pinning them to the concrete forward NTT and
+discharging the four specs (plus the raw-magnitude lemmas below) is the single mathematical
+hole `ntt_spec`; each obligation is `sorry`ed, never `axiom`ed, so the `TopLevelTheorems`
+audit gate reports every one of them. -/
+
+/-- `nttA` is the forward-NTT representation of the uniform coefficient matrix `A`. -/
+opaque IsNttU {X Y : Usize} (nttA : arithmetic.ntt.NttMatrix X Y) (A : Mat X Y) : Prop
+
+/-- `nttS` is the forward-NTT representation of the secret coefficient matrix `s`. -/
+opaque IsNttS {X Y : Usize} (nttS : arithmetic.ntt.NttMatrix X Y) (s : Mat X Y) : Prop
+
+/-- **Part of the NTT hole.** `from_uniform_matrix` computes the NTT representation. -/
+theorem from_uniform_matrix_spec {X Y : Usize} (A : Mat X Y) :
+    arithmetic.ntt.NttMatrix.from_uniform_matrix A
+      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => IsNttU r A ⦄ := by
+  sorry
+
+/-- **Part of the NTT hole.** `from_secret_matrix` computes the NTT representation. -/
+theorem from_secret_matrix_spec {X Y : Usize} (s : Mat X Y) :
+    arithmetic.ntt.NttMatrix.from_secret_matrix s
+      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => IsNttS r s ⦄ := by
+  sorry
+
+/-- **Part of the NTT hole (`ntt_spec`).** Pointwise product of NTT representations computes the
+schoolbook product `A·s` in `ℤ[X]/(X²⁵⁶+1)` with `u16` coefficients — the same postcondition
+as `matrix_mul_spec` — given the joint magnitude constraint `fitsExactly`. -/
+theorem ntt_mul_spec {X Y Z : Usize}
+    (nttA : arithmetic.ntt.NttMatrix X Y) (nttS : arithmetic.ntt.NttMatrix Y Z)
+    (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
+    (_hfit : fitsExactly Y.val sBound)
+    (_hA : UniformBounded A) (_hs : SecretBounded s sBound)
+    (_hnA : IsNttU nttA A) (_hnS : IsNttS nttS s) :
+    arithmetic.ntt.NttMatrix.mul nttA nttS
+      ⦃ (r : Mat X Z) =>
+          ∀ (i : Nat) (_hi : i < X.val) (k : Nat) (_hk : k < Z.val),
+            toRingElem ((r.val[i]!).val[k]!)
+              = ∑ jj ∈ Finset.range Y.val,
+                  toRingElem ((A.val[i]!).val[jj]!) * toRingElem ((s.val[jj]!).val[k]!) ⦄ := by
+  sorry
+
+/-- **Part of the NTT hole (`ntt_spec`).** `mul_transpose` of NTT representations computes the
+schoolbook product `Aᵀ·s`, matching `matrix_mul_transpose_spec`. -/
 theorem ntt_mul_transpose_spec {X Y Z : Usize}
+    (nttA : arithmetic.ntt.NttMatrix X Y) (nttS : arithmetic.ntt.NttMatrix X Z)
     (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
     (_hfit : fitsExactly X.val sBound)
-    (_hA : UniformBounded A) (_hs : SecretBounded s sBound) :
-    (do let a1 ← arithmetic.ntt.NttMatrix.from_uniform_matrix A
-        let a2 ← arithmetic.ntt.NttMatrix.from_secret_matrix s
-        arithmetic.ntt.NttMatrix.mul_transpose a1 a2)
+    (_hA : UniformBounded A) (_hs : SecretBounded s sBound)
+    (_hnA : IsNttU nttA A) (_hnS : IsNttS nttS s) :
+    arithmetic.ntt.NttMatrix.mul_transpose nttA nttS
       ⦃ (r : Mat Y Z) =>
           ∀ (j : Nat) (_hj : j < Y.val) (k : Nat) (_hk : k < Z.val),
             toRingElem ((r.val[j]!).val[k]!)
@@ -287,20 +341,33 @@ theorem ntt_mul_transpose_spec {X Y Z : Usize}
                   toRingElem ((A.val[ii]!).val[j]!) * toRingElem ((s.val[ii]!).val[k]!) ⦄ := by
   sorry
 
-/-- **Unproved (the single NTT hole).** `from_uniform A → from_secret s → mul` computes the
-schoolbook product `A·s`, matching `matrix_mul_spec`. -/
-theorem ntt_mul_spec {X Y Z : Usize}
-    (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
-    (_hfit : fitsExactly Y.val sBound)
-    (_hA : UniformBounded A) (_hs : SecretBounded s sBound) :
-    (do let a1 ← arithmetic.ntt.NttMatrix.from_uniform_matrix A
-        let a2 ← arithmetic.ntt.NttMatrix.from_secret_matrix s
-        arithmetic.ntt.NttMatrix.mul a1 a2)
-      ⦃ (r : Mat X Z) =>
-          ∀ (i : Nat) (_hi : i < X.val) (k : Nat) (_hk : k < Z.val),
-            toRingElem ((r.val[i]!).val[k]!)
-              = ∑ jj ∈ Finset.range Y.val,
-                  toRingElem ((A.val[i]!).val[jj]!) * toRingElem ((s.val[jj]!).val[k]!) ⦄ := by
+/-! ### Raw-magnitude lemmas (part of the NTT hole)
+
+The exactness argument for `ntt_mul(_transpose)` needs bounds on the *stored representation*
+that the residue-level specs (`gen_matrix_from_seed_spec`, `gen_secret_from_seed_spec`,
+`Matrix.deserialize_10`, the rounding of a product to `R10`) discard.  These are stated here as
+`sorry`ed Hoare triples so the whole NTT hole is enumerable in one file. -/
+
+/-- **Part of the NTT hole.** A matrix sampled from a seed has every `u16` coefficient `< 2^13`
+(rejection sampling keeps them in `[0, 2^13)`). -/
+theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
+    sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+  sorry
+
+/-- **Part of the NTT hole.** A CBD secret sampled from a seed has every coefficient, read as a
+signed `i16`, bounded in absolute value by `μ/2`. -/
+theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
+  sorry
+
+/-- **Part of the NTT hole.** Deserializing 10-bit-packed bytes yields coefficients `< 2^10`,
+hence `< 2^13`. -/
+theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8) :
+    arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize bytes
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
   sorry
 
 end Kopis.Properties
