@@ -94,3 +94,40 @@ Montgomery/Barrett reduction specs, lazy-reduction bounds) is documented inline.
 6. `ExpandDecap`, `PkeEncryptTop`, `PkeDecryptTop` via the bridge + new pubkey construction.
 7. `KemFromBytes`, `KemDecap`, `KemEncap`, `Impls`.
 8. `TopLevelTheorems`: drop `pk_from_bytes_matches_spec`, restate serialize theorem, add round-trip.
+
+## Technical breadcrumbs (verified during this pass — save re-discovery)
+
+Extracted shapes:
+- `expand_decap_key` sequences `gen_matrix_from_seed → gen_secret_from_seed →
+  from_uniform_matrix → from_secret_matrix → mul_transpose → wrapping_add_to_all →
+  shift_right → from_uniform_matrix → expand_decap_key_loop (serialize each row into vec_bytes)
+  → hash → ok`. `mat_a_ntt` and `vec_s_ntt` both escape (into pubkey / secret key), so the bridge
+  needs `from_uniform_matrix_spec` / `from_secret_matrix_spec` relating them to a math NTT, not
+  just the bundled `ntt_mul_transpose_spec` already in `Ntt.lean`.
+- `serialize` = `serialize_loop {0,L}` (per-chunk `copy_from_slice` of `vec_bytes[i]` into
+  `out_buf[i*320 .. i*320+320]`) then a `RangeFrom` `copy_from_slice` of `matrix_seed` at `L*320`.
+- `from_bytes` copies `vec_slice` chunks into `vec_bytes` verbatim; NTT constructors have **no
+  `massert`** (the per-coeff `debug_assert!`s were removed), so they are total — panic-freedom of
+  `from_bytes`/`serialize` needs no magnitude reasoning.
+
+For `PkeSerialize` (NTT-free, next best target): the template is
+`MatrixSerialize.serialize_col_outer_spec` / `serialize_col_inner_spec`. Needed step specs:
+`core.slice.index.SliceIndexRangeUsizeSlice.index_mut.step_spec` (full-Range chunk → `setSlice!`),
+`core.slice.Slice.copy_from_slice.step_spec` (`copy_from_slice s0 s1 ⦃ s1' => s1' = s1 ⦄`),
+`List.getElem!_setSlice!_{middle,same,prefix}`. The seed-copy tail is unchanged from the old proof.
+
+Reduction specs (`Ntt.lean`) — idioms that WORK:
+- `simp only [global_simps]` rewrites the irreducible `arithmetic.ntt.P` to `50330113#i32`.
+- `I32.eq_equiv_bv_eq` (`@[bvify]`) turns an `I32` equality into a `BitVec` equality.
+- `IScalar.wrapping_shr_bv_eq`, `IScalar.wrapping_{add,sub,mul}_val_eq` give the bv/val forms;
+  the `Int.bmod`-exactness corollaries at the top of `Ntt.lean` discharge the no-wrap step.
+
+Reduction specs — the OPEN gap:
+- Proving `(wrapping_shr x 31 &&& P) = (if x.val<0 then P else 0)` — the branchless sign-mask —
+  did NOT close with `bv_decide` even after reverting `x.bv.msb = _` into scope: the `sshiftRight`
+  form still yields a "spurious counterexample" (something isn't bitblasting — likely the shift
+  amount or a residual projection). Also `BitVec.msb_eq_toInt` was not the literal
+  `x.msb = decide (x.toInt < 0)` form I assumed — check its real statement. Resolving this one
+  lemma should unlock `to_canonical` → `to_wrapping_u16`, and the same style should carry
+  `mont_reduce` / `barrett_reduce`. A dedicated `BitVec.sshiftRight`-of-known-msb rewrite (all-ones
+  / all-zeros) is probably cleaner than throwing the whole goal at `bv_decide`.
