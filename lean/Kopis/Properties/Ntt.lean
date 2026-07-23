@@ -220,7 +220,9 @@ every intermediate inside `i32`.
 This is the genuinely substantial piece of work, and it is deliberately *not* stated as an
 `axiom`: it is `sorry`ed so that the audit gate in `TopLevelTheorems.lean` reports the hole. -/
 
-/-- The next lemma to prove, and the natural use of the `*_exact` lemmas above.
+/-! ### `mont_reduce`: the next reduction spec to prove
+
+The natural use of the `*_exact` lemmas above.
 
 `mont_reduce a` computes `t := (a mod 2^32) · p⁻¹`, reinterpreted as an `i32`, and returns
 `(a - t·p) >> 32`.  The argument has four steps:
@@ -235,14 +237,70 @@ This is the genuinely substantial piece of work, and it is deliberately *not* st
 
 Step 1 is the only fiddly part: it has to be done through the `u32`/`i32` casts, where the
 value semantics are `Int.bmod`/`Int.emod` rather than plain arithmetic. -/
-theorem mont_reduce_spec_statement : True := by trivial
 
-/-- **Unproved.**  The NTT pipeline computes the negacyclic convolution mod `p`.
+/-! ### The bridge interface
 
-Stated over the integers: if `â` and `b̂` are the forward transforms of `a` and `b`, then
-Montgomery-reducing the pointwise product and inverse-transforming yields, in each coefficient,
-a value congruent mod `p` to the negacyclic convolution of `a` and `b` — and of magnitude below
-`p`, so that when the convolution itself is smaller than `p/2` the two agree as integers. -/
-theorem ntt_roundtrip : True := by trivial
+The transform-level correctness, stated as a **drop-in for `matrix_mul_transpose_spec`**: the
+Rust path `from_uniform A → from_secret s → mul_transpose` produces exactly the schoolbook
+product that `matrix_mul_transpose_spec` proves `Matrix.mul_transpose A s` produces. Downstream
+proofs (`ExpandDecap`, `PkeEncryptTop`, `PkeDecryptTop`) can then replace the schoolbook step
+with this one, discharging the magnitude preconditions from the `gen_matrix` / `gen_secret`
+magnitude lemmas (still to be proved — see `NTT_REFACTOR_STATUS.md`).
+
+Preconditions are the exactness hypotheses from the top of this file: the uniform operand's
+coefficients are `< 2^13`, the secret operand's signed coefficients are bounded by `sBound`,
+and `(X, sBound)` satisfies `fitsExactly` (so the integer product lands in `(-p/2, p/2)` and the
+mod-`p` computation is exact). `signedOfU16` reads a wrapping-`u16` coefficient as its signed
+value, matching `from_secret`'s `as i16 as i32`.
+
+This is the single mathematical hole. It is `sorry`ed, not `axiom`ed, so the `TopLevelTheorems`
+audit gate reports it. Its eventual proof is the reduction specs + the CRT butterfly argument
+described above. NOTE: the escaping NTT-domain values (`mat_a_ntt` into the public key,
+`vec_s_ntt` into the secret key) additionally need `from_uniform_matrix` / `from_secret_matrix`
+specs relating them to a mathematical forward NTT; those are part of discharging this hole and
+are not yet stated here. -/
+
+/-- Every coefficient of every entry of a uniform matrix operand is `< 2^13`. -/
+def UniformBounded {X Y : Usize} (A : Mat X Y) : Prop :=
+  ∀ i j c, i < X.val → j < Y.val → c < 256 → (((A.val[i]!).val[j]!).val[c]!).val < 2 ^ 13
+
+/-- Every coefficient of every entry of a secret matrix operand, read as a signed `i16`, has
+absolute value `≤ sBound`. -/
+def SecretBounded {X Z : Usize} (s : Mat X Z) (sBound : ℤ) : Prop :=
+  ∀ i k c, i < X.val → k < Z.val → c < 256 →
+    |signedOfU16 (((s.val[i]!).val[k]!).val[c]!)| ≤ sBound
+
+/-- **Unproved (the single NTT hole).** `from_uniform A → from_secret s → mul_transpose` computes
+the schoolbook product `Aᵀ·s` in `ℤ[X]/(X²⁵⁶+1)` with `u16` coefficients — the same postcondition
+as `matrix_mul_transpose_spec`. -/
+theorem ntt_mul_transpose_spec {X Y Z : Usize}
+    (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
+    (_hfit : fitsExactly X.val sBound)
+    (_hA : UniformBounded A) (_hs : SecretBounded s sBound) :
+    (do let a1 ← arithmetic.ntt.NttMatrix.from_uniform_matrix A
+        let a2 ← arithmetic.ntt.NttMatrix.from_secret_matrix s
+        arithmetic.ntt.NttMatrix.mul_transpose a1 a2)
+      ⦃ (r : Mat Y Z) =>
+          ∀ (j : Nat) (_hj : j < Y.val) (k : Nat) (_hk : k < Z.val),
+            toRingElem ((r.val[j]!).val[k]!)
+              = ∑ ii ∈ Finset.range X.val,
+                  toRingElem ((A.val[ii]!).val[j]!) * toRingElem ((s.val[ii]!).val[k]!) ⦄ := by
+  sorry
+
+/-- **Unproved (the single NTT hole).** `from_uniform A → from_secret s → mul` computes the
+schoolbook product `A·s`, matching `matrix_mul_spec`. -/
+theorem ntt_mul_spec {X Y Z : Usize}
+    (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
+    (_hfit : fitsExactly Y.val sBound)
+    (_hA : UniformBounded A) (_hs : SecretBounded s sBound) :
+    (do let a1 ← arithmetic.ntt.NttMatrix.from_uniform_matrix A
+        let a2 ← arithmetic.ntt.NttMatrix.from_secret_matrix s
+        arithmetic.ntt.NttMatrix.mul a1 a2)
+      ⦃ (r : Mat X Z) =>
+          ∀ (i : Nat) (_hi : i < X.val) (k : Nat) (_hk : k < Z.val),
+            toRingElem ((r.val[i]!).val[k]!)
+              = ∑ jj ∈ Finset.range Y.val,
+                  toRingElem ((A.val[i]!).val[jj]!) * toRingElem ((s.val[jj]!).val[k]!) ⦄ := by
+  sorry
 
 end Kopis.Properties
