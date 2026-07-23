@@ -1,6 +1,7 @@
 import Kopis.Properties.PkeHash
 import Kopis.Properties.RoundTop
 import Kopis.Properties.MulTranspose
+import Kopis.Properties.Ntt
 open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 open scoped Spec.Notations
@@ -41,11 +42,120 @@ theorem turboSHAKE256_read_window {n : ℕ} (msg : 𝔹 n) (D : Byte) (off : ℕ
 def skBytes (sk : Array U8 32#usize) : 𝔹 32 := (arrayToBytes sk).cast rfl
 
 /-- The serialized public-key bytes of a `PkePublicKey` struct — the abstraction that
-corresponds to the spec's `pk : 𝔹 (pkSize p)`. -/
+corresponds to the spec's `pk : 𝔹 (pkSize p)`.  With the pubkey refactor the struct stores the
+serialized vector bytes verbatim, so this is `vecBytesFlat ‖ matSeedBytes` (byte-level) rather
+than a re-serialization of a structured vector. -/
 def pkStructBytes {L : Usize} (self : pke.PkePublicKey L) (p : Spec.Kopis.ParameterSet)
     (hℓ : Spec.Kopis.ℓ p = L.val) : 𝔹 (Spec.Kopis.pkSize p) :=
-  (Spec.Kopis.PolyVector.serialize 10 (toVecN 10 self.vec) ‖ matSeedBytes self).cast (by
+  (vecBytesFlat self ‖ matSeedBytes self).cast (by
     simp only [Spec.Kopis.pkSize, hℓ]; ring)
+
+private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ)
+    (v : α) (k : ℕ) (hj : j < l.length) :
+    (l.set j v)[k]! = if k = j then v else l[k]! := by
+  by_cases h : k = j
+  · subst h
+    rw [getElem!_pos _ k (by rw [List.length_set]; exact hj), List.getElem_set_self, if_pos rfl]
+  · by_cases hk : k < l.length
+    · rw [getElem!_pos _ k (by rw [List.length_set]; exact hk),
+        List.getElem_set_of_ne (Ne.symm h), ← getElem!_pos _ k hk, if_neg h]
+    · rw [getElem!_neg _ k (by rw [List.length_set]; exact hk), getElem!_neg _ k hk, if_neg h]
+
+private theorem sliceToBytes_getElem! (s : Slice U8) (m : ℕ) (h : s.length = m) (q : ℕ) (hq : q < m) :
+    (sliceToBytes s m h)[q]'hq = (s.val[q]!).bv := by
+  simp only [sliceToBytes, Vector.getElem_ofFn]
+  rw [getElem!_pos s.val q (by have hh : s.val.length = m := h; omega)]
+
+/-- Loop invariant of `expand_decap_key_loop`: iterating `i ∈ [start, L)` serializes row
+`b[i][0]` (10-bit coefficients) into `vec_bytes[i]`, leaving rows before `start` untouched. -/
+theorem expand_decap_key_loop_spec {L : Usize}
+    (iter : core.ops.range.Range Usize) (b : arithmetic.matrix_arith.Matrix L 1#usize)
+    (vec_bytes : Array (Array U8 320#usize) L)
+    (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) :
+    pke.expand_decap_key_loop iter b vec_bytes
+      ⦃ (r : Array (Array U8 320#usize) L) =>
+          ∀ i, i < L.val → ∀ c, c < 320 →
+            ((r.val[i]!).val[c]!).bv
+              = if iter.start.val ≤ i
+                then (Spec.Kopis.serialize 10 (toPolyN 10 ((b.val[i]!).val[0]!)))[c]!
+                else ((vec_bytes.val[i]!).val[c]!).bv ⦄ := by
+  unfold pke.expand_decap_key_loop
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hi_lt : iter.start.val < L.val := by scalar_tac
+    have hbi : iter.start.val < b.val.length := by have := b.property; scalar_tac
+    let* ⟨ a, ha ⟩ ← Array.index_usize_spec b iter.start hbi
+    have ha0 : (0#usize).val < a.val.length := by have := a.property; scalar_tac
+    let* ⟨ re, hre ⟩ ← Array.index_usize_spec a 0#usize ha0
+    have hvbi : iter.start.val < vec_bytes.length := by have := vec_bytes.property; scalar_tac
+    let* ⟨ a1, index_mut_back, ha1, hback ⟩ ← Array.index_mut_usize_spec vec_bytes iter.start hvbi
+    let* ⟨ s, to_slice_mut_back, hs_val, hs_back ⟩ ← Array.to_slice_mut_spec a1
+    have hslen : s.val.length = 32 * 10 := by
+      have h : a1.val.length = 320 := a1.property; rw [hs_val]; omega
+    simp only [consts.MODULUS_P_BITS]
+    let* ⟨ s1, hs1len, hs1eq ⟩ ← ring_serialize_spec re s 10#usize 10 rfl ⟨by norm_num, by norm_num⟩ hslen
+    have hs1val : s1.val.length = 320 := by have := hs1len; simp only [Slice.length] at this; omega
+    have ha2val : (to_slice_mut_back s1).val = s1.val := by
+      rw [hs_back]; exact Array.from_slice_val a1 s1 (by rw [hs1val]; rfl)
+    -- byte-level serialize characterization of s1
+    have hs1byte : ∀ c, (hc : c < 320) → (s1.val[c]!).bv
+        = (Spec.Kopis.serialize 10 (toPolyN 10 re))[c]! := by
+      intro c hc
+      have hcc : c < 32 * 10 := by omega
+      rw [← sliceToBytes_getElem! s1 (32 * 10) hs1len c hcc, hs1eq,
+        getElem!_pos (Spec.Kopis.serialize 10 (toPolyN 10 re)) c hcc]
+    apply WP.spec_mono
+      (expand_decap_key_loop_spec iter1 b (index_mut_back (to_slice_mut_back s1))
+        (by rw [hstart']; scalar_tac) (by rw [hend']; exact hend) hfit)
+    intro r hr i hi c hc
+    rw [hr i hi c hc, hstart']
+    have hbacki : (index_mut_back (to_slice_mut_back s1)).val
+        = vec_bytes.val.set iter.start.val (to_slice_mut_back s1) := by
+      rw [hback]; simp only [Array.set_val_eq]
+    have hvbl : iter.start.val < vec_bytes.val.length := by
+      have := vec_bytes.property; scalar_tac
+    by_cases hcase : iter.start.val + 1 ≤ i
+    · rw [if_pos hcase, if_pos (by omega : iter.start.val ≤ i)]
+    · rw [if_neg hcase, hbacki]
+      by_cases hii : i = iter.start.val
+      · rw [getElem!_list_set vec_bytes.val iter.start.val (to_slice_mut_back s1) i hvbl,
+          if_pos hii, ha2val, hs1byte c hc, if_pos (by omega : iter.start.val ≤ i)]
+        have hree : re = (b.val[i]!).val[0]! := by
+          have ea : b.val[i]! = a := by
+            rw [hii]; exact (getElem!_pos b.val iter.start.val hbi).trans ha.symm
+          rw [ea, hre, ← getElem!_pos a.val 0 ha0]
+        rw [hree]
+      · rw [getElem!_list_set vec_bytes.val iter.start.val (to_slice_mut_back s1) i hvbl,
+          if_neg hii, if_neg (by omega : ¬ iter.start.val ≤ i)]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    have hge : iter.start.val = L.val := by scalar_tac
+    intro i hi c hc
+    rw [if_neg (by omega : ¬ iter.start.val ≤ i)]
+  termination_by iter.«end».val - iter.start.val
+  decreasing_by scalar_decr_tac
+
+/-- The flattened `vec_bytes` produced by `expand_decap_key_loop` (from `start = 0`) is exactly
+the spec's `PolyVector.serialize 10` of the rounded vector. -/
+theorem vecBytesFlat_of_loop {L : Usize} (self : pke.PkePublicKey L)
+    (b : arithmetic.matrix_arith.Matrix L 1#usize)
+    (hbytes : ∀ i, i < L.val → ∀ c, c < 320 →
+      ((self.vec_bytes.val[i]!).val[c]!).bv
+        = (Spec.Kopis.serialize 10 (toPolyN 10 ((b.val[i]!).val[0]!)))[c]!) :
+    vecBytesFlat self = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 b) := by
+  apply Vector.ext
+  intro pos hpos
+  have hc : pos % 320 < 320 := Nat.mod_lt _ (by norm_num)
+  have hi : pos / 320 < L.val := by
+    rw [Nat.div_lt_iff_lt_mul (by norm_num)]; omega
+  simp only [vecBytesFlat, Vector.getElem_ofFn]
+  rw [hbytes (pos / 320) hi (pos % 320) hc,
+    getElem!_pos _ (pos % 320) (by omega)]
+  simp only [Spec.Kopis.PolyVector.serialize]
+  rw [Vector.getElem_flatten (by omega : pos < L.val * (32 * 10)), Vector.getElem_map]
+  simp only [toVecN, Vector.getElem_ofFn]
 
 /-- `1#u8` bit-vector is the KG-expand domain separator. -/
 theorem domsep_kgexpand_bv : (1#u8).bv = DOMSEP_KGEXPAND := by decide
@@ -109,11 +219,12 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     (_hL : L.val < 256) :
     pke.expand_decap_key L MU sk
       ⦃ (r : pke.PkeSecretKey L × Array U8 32#usize × pke.PkePublicKey L × Array U8 32#usize) =>
-          toVector13 r.1 = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes sk)).1 ∧
+          toVector13 (nttInvS r.1) = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes sk)).1 ∧
+          SecretBounded (nttInvS r.1) ((MU.val / 2 : ℕ) : ℤ) ∧
           arrayToBytes r.2.1 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.1 ∧
           pkStructBytes r.2.2.1 p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.1 ∧
           arrayToBytes r.2.2.2 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.2 ∧
-          toMatrix13 r.2.2.1.mat_a
+          toMatrix13 (nttInvU r.2.2.1.mat_a_ntt)
             = Spec.Kopis.GenMat L.val (arrayToBytes r.2.2.1.matrix_seed) ⦄ := by
   unfold pke.expand_decap_key
   step*
@@ -186,9 +297,21 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
           DOMSEP_KGEXPAND 96) 64 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hms7]; exact hs7bytes
   -- run the algebraic pipeline
-  let* ⟨mat_a, hmata⟩ ← gen_matrix_from_seed_spec L (to_slice_mut_back s3)
-  let* ⟨vec_s, hvecs⟩ ← gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU
-  let* ⟨prod, hprod⟩ ← matrix_mul_transpose_spec mat_a vec_s
+  let* ⟨mat_a, hmata, hmatbnd⟩ ← spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3))
+    (gen_matrix_uniformBounded (to_slice_mut_back s3))
+  let* ⟨vec_s, hvecs, hvecbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU)
+    (gen_secret_secretBounded (to_slice_mut_back1 s5))
+  let* ⟨mat_a_ntt, hmata_ntt⟩ ← from_uniform_matrix_spec mat_a
+  let* ⟨vec_s_ntt, hvecs_ntt⟩ ← from_secret_matrix_spec vec_s
+  -- the NTT `mul_transpose` computes the schoolbook product `mat_aᵀ · vec_s`
+  have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
+    have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
+  let* ⟨prod, hprod0⟩ ← ntt_mul_transpose_spec mat_a_ntt vec_s_ntt ((MU.val / 2 : ℕ) : ℤ) hfitex
+    (by rw [hmata_ntt]; exact hmatbnd) (by rw [hvecs_ntt]; exact hvecbnd)
+  have hprod : ∀ (j : ℕ), j < L.val → ∀ (k : ℕ), k < 1 →
+      toRingElem ((prod.val[j]!).val[k]!) = ∑ ii ∈ Finset.range L.val,
+        toRingElem ((mat_a.val[ii]!).val[j]!) * toRingElem ((vec_s.val[ii]!).val[k]!) := by
+    intro j hj k hk; rw [hprod0 j hj k hk, hmata_ntt, hvecs_ntt]
   -- H1_VAL = 4, Q_BITS - P_BITS = 3, computed via the scalar step specs
   simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
   let* ⟨j0, hj0, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
@@ -204,10 +327,22 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   let* ⟨j2, hj2, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
   have hj2v : j2.val = 3 := by scalar_tac
   let* ⟨prod2, hprod2⟩ ← matrix_shift_right_spec prod1 j2 (by scalar_tac)
+  -- from_uniform of the rounded vector, then serialize each row into `vec_bytes`
+  let* ⟨vec_ntt, hvecntt⟩ ← from_uniform_matrix_spec prod2
+  let* ⟨vec_bytes1, hvb⟩ ← expand_decap_key_loop_spec { start := 0#usize, «end» := L } prod2
+    (Array.repeat L (Array.repeat 320#usize 0#u8)) (by simp) rfl hfit
   let* ⟨pkh, hpkh⟩ ← pke_hash_spec
-    { matrix_seed := to_slice_mut_back s3, vec := prod2, mat_a := mat_a } hbuf hfit
+    { matrix_seed := to_slice_mut_back s3, mat_a_ntt := mat_a_ntt, vec_bytes := vec_bytes1,
+      vec_ntt := vec_ntt } hbuf hfit
+  -- the serialized rows equal the spec `serialize` of the rounded vector
+  have hbytes : ∀ i, i < L.val → ∀ c, c < 320 →
+      ((vec_bytes1.val[i]!).val[c]!).bv
+        = (Spec.Kopis.serialize 10 (toPolyN 10 ((prod2.val[i]!).val[0]!)))[c]! := by
+    intro i hi c hc
+    have h := hvb i hi c hc
+    rwa [if_pos (by scalar_tac)] at h
   -- matrix seed bytes correspond to the spec's `mat_seed`
-  have hmsb : matSeedBytes { matrix_seed := to_slice_mut_back s3, vec := prod2, mat_a := mat_a }
+  have hmsb : matSeedBytes ({ matrix_seed := to_slice_mut_back s3, mat_a_ntt := mat_a_ntt, vec_bytes := vec_bytes1, vec_ntt := vec_ntt } : pke.PkePublicKey L)
       = Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 0 32 (by omega) := by
     apply Vector.toList_inj.mp
@@ -233,20 +368,27 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
             DOMSEP_KGEXPAND 96) 32 32 (by omega)))) := by
     rw [hvecb, hmata, hmatseed, hvecs, hsecseed, roundExpr_cast hℓ, hμ]
   simp only [Spec.Kopis.ExpandDecapKey]
-  refine ⟨?_, ?_, ?_, ?_, hmata⟩
-  · -- secret key
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  · -- secret key (denoted coefficient vector)
+    rw [hvecs_ntt]
     apply Vector.toList_inj.mp
     rw [eqRec_toList, hvecs, hsecseed, hℓ, hμ]
+  · -- secret key magnitude bound
+    rw [hvecs_ntt]; exact hvecbnd
   · exact hzseed
   · -- public key (serialized bytes)
     unfold pkStructBytes
     apply Vector.toList_inj.mp
-    rw [Vector.toList_cast, Vector.toList_cast, bappend_toList, bappend_toList,
-      hvecbcast, serialize_eqRec_toList, hmsb]
+    rw [vecBytesFlat_of_loop _ prod2 hbytes, hvecbcast]
+    simp only [Vector.toList_cast, bappend_toList]
+    rw [serialize_eqRec_toList, hmsb]
   · -- public-key hash
     rw [hpkh]
     refine turboSHAKE256_congr _ _ _ _ ?_
-    rw [Vector.toList_cast, bappend_toList, bappend_toList,
-      hvecbcast, serialize_eqRec_toList, hmsb]
+    rw [vecBytesFlat_of_loop _ prod2 hbytes, hvecbcast]
+    simp only [Vector.toList_cast, bappend_toList]
+    rw [serialize_eqRec_toList, hmsb]
+  · -- mat_a denoted by mat_a_ntt equals GenMat
+    rw [hmata_ntt]; exact hmata
 
 end Kopis.Properties
