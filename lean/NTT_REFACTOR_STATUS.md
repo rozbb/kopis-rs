@@ -14,14 +14,19 @@ for two documented holes (11 `sorry`s total, all in two files):
 1. **`ntt_spec`** — the single mathematical hole (8 `sorry`s in `Ntt.lean`): that the
    negacyclic NTT computes the ring product, plus its raw-magnitude lemmas. See below.
 2. **A proof-engineering PERF hole** — the three `kopisXXX_keygen_encap_spec` composites in
-   `KeyGenCapstone.lean` (3 `sorry`s). They hit an intractable `whnf`-elaboration blowup when
-   the `keygen_hpk*` facts are checked against `encapsulate_deterministic_spec`'s expected
-   types over the huge spec-level `KemEncap`/`ExpandDecapKey`/`SkToPk` terms. A
-   `generalize`-based structuring tames the final rewrite, but the residual cost is
-   heartbeat-nondeterministic under parallel build load and does not settle at any practical
-   budget (60M still flakes). This is a COMPOSITION convenience only — the underlying pieces
-   are all fully proved: `expand_from_seed_spec` (key-gen), `kopisXXX_public_key_spec`
-   (derive pk), `kopisXXX_encapsulate_deterministic_spec` (encap), and the user-facing
+   `KeyGenCapstone.lean` (3 `sorry`s). The REAL PROOFS EXIST and are in git history (commit
+   "irreducible spec defs + 16M …"): the fix is to make the huge spec defs
+   (`SkToPk`/`KemEncap`/`ExpandDecapKey`) `local irreducible` so `whnf`/`kabstract` can't
+   unfold them during elaboration (bridging `SkToPk = ExpandDecapKey.2.2.1` via the `rfl`
+   lemma `skToPk_eq`), plus a `generalize` of `KemEncap` before the final rewrite. That makes
+   them *complete proofs* — BUT the residual elaboration cost is heartbeat-nondeterministic
+   under maximal parallel `lake build` load (memory pressure inflates the count ~15×), so
+   under a full 16-way build one of the three flakes (which one moves with the load) even at
+   40M. To keep `lake build Kopis` reliably green they are `sorry`ed here; to restore them,
+   paste the git-history bodies back and raise `maxHeartbeats` (and/or build at lower `-j`).
+   This is a COMPOSITION convenience only — the underlying pieces are all fully proved:
+   `expand_from_seed_spec` (key-gen), `kopisXXX_public_key_spec` (derive pk),
+   `kopisXXX_encapsulate_deterministic_spec` (encap), and the user-facing
    `kopisXXX_from_bytes_then_encapsulate` (parse-then-encapsulate). NOT part of `ntt_spec`.
 
 `TopLevelTheorems.lean` is the audit surface. Its `#print axioms` gate now **reports

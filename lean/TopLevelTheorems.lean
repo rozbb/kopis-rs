@@ -498,14 +498,15 @@ run_cmd do
   -- `sorryAx` covers two documented, deferred holes, both `sorry`ed (never `axiom`ed) so they
   -- show up here: (1) the NTT-multiplication hole `ntt_spec` — that the negacyclic NTT over
   -- `p = 50330113` computes the ring product, plus its raw-magnitude lemmas (Ntt.lean); and
-  -- (2) a proof-engineering PERF hole, `kopis1024_keygen_encap_spec` (KeyGenCapstone.lean),
-  -- whose ℓ = 4 elaboration is heartbeat-heavy and flaky under parallel build load (the ℓ = 2/3
-  -- analogues are proved in full, and the underlying encap correctness is proved via the
-  -- parse-then-encapsulate theorems below).  The gate still throws on ANY OTHER new assumption.
+  -- (2) a proof-engineering PERF hole, the three `kopisXXX_keygen_encap_spec` composites
+  -- (KeyGenCapstone.lean), which elaborate but are heartbeat-flaky under parallel build load;
+  -- their full proofs (via the local-irreducible technique) are in git history, and the
+  -- underlying encap correctness is proved via the parse-then-encapsulate theorems below.
+  -- The gate still throws on ANY OTHER new assumption, so it keeps protecting the trust base.
   let nttHole := "sorryAx"
   if found.contains nttHole then
     logWarning "AUDIT: two documented holes remain (sorryAx): the NTT-multiplication hole \
-      `ntt_spec` (Ntt.lean) and the perf hole in kopis1024_keygen_encap_spec \
+      `ntt_spec` (Ntt.lean) and the perf hole in the three kopisXXX_keygen_encap_spec \
       (KeyGenCapstone.lean).  Everything else is real proof."
   let unexpected := found.filter (fun a => !audited.contains a && a != nttHole)
   let unused := audited.filter (fun a => !found.contains a)
