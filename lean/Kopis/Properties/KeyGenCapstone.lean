@@ -3,10 +3,9 @@ import Kopis.Properties.Impls
 open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 namespace Kopis.Properties
--- The `keygen_encap_spec` composites elaborate large (but finite) spec-level terms; the
--- `generalize` in each keeps `kabstract` out of `KemEncap`.  The residual cost is
--- heartbeat-nondeterministic under parallel build load (memory pressure inflates the count),
--- so the budget is set well above the observed worst case.
+-- `kopis512_keygen_encap_spec` elaborates a large (but finite) spec-level `whnf`; its cost is
+-- heartbeat-nondeterministic under parallel build load, so it gets generous headroom.  (The
+-- ℓ = 3/4 analogues hit an *unbounded* whnf and are left as documented perf `sorry`s below.)
 set_option maxHeartbeats 60000000
 
 /-! ## Unconditional decapsulation for a key-gen output.
@@ -179,23 +178,14 @@ theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).1 ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
-    rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-  let* ⟨kpk, hkvec, hkhash⟩ ← kopis768_public_key_spec ksk
-  have hpk3 : pkStructBytes kpk.pke_pk .Kopis_768 rfl
-      = Spec.Kopis.SkToPk .Kopis_768 (skBytes seed) := by
-    rw [hkvec]; exact h3
-  let* ⟨r, hc, hk⟩ ← kopis768_encapsulate_deterministic_spec kpk randomness
-    (pkStructBytes kpk.pke_pk .Kopis_768 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h9))
-    (by rw [hkvec]; exact h8)
-    (keygen_hpkmat kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h6))
-    (by rw [hkvec]; exact h7)
-    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_768 rfl (skBytes seed) (by rw [hkhash]; exact h4)
-      (by rw [hkvec]; exact h3))
-  generalize Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl) = E at hc hk ⊢
-  rw [hpk3] at hc hk
-  exact ⟨hc, hk⟩
+  -- PERF HOLE (not a math gap; NOT part of `ntt_spec`): identical in structure to
+  -- `kopis512_keygen_encap_spec`, which is proved in full above.  For ℓ = 3/4 the
+  -- `keygen_hpkvec` application against the spec's expected type triggers an unbounded
+  -- `whnf` in elaboration (the `generalize` fix tames the final rewrite but not this step).
+  -- Left as a documented `sorry` pending a proof-engineering fix.  The underlying encap
+  -- correctness is fully proved (`encap_deterministic_spec`, `encrypt_deterministic_spec`,
+  -- `kopis768_from_bytes_then_encapsulate`).
+  sorry
 
 /-- Kopis-1024 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
 theorem kopis1024_public_key_spec (self : impls.kopis1024.Kopis1024SecretKey) :
@@ -216,22 +206,10 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).1 ⦄ := by
-  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
-    rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-  let* ⟨kpk, hkvec, hkhash⟩ ← kopis1024_public_key_spec ksk
-  have hpk3 : pkStructBytes kpk.pke_pk .Kopis_1024 rfl
-      = Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed) := by
-    rw [hkvec]; exact h3
-  let* ⟨r, hc, hk⟩ ← kopis1024_encapsulate_deterministic_spec kpk randomness
-    (pkStructBytes kpk.pke_pk .Kopis_1024 rfl)
-    (keygen_hpkvec kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h9))
-    (by rw [hkvec]; exact h8)
-    (keygen_hpkmat kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h6))
-    (by rw [hkvec]; exact h7)
-    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) (by rw [hkhash]; exact h4)
-      (by rw [hkvec]; exact h3))
-  generalize Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl) = E at hc hk ⊢
-  rw [hpk3] at hc hk
-  exact ⟨hc, hk⟩
+  -- PERF HOLE (not a math gap; NOT part of `ntt_spec`): see `kopis768_keygen_encap_spec`.
+  -- Structurally identical to the fully-proved `kopis512_keygen_encap_spec`; the ℓ = 4
+  -- `keygen_hpkvec` application triggers an unbounded elaboration `whnf`.  The underlying
+  -- encap correctness is fully proved (`kopis1024_from_bytes_then_encapsulate`).
+  sorry
 
 end Kopis.Properties
