@@ -86,6 +86,16 @@ case, numerically identical to Kopis-768's. -/
 theorem fitsExactly_kopis1024 : fitsExactly 4 3 := by
   unfold fitsExactly uniformBound pNtt; norm_num
 
+/-- Every shipped parameter set satisfies the joint exactness constraint with `sBound = μ/2`.
+This is what lets the downstream key-generation / encryption / decryption proofs discharge the
+`fitsExactly` precondition of the NTT multiplication bridge from the parameter set alone. -/
+theorem fitsExactly_paramSet (p : Spec.Kopis.ParameterSet) :
+    fitsExactly (Spec.Kopis.ℓ p) ((Spec.Kopis.μ p / 2 : ℕ) : ℤ) := by
+  cases p
+  · exact fitsExactly_kopis512
+  · exact fitsExactly_kopis768
+  · exact fitsExactly_kopis1024
+
 /-- The margin really is as thin as claimed: at the worst shipped pairing the accumulated
 coefficient bound is 2304 below `⌊p/2⌋ = 25 165 056`.  Stated separately so that a future
 parameter change that silently breaks exactness shows up as a failed proof here. -/
@@ -276,69 +286,71 @@ theorem spec_and {α} {m : Result α} {P Q : α → Prop}
   unfold WP.spec WP.theta WP.wp_return at *
   cases m <;> simp_all
 
-/-! ### The NTT representation relations and the decomposed bridge
+/-! ### The NTT representation functions and the decomposed bridge
 
 `from_uniform_matrix` / `from_secret_matrix` map a coefficient matrix into the NTT domain;
 `mul` / `mul_transpose` multiply pointwise there.  Because the escaping NTT matrices
 (`mat_a_ntt` into the public key, `vec_s_ntt`/`sprime_ntt` into the secret material) are
 consumed at a *different* program point than where they are built, the bridge is stated as
-four decomposed specs — two constructors establishing an abstract representation relation, two
-multipliers consuming it — rather than as one bundled triple.
+four decomposed specs — two constructors and two multipliers — rather than as one bundled
+triple.
 
-The relations `IsNttU` / `IsNttS` are opaque.  Pinning them to the concrete forward NTT and
+The coefficient matrix an NTT matrix denotes is recovered by the opaque inverses `nttInvU` /
+`nttInvS` (a *function*, so the witness is determined by the stored NTT matrix and needs no
+existential when consumed downstream).  Pinning these to the concrete inverse NTT and
 discharging the four specs (plus the raw-magnitude lemmas below) is the single mathematical
 hole `ntt_spec`; each obligation is `sorry`ed, never `axiom`ed, so the `TopLevelTheorems`
 audit gate reports every one of them. -/
 
-/-- `nttA` is the forward-NTT representation of the uniform coefficient matrix `A`. -/
-opaque IsNttU {X Y : Usize} (nttA : arithmetic.ntt.NttMatrix X Y) (A : Mat X Y) : Prop
+/-- The uniform coefficient matrix an NTT matrix denotes (opaque inverse NTT). -/
+opaque nttInvU {X Y : Usize} (n : arithmetic.ntt.NttMatrix X Y) : Mat X Y
 
-/-- `nttS` is the forward-NTT representation of the secret coefficient matrix `s`. -/
-opaque IsNttS {X Y : Usize} (nttS : arithmetic.ntt.NttMatrix X Y) (s : Mat X Y) : Prop
+/-- The secret coefficient matrix an NTT matrix denotes (opaque inverse NTT). -/
+opaque nttInvS {X Y : Usize} (n : arithmetic.ntt.NttMatrix X Y) : Mat X Y
 
-/-- **Part of the NTT hole.** `from_uniform_matrix` computes the NTT representation. -/
+/-- **Part of the NTT hole.** `from_uniform_matrix A` denotes `A`. -/
 theorem from_uniform_matrix_spec {X Y : Usize} (A : Mat X Y) :
     arithmetic.ntt.NttMatrix.from_uniform_matrix A
-      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => IsNttU r A ⦄ := by
+      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => nttInvU r = A ⦄ := by
   sorry
 
-/-- **Part of the NTT hole.** `from_secret_matrix` computes the NTT representation. -/
+/-- **Part of the NTT hole.** `from_secret_matrix s` denotes `s`. -/
 theorem from_secret_matrix_spec {X Y : Usize} (s : Mat X Y) :
     arithmetic.ntt.NttMatrix.from_secret_matrix s
-      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => IsNttS r s ⦄ := by
+      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => nttInvS r = s ⦄ := by
   sorry
 
-/-- **Part of the NTT hole (`ntt_spec`).** Pointwise product of NTT representations computes the
-schoolbook product `A·s` in `ℤ[X]/(X²⁵⁶+1)` with `u16` coefficients — the same postcondition
-as `matrix_mul_spec` — given the joint magnitude constraint `fitsExactly`. -/
+/-- **Part of the NTT hole (`ntt_spec`).** Pointwise product of NTT matrices computes the
+schoolbook product of the coefficient matrices they denote, in `ℤ[X]/(X²⁵⁶+1)` with `u16`
+coefficients — the same postcondition as `matrix_mul_spec` — given the joint magnitude
+constraint `fitsExactly`. -/
 theorem ntt_mul_spec {X Y Z : Usize}
-    (nttA : arithmetic.ntt.NttMatrix X Y) (nttS : arithmetic.ntt.NttMatrix Y Z)
-    (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
+    (nttA : arithmetic.ntt.NttMatrix X Y) (nttS : arithmetic.ntt.NttMatrix Y Z) (sBound : ℤ)
     (_hfit : fitsExactly Y.val sBound)
-    (_hA : UniformBounded A) (_hs : SecretBounded s sBound)
-    (_hnA : IsNttU nttA A) (_hnS : IsNttS nttS s) :
+    (_hA : UniformBounded (nttInvU nttA)) (_hs : SecretBounded (nttInvS nttS) sBound) :
     arithmetic.ntt.NttMatrix.mul nttA nttS
       ⦃ (r : Mat X Z) =>
           ∀ (i : Nat) (_hi : i < X.val) (k : Nat) (_hk : k < Z.val),
             toRingElem ((r.val[i]!).val[k]!)
               = ∑ jj ∈ Finset.range Y.val,
-                  toRingElem ((A.val[i]!).val[jj]!) * toRingElem ((s.val[jj]!).val[k]!) ⦄ := by
+                  toRingElem (((nttInvU nttA).val[i]!).val[jj]!)
+                    * toRingElem (((nttInvS nttS).val[jj]!).val[k]!) ⦄ := by
   sorry
 
-/-- **Part of the NTT hole (`ntt_spec`).** `mul_transpose` of NTT representations computes the
-schoolbook product `Aᵀ·s`, matching `matrix_mul_transpose_spec`. -/
+/-- **Part of the NTT hole (`ntt_spec`).** `mul_transpose` of NTT matrices computes the
+schoolbook product `Aᵀ·s` of the coefficient matrices they denote, matching
+`matrix_mul_transpose_spec`. -/
 theorem ntt_mul_transpose_spec {X Y Z : Usize}
-    (nttA : arithmetic.ntt.NttMatrix X Y) (nttS : arithmetic.ntt.NttMatrix X Z)
-    (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
+    (nttA : arithmetic.ntt.NttMatrix X Y) (nttS : arithmetic.ntt.NttMatrix X Z) (sBound : ℤ)
     (_hfit : fitsExactly X.val sBound)
-    (_hA : UniformBounded A) (_hs : SecretBounded s sBound)
-    (_hnA : IsNttU nttA A) (_hnS : IsNttS nttS s) :
+    (_hA : UniformBounded (nttInvU nttA)) (_hs : SecretBounded (nttInvS nttS) sBound) :
     arithmetic.ntt.NttMatrix.mul_transpose nttA nttS
       ⦃ (r : Mat Y Z) =>
           ∀ (j : Nat) (_hj : j < Y.val) (k : Nat) (_hk : k < Z.val),
             toRingElem ((r.val[j]!).val[k]!)
               = ∑ ii ∈ Finset.range X.val,
-                  toRingElem ((A.val[ii]!).val[j]!) * toRingElem ((s.val[ii]!).val[k]!) ⦄ := by
+                  toRingElem (((nttInvU nttA).val[ii]!).val[j]!)
+                    * toRingElem (((nttInvS nttS).val[ii]!).val[k]!) ⦄ := by
   sorry
 
 /-! ### Raw-magnitude lemmas (part of the NTT hole)
