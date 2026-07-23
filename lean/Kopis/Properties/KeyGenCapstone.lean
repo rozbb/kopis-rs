@@ -4,8 +4,9 @@ open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 namespace Kopis.Properties
 -- The `keygen_encap_spec` composites remain elaboration-heavy even with the spec defs made
--- locally irreducible below; the larger ℓ = 3/4 cases need a raised budget.
-set_option maxHeartbeats 16000000
+-- locally irreducible below; the ℓ = 3/4 cases need a raised budget, and the cost is
+-- heartbeat-nondeterministic under parallel build load, so the margin is generous.
+set_option maxHeartbeats 40000000
 
 /-! ## Unconditional decapsulation for a key-gen output.
 
