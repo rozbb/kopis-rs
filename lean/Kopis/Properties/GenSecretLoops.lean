@@ -370,6 +370,65 @@ theorem cbd_nibble_high (byte shifted : U8) (hsh : shifted.val = byte.val >>> 4)
   rw [Finset.sum_congr rfl (fun i _ => hstep i), ← Finset.sum_filter,
     show (Finset.range 8).filter (· < 4) = Finset.range 4 from by decide]
 
+/-! ## CBD magnitude (centered-binomial bound)
+
+The residue specs discard the raw `u16` value, which the signed-magnitude bound `|coeff| ≤ μ/2`
+needs.  A CBD coefficient is `wrapping_sub a b` where `a`, `b` are popcounts of `half = μ/2`
+masked bits, so `0 ≤ a, b ≤ half`; hence the stored `u16` is either `≤ half` (non-negative) or
+`≥ 2¹⁶ − half` (negative, by wraparound).  `smallSignedU16 v half` records exactly that, and is
+what `Ntt.gen_secret_secretBounded` converts to `|signedOfU16 v| ≤ half`. -/
+
+/-- A `u16` that reads as a signed value of magnitude `≤ h`: either `≤ h` (non-negative) or
+`≥ 2¹⁶ − h` (negative by wraparound). -/
+def smallSignedU16 (v : U16) (h : ℕ) : Prop := v.val ≤ h ∨ 2 ^ 16 - h ≤ v.val
+
+/-- `wrapping_sub` of two small non-negatives is small-signed. -/
+theorem smallSignedU16_wrapping_sub {h : ℕ} (a b : U16)
+    (ha : a.val ≤ h) (hb : b.val ≤ h) (hh : h ≤ 8) :
+    smallSignedU16 (core.num.U16.wrapping_sub a b) h := by
+  have hsize : UScalar.size .U16 = 2 ^ 16 := by rw [UScalar.size_def]; rfl
+  have hbv : b.val ≤ 2 ^ 16 := by have := U16.lt_succ_max b; omega
+  have hval : (core.num.U16.wrapping_sub a b).val = (a.val + (2 ^ 16 - b.val)) % 2 ^ 16 := by
+    rw [core.num.U16.wrapping_sub_val_eq, hsize]
+  have hp : (2 : ℕ) ^ 16 = 65536 := by norm_num
+  unfold smallSignedU16
+  rw [hval, hp]
+  by_cases hab : b.val ≤ a.val
+  · left; omega
+  · right; omega
+
+/-- **Magnitude of one CBD coefficient.**  Independent of the byte windows: it only uses that
+`a`, `b` are popcounts of `half` masked bits, so both are `≤ half`. -/
+theorem cbd_diff_bd (raw half mask : U32) (hhalf : half.val ≤ 8)
+    (hmask : mask.val = 2 ^ half.val - 1) :
+    sample.cbd_diff raw half mask
+      ⦃ (r : U16) => smallSignedU16 r half.val ⦄ := by
+  unfold sample.cbd_diff
+  rw [show lift (raw &&& mask) = ok (raw &&& mask) from rfl, bind_tc_ok]
+  let* ⟨ i1, hi1 ⟩ ← U32.count_ones_spec
+  have ha_le : i1.val ≤ half.val := by
+    rw [hi1, popcount_low_mask raw mask half.val (by omega) (mask_getLsbD mask half.val hmask)]
+    calc ∑ i ∈ Finset.range half.val, (raw.bv.getLsbD i).toNat
+        ≤ ∑ _i ∈ Finset.range half.val, 1 :=
+          Finset.sum_le_sum (fun i _ => by cases raw.bv.getLsbD i <;> simp)
+      _ = half.val := by rw [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one]
+  have hx_le : i1.val ≤ UScalar.max UScalarTy.U16 := by
+    simp only [UScalar.max, UScalarTy.numBits]; omega
+  let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i1 hx_le
+  let* ⟨ i2, hi2, hi2bv ⟩ ← Std.U32.ShiftRight_spec raw half (by omega)
+  rw [show lift (i2 &&& mask) = ok (i2 &&& mask) from rfl, bind_tc_ok]
+  let* ⟨ i4, hi4 ⟩ ← U32.count_ones_spec
+  have hb_le : i4.val ≤ half.val := by
+    rw [hi4, popcount_low_mask i2 mask half.val (by omega) (mask_getLsbD mask half.val hmask)]
+    calc ∑ i ∈ Finset.range half.val, (i2.bv.getLsbD i).toNat
+        ≤ ∑ _i ∈ Finset.range half.val, 1 :=
+          Finset.sum_le_sum (fun i _ => by cases i2.bv.getLsbD i <;> simp)
+      _ = half.val := by rw [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one]
+  have hy_le : i4.val ≤ UScalar.max UScalarTy.U16 := by
+    simp only [UScalar.max, UScalarTy.numBits]; omega
+  let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i4 hy_le
+  exact smallSignedU16_wrapping_sub a b (by rw [ha]; exact ha_le) (by rw [hb]; exact hb_le) hhalf
+
 /-- **`cbd_loop0` loop spec (μ = 8 nibble path).**  The `Enumerate` cursor
 `iter.iter.i` = current coefficient index; coefficients `[0, iter.iter.i)` of
 `out` already hold their CBD sample. -/
@@ -470,6 +529,110 @@ theorem cbd_loop0_spec
     intro r hr; exact hr
   · -- NONE branch
     have hge : iter.iter.i ≥ iter.iter.slice.len := by
+      simp only [not_lt] at hlt; exact hlt
+    have hi_eq : iter.iter.i = 256 := by
+      have : iter.iter.slice.len.val ≤ iter.iter.i := hge; omega
+    let* ⟨ o, iter1, ho, hnone ⟩ ← enumSliceIter_next_none
+    rw [ho]
+    simp only []
+    intro k hk
+    exact hinv k (by omega)
+  termination_by iter.iter.slice.len.val - iter.iter.i
+  decreasing_by scalar_decr_tac
+
+/-- **Magnitude version of `cbd_loop0`** (`MU = 8`, `half = 4`, nibble path): every coefficient
+is small-signed with bound 4.  The two nibble popcounts are each `≤ 4` via `cbdX_le`. -/
+theorem cbd_loop0_bd
+    (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter U8))
+    (out : RingElem) (buf : Slice U8)
+    (hbuf : iter.iter.slice = buf)
+    (hlen : buf.val.length = 256)
+    (hcount : iter.count.val = iter.iter.i)
+    (hi_le : iter.iter.i ≤ 256)
+    (hinv : ∀ k, k < iter.iter.i → smallSignedU16 (out.val[k]!) 4) :
+    sample.cbd_loop0 iter out
+      ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) 4 ⦄ := by
+  unfold sample.cbd_loop0
+  have hlen_slice : iter.iter.slice.len.val = 256 := by
+    rw [hbuf]; simp [Slice.len, hlen]
+  by_cases hlt : iter.iter.i < iter.iter.slice.len
+  · have hi_lt256 : iter.iter.i < 256 := by
+      have : iter.iter.i < iter.iter.slice.len.val := hlt; omega
+    let* ⟨ o, iter1, ho, hslice1, hi1, hcount1 ⟩ ←
+      enumSliceIter_next_some iter hlt (by rw [hcount]; have := hi_lt256; scalar_tac)
+    rw [ho]
+    simp only []
+    generalize hbdef : iter.iter.slice[iter.iter.i] = byte
+    show (do
+        let i1 ← lift (byte &&& 15#u8)
+        let i2 ← core.num.U8.count_ones i1
+        let a ← lift (UScalar.cast UScalarTy.U16 i2)
+        let i3 ← byte >>> 4#i32
+        let i4 ← core.num.U8.count_ones i3
+        let b ← lift (UScalar.cast UScalarTy.U16 i4)
+        let i5 ← lift (core.num.U16.wrapping_sub a b)
+        let a1 ← Array.update out iter.count i5
+        sample.cbd_loop0 iter1 a1)
+      ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) 4 ⦄
+    have hout_len : out.val.length = 256 := List.Vector.length_val out
+    have hb_bound : iter.iter.i < iter.iter.slice.val.length := by rw [hbuf, hlen]; exact hi_lt256
+    have hbyte : byte.val = (buf.val[iter.iter.i]!).val := by
+      have hbe : byte = iter.iter.slice.val[iter.iter.i]'hb_bound :=
+        hbdef.symm.trans (Slice.getElem_Nat_eq iter.iter.slice iter.iter.i hb_bound)
+      rw [hbe, ← getElem!_pos iter.iter.slice.val iter.iter.i hb_bound, hbuf]
+    have hstream_low : ∑ j ∈ Finset.range 4, (byte.val.testBit j).toNat
+        = cbdX buf 4 (8 * iter.iter.i) := by
+      unfold cbdX; apply Finset.sum_congr rfl; intro j hj; simp only [Finset.mem_range] at hj
+      rw [hbyte]; unfold streamBit
+      rw [show (8 * iter.iter.i + j) / 8 = iter.iter.i from by omega,
+        show (8 * iter.iter.i + j) % 8 = j from by omega]
+    have hstream_high : ∑ j ∈ Finset.range 4, (byte.val.testBit (4 + j)).toNat
+        = cbdX buf 4 (8 * iter.iter.i + 4) := by
+      unfold cbdX; apply Finset.sum_congr rfl; intro j hj; simp only [Finset.mem_range] at hj
+      rw [hbyte]; unfold streamBit
+      rw [show (8 * iter.iter.i + 4 + j) / 8 = iter.iter.i from by omega,
+        show (8 * iter.iter.i + 4 + j) % 8 = 4 + j from by omega]
+    rw [show lift (byte &&& 15#u8) = ok (byte &&& 15#u8) from rfl, bind_tc_ok]
+    let* ⟨ i2, hi2 ⟩ ← U8.count_ones_spec
+    have hx : i2.val = cbdX buf 4 (8 * iter.iter.i) := by rw [hi2, cbd_nibble_low, hstream_low]
+    have hx_le : i2.val ≤ UScalar.max UScalarTy.U16 := by
+      rw [hx]; have := cbdX_le buf 4 (8 * iter.iter.i)
+      simp only [UScalar.max, UScalarTy.numBits]; omega
+    let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i2 hx_le
+    let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U8.ShiftRight_IScalar_spec byte 4#i32 (by decide) (by decide)
+    let* ⟨ i4, hi4 ⟩ ← U8.count_ones_spec
+    have hy : i4.val = cbdX buf 4 (8 * iter.iter.i + 4) := by
+      rw [hi4, cbd_nibble_high byte i3 hi3, hstream_high]
+    have hy_le : i4.val ≤ UScalar.max UScalarTy.U16 := by
+      rw [hy]; have := cbdX_le buf 4 (8 * iter.iter.i + 4)
+      simp only [UScalar.max, UScalarTy.numBits]; omega
+    let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i4 hy_le
+    rw [show lift (core.num.U16.wrapping_sub a b) = ok (core.num.U16.wrapping_sub a b) from rfl,
+      bind_tc_ok]
+    have hcoeff : smallSignedU16 (core.num.U16.wrapping_sub a b) 4 :=
+      smallSignedU16_wrapping_sub a b
+        (by rw [ha, hx]; exact cbdX_le buf 4 (8 * iter.iter.i))
+        (by rw [hb, hy]; exact cbdX_le buf 4 (8 * iter.iter.i + 4)) (by norm_num)
+    have hcount_lt : iter.count.val < 256 := by rw [hcount]; exact hi_lt256
+    let* ⟨ a1, ha1 ⟩ ← Array.update_spec
+    have ha1v : a1.val = out.val.set iter.iter.i (core.num.U16.wrapping_sub a b) := by
+      rw [ha1, Array.set_val_eq, hcount]
+    apply WP.spec_mono (cbd_loop0_bd iter1 a1 buf (by rw [hslice1, hbuf])
+      hlen (by rw [hcount1, hi1, hcount]) (by rw [hi1]; omega) ?inv)
+    case inv =>
+      intro k hk_lt
+      rw [hi1] at hk_lt
+      rcases Nat.lt_succ_iff_lt_or_eq.mp hk_lt with hk | hk
+      · rw [ha1v, getElem!_pos (out.val.set iter.iter.i _) k (by simpa [hout_len] using (by omega : k < 256)),
+          List.getElem_set_ne (by omega),
+          ← getElem!_pos out.val k (by simpa [hout_len] using (by omega : k < 256))]
+        exact hinv k hk
+      · subst hk
+        rw [ha1v, getElem!_pos (out.val.set iter.iter.i _) iter.iter.i (by simpa [hout_len] using hi_lt256),
+          List.getElem_set_self]
+        exact hcoeff
+    intro r hr; exact hr
+  · have hge : iter.iter.i ≥ iter.iter.slice.len := by
       simp only [not_lt] at hlt; exact hlt
     have hi_eq : iter.iter.i = 256 := by
       have : iter.iter.slice.len.val ≤ iter.iter.i := hge; omega
@@ -781,6 +944,100 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
   decreasing_by scalar_decr_tac
 
 
+/-- **Magnitude version of `cbd_loop2`** (`MU = 6`, `half = 3`): every coefficient is
+small-signed with bound 3. Same skeleton as `cbd_loop2_spec` with the byte-window value
+reasoning stripped, using `cbd_diff_bd` at each of the four writes. -/
+theorem cbd_loop2_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out : RingElem)
+    (hend : iter.«end».val = 64) (hstart : iter.start.val ≤ 64)
+    (hlen : buf.val.length = 32 * 6)
+    (hinv : ∀ k, k < 4 * iter.start.val → smallSignedU16 (out.val[k]!) 3) :
+    sample.cbd_loop2 iter buf out
+      ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) 3 ⦄ := by
+  unfold sample.cbd_loop2
+  have hout_len : out.val.length = 256 := List.Vector.length_val out
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hg : iter.start.val < 64 := by omega
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 3#usize) (y := iter.start) (by scalar_tac)
+    have hiv : i.val = 3 * iter.start.val := by rw [hi]
+    have hb0lt : i.val < buf.val.length := by rw [hiv, hlen]; omega
+    let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U32 i1 (by scalar_tac)
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
+    have hb1lt : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
+    let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
+    have hb2lt : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
+    let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
+    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
+    have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
+    let* ⟨ i6, hi6 ⟩ ← cbd_diff_bd b0 3#u32 7#u32 (by decide) (by decide)
+    let* ⟨ a, ha ⟩ ← Array.update_spec
+    let* ⟨ i7, hi7, hi7bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
+    rw [show lift (b0 ||| i7) = ok (b0 ||| i7) from rfl, bind_tc_ok]
+    let* ⟨ i9, hi9, hi9bv ⟩ ← Std.U32.ShiftRight_IScalar_spec (b0 ||| i7) 6#i32 (by decide) (by decide)
+    let* ⟨ i10, hi10 ⟩ ← cbd_diff_bd i9 3#u32 7#u32 (by decide) (by decide)
+    let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ a1, ha1 ⟩ ← Array.update_spec
+    let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
+    rw [show lift (b1 ||| i12) = ok (b1 ||| i12) from rfl, bind_tc_ok]
+    let* ⟨ i14, hi14, hi14bv ⟩ ←
+      Std.U32.ShiftRight_IScalar_spec (b1 ||| i12) 4#i32 (by decide) (by decide)
+    let* ⟨ i15, hi15 ⟩ ← cbd_diff_bd i14 3#u32 7#u32 (by decide) (by decide)
+    let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
+    let* ⟨ a2, ha2 ⟩ ← Array.update_spec
+    let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U32.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
+    let* ⟨ i18, hi18 ⟩ ← cbd_diff_bd i17 3#u32 7#u32 (by decide) (by decide)
+    let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
+    let* ⟨ a3, ha3 ⟩ ← Array.update_spec
+    have hav : a.val = out.val.set (4 * iter.start.val) i6 := by rw [ha, Array.set_val_eq, ho1v]
+    have ha1v : a1.val = a.val.set (4 * iter.start.val + 1) i10 := by
+      rw [ha1, Array.set_val_eq, hi11, ho1v]
+    have ha2v : a2.val = a1.val.set (4 * iter.start.val + 2) i15 := by
+      rw [ha2, Array.set_val_eq, hi16, ho1v]
+    have ha3v : a3.val = a2.val.set (4 * iter.start.val + 3) i18 := by
+      rw [ha3, Array.set_val_eq, hi19, ho1v]
+    have hlen_a : a.val.length = 256 := by rw [hav, List.length_set, hout_len]
+    have hlen_a1 : a1.val.length = 256 := by rw [ha1v, List.length_set, hlen_a]
+    have hlen_a2 : a2.val.length = 256 := by rw [ha2v, List.length_set, hlen_a1]
+    apply WP.spec_mono (cbd_loop2_bd iter1 buf a3 (by rw [hend']; exact hend)
+      (by rw [hstart']; omega) hlen ?inv)
+    case inv =>
+      intro k hk
+      rw [hstart'] at hk
+      have hk256 : k < 256 := by omega
+      have hget : ∀ (l : List U16) (n : ℕ) (v : U16), l.length = 256 → k < 256 → n < 256 →
+          (l.set n v)[k]! = if n = k then v else l[k]! := by
+        intro l n v hl hk' hn
+        rw [getElem!_pos (l.set n v) k (by simpa [hl] using hk'), List.getElem_set,
+          ← getElem!_pos l k (by simpa [hl] using hk')]
+      rw [ha3v, hget a2.val _ _ hlen_a2 hk256 (by omega),
+        ha2v, hget a1.val _ _ hlen_a1 hk256 (by omega),
+        ha1v, hget a.val _ _ hlen_a hk256 (by omega),
+        hav, hget out.val _ _ hout_len hk256 (by omega)]
+      by_cases h3 : 4 * iter.start.val + 3 = k
+      · rw [if_pos h3]; exact hi18
+      · rw [if_neg h3]
+        by_cases h2 : 4 * iter.start.val + 2 = k
+        · rw [if_pos h2]; exact hi15
+        · rw [if_neg h2]
+          by_cases h1 : 4 * iter.start.val + 1 = k
+          · rw [if_pos h1]; exact hi10
+          · rw [if_neg h1]
+            by_cases h0 : 4 * iter.start.val = k
+            · rw [if_pos h0]; exact hi6
+            · rw [if_neg h0]; exact hinv k (by omega)
+    intro r hr; exact hr
+  · let* ⟨ o, iter1, ho, hiter1 ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [ho]; simp only
+    intro k hk
+    exact hinv k (by omega)
+  termination_by iter.«end».val - iter.start.val
+  decreasing_by scalar_decr_tac
+
 /-! ## `cbd_loop1` — the `MU = 10` fast path (Kopis-512)
 
 Four coefficients per 5-byte group.  Coefficient `4g+t` occupies stream bits
@@ -987,6 +1244,112 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
   termination_by iter.«end».val - iter.start.val
   decreasing_by scalar_decr_tac
 
+/-- **Magnitude version of `cbd_loop1`** (`MU = 10`, `half = 5`). -/
+theorem cbd_loop1_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out : RingElem)
+    (hend : iter.«end».val = 64) (hstart : iter.start.val ≤ 64)
+    (hlen : buf.val.length = 32 * 10)
+    (hinv : ∀ k, k < 4 * iter.start.val → smallSignedU16 (out.val[k]!) 5) :
+    sample.cbd_loop1 iter buf out
+      ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) 5 ⦄ := by
+  unfold sample.cbd_loop1
+  have hout_len : out.val.length = 256 := List.Vector.length_val out
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hg : iter.start.val < 64 := by omega
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 5#usize) (y := iter.start) (by scalar_tac)
+    have hiv : i.val = 5 * iter.start.val := by rw [hi]
+    have hlt0 : i.val < buf.val.length := by rw [hiv, hlen]; omega
+    let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U32 i1 (by scalar_tac)
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
+    have hlt1 : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
+    let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
+    have hlt2 : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
+    let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
+    let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize) (by scalar_tac)
+    have hlt3 : i6.val < buf.val.length := by rw [hi6, hiv, hlen]; omega
+    let* ⟨ i7, hi7 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U32 i7 (by scalar_tac)
+    let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize) (by scalar_tac)
+    have hlt4 : i8.val < buf.val.length := by rw [hi8, hiv, hlen]; omega
+    let* ⟨ i9, hi9 ⟩ ← Slice.index_usize_spec
+    let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U32 i9 (by scalar_tac)
+    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
+    have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
+    let* ⟨ i10, hi10, hi10bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
+    rw [show lift (b0 ||| i10) = ok (b0 ||| i10) from rfl, bind_tc_ok]
+    let* ⟨ i12, hi12 ⟩ ← cbd_diff_bd (b0 ||| i10) 5#u32 31#u32 (by decide) (by decide)
+    let* ⟨ a, ha ⟩ ← Array.update_spec
+    let* ⟨ i13, hi13, hi13bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
+    rw [show lift (b1 ||| i13) = ok (b1 ||| i13) from rfl, bind_tc_ok]
+    let* ⟨ i15, hi15, hi15bv ⟩ ←
+      Std.U32.ShiftRight_IScalar_spec (b1 ||| i13) 2#i32 (by decide) (by decide)
+    let* ⟨ i16, hi16 ⟩ ← cbd_diff_bd i15 5#u32 31#u32 (by decide) (by decide)
+    let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ a1, ha1 ⟩ ← Array.update_spec
+    let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
+    rw [show lift (b2 ||| i18) = ok (b2 ||| i18) from rfl, bind_tc_ok]
+    let* ⟨ i20, hi20, hi20bv ⟩ ←
+      Std.U32.ShiftRight_IScalar_spec (b2 ||| i18) 4#i32 (by decide) (by decide)
+    let* ⟨ i21, hi21 ⟩ ← cbd_diff_bd i20 5#u32 31#u32 (by decide) (by decide)
+    let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
+    let* ⟨ a2, ha2 ⟩ ← Array.update_spec
+    let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
+    rw [show lift (b3 ||| i23) = ok (b3 ||| i23) from rfl, bind_tc_ok]
+    let* ⟨ i25, hi25, hi25bv ⟩ ←
+      Std.U32.ShiftRight_IScalar_spec (b3 ||| i23) 6#i32 (by decide) (by decide)
+    let* ⟨ i26, hi26 ⟩ ← cbd_diff_bd i25 5#u32 31#u32 (by decide) (by decide)
+    let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
+    let* ⟨ a3, ha3 ⟩ ← Array.update_spec
+    have hav : a.val = out.val.set (4 * iter.start.val) i12 := by rw [ha, Array.set_val_eq, ho1v]
+    have ha1v : a1.val = a.val.set (4 * iter.start.val + 1) i16 := by
+      rw [ha1, Array.set_val_eq, hi17, ho1v]
+    have ha2v : a2.val = a1.val.set (4 * iter.start.val + 2) i21 := by
+      rw [ha2, Array.set_val_eq, hi22, ho1v]
+    have ha3v : a3.val = a2.val.set (4 * iter.start.val + 3) i26 := by
+      rw [ha3, Array.set_val_eq, hi27, ho1v]
+    have hlen_a : a.val.length = 256 := by rw [hav, List.length_set, hout_len]
+    have hlen_a1 : a1.val.length = 256 := by rw [ha1v, List.length_set, hlen_a]
+    have hlen_a2 : a2.val.length = 256 := by rw [ha2v, List.length_set, hlen_a1]
+    apply WP.spec_mono (cbd_loop1_bd iter1 buf a3 (by rw [hend']; exact hend)
+      (by rw [hstart']; omega) hlen ?inv)
+    case inv =>
+      intro k hk
+      rw [hstart'] at hk
+      have hk256 : k < 256 := by omega
+      have hget : ∀ (l : List U16) (n : ℕ) (v : U16), l.length = 256 → k < 256 → n < 256 →
+          (l.set n v)[k]! = if n = k then v else l[k]! := by
+        intro l n v hl hk' hn
+        rw [getElem!_pos (l.set n v) k (by simpa [hl] using hk'), List.getElem_set,
+          ← getElem!_pos l k (by simpa [hl] using hk')]
+      rw [ha3v, hget a2.val _ _ hlen_a2 hk256 (by omega),
+        ha2v, hget a1.val _ _ hlen_a1 hk256 (by omega),
+        ha1v, hget a.val _ _ hlen_a hk256 (by omega),
+        hav, hget out.val _ _ hout_len hk256 (by omega)]
+      by_cases h3 : 4 * iter.start.val + 3 = k
+      · rw [if_pos h3]; exact hi26
+      · rw [if_neg h3]
+        by_cases h2 : 4 * iter.start.val + 2 = k
+        · rw [if_pos h2]; exact hi21
+        · rw [if_neg h2]
+          by_cases h1 : 4 * iter.start.val + 1 = k
+          · rw [if_pos h1]; exact hi16
+          · rw [if_neg h1]
+            by_cases h0 : 4 * iter.start.val = k
+            · rw [if_pos h0]; exact hi12
+            · rw [if_neg h0]; exact hinv k (by omega)
+    intro r hr; exact hr
+  · let* ⟨ o, iter1, ho, hiter1 ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [ho]; simp only
+    intro k hk
+    exact hinv k (by omega)
+  termination_by iter.«end».val - iter.start.val
+  decreasing_by scalar_decr_tac
+
 /-! ## `sample.cbd` — dispatch on `MU = 8` (nibble path vs general). -/
 
 theorem cbd_spec (MU : Usize) (buf : Slice U8) (out : RingElem)
@@ -1069,6 +1432,83 @@ theorem cbd_spec (MU : Usize) (buf : Slice U8) (out : RingElem)
         exact hr k hk
       · -- unreachable: `hMU` restricts `MU` to 6, 8 or 10
         exfalso
+        rcases hMU6_10 with h | h
+        · exact h6 (by scalar_tac)
+        · exact h10 (by scalar_tac)
+
+/-- **Magnitude version of `cbd`.**  Every coefficient of the sampled `RingElem` is small-signed
+with bound `μ/2`.  Same dispatch as `cbd_spec`, calling the `*_bd` loop specs. -/
+theorem cbd_bd (MU : Usize) (buf : Slice U8) (out : RingElem)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
+    (hlen : buf.val.length = 32 * MU.val) :
+    sample.cbd MU buf out
+      ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) (MU.val / 2) ⦄ := by
+  unfold sample.cbd
+  have hMUle10' : MU.val ≤ 10 := by omega
+  have hRD : (consts.RING_DEG).val = 256 := by simp [consts.RING_DEG]
+  have hsz : ∀ x : ℕ, x ≤ Usize.max → x < UScalar.size .Usize := by
+    intro x hx
+    have h1 : UScalar.size .Usize = 2 ^ System.Platform.numBits := by
+      simp only [UScalar.size, UScalarTy.Usize_numBits_eq]
+    have h2 : (Usize.max : ℕ) = 2 ^ System.Platform.numBits - 1 := by
+      simp only [Usize.max, Usize.numBits, UScalarTy.Usize_numBits_eq]
+    have h3 : 0 < 2 ^ System.Platform.numBits := by positivity
+    omega
+  have hprod : 256 * MU.val ≤ Usize.max := by
+    have : (256 : ℕ) * MU.val ≤ 256 * 10 := Nat.mul_le_mul_left _ hMUle10'
+    have hmax : (2560 : ℕ) ≤ Usize.max := by scalar_tac
+    omega
+  let* ⟨ _mm, _hmm ⟩ ← Std.Usize.mul_spec (x := consts.RING_DEG) (y := MU) (by rw [hRD]; exact hprod)
+  simp only [lift, bind_tc_ok]
+  let* ⟨ right_val, hrv ⟩ ← Std.Usize.div_spec
+  have hrvv : right_val.val = 32 * MU.val := by
+    rw [hrv, Std.Usize.wrapping_mul_val_eq, hRD, Nat.mod_eq_of_lt (hsz _ hprod),
+      show 256 * MU.val = 32 * MU.val * 8 from by ring, Nat.mul_div_cancel _ (by norm_num)]
+  have hmeq : Slice.len buf = right_val :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrvv]; exact hlen)
+  rw [show massert (Slice.len buf = right_val) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
+  by_cases h8 : MU = 8#usize
+  · simp only [h8, reduceIte]
+    have hMU8 : MU.val = 8 := by scalar_tac
+    have hlen256 : buf.val.length = 256 := by rw [hlen, hMU8]
+    let* ⟨ i1, hi1s, hi1i ⟩ ← sliceIter_spec
+    rw [show core.iter.traits.iterator.Iterator.enumerate.trait_default
+          (core.iter.traits.iterator.IteratorSliceIter U8) i1
+        = ok { iter := i1, count := 0#usize } from by
+      unfold core.iter.traits.iterator.Iterator.enumerate.trait_default
+        core.iter.traits.iterator.Iterator.enumerate.default; rfl, bind_tc_ok]
+    apply WP.spec_mono (cbd_loop0_bd { iter := i1, count := 0#usize } out buf
+      (by show i1.slice = buf; rw [hi1s]) hlen256 (by show (0#usize).val = i1.i; scalar_tac)
+      (by show i1.i ≤ 256; scalar_tac)
+      (by intro k hk; replace hk : k < i1.i := hk; rw [hi1i] at hk; omega))
+    intro r hr k hk
+    exact hr k hk
+  · simp only [h8, reduceIte]
+    have hMUne8 : MU.val ≠ 8 := fun h => h8 (by scalar_tac)
+    have hMU6_10 : MU.val = 6 ∨ MU.val = 10 := by omega
+    by_cases h10 : MU = 10#usize
+    · simp only [h10, reduceIte]
+      have hMU10 : MU.val = 10 := by scalar_tac
+      let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
+      have hi1v : i1.val = 64 := by rw [hi1]; simp [consts.RING_DEG]
+      apply WP.spec_mono (cbd_loop1_bd { start := 0#usize, «end» := i1 } buf out
+        hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU10])
+        (by intro k hk; simp at hk))
+      intro r hr k hk
+      exact hr k hk
+    · simp only [h10, reduceIte]
+      by_cases h6 : MU = 6#usize
+      · simp only [h6, reduceIte]
+        have hMU6 : MU.val = 6 := by scalar_tac
+        let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
+        have hi1v : i1.val = 64 := by rw [hi1]; simp [consts.RING_DEG]
+        apply WP.spec_mono (cbd_loop2_bd { start := 0#usize, «end» := i1 } buf out
+          hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU6])
+          (by intro k hk; simp at hk))
+        intro r hr k hk
+        exact hr k hk
+      · exfalso
         rcases hMU6_10 with h | h
         · exact h6 (by scalar_tac)
         · exact h10 (by scalar_tac)

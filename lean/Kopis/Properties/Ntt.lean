@@ -51,6 +51,7 @@
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.GenMatrix
 import Kopis.Properties.DeserializeVec
+import Kopis.Properties.GenSecretTop
 
 open Aeneas Aeneas.Std Result RustKopis
 open scoped BigOperators
@@ -494,6 +495,17 @@ theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
       List.getElem_replicate]
     decide
 
+/-- A small-signed `u16` (magnitude `≤ h ≤ 2¹⁵−1`) reads through `signedOfU16` as an integer of
+absolute value `≤ h`. -/
+theorem signedOfU16_le_of_smallSigned {v : U16} {h : ℕ}
+    (hs : smallSignedU16 v h) (hh : h ≤ 32767) : |signedOfU16 v| ≤ (h : ℤ) := by
+  have hn16 : v.val < 65536 := by scalar_tac
+  have h216 : (2 : ℕ) ^ 16 = 65536 := by norm_num
+  unfold smallSignedU16 at hs
+  rw [h216] at hs
+  unfold signedOfU16
+  rcases hs with hlow | hhigh <;> split_ifs with hcond <;> rw [abs_le] <;> constructor <;> omega
+
 /-- **Part of the NTT hole (redrafted).** A CBD secret sampled from a seed has every
 coefficient, read as a signed `i16`, bounded in absolute value by `μ/2`.  The `μ ∈ {6, 8, 10}`
 hypothesis matches `gen_secret_from_seed_spec` (already in scope at every call site) and is
@@ -504,7 +516,11 @@ theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
     sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
           SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
-  sorry
+  apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU)
+  intro r hr i k c hi hk hc
+  have hk0 : k = 0 := by have : (1#usize).val = 1 := rfl; omega
+  subst hk0
+  exact signedOfU16_le_of_smallSigned (hr i hi c hc) (by omega)
 
 set_option maxRecDepth 20000
 
