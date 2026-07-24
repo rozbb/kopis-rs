@@ -1,5 +1,39 @@
 # NTT + pubkey-refactor proof status
 
+> ## ▶ RESUME HERE (paused 2026-07-24, waiting on more host RAM)
+>
+> **Where we are:** `make prove-kopis` is GREEN. Down from 11 `sorry`s at the start of the
+> refactor to **4**, all in `Ntt.lean` — exactly the four core NTT transform specs
+> (`from_uniform_matrix_spec`, `from_secret_matrix_spec`, `ntt_mul_spec`,
+> `ntt_mul_transpose_spec`). Everything else (composites, all four magnitude lemmas,
+> `to_canonical_spec`) is real, committed proof. Latest commits on `worktree-ntt-mult`.
+>
+> **Immediate RAM-blocked item:** `Kopis/Properties/NttReduce.lean` holds three FULLY-PROVEN,
+> `sorry`-free reduction value-specs (`mont_reduce_spec`, `to_wrapping_u16_spec`,
+> `barrett_reduce_spec`). They are NOT imported by `Kopis.lean` (so the build stays green)
+> because on this 4 GB host any two of these heavy WP-monadic proofs OOM (exit 137) when
+> co-elaborated. **First thing after more RAM:** add `import Kopis.Properties.NttReduce` to
+> `Kopis.lean` and run `make prove-kopis`; if it still strains, split the three into one file
+> each (each imports `Ntt`; `mont_reduce_spec` alone compiled to exit 0 standalone).
+>
+> **Then the real work — the 4 core transform specs (`ntt_spec`):** these are architecturally
+> blocked and need, in order:
+>  1. The reduction value-specs above wired in (done, modulo RAM).
+>  2. Replace `opaque nttInvU`/`nttInvS` in `Ntt.lean` with a concrete inverse-NTT `def`.
+>  3. Prove the extracted `ntt`/`invntt` butterfly loops compute a mathematical NTT/invNTT
+>     (Cooley–Tukey / Gentleman–Sande; 8-level CRT split of `X²⁵⁶+1`; `ZETAS` = bit-reversed
+>     powers of ψ=49118445, a primitive 512-th root of unity mod p; Montgomery domain tracked
+>     via `mont_reduce_spec`, cancelled by `INVNTT_SCALE`; lazy Barrett reduction after level 4).
+>  4. From those, the roundtrip `invNTT ∘ NTT = id` (⟹ the two `from_*` specs) and the
+>     convolution theorem `invNTT(NTT A ⊙ NTT s) = A·s` (⟹ the two `mul` specs), discharging
+>     the `fitsExactly` exactness bound.
+> `symcrypt-lean/` does NOT help here: its Kopis is the pre-migration schoolbook version and has
+> no NTT. Verified numeric facts (all checked): `P·P_INV ≡ 1 mod 2³²`, `INVNTT_SCALE =
+> 256⁻¹·2⁶⁴ mod p`, `ψ²⁵⁶ ≡ -1 mod p`. This is multi-session work.
+>
+> **Host note:** 4 cores / 4 GB. Always build with `LEAN_NUM_THREADS=2` (or `1` for the heavy
+> reduction proofs) — see the `Makefile`. Full `make prove-kopis` from a clean state ~4–5 min.
+
 Status of the Lean correspondence proofs after three Rust changes landed on
 `worktree-ntt-mult`: (1) multiplication moved to a negacyclic NTT over `p = 50330113`;
 (2) the PKE public key now stores its serialized bytes (`vec_bytes`) instead of the
