@@ -9,10 +9,12 @@ structured `Matrix<L,1>`; (3) the `gen` module was renamed `sample`.
 
 The entire crate has been rewired to the NTT-domain representation. `lake build Kopis`
 completes successfully, and every proof file compiles as real proof except for **one**
-documented hole (8 `sorry`s total, all in one file):
+documented hole (**4** `sorry`s total, all in one file):
 
-1. **`ntt_spec`** — the single mathematical hole (8 `sorry`s in `Ntt.lean`): that the
-   negacyclic NTT computes the ring product, plus its raw-magnitude lemmas. See below.
+1. **`ntt_spec`** — the single mathematical hole (**4** `sorry`s in `Ntt.lean`): that the
+   negacyclic NTT computes the ring product. These are exactly the four core transform specs
+   (`from_uniform_matrix_spec`, `from_secret_matrix_spec`, `ntt_mul_spec`,
+   `ntt_mul_transpose_spec`); all four raw-magnitude lemmas are now proved. See below.
 
 The three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites in `KeyGenCapstone.lean`
 are now **full proofs** (real, at the ordinary 4M `maxHeartbeats`, ~1.3s each).
@@ -48,14 +50,20 @@ consumed downstream:
 - `nttInvU`, `nttInvS : NttMatrix X Y → Mat X Y` — the uniform/secret coefficient matrix an
   NTT matrix denotes.
 - `from_uniform_matrix_spec` / `from_secret_matrix_spec` — `nttInvU/nttInvS (from_… A) = A`.
+  **Still `sorry`ed** (unprovable until `nttInvU`/`nttInvS` are de-opaqued — see below).
 - `ntt_mul_spec` / `ntt_mul_transpose_spec` — pointwise product of NTT matrices computes the
   schoolbook product of the coefficient matrices they denote (drop-in for the schoolbook
   `matrix_mul(_transpose)_spec`), under the joint magnitude constraint `fitsExactly`.
-- Magnitude lemmas: `gen_matrix_uniformBounded`, `gen_secret_secretBounded`,
-  `deserialize_10_uniformBounded`, `shift_right_uniformBounded`.
+  **Still `sorry`ed** (the convolution theorem — see below).
+- Magnitude lemmas — **ALL FOUR now real, `sorryAx`-free proofs**: `gen_matrix_uniformBounded`,
+  `gen_secret_secretBounded`, `deserialize_10_uniformBounded`, `shift_right_uniformBounded`.
+  (`deserialize_10` and `gen_secret` gained the input hypotheses — `bytes.length`/`hfit` and
+  `MU ∈ {6,8,10}` respectively — that their extracted code's asserts require and their call
+  sites already supply; they were previously *false as stated*.)
 - `fitsExactly_paramSet` discharges `fitsExactly (ℓ p) (μ p / 2)` for each shipped parameter set.
 
-All seven are `sorry`ed (never `axiom`ed). Everything else is real proof on top.
+Only the **four core transform specs** above are `sorry`ed (never `axiom`ed). Everything else —
+including all four magnitude lemmas and `fitsExactly_paramSet` — is real proof on top.
 
 ### Files rewired (real proof, no sorries)
 
@@ -76,20 +84,39 @@ All seven are `sorry`ed (never `axiom`ed). Everything else is real proof on top.
   (nttInvU vec_ntt))`) so the key-gen→encap/decap capstones can discharge the encap/decap
   hypotheses.
 
-### Perf note (`KeyGenCapstone`)
+### Note (`KeyGenCapstone`) — the "perf hole" was a misdiagnosis, now fixed
 
-The three `kopisXXX_keygen_encap_spec` composites trigger one very large (but finite) `whnf`
-reduction of the spec-level `KemEncap`/`ExpandDecapKey`/`SkToPk` terms during elaboration and
-need a raised `maxHeartbeats` (currently 20 000 000). Every isolated defeq is cheap; this is a
-proof-elaboration cost, not a math gap. A future cleanup could shrink it (e.g. making the
-relevant spec defs `irreducible` at these call sites, or restructuring the final application).
+The three `kopisXXX_keygen_encap_spec` composites are **real proofs at the ordinary 4M
+`maxHeartbeats`** (~1.3s each). They were previously `sorry`ed and blamed on a
+heartbeat-nondeterministic `whnf` blowup; that was wrong. The real bug was **stale hypothesis
+indices** — the refactor added a `SecretBounded` conjunct (h2) to `expand_from_seed_spec`,
+shifting the later conjuncts, and the git-history proof still used the old numbers, so `exact h3`
+(now the `z` conjunct) hit a `pkStructBytes = …` goal. Lean `whnf`-grinds such a mismatch (both
+sides are built from `ExpandDecapKey`) for >200M heartbeats/~865s instead of failing fast. Fixing
+the indices (pkStructBytes → `h4`, hash → `h5`) makes every `exact` a syntactic match; a
+`congrArg`-through-opaque-`KemEncap` closer replaced the old `generalize … ; rw`. Lesson: a
+"(deterministic) timeout at `whnf`" on an `exact`/`rw` is often a *wrong-term* unification grind,
+not a proof that needs a bigger budget.
 
-## The single mathematical hole: `ntt_spec`
+## The single mathematical hole: `ntt_spec` (4 `sorry`s)
 
 The genuinely hard, deferred content is that the negacyclic NTT computes the ring product.
-It is the seven `sorry`s in `Ntt.lean`'s bridge (above). Intended proof route (CRT split per
-butterfly level, Montgomery/Barrett reduction specs, lazy-reduction bounds) is documented
-inline in `Ntt.lean`.
+It is now exactly **four** `sorry`s in `Ntt.lean`'s bridge — the core transform specs
+`from_uniform_matrix_spec`, `from_secret_matrix_spec`, `ntt_mul_spec`, `ntt_mul_transpose_spec`.
+Intended proof route (CRT split per butterfly level, Montgomery/Barrett reduction specs,
+lazy-reduction bounds) is documented inline in `Ntt.lean`.
+
+**The blocker is architectural.** `nttInvU`/`nttInvS` are declared `opaque`, so
+`nttInvU (from_uniform_matrix A) = A` cannot be proved — an opaque constant has no definitional
+content to compute. Discharging these four requires **de-opaquing** `nttInvU`/`nttInvS` into a
+concrete inverse-NTT `def`, then proving (a) the negacyclic NTT **roundtrip** `invNTT ∘ NTT = id`
+(gives the two `from_*` specs) and (b) the **convolution theorem**
+`invNTT (NTT A ⊙ NTT s) = A · s` over the auxiliary prime `p = 50330113` (gives the two `mul`
+specs), with the reduction value-specs below and the `fitsExactly` exactness bound. The
+`symcrypt-lean` reference proves an analogous theory for MLKEM's mod-`3329` NTT, but Kopis's
+multiply-over-an-auxiliary-prime transform has different roots/reduction constants and the
+exactness trick, so it is a substantial adaptation rather than a drop-in. This is multi-session
+work, not a bounded edit.
 
 ### Already proved toward it (in `Ntt.lean`)
 - `bmod_i32_exact` / `bmod_i64_exact` and the six `I32/I64_wrapping_{add,sub,mul}_exact`
@@ -97,14 +124,16 @@ inline in `Ntt.lean`.
 - `fitsExactly` (joint `(ℓ,μ)` exactness constraint) + the three parameter instantiations +
   `fitsExactly_paramSet` + `margin_is_2304` + `worst_ell_with_worst_mu_does_not_fit`.
 - `signedOfU16` and its mod-`2^16` agreement.
+- **All four raw-magnitude lemmas** (`gen_matrix`/`gen_secret`/`deserialize_10`/`shift_right`
+  coefficient bounds, as raw values not just residues) — the exactness preconditions the
+  `ntt_mul` specs will consume are now fully discharged.
 
-### Still needed for `ntt_spec`
+### Still needed for `ntt_spec` (the 4 core specs)
 - Reduction-function value specs: `mont_reduce`, `barrett_reduce`, `to_canonical`,
   `to_wrapping_u16` (aeneas-scalar bit-vector plumbing; the `*_exact` lemmas are their core).
-- The transform correctness (butterfly network = evaluation at the roots; pointwise product =
-  product in the split ring; `INVNTT_SCALE` cancels Montgomery + 1/256).
-- The four magnitude lemmas (currently `sorry`ed): `gen_matrix`/`gen_secret`/`deserialize_10`
-  coefficient bounds and the shift-right (`<2^13`) bound, as raw values not just residues.
+- De-opaque `nttInvU`/`nttInvS` to a concrete inverse NTT, then the transform correctness
+  (butterfly network = evaluation at the roots; pointwise product = product in the split ring;
+  `INVNTT_SCALE` cancels Montgomery + 1/256) — i.e. the roundtrip + convolution theorems above.
 
 ## Environment
 
