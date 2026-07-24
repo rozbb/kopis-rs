@@ -49,6 +49,7 @@
   An unproved NTT is exactly the kind of hole that check exists to catch.
 -/
 import Kopis.Properties.MulTranspose
+import Kopis.Properties.GenMatrix
 
 open Aeneas Aeneas.Std Result RustKopis
 open scoped BigOperators
@@ -360,12 +361,137 @@ that the residue-level specs (`gen_matrix_from_seed_spec`, `gen_secret_from_seed
 `Matrix.deserialize_10`, the rounding of a product to `R10`) discard.  These are stated here as
 `sorry`ed Hoare triples so the whole NTT hole is enumerable in one file. -/
 
+/-- `getElem!` after a `List.set` at an in-bounds index (local copy; the file-scoped
+copies elsewhere are `private`). -/
+private theorem ntt_getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ)
+    (v : α) (k : ℕ) (hj : j < l.length) :
+    (l.set j v)[k]! = if k = j then v else l[k]! := by
+  by_cases h : k = j
+  · subst h
+    rw [getElem!_pos _ k (by rw [List.length_set]; exact hj), List.getElem_set_self, if_pos rfl]
+  · by_cases hk : k < l.length
+    · rw [getElem!_pos _ k (by rw [List.length_set]; exact hk),
+        List.getElem_set_of_ne (Ne.symm h), ← getElem!_pos _ k hk, if_neg h]
+    · rw [getElem!_neg _ k (by rw [List.length_set]; exact hk), getElem!_neg _ k hk, if_neg h]
+
+/-- A 13-bit `from_bytes` deserialization has every `u16` coefficient `< 2^13`. -/
+private theorem ntt_from_bytes_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
+    arithmetic.ring_arith.RingElem.deserialize bytes 13#usize
+      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+          ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 13 ⦄ := by
+  unfold arithmetic.ring_arith.RingElem.deserialize
+  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS]
+  have hlen416 : bytes.length = 416 := by omega
+  step*
+  have hb : bytes.len = 416#usize := by scalar_tac
+  simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
+    core.result.Result.unwrap]
+  apply WP.spec_bind (deserialize_13_spec bytes ⟨bytes.val, by scalar_tac⟩ rfl hlen416)
+  intro r hr
+  simp only [WP.spec_ok]
+  intro c hc
+  have hb2 : c < r.val.length := by have := r.property; grind
+  have heq : (r.val[c]!).val = streamNat bytes (13 * c) 13 := by
+    rw [getElem!_pos r.val c hb2]; exact hr c hc
+  rw [heq]; exact streamNat_lt _ _ _
+
+/-- **Inner loop, magnitude version.**  If every coefficient of `mat` is `< 2^13`, then so is
+every coefficient of the matrix produced after filling row `i`'s remaining columns from the
+13-bit `from_bytes` reads (each of which is `< 2^13`). -/
+private theorem ntt_gen_matrix_loop0_loop0_bd {L : Usize} (iter : core.ops.range.Range Usize)
+    (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+    (buf : Array U8 416#usize) (i : Usize)
+    (hi : i.val < L.val) (hend : iter.«end».val = L.val)
+    (hmat : ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
+        (((mat.val[a]!).val[b]!).val[c]!).val < 2 ^ 13) :
+    sample.gen_matrix_from_seed_loop0_loop0 iter seed mat buf i
+      ⦃ (result : arithmetic.matrix_arith.Matrix L L × Array U8 416#usize) =>
+          ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
+            (((result.1.val[a]!).val[b]!).val[c]!).val < 2 ^ 13 ⦄ := by
+  unfold sample.gen_matrix_from_seed_loop0_loop0
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hj_lt : iter.start.val < L.val := by rw [← hend]; exact hlt
+    simp only [consts.MODULUS_Q_BITS]
+    step*
+    have hs3 : s3.length = 416 := by rw [Slice.length, s3_post1]; exact buf.property
+    have hs4 : s4.val.length = 416 := by rw [← Slice.length, __post1, hs3]
+    have hs5len : ((buf.from_slice s4).to_slice).length = 32 * 13 := by
+      simp only [Slice.length, Array.to_slice, Array.from_slice_val buf s4 hs4]; omega
+    simp only [s5_post, s3_post2]
+    let* ⟨ re, hre ⟩ ← ntt_from_bytes_raw _ hs5len
+    let* ⟨ row, index_mut_back, hrow, hback ⟩ ← Array.index_mut_usize_spec
+    let* ⟨ a1, ha1 ⟩ ← Array.update_spec
+    have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
+    apply WP.spec_mono
+      (ntt_gen_matrix_loop0_loop0_bd iter1 seed (index_mut_back a1) (buf.from_slice s4) i hi
+        h_end_new ?_)
+    · rintro r hr a b c ha hb hc; exact hr a b c ha hb hc
+    · intro a b c ha hb hc
+      have hml : i.val < mat.val.length := by have := mat.property; grind
+      rw [hback, Std.Array.set_val_eq]
+      by_cases hai : a = i.val
+      · subst hai
+        rw [ntt_getElem!_list_set mat.val i.val a1 i.val hml, if_pos rfl, ha1,
+          Std.Array.set_val_eq]
+        have hrl : iter.start.val < row.val.length := by have := row.property; omega
+        by_cases hbj : b = iter.start.val
+        · subst hbj
+          rw [ntt_getElem!_list_set row.val iter.start.val re iter.start.val hrl, if_pos rfl]
+          exact hre c hc
+        · rw [ntt_getElem!_list_set row.val iter.start.val re b hrl, if_neg hbj]
+          have hbe : row.val[b]! = (mat.val[i.val]!).val[b]! := by
+            rw [hrow, getElem!_pos mat.val i.val hml]
+          rw [hbe]; exact hmat i.val b c hi hb hc
+      · rw [ntt_getElem!_list_set mat.val i.val a1 a hml, if_neg hai]
+        exact hmat a b c ha hb hc
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    exact hmat
+
+/-- **Outer loop, magnitude version.**  Preserves the `< 2^13` bound on every coefficient. -/
+private theorem ntt_gen_matrix_loop0_bd {L : Usize} (iter : core.ops.range.Range Usize)
+    (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+    (buf : Array U8 416#usize) (hend : iter.«end».val = L.val)
+    (hmat : ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
+        (((mat.val[a]!).val[b]!).val[c]!).val < 2 ^ 13) :
+    sample.gen_matrix_from_seed_loop0 iter seed mat buf
+      ⦃ (result : arithmetic.matrix_arith.Matrix L L) =>
+          ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
+            (((result.val[a]!).val[b]!).val[c]!).val < 2 ^ 13 ⦄ := by
+  unfold sample.gen_matrix_from_seed_loop0
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hj_lt : iter.start.val < L.val := by rw [← hend]; exact hlt
+    let* ⟨ mat1, buf1, hpr ⟩ ←
+      ntt_gen_matrix_loop0_loop0_bd { start := 0#usize, «end» := L } seed mat buf iter.start hj_lt
+        rfl hmat
+    have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
+    apply WP.spec_mono (ntt_gen_matrix_loop0_bd iter1 seed mat1 buf1 h_end_new hpr)
+    rintro r hr a b c ha hb hc; exact hr a b c ha hb hc
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    exact hmat
+
 /-- **Part of the NTT hole.** A matrix sampled from a seed has every `u16` coefficient `< 2^13`
-(rejection sampling keeps them in `[0, 2^13)`). -/
+(the 13-bit `from_bytes` read keeps them in `[0, 2^13)`). -/
 theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
     sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
-  sorry
+  unfold sample.gen_matrix_from_seed
+  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  apply WP.spec_mono (ntt_gen_matrix_loop0_bd { start := 0#usize, «end» := L } seed _ _ rfl ?_)
+  · intro r hr i j c hi hj hc; exact hr i j c hi hj hc
+  · intro a b c ha hb hc
+    rw [Array.repeat_val, getElem!_pos _ a (by rw [List.length_replicate]; exact ha),
+      List.getElem_replicate, Array.repeat_val,
+      getElem!_pos _ b (by rw [List.length_replicate]; exact hb), List.getElem_replicate,
+      Array.repeat_val, getElem!_pos _ c (by rw [List.length_replicate]; exact hc),
+      List.getElem_replicate]
+    decide
 
 /-- **Part of the NTT hole.** A CBD secret sampled from a seed has every coefficient, read as a
 signed `i16`, bounded in absolute value by `μ/2`. -/
@@ -382,12 +508,45 @@ theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8) :
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
   sorry
 
+/-- `toRingElem`'s coefficient value is the physical `u16` value (local copy of the
+`RoundTop` helper, which this file does not import). -/
+private theorem ntt_toRingElem_coeff_val (re : arithmetic.ring_arith.RingElem)
+    (k : ℕ) (hk : k < 256) :
+    ((toRingElem re)[k]!).val = (re.val[k]!).val := by
+  have hb : k < re.val.length := by have := re.property; grind
+  have hlt : (re.val[k]'hb).val < 2 ^ 16 := by
+    have h := (re.val[k]'hb).hBounds; simpa only [UScalarTy.numBits] using h
+  rw [getElem!_pos (toRingElem re) k hk, getElem!_pos re.val k hb]
+  simp only [toRingElem, Vector.getElem_ofFn]
+  rw [ZMod.val_natCast, Nat.mod_eq_of_lt hlt]
+
 /-- **Part of the NTT hole.** A right shift by `Q_BITS - P_BITS = 3` produces `u16`
 coefficients `< 2^13` (a 16-bit value shifted right by 3 is `< 2^13`). -/
 theorem shift_right_uniformBounded {L : Usize}
     (self : arithmetic.matrix_arith.Matrix L 1#usize) (sh : Usize) (h : sh.val = 3) :
     arithmetic.matrix_arith.Matrix.shift_right self sh
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
-  sorry
+  have hsh : sh.val < 16 := by omega
+  apply WP.spec_mono (matrix_shift_right_spec self sh hsh)
+  intro r hr i j c hi hj hc
+  have he := hr i hi j hj
+  have hb16 : (((self.val[i]!).val[j]!).val[c]!).val < 2 ^ 16 := by
+    have hh := (((self.val[i]!).val[j]!).val[c]!).hBounds
+    simpa only [UScalarTy.numBits] using hh
+  have hrv : (((r.val[i]!).val[j]!).val[c]!).val
+      = (((self.val[i]!).val[j]!).val[c]!).val >>> sh.val := by
+    rw [← ntt_toRingElem_coeff_val ((r.val[i]!).val[j]!) c hc,
+      getElem!_pos (toRingElem ((r.val[i]!).val[j]!)) c hc, he]
+    simp only [Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map, ZMod.val_natCast]
+    rw [← getElem!_pos (toRingElem ((self.val[i]!).val[j]!)) c hc,
+      ntt_toRingElem_coeff_val ((self.val[i]!).val[j]!) c hc]
+    have : (((self.val[i]!).val[j]!).val[c]!).val >>> sh.val < 2 ^ 16 := by
+      have := Nat.shiftRight_le (((self.val[i]!).val[j]!).val[c]!).val sh.val
+      omega
+    rw [Nat.mod_eq_of_lt this]
+  rw [hrv, h]
+  -- `x >>> 3 = x / 8 < 2^16 / 8 = 2^13` since `x < 2^16`
+  rw [Nat.shiftRight_eq_div_pow]
+  omega
 
 end Kopis.Properties
