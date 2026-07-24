@@ -304,7 +304,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   let* ⟨mat_a, hmata, hmatbnd⟩ ← spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3))
     (gen_matrix_uniformBounded (to_slice_mut_back s3))
   let* ⟨vec_s, hvecs, hvecbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU)
-    (gen_secret_secretBounded (to_slice_mut_back1 s5))
+    (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU)
   let* ⟨mat_a_ntt, hmata_ntt⟩ ← from_uniform_matrix_spec mat_a
   let* ⟨vec_s_ntt, hvecs_ntt⟩ ← from_secret_matrix_spec vec_s
   -- the NTT `mul_transpose` computes the schoolbook product `mat_aᵀ · vec_s`

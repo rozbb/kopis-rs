@@ -50,6 +50,7 @@
 -/
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.GenMatrix
+import Kopis.Properties.DeserializeVec
 
 open Aeneas Aeneas.Std Result RustKopis
 open scoped BigOperators
@@ -493,20 +494,220 @@ theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
       List.getElem_replicate]
     decide
 
-/-- **Part of the NTT hole.** A CBD secret sampled from a seed has every coefficient, read as a
-signed `i16`, bounded in absolute value by `μ/2`. -/
-theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize) :
+/-- **Part of the NTT hole (redrafted).** A CBD secret sampled from a seed has every
+coefficient, read as a signed `i16`, bounded in absolute value by `μ/2`.  The `μ ∈ {6, 8, 10}`
+hypothesis matches `gen_secret_from_seed_spec` (already in scope at every call site) and is
+needed because the extracted sampler only succeeds for those shipped parameter widths (for
+larger `μ` the fixed 320-byte CBD buffer slice is out of range and the computation fails). -/
+theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
           SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
   sorry
 
-/-- **Part of the NTT hole.** Deserializing 10-bit-packed bytes yields coefficients `< 2^10`,
-hence `< 2^13`. -/
-theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8) :
+set_option maxRecDepth 20000
+
+/-- A 10-bit `RingElem.deserialize` has every `u16` coefficient `< 2^10`. -/
+private theorem ntt_ringElem_deser10_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
+    arithmetic.ring_arith.RingElem.deserialize bytes 10#usize
+      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+          ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 10 ⦄ := by
+  unfold arithmetic.ring_arith.RingElem.deserialize
+  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
+  have hlen320 : bytes.length = 320 := by omega
+  step*
+  have hb : bytes.len = 320#usize := by scalar_tac
+  simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
+    core.result.Result.unwrap]
+  apply WP.spec_bind (deserialize_10_spec bytes ⟨bytes.val, by scalar_tac⟩ rfl hlen320)
+  intro r hr
+  simp only [WP.spec_ok]
+  intro c hc
+  have hb2 : c < r.val.length := by have := r.property; grind
+  have heq : (r.val[c]!).val = streamNat bytes (10 * c) 10 := by
+    rw [getElem!_pos r.val c hb2]; exact hr c hc
+  rw [heq]; exact streamNat_lt _ _ _
+
+/-- **Inner loop, magnitude version** of `Matrix.deserialize_10` (`Y = 1`).  Writing row `i`'s
+single column with a 10-bit `RingElem.deserialize` (coefficients `< 2^10 < 2^13`) preserves the
+`< 2^13` bound. -/
+private theorem ntt_matrix_deser10_inner_bd {L : Usize}
+    (iter : core.ops.range.Range Usize)
+    (bytes : Slice U8) (result : arithmetic.matrix_arith.Matrix L 1#usize)
+    (chunk_len : Usize) (i : Usize)
+    (hchunk : chunk_len.val = 32 * 10)
+    (hi : i.val < L.val) (hlen : bytes.length = L.val * (32 * 10))
+    (hs0 : iter.start.val = 0) (hend : iter.«end».val = 1)
+    (hres : ∀ a (_ha : a < L.val) c (_hc : c < 256),
+        (((result.val[a]!).val[0]!).val[c]!).val < 2 ^ 13) :
+    arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0 (X := L) (Y := 1#usize)
+        iter bytes result chunk_len i
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          ∀ a (_ha : a < L.val) c (_hc : c < 256),
+            (((r.val[a]!).val[0]!).val[c]!).val < 2 ^ 13 ⦄ := by
+  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
+  have hm : 0 < 32 * 10 := by norm_num
+  have hbufmax : L.val * (32 * 10) ≤ Usize.max := hlen ▸ bytes.property
+  have hlt : iter.start.val < iter.«end».val := by omega
+  let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+  rw [ho]; simp only
+  let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (show i.val * (1#usize).val ≤ Usize.max from by
+    simpa using le_trans (le_of_lt hi) (le_trans (Nat.le_mul_of_pos_right _ hm) hbufmax))
+  have hi1v : i1.val = i.val := by rw [hi1]; simp
+  let* ⟨ idx, hidx ⟩ ← Std.Usize.add_spec (show i1.val + iter.start.val ≤ Usize.max from by
+    rw [hi1v, hs0]
+    simpa using le_trans (le_of_lt hi) (le_trans (Nat.le_mul_of_pos_right _ hm) hbufmax))
+  have hidxv : idx.val = i.val := by rw [hidx, hi1v, hs0]; omega
+  let* ⟨ i2, hi2 ⟩ ← Std.Usize.mul_spec (show idx.val * chunk_len.val ≤ Usize.max from by
+    rw [hidxv, hchunk]; exact le_trans (Nat.mul_le_mul_right (32 * 10) (le_of_lt hi)) hbufmax)
+  have hi2v : i2.val = i.val * (32 * 10) := by rw [hi2, hidxv, hchunk]
+  let* ⟨ i3, hi3 ⟩ ← Std.Usize.add_spec (show idx.val + (1#usize).val ≤ Usize.max from by
+    rw [hidxv]
+    simpa using le_trans (le_trans (show i.val + 1 ≤ L.val by omega) (Nat.le_mul_of_pos_right _ hm)) hbufmax)
+  have hi3v : i3.val = i.val + 1 := by rw [hi3, hidxv]
+  let* ⟨ i4, hi4 ⟩ ← Std.Usize.mul_spec (show i3.val * chunk_len.val ≤ Usize.max from by
+    rw [hi3v, hchunk]; exact le_trans (Nat.mul_le_mul_right (32 * 10) (by omega)) hbufmax)
+  have hi4v : i4.val = (i.val + 1) * (32 * 10) := by rw [hi4, hi3v, hchunk]
+  have hle : i2.val ≤ i4.val := by rw [hi2v, hi4v]; exact Nat.mul_le_mul_right _ (by omega)
+  have hbnd : i4.val ≤ bytes.length := by rw [hi4v, hlen]; exact Nat.mul_le_mul_right _ (by omega)
+  have hbndl : i4.val ≤ bytes.val.length := by have := hbnd; simp only [Slice.length] at this; exact this
+  have hchunk_spec : core.slice.index.SliceIndexRangeUsizeSlice.index
+        ({ start := i2, «end» := i4 } : core.ops.range.Range Usize) bytes
+      ⦃ (s : Slice U8) => s.val = bytes.val.slice i2.val i4.val ∧ s.length = 32 * 10 ⦄ := by
+    simp only [core.slice.index.SliceIndexRangeUsizeSlice.index, UScalar.le_equiv]
+    rw [if_pos ⟨hle, hbnd⟩]
+    simp only [WP.spec_ok]
+    refine ⟨trivial, ?_⟩
+    show (bytes.val.slice i2.val i4.val).length = 32 * 10
+    rw [List.slice_length, hi2v, hi4v]
+    have h1 : (i.val + 1) * (32 * 10) ≤ bytes.val.length := hi4v ▸ hbndl
+    omega
+  let* ⟨ chunk, hchunk_val, hchunk_len ⟩ ← hchunk_spec
+  let* ⟨ re, hre ⟩ ← ntt_ringElem_deser10_raw chunk hchunk_len
+  have hib : i.val < result.val.length := by have := result.property; omega
+  let* ⟨ row, index_mut_back, hrow, hback ⟩ ← Array.index_mut_usize_spec result i hib
+  have hrowlen : row.val.length = 1 := by have := row.property; scalar_tac
+  let* ⟨ a1, ha1 ⟩ ← Array.update_spec
+  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
+  let* ⟨ o2, iter2, hnone2, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec iter1
+    (show iter1.start.val ≥ iter1.«end».val by rw [hstart', hend']; omega)
+  rw [hnone2]; simp only [WP.spec_ok]
+  intro a _ha c hc
+  rw [hback]
+  simp only [Array.set_val_eq]
+  by_cases hai : a = i.val
+  · subst hai
+    rw [ntt_getElem!_list_set result.val i.val a1 i.val hib, if_pos rfl, ha1]
+    simp only [Array.set_val_eq]
+    rw [hs0, ntt_getElem!_list_set row.val 0 re 0 (by rw [hrowlen]; omega), if_pos rfl]
+    have := hre c hc; omega
+  · rw [ntt_getElem!_list_set result.val i.val a1 a hib, if_neg hai]
+    exact hres a _ha c hc
+
+/-- **Outer loop, magnitude version** of `Matrix.deserialize_10` (`Y = 1`). -/
+private theorem ntt_matrix_deser10_outer_bd {L : Usize}
+    (iter : core.ops.range.Range Usize)
+    (bytes : Slice U8) (result : arithmetic.matrix_arith.Matrix L 1#usize)
+    (chunk_len : Usize)
+    (hchunk : chunk_len.val = 32 * 10)
+    (hlen : bytes.length = L.val * (32 * 10))
+    (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val)
+    (hres : ∀ a (_ha : a < L.val) c (_hc : c < 256),
+        (((result.val[a]!).val[0]!).val[c]!).val < 2 ^ 13) :
+    arithmetic.matrix_arith.Matrix.deserialize_10_loop0 (X := L) (Y := 1#usize)
+        iter bytes result chunk_len
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          ∀ a (_ha : a < L.val) c (_hc : c < 256),
+            (((r.val[a]!).val[0]!).val[c]!).val < 2 ^ 13 ⦄ := by
+  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hi_lt : iter.start.val < L.val := by scalar_tac
+    let* ⟨ result1, hres1 ⟩ ←
+      ntt_matrix_deser10_inner_bd { start := 0#usize, «end» := 1#usize } bytes result
+        chunk_len iter.start hchunk hi_lt hlen (by simp) (by simp) hres
+    apply WP.spec_mono
+      (ntt_matrix_deser10_outer_bd iter1 bytes result1 chunk_len hchunk hlen
+        (by rw [hstart']; scalar_tac) (by rw [hend']; exact hend) hres1)
+    intro r hr a ha c hc; exact hr a ha c hc
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    exact hres
+  termination_by iter.«end».val - iter.start.val
+  decreasing_by scalar_decr_tac
+
+/-- **Part of the NTT hole (redrafted).** Deserializing an `L × 1` matrix of 10-bit-packed
+coefficients from an `L·320`-byte buffer yields every `u16` coefficient `< 2^10 < 2^13`.  The
+length and no-overflow hypotheses match `matrix_deserialize_10_spec` (both are already in scope
+at every call site) and are needed because the extracted code `massert`s the buffer length and
+performs checked size multiplications. -/
+theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8)
+    (hlen : bytes.length = L.val * (32 * 10)) (hfit : L.val * 10 * 256 ≤ Usize.max) :
     arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize bytes
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
-  sorry
+  unfold arithmetic.matrix_arith.Matrix.deserialize_10
+  simp only [consts.RING_DEG]
+  have hm : 0 < 32 * 10 := by norm_num
+  have hbufmax : L.val * (32 * 10) ≤ Usize.max := hlen ▸ bytes.property
+  have hLmax : L.val ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ hm) hbufmax
+  have hb1 : L.val * 10 ≤ Usize.max := by have := hfit; omega
+  have hsz : ∀ x : ℕ, x ≤ Usize.max → x < UScalar.size .Usize := by
+    intro x hx
+    have h1 : UScalar.size .Usize = 2 ^ System.Platform.numBits := by
+      simp only [UScalar.size, UScalarTy.Usize_numBits_eq]
+    have h2 : (Usize.max : ℕ) = 2 ^ System.Platform.numBits - 1 := by
+      simp only [Usize.max, Usize.numBits, UScalarTy.Usize_numBits_eq]
+    have h3 : 0 < 2 ^ System.Platform.numBits := by positivity
+    omega
+  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show L.val * (1#usize).val ≤ Usize.max from by
+    simp only [show (1#usize).val = 1 from rfl, Nat.mul_one]; exact hLmax)
+  have hiv : i.val = L.val := by rw [hi]; simp
+  let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (show i.val * (10#usize).val ≤ Usize.max from by
+    rw [hiv]; simp only [show (10#usize).val = 10 from rfl]; omega)
+  have hi1v : i1.val = L.val * 10 := by rw [hi1, hiv]
+  let* ⟨ iu, hiu ⟩ ← Std.Usize.mul_spec (show i1.val * (256#usize).val ≤ Usize.max from by
+    rw [hi1v]; simp only [show (256#usize).val = 256 from rfl]; omega)
+  simp only [lift, bind_tc_ok]
+  let* ⟨ right_val, hrv ⟩ ← Std.Usize.div_spec
+  have hrvv : right_val.val = L.val * (32 * 10) := by
+    rw [hrv]
+    simp only [Std.Usize.wrapping_mul_val_eq, show (1#usize).val = 1 from rfl,
+      show (10#usize).val = 10 from rfl, show (256#usize).val = 256 from rfl, Nat.mul_one]
+    rw [Nat.mod_eq_of_lt (hsz _ hLmax), Nat.mod_eq_of_lt (hsz _ hb1),
+      Nat.mod_eq_of_lt (hsz _ hfit),
+      show L.val * 10 * 256 = L.val * (32 * 10) * 8 from by ring,
+      Nat.mul_div_cancel _ (by norm_num)]
+  have hmeq : Slice.len bytes = right_val :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrvv]; exact hlen)
+  rw [show massert (Slice.len bytes = right_val) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
+  have hdef : arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+      = ok (Array.repeat L (Array.repeat 1#usize (Array.repeat 256#usize 0#u16))) := by
+    simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
+      arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  rw [hdef, bind_tc_ok]
+  let* ⟨ i5, hi5 ⟩ ← Std.Usize.mul_spec (show (10#usize).val * (256#usize).val ≤ Usize.max from by
+    have h2560 : (10#usize).val * (256#usize).val = 2560 := rfl
+    rw [h2560]
+    rcases Usize.bounds_eq with h | h <;> rw [h] <;> simp only [U32.max_eq, U64.max_eq] <;> omega)
+  let* ⟨ chunk_len, hcl ⟩ ← Std.Usize.div_spec
+  have hcv : chunk_len.val = 32 * 10 := by rw [hcl, hi5]
+  apply WP.spec_mono
+    (ntt_matrix_deser10_outer_bd { start := 0#usize, «end» := L } bytes _ chunk_len
+      hcv hlen (by simp) rfl ?_)
+  · intro r hr i j c hi hj hc
+    have hj0 : j = 0 := by have : (1#usize).val = 1 := rfl; omega
+    subst hj0
+    exact hr i hi c hc
+  · intro a _ha c hc
+    rw [Array.repeat_val, getElem!_pos _ a (by rw [List.length_replicate]; exact _ha),
+      List.getElem_replicate, Array.repeat_val,
+      getElem!_pos _ 0 (by rw [List.length_replicate]; norm_num), List.getElem_replicate,
+      Array.repeat_val, getElem!_pos _ c (by rw [List.length_replicate]; exact hc),
+      List.getElem_replicate]
+    decide
 
 /-- `toRingElem`'s coefficient value is the physical `u16` value (local copy of the
 `RoundTop` helper, which this file does not import). -/

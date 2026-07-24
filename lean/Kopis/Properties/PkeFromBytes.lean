@@ -208,7 +208,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
   obtain ⟨ hms_val, _hms_len ⟩ := hr
   -- the 10-bit vector decoder, then its NTT representation
   let* ⟨ vec, hvec, hvecbnd ⟩ ← spec_and (matrix_deserialize_10_spec vec_slice hvslen hfit)
-    (deserialize_10_uniformBounded vec_slice)
+    (deserialize_10_uniformBounded vec_slice hvslen hfit)
   let* ⟨ vec_ntt, hvecntt ⟩ ← from_uniform_matrix_spec vec
   -- the verbatim byte copy loop (result not otherwise needed); then regenerate the matrix
   let* ⟨ vec_bytes1, hvbchar ⟩ ← from_bytes_loop_val_spec { start := 0#usize, «end» := L } vec_slice

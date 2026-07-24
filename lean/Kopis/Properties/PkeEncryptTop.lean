@@ -69,7 +69,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
       omega
     simp only [massert, if_pos hlv], bind_tc_ok]
   let* ⟨vec_sprime, hvecs, hspbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU coins hMU)
-    (gen_secret_secretBounded coins)
+    (gen_secret_secretBounded coins hMU)
   let* ⟨sprime_ntt, hspntt⟩ ← from_secret_matrix_spec vec_sprime
   have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h

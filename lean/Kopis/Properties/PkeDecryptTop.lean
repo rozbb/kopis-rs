@@ -94,7 +94,7 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
   -- deserialize b' and cm
   have hlen_bb : bprime_bytes.length = L.val * (32 * 10) := by rw [hbb_len, hm2v]
   let* ⟨bprime, hbprime, hbpbnd⟩ ← spec_and (matrix_deserialize_10_spec bprime_bytes hlen_bb hfit)
-    (deserialize_10_uniformBounded bprime_bytes)
+    (deserialize_10_uniformBounded bprime_bytes hlen_bb hfit)
   let* ⟨bprime_ntt, hbpntt⟩ ← from_uniform_matrix_spec bprime
   have hlen_cb : c_bytes.length = 32 * T.val := by rw [hcb_len, hlenct, hct, hm2v]; omega
   let* ⟨cm, hcm⟩ ← ringElem_deserialize_gen_spec' c_bytes T T.val rfl
