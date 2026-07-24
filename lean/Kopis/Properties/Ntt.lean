@@ -211,6 +211,57 @@ theorem I64_wrapping_add_exact (x y : I64)
   rw [core.num.I64.wrapping_add, IScalar.wrapping_add_val_eq]
   exact bmod_i64_exact hlo hhi
 
+
+/-! ## Reduction-function value specs
+
+The four scalar reduction functions of `src/arithmetic/ntt.rs`, each proved against its
+value-level postcondition via the `*_exact` wrapping lemmas above plus the aeneas cast /
+shift / bitwise value semantics.  These are the documented foundation for the eventual
+transform-correctness proof. -/
+
+theorem to_canonical_spec (x : I32) (hlo : -pNtt < (x.val:ℤ)) (hhi : (x.val:ℤ) < pNtt) :
+    arithmetic.ntt.to_canonical x
+      ⦃ (t : I32) => (t.val:ℤ) % pNtt = (x.val:ℤ) % pNtt
+                      ∧ 0 ≤ (t.val:ℤ) ∧ (t.val:ℤ) < pNtt ⦄ := by
+  have hP : arithmetic.ntt.P.val = 50330113 := by simp only [arithmetic.ntt.P]; rfl
+  have hx31 : (x.val:ℤ) < 2147483648 := by unfold pNtt at hhi; omega
+  have hshift : (core.num.I32.wrapping_shr x 31#u32).val = x.val >>> (31:ℕ) := by
+    simp only [core.num.I32.wrapping_shr, IScalar.wrapping_shr, IScalar.val]
+    rw [show (31#u32).val % IScalarTy.I32.numBits = 31 from rfl, BitVec.toInt_sshiftRight]
+  unfold arithmetic.ntt.to_canonical
+  simp only [lift, bind_tc_ok, WP.spec_ok]
+  by_cases hsign : (x.val:ℤ) < 0
+  · have hi : (core.num.I32.wrapping_shr x 31#u32).val = -1 := by
+      rw [hshift, Int.shiftRight_eq_div_pow]; unfold pNtt at hlo; omega
+    have hand : ((core.num.I32.wrapping_shr x 31#u32) &&& arithmetic.ntt.P).val = 50330113 := by
+      have hbv : (core.num.I32.wrapping_shr x 31#u32).bv = BitVec.allOnes 32 := by
+        apply BitVec.eq_of_toInt_eq
+        show _ = (BitVec.allOnes 32).toInt
+        rw [show (BitVec.allOnes 32).toInt = (-1:ℤ) from rfl]; exact hi
+      simp only [IScalar.val, IScalar.bv_and, hbv, BitVec.allOnes_and]; exact hP
+    have hadd : (core.num.I32.wrapping_add x ((core.num.I32.wrapping_shr x 31#u32)
+        &&& arithmetic.ntt.P)).val = x.val + 50330113 := by
+      rw [I32_wrapping_add_exact x _ (by rw [hand]; unfold pNtt at hlo; omega)
+        (by rw [hand]; omega), hand]
+    rw [hadd]
+    refine ⟨?_, ?_, ?_⟩
+    · unfold pNtt; omega
+    · unfold pNtt at hlo; omega
+    · unfold pNtt at *; omega
+  · have hi : (core.num.I32.wrapping_shr x 31#u32).val = 0 := by
+      rw [hshift, Int.shiftRight_eq_div_pow]; omega
+    have hand : ((core.num.I32.wrapping_shr x 31#u32) &&& arithmetic.ntt.P).val = 0 := by
+      have hbv : (core.num.I32.wrapping_shr x 31#u32).bv = 0#32 := by
+        apply BitVec.eq_of_toInt_eq
+        show _ = (0#32).toInt
+        rw [show (0#32).toInt = (0:ℤ) from rfl]; exact hi
+      simp only [IScalar.val, IScalar.bv_and, hbv, BitVec.zero_and]; rfl
+    have hadd : (core.num.I32.wrapping_add x ((core.num.I32.wrapping_shr x 31#u32)
+        &&& arithmetic.ntt.P)).val = x.val := by
+      rw [I32_wrapping_add_exact x _ (by rw [hand]; omega) (by rw [hand]; omega), hand]; ring
+    rw [hadd]
+    exact ⟨rfl, by omega, hhi⟩
+
 /-! ## The outstanding obligation
 
 Everything above is arithmetic bookkeeping.  The mathematical content of the NTT is isolated
