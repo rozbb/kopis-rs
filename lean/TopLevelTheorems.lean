@@ -422,9 +422,11 @@ what the implicit-rejection branch of decapsulation is proved against. Again
 functional only — that these operations are *actually* constant-time is a claim
 about compiled machine code and is out of scope for this development entirely.
 
-**(c) `u8::count_ones` / `u32::count_ones` (2 assumptions).**
+**(c) Opaque arithmetic intrinsics (3 assumptions).**
 `U8.count_ones_spec` and `U32.count_ones_spec` give the meaning of Rust's popcount
-intrinsics, which aeneas leaves opaque.
+intrinsics, and `RustKopis.core.num.I64.wrapping_neg` is Rust's `i64::wrapping_neg`
+(used by the NTT to negate a twiddle factor) — all three are intrinsics that aeneas
+leaves opaque, carrying no logical content of their own.
 
 **(d) Lean-side.** `propext`, `Classical.choice` and `Quot.sound` are the standard
 axioms of Lean's logic — every Mathlib development uses them, and they are
@@ -442,9 +444,14 @@ the kernel alone. It is a 2⁸-case check about byte bit-extraction, not a
 cryptographic claim, but it is a real (if small) hole and could be closed by
 replacing `native_decide` with `decide`.
 
-**Not present, deliberately:** there is no `sorryAx` in the list. If any proof in
-the closure were incomplete, `sorryAx` would appear here and the check below would
-fail. -/
+**`sorryAx` — the single documented, deferred hole.** `sorryAx` IS in the closure, and the
+check below reports it as a loud warning (rather than failing) because the hole is
+`sorry`ed on purpose, never `axiom`ed, so it shows up here honestly: the NTT
+multiplication hole `ntt_spec` (`Kopis/Properties/Ntt.lean`) — that the negacyclic NTT over
+`p = 50330113` computes the ring product, plus its raw-magnitude lemmas.  Everything else,
+including the three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites, is real
+proof.  The check still *fails* on any OTHER new assumption, so it keeps protecting the rest
+of the trust base. -/
 
 /-! The check itself. It recomputes the axiom footprint of every theorem in §3 and
 compares it against the audited list above. Any new assumption — including a
@@ -471,6 +478,7 @@ run_cmd do
      "RustKopis.Slice.Insts.SubtleConstantTimeEq.ct_eq",
      "RustKopis.U8.Insts.SubtleConditionallySelectable.conditional_select",
      "RustKopis.U8.Insts.SubtleConstantTimeEq.ct_eq",
+     "RustKopis.core.num.I64.wrapping_neg",
      "RustKopis.core.num.U32.count_ones",
      "RustKopis.core.num.U8.count_ones",
      "RustKopis.subtle.Choice",
@@ -495,19 +503,15 @@ run_cmd do
     for a in (← Lean.collectAxioms t) do
       let s := a.toString
       if !found.contains s then found := found.push s
-  -- `sorryAx` covers two documented, deferred holes, both `sorry`ed (never `axiom`ed) so they
-  -- show up here: (1) the NTT-multiplication hole `ntt_spec` — that the negacyclic NTT over
-  -- `p = 50330113` computes the ring product, plus its raw-magnitude lemmas (Ntt.lean); and
-  -- (2) a proof-engineering PERF hole, the three `kopisXXX_keygen_encap_spec` composites
-  -- (KeyGenCapstone.lean), which elaborate but are heartbeat-flaky under parallel build load;
-  -- their full proofs (via the local-irreducible technique) are in git history, and the
-  -- underlying encap correctness is proved via the parse-then-encapsulate theorems below.
+  -- `sorryAx` covers a single documented, deferred hole, `sorry`ed (never `axiom`ed) so it
+  -- shows up here: the NTT-multiplication hole `ntt_spec` — that the negacyclic NTT over
+  -- `p = 50330113` computes the ring product, plus its raw-magnitude lemmas (Ntt.lean).
+  -- The three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites are now full proofs.
   -- The gate still throws on ANY OTHER new assumption, so it keeps protecting the trust base.
   let nttHole := "sorryAx"
   if found.contains nttHole then
-    logWarning "AUDIT: two documented holes remain (sorryAx): the NTT-multiplication hole \
-      `ntt_spec` (Ntt.lean) and the perf hole in the three kopisXXX_keygen_encap_spec \
-      (KeyGenCapstone.lean).  Everything else is real proof."
+    logWarning "AUDIT: one documented hole remains (sorryAx): the NTT-multiplication hole \
+      `ntt_spec` (Ntt.lean).  Everything else is real proof."
   let unexpected := found.filter (fun a => !audited.contains a && a != nttHole)
   let unused := audited.filter (fun a => !found.contains a)
   unless unexpected.isEmpty && unused.isEmpty do

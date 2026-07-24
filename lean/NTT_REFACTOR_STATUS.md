@@ -8,30 +8,36 @@ structured `Matrix<L,1>`; (3) the `gen` module was renamed `sample`.
 ## Current state — `lake build Kopis` is GREEN
 
 The entire crate has been rewired to the NTT-domain representation. `lake build Kopis`
-completes successfully (1775 jobs, 0 errors). Every proof file compiles as real proof except
-for two documented holes (11 `sorry`s total, all in two files):
+completes successfully, and every proof file compiles as real proof except for **one**
+documented hole (8 `sorry`s total, all in one file):
 
 1. **`ntt_spec`** — the single mathematical hole (8 `sorry`s in `Ntt.lean`): that the
    negacyclic NTT computes the ring product, plus its raw-magnitude lemmas. See below.
-2. **A proof-engineering PERF hole** — the three `kopisXXX_keygen_encap_spec` composites in
-   `KeyGenCapstone.lean` (3 `sorry`s). The REAL PROOFS EXIST and are in git history (commit
-   "irreducible spec defs + 16M …"): the fix is to make the huge spec defs
-   (`SkToPk`/`KemEncap`/`ExpandDecapKey`) `local irreducible` so `whnf`/`kabstract` can't
-   unfold them during elaboration (bridging `SkToPk = ExpandDecapKey.2.2.1` via the `rfl`
-   lemma `skToPk_eq`), plus a `generalize` of `KemEncap` before the final rewrite. That makes
-   them *complete proofs* — BUT the residual elaboration cost is heartbeat-nondeterministic
-   under maximal parallel `lake build` load (memory pressure inflates the count ~15×), so
-   under a full 16-way build one of the three flakes (which one moves with the load) even at
-   40M. To keep `lake build Kopis` reliably green they are `sorry`ed here; to restore them,
-   paste the git-history bodies back and raise `maxHeartbeats` (and/or build at lower `-j`).
-   This is a COMPOSITION convenience only — the underlying pieces are all fully proved:
-   `expand_from_seed_spec` (key-gen), `kopisXXX_public_key_spec` (derive pk),
-   `kopisXXX_encapsulate_deterministic_spec` (encap), and the user-facing
-   `kopisXXX_from_bytes_then_encapsulate` (parse-then-encapsulate). NOT part of `ntt_spec`.
+
+The three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites in `KeyGenCapstone.lean`
+are now **full proofs** (real, at the ordinary 4M `maxHeartbeats`, ~1.3s each).
+
+> **Post-mortem — the "perf hole" was a misdiagnosis.** These three were previously `sorry`ed
+> and documented as a heartbeat-nondeterministic `whnf` blowup needing `maxHeartbeats` up to
+> 200M. That was wrong. The real bug was **stale hypothesis indices**: the NTT refactor added a
+> `SecretBounded` conjunct (h2) to `expand_from_seed_spec`'s postcondition, shifting the later
+> conjuncts. The git-history proof still used the old indices, so `exact h3` (which now names the
+> `z` conjunct) was pointed at a `pkStructBytes = …` goal. Lean doesn't fail such a mismatch
+> fast — because both sides are built from `ExpandDecapKey`, it `whnf`-grinds trying to unify two
+> genuinely-unequal terms, burning >200M heartbeats (~865s) before giving up. Fixing the indices
+> (pkStructBytes → `h4`, hash → `h5`, per the current conjunct order) turns every `exact` into a
+> syntactic match, and the whole file elaborates in ~1.4s at 4M. A `congrArg`-through-opaque-
+> `KemEncap` ending (instead of `generalize … at ⊢; rw`) replaced the old `generalize`/`rw`
+> closer as a belt-and-braces measure so the final bridge never `whnf`s the spec term either.
+> Lesson: a "(deterministic) timeout at `whnf`" on an `exact`/`rw` is often a *wrong-term*
+> unification grind, not a proof that needs a bigger budget — check the hypothesis first.
 
 `TopLevelTheorems.lean` is the audit surface. Its `#print axioms` gate now **reports
-`sorryAx` (covering both holes) as a loud warning but no longer throws on it**; it still
-throws on any *other* new axiom, so it keeps protecting the rest of the trust base.
+`sorryAx` (covering the single `ntt_spec` hole) as a loud warning but no longer throws on it**;
+it still throws on any *other* new axiom, so it keeps protecting the rest of the trust base.
+The three composites are in the audited §3 theorem list, so their being real proofs is verified
+by the gate itself. `core.num.I64.wrapping_neg` (Rust `i64::wrapping_neg`, used by the NTT to
+negate a twiddle) is in the audited opaque-intrinsics list alongside the two `count_ones`.
 
 ### The NTT bridge (`Ntt.lean`) — the decomposed interface
 

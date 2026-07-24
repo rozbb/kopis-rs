@@ -151,11 +151,25 @@ theorem kopis512_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_512 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_512 (skBytes seed))).1 ⦄ := by
-  -- See `kopis1024_keygen_encap_spec` below for the full commentary.  The real proof (in git
-  -- history, commit "irreducible spec defs + 16M") elaborates but is heartbeat-flaky under
-  -- maximal parallel `lake build` load, so all three are `sorry`ed for a reliably-green build.
-  -- Proof-engineering limitation, NOT a math gap; underlying encap correctness is fully proved.
-  sorry
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 2#usize 10#usize seed .Kopis_512
+    rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
+  let* ⟨kpk, hkvec, hkhash⟩ ← kopis512_public_key_spec ksk
+  have hpk3 : pkStructBytes kpk.pke_pk .Kopis_512 rfl
+      = Spec.Kopis.SkToPk .Kopis_512 (skBytes seed) := by
+    rw [hkvec, skToPk_eq]; exact h4
+  let* ⟨r, hc, hk⟩ ← kopis512_encapsulate_deterministic_spec kpk randomness
+    (pkStructBytes kpk.pke_pk .Kopis_512 rfl)
+    (keygen_hpkvec kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h9))
+    (by rw [hkvec]; exact h8)
+    (keygen_hpkmat kpk.pke_pk .Kopis_512 rfl (by decide) (by rw [hkvec]; exact h6))
+    (by rw [hkvec]; exact h7)
+    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_512 rfl (skBytes seed) (by rw [hkhash]; exact h5)
+      (by rw [hkvec]; exact h4))
+  -- Bridge `pkStructBytes … = SkToPk …` *through* the opaque `KemEncap` head with `congrArg`,
+  -- so the enormous spec term is never `whnf`'d (which is what made the old `rw`/`generalize`
+  -- version heartbeat-pathological).  `KemEncap` stays an opaque function symbol throughout.
+  have hE := congrArg (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)) hpk3
+  exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
 
 /-- Kopis-768 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
 theorem kopis768_public_key_spec (self : impls.kopis768.Kopis768SecretKey) :
@@ -176,9 +190,22 @@ theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).1 ⦄ := by
-  -- See `kopis1024_keygen_encap_spec` below.  Real proof in git history; `sorry`ed only for
-  -- reliably-green parallel builds.  Proof-engineering limitation, NOT a math gap.
-  sorry
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
+    rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
+  let* ⟨kpk, hkvec, hkhash⟩ ← kopis768_public_key_spec ksk
+  have hpk3 : pkStructBytes kpk.pke_pk .Kopis_768 rfl
+      = Spec.Kopis.SkToPk .Kopis_768 (skBytes seed) := by
+    rw [hkvec, skToPk_eq]; exact h4
+  let* ⟨r, hc, hk⟩ ← kopis768_encapsulate_deterministic_spec kpk randomness
+    (pkStructBytes kpk.pke_pk .Kopis_768 rfl)
+    (keygen_hpkvec kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h9))
+    (by rw [hkvec]; exact h8)
+    (keygen_hpkmat kpk.pke_pk .Kopis_768 rfl (by decide) (by rw [hkvec]; exact h6))
+    (by rw [hkvec]; exact h7)
+    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_768 rfl (skBytes seed) (by rw [hkhash]; exact h5)
+      (by rw [hkvec]; exact h4))
+  have hE := congrArg (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)) hpk3
+  exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
 
 /-- Kopis-1024 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
 theorem kopis1024_public_key_spec (self : impls.kopis1024.Kopis1024SecretKey) :
@@ -199,14 +226,21 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).1 ⦄ := by
-  -- The proof is IDENTICAL to `kopis512`/`kopis768_keygen_encap_spec` above (which are proved
-  -- in full) — replace this `sorry` with that body, changing `512`/`10#usize` to `1024`/
-  -- `6#usize`.  It is left as a `sorry` ONLY because at ℓ = 4 the elaboration is
-  -- heartbeat-heavy and its cost is nondeterministic under maximal parallel build load, so it
-  -- would make the default `lake build` flaky.  It checks reliably standalone / at lower `-j`.
-  -- This is a proof-engineering limitation, NOT a math gap and NOT part of `ntt_spec`; the
-  -- underlying pieces (expand / public_key / encapsulate specs, and the user-facing
-  -- `kopis1024_from_bytes_then_encapsulate`) are all fully proved.
-  sorry
+  let* ⟨ksk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
+    rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
+  let* ⟨kpk, hkvec, hkhash⟩ ← kopis1024_public_key_spec ksk
+  have hpk3 : pkStructBytes kpk.pke_pk .Kopis_1024 rfl
+      = Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed) := by
+    rw [hkvec, skToPk_eq]; exact h4
+  let* ⟨r, hc, hk⟩ ← kopis1024_encapsulate_deterministic_spec kpk randomness
+    (pkStructBytes kpk.pke_pk .Kopis_1024 rfl)
+    (keygen_hpkvec kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h9))
+    (by rw [hkvec]; exact h8)
+    (keygen_hpkmat kpk.pke_pk .Kopis_1024 rfl (by decide) (by rw [hkvec]; exact h6))
+    (by rw [hkvec]; exact h7)
+    (keygen_hpkh kpk.pke_pk kpk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) (by rw [hkhash]; exact h5)
+      (by rw [hkvec]; exact h4))
+  have hE := congrArg (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)) hpk3
+  exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
 
 end Kopis.Properties
