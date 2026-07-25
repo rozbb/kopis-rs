@@ -7,25 +7,31 @@
 //! # Selection
 //!
 //! By default the choice is made automatically: on x86/x86-64 targets the AVX2 backend is
-//! compiled in alongside the serial one and selected at *runtime* by a CPUID check, so the
-//! resulting binary runs everywhere. On every other target only the serial backend exists.
+//! compiled in alongside the serial one and selected at *runtime* by a CPUID check, and on
+//! AArch64 the NEON backend is compiled in (NEON is baseline there, so it is always selected).
+//! Either way the resulting binary runs everywhere for its architecture. On every other target
+//! only the serial backend exists.
 //!
 //! The choice can be overridden with the `kopis_backend` cfg, e.g.
 //!
 //! ```sh
 //! RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
 //! RUSTFLAGS='--cfg kopis_backend="avx2"'   cargo build
+//! RUSTFLAGS='--cfg kopis_backend="neon"'   cargo build
 //! ```
 //!
 //! * `serial` compiles only the portable backend; no `unsafe`, no runtime dispatch.
 //! * `avx2` asserts at build time that AVX2 really is available for the target and then
 //!   compiles the AVX2 backend *unconditionally*, with no runtime check and no fallback.
 //!   If AVX2 is not available the build fails with a panic from this script.
+//! * `neon` does the same for AArch64 NEON: it asserts NEON is available for the target and
+//!   compiles the NEON backend unconditionally, or fails the build if it is not.
 //!
 //! "Available" is decided at build time, because that is the only time a compile-time panic
-//! can happen. It means: the target is x86/x86-64, and either `avx2` is in the target's
-//! enabled feature set (e.g. `-C target-feature=+avx2` or `-C target-cpu=native`), or we are
-//! not cross-compiling and the build host's CPU reports AVX2 support.
+//! can happen. For AVX2 it means: the target is x86/x86-64, and either `avx2` is in the
+//! target's enabled feature set (e.g. `-C target-feature=+avx2` or `-C target-cpu=native`), or
+//! we are not cross-compiling and the build host's CPU reports AVX2 support. For NEON it means
+//! the target is AArch64, where NEON is a mandatory part of the base ISA.
 
 use std::env;
 
@@ -33,6 +39,7 @@ use std::env;
 enum Override {
     Serial,
     Avx2,
+    Neon,
 }
 
 fn main() {
@@ -41,12 +48,15 @@ fn main() {
     println!("cargo::rerun-if-env-changed=RUSTFLAGS");
 
     // Declare every cfg we set or read, so `unexpected_cfgs` stays quiet.
-    println!("cargo::rustc-check-cfg=cfg(kopis_backend, values(\"serial\", \"avx2\"))");
+    println!("cargo::rustc-check-cfg=cfg(kopis_backend, values(\"serial\", \"avx2\", \"neon\"))");
     println!("cargo::rustc-check-cfg=cfg(kopis_avx2)");
     println!("cargo::rustc-check-cfg=cfg(kopis_avx2_assume)");
+    println!("cargo::rustc-check-cfg=cfg(kopis_neon)");
+    println!("cargo::rustc-check-cfg=cfg(kopis_neon_assume)");
 
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let is_x86 = arch == "x86_64" || arch == "x86";
+    let is_aarch64 = arch == "aarch64";
 
     match backend_override() {
         // Portable backend only. Nothing to emit: the AVX2 code is behind `kopis_avx2`.
@@ -75,13 +85,37 @@ fn main() {
             println!("cargo::rustc-cfg=kopis_avx2_assume");
         }
 
-        // Autodetect: on x86 compile both backends and pick at runtime via CPUID.
+        // Forced NEON: verify it is actually available, then compile it in with no runtime
+        // check. A failed verification is a hard build error, as requested.
+        Some(Override::Neon) => {
+            if !neon_is_available(is_aarch64) {
+                panic!(
+                    "kopis: --cfg kopis_backend=\"neon\" requires an AArch64 target (where NEON \
+                     is part of the base ISA), but the target architecture is `{}`. Remove the \
+                     override to use the portable backend.",
+                    arch
+                );
+            }
+            println!("cargo::rustc-cfg=kopis_neon");
+            println!("cargo::rustc-cfg=kopis_neon_assume");
+        }
+
+        // Autodetect: compile in the accelerated backend for the target's architecture and pick
+        // at runtime. On x86 that is AVX2 behind a CPUID check; on AArch64 it is NEON, which is
+        // always present, so the check is a constant `true`.
         None => {
             if is_x86 {
                 println!("cargo::rustc-cfg=kopis_avx2");
+            } else if is_aarch64 {
+                println!("cargo::rustc-cfg=kopis_neon");
             }
         }
     }
+}
+
+/// Whether NEON can be assumed present for the target being built: AArch64 mandates it.
+fn neon_is_available(is_aarch64: bool) -> bool {
+    is_aarch64
 }
 
 /// Parses `--cfg kopis_backend="..."` out of the flags cargo is passing to rustc.
@@ -127,9 +161,10 @@ fn backend_override() -> Option<Override> {
         requested = match value {
             "serial" => Some(Override::Serial),
             "avx2" => Some(Override::Avx2),
+            "neon" => Some(Override::Neon),
             other => panic!(
                 "kopis: unknown backend `{}` in --cfg kopis_backend. \
-                 Valid values are \"serial\" and \"avx2\".",
+                 Valid values are \"serial\", \"avx2\", and \"neon\".",
                 other
             ),
         };

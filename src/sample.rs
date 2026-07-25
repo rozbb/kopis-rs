@@ -128,6 +128,14 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
             continue;
         }
 
+        #[cfg(kopis_neon)]
+        #[allow(unsafe_code)]
+        if !MU.is_multiple_of(8) && crate::backend::neon_available() {
+            // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
+            secret.0[i][0] = unsafe { crate::backend::neon::sample::cbd::<MU>(buf) };
+            continue;
+        }
+
         cbd::<MU>(buf, &mut secret.0[i][0]);
     }
 

@@ -229,6 +229,14 @@ impl NttElem {
             return NttElem(unsafe { crate::backend::avx2::ntt::from_uniform(&elem.0) });
         }
 
+        #[cfg(kopis_neon)]
+        #[allow(unsafe_code)]
+        if crate::backend::neon_available() {
+            // SAFETY: `neon_available()` has just confirmed this CPU supports NEON, which is
+            // the whole of the backend's precondition.
+            return NttElem(unsafe { crate::backend::neon::ntt::from_uniform(&elem.0) });
+        }
+
         let mut a = [0i32; RING_DEG];
         for i in 0..RING_DEG {
             a[i] = elem.0[i] as i32;
@@ -248,6 +256,13 @@ impl NttElem {
         if crate::backend::avx2_available() {
             // SAFETY: as in `from_uniform`.
             return NttElem(unsafe { crate::backend::avx2::ntt::from_secret(&elem.0) });
+        }
+
+        #[cfg(kopis_neon)]
+        #[allow(unsafe_code)]
+        if crate::backend::neon_available() {
+            // SAFETY: as in `from_uniform`.
+            return NttElem(unsafe { crate::backend::neon::ntt::from_secret(&elem.0) });
         }
 
         let mut a = [0i32; RING_DEG];
@@ -283,6 +298,14 @@ fn pointwise_mul_acc(acc: &mut [i64; RING_DEG], lhs: &NttElem, rhs: &NttElem) {
         return;
     }
 
+    #[cfg(kopis_neon)]
+    #[allow(unsafe_code)]
+    if crate::backend::neon_available() {
+        // SAFETY: as in `NttElem::from_uniform`.
+        unsafe { crate::backend::neon::ntt::pointwise_mul_acc(acc, &lhs.0, &rhs.0) };
+        return;
+    }
+
     for i in 0..RING_DEG {
         acc[i] = acc[i].wrapping_add((lhs.0[i] as i64).wrapping_mul(rhs.0[i] as i64));
     }
@@ -296,6 +319,13 @@ fn reduce_invntt_to_ring_elem(acc: &[i64; RING_DEG]) -> RingElem {
     if crate::backend::avx2_available() {
         // SAFETY: as in `NttElem::from_uniform`.
         return RingElem(unsafe { crate::backend::avx2::ntt::reduce_invntt(acc) });
+    }
+
+    #[cfg(kopis_neon)]
+    #[allow(unsafe_code)]
+    if crate::backend::neon_available() {
+        // SAFETY: as in `NttElem::from_uniform`.
+        return RingElem(unsafe { crate::backend::neon::ntt::reduce_invntt(acc) });
     }
 
     let mut v = [0i32; RING_DEG];
@@ -583,6 +613,71 @@ mod test {
                 core::array::from_fn(|i| to_wrapping_u16(serial_out[i]));
             // SAFETY: as above.
             let vector_packed = unsafe { avx2::ntt::reduce_invntt(&vector_acc) };
+            assert_eq!(serial_packed, vector_packed, "inverse NTT and packing");
+        }
+    }
+
+    // The same reimplementation check as `avx2_matches_serial`, for the NEON backend: every one
+    // of the four diverted entry points must produce the very integers the serial code does.
+    #[cfg(kopis_neon)]
+    #[allow(unsafe_code)]
+    #[test]
+    fn neon_matches_serial() {
+        use crate::backend::neon;
+
+        if !neon::available() {
+            return;
+        }
+        let mut rng = rng();
+
+        for _ in 0..200 {
+            // Forward transform of a uniform (13-bit) element
+            let uniform = rand_uniform(&mut rng, 13);
+            let mut serial = [0i32; RING_DEG];
+            for i in 0..RING_DEG {
+                serial[i] = uniform.0[i] as i32;
+            }
+            ntt(&mut serial);
+            // SAFETY: `available()` returned true just above.
+            let vector = unsafe { neon::ntt::from_uniform(&uniform.0) };
+            assert_eq!(serial, vector, "forward NTT of a uniform element");
+
+            // Forward transform of a CBD secret, whose coefficients are negative wrapping-u16
+            let secret = rand_secret(&mut rng, 5);
+            let mut serial_secret = [0i32; RING_DEG];
+            for i in 0..RING_DEG {
+                serial_secret[i] = secret.0[i] as i16 as i32;
+            }
+            ntt(&mut serial_secret);
+            // SAFETY: as above.
+            let vector_secret = unsafe { neon::ntt::from_secret(&secret.0) };
+            assert_eq!(serial_secret, vector_secret, "forward NTT of a secret");
+
+            // Pointwise accumulation, over the worst case of MAX_L terms
+            let lhs = NttElem(vector);
+            let rhs = NttElem(vector_secret);
+            let mut serial_acc = [0i64; RING_DEG];
+            let mut vector_acc = [0i64; RING_DEG];
+            for _ in 0..crate::consts::MAX_L {
+                for i in 0..RING_DEG {
+                    serial_acc[i] =
+                        serial_acc[i].wrapping_add((lhs.0[i] as i64).wrapping_mul(rhs.0[i] as i64));
+                }
+                // SAFETY: as above.
+                unsafe { neon::ntt::pointwise_mul_acc(&mut vector_acc, &lhs.0, &rhs.0) };
+            }
+            assert_eq!(serial_acc, vector_acc, "pointwise multiply-accumulate");
+
+            // Reduction, inverse transform and packing of that accumulator
+            let mut serial_out = [0i32; RING_DEG];
+            for i in 0..RING_DEG {
+                serial_out[i] = mont_reduce(serial_acc[i]);
+            }
+            invntt(&mut serial_out);
+            let serial_packed: [u16; RING_DEG] =
+                core::array::from_fn(|i| to_wrapping_u16(serial_out[i]));
+            // SAFETY: as above.
+            let vector_packed = unsafe { neon::ntt::reduce_invntt(&vector_acc) };
             assert_eq!(serial_packed, vector_packed, "inverse NTT and packing");
         }
     }

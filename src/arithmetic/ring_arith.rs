@@ -52,6 +52,16 @@ impl RingElem {
             });
         }
 
+        #[cfg(kopis_neon)]
+        #[allow(unsafe_code)]
+        if (1..=13).contains(&bits_per_elem) && crate::backend::neon_available() {
+            // SAFETY: `neon_available()` has just confirmed this CPU supports NEON. The width
+            // and length preconditions are the range check above and the assertion.
+            return RingElem(unsafe {
+                crate::backend::neon::ser::deserialize(bytes, bits_per_elem)
+            });
+        }
+
         // Specialize based on bits_per_elem. unwraps are okay because of the check aboev
         if bits_per_elem == crate::consts::MODULUS_Q_BITS {
             let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();

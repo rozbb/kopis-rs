@@ -1,10 +1,10 @@
-use criterion::{Criterion, criterion_group, criterion_main};
-use kopis::kopis768::{KOPIS768_CIPHERTEXT_LEN, Kopis768PublicKey, Kopis768SecretKey};
+use criterion::{criterion_group, criterion_main, Criterion};
+use kopis::kopis768::{Kopis768PublicKey, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN};
 use rand::{CryptoRng, Rng};
 use sha3::{Digest, Sha3_512};
 use shake::{
-    Shake256,
     digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
 };
 use subtle::ConstantTimeEq;
 
@@ -169,15 +169,15 @@ fn bench(c: &mut Criterion) {
     let k2 = noic_init_end(&sk, &sid, &pw, &msg1, &msg2);
     assert_eq!(k1, k2);
 
-    c.bench_function("noic-kopis-initStart", |b| {
+    c.bench_function("noic-kopis768-initStart", |b| {
         b.iter(|| noic_init_start(&mut rng, &sid, &pw))
     });
 
-    c.bench_function("noic-kopis-resp", |b| {
+    c.bench_function("noic-kopis768-resp", |b| {
         b.iter(|| noic_resp(&mut rng, &sid, &pw, &msg1))
     });
 
-    c.bench_function("noic-kopis-initEnd", |b| {
+    c.bench_function("noic-kopis768-initEnd", |b| {
         b.iter(|| noic_init_end(&sk, &sid, &pw, &msg1, &msg2))
     });
 }

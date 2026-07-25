@@ -1,8 +1,8 @@
 #![no_std]
-// `unsafe` is confined to `backend::avx2`, which opts back in explicitly; with the AVX2
-// backend disabled the crate contains none at all.
-#![cfg_attr(not(kopis_avx2), forbid(unsafe_code))]
-#![cfg_attr(kopis_avx2, deny(unsafe_code))]
+// `unsafe` is confined to `backend::avx2` / `backend::neon`, whichever the target compiles in;
+// each opts back in explicitly. With no accelerated backend the crate contains none at all.
+#![cfg_attr(not(any(kopis_avx2, kopis_neon)), forbid(unsafe_code))]
+#![cfg_attr(any(kopis_avx2, kopis_neon), deny(unsafe_code))]
 #![warn(
     clippy::unwrap_used,
     missing_docs,
