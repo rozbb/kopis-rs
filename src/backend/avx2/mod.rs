@@ -4,6 +4,12 @@
 //! bit-identical output; the tests in each submodule check that against the serial code
 //! directly, which is what keeps the Lean correspondence proof meaningful for AVX2 builds.
 //!
+//! Hashing is deliberately absent. TurboSHAKE stays behind the `turboshake` crate for both
+//! backends, so there is no Keccak permutation here to keep in step with it — no matter how
+//! attractive a four-way one looks, since Kopis samples its matrix in ℓ² independent XOF calls.
+//! What this module does with XOF output, once the `turboshake` crate has produced it, is
+//! another matter: see [`sample`].
+//!
 //! # Safety
 //!
 //! This module is where the crate's `unsafe` lives, and it is there for exactly two reasons:
@@ -21,7 +27,6 @@
 //! are `&mut` or returned by value, so the borrow checker still separates them.
 
 mod cpu;
-pub(crate) mod keccak;
 pub(crate) mod ntt;
 pub(crate) mod sample;
 pub(crate) mod ser;

@@ -67,8 +67,12 @@ We have implemented benchmarks for key generation, encapsulation, and decapsulat
 The crate ships two implementations of its arithmetic. The **serial** backend is portable
 `no_std` Rust with no `unsafe` anywhere; it is the reference, and the one the Lean proofs are
 about. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
-bit-packing, and a four-way TurboSHAKE — that computes bit-identical results, checked against
-the serial code by tests in each module.
+bit-packing, and the binomial sampler — that computes bit-identical results, checked against the
+serial code by tests in each module.
+
+Hashing is not among those paths. Every TurboSHAKE invocation, in both backends, goes through
+the [`turboshake`](https://crates.io/crates/turboshake) crate; this crate contains no Keccak
+implementation of its own and no vectorized substitute for one.
 
 By default there is nothing to configure: on x86 targets both backends are compiled and the
 AVX2 one is selected at first use by a CPUID check, so the binary still runs on machines
@@ -94,15 +98,18 @@ On a 12th-generation Intel Core (`cargo bench`, microseconds, lower is better):
 
 | operation           | serial | avx2  | speedup |
 | ------------------- | -----: | ----: | ------: |
-| kopis512 keygen     |  20.1  |  8.4  |   2.4× |
-| kopis512 encap      |  12.0  |  4.4  |   2.7× |
-| kopis512 decap      |  18.9  |  7.1  |   2.7× |
-| kopis768 keygen     |  34.3  | 14.6  |   2.4× |
-| kopis768 encap      |  15.7  |  5.1  |   3.1× |
-| kopis768 decap      |  24.7  |  8.5  |   2.9× |
-| kopis1024 keygen    |  53.0  | 22.6  |   2.3× |
-| kopis1024 encap     |  20.9  |  6.0  |   3.5× |
-| kopis1024 decap     |  31.0  | 10.4  |   3.0× |
+| kopis512 keygen     |  20.3  |  8.5  |   2.4× |
+| kopis512 encap      |  12.1  |  3.6  |   3.4× |
+| kopis512 decap      |  19.1  |  6.0  |   3.2× |
+| kopis768 keygen     |  35.0  | 14.8  |   2.4× |
+| kopis768 encap      |  15.9  |  4.5  |   3.6× |
+| kopis768 decap      |  24.4  |  8.0  |   3.1× |
+| kopis1024 keygen    |  54.6  | 23.8  |   2.3× |
+| kopis1024 encap     |  21.1  |  6.3  |   3.4× |
+| kopis1024 decap     |  31.1  | 10.4  |   3.0× |
+
+Key generation gains least because it is the operation that spends the most of its time inside
+the XOF, which is untouched.
 
 # Formal Verification
 
