@@ -53,3 +53,20 @@ jobs:
         run: cargo build --target thumbv7em-none-eabi --release --no-default-features
       - name: no_std / cargo hack
         run: cargo hack build --target thumbv7em-none-eabi --release --each-feature --exclude-features default,std
+
+  # The serial backend is what gets extracted to Lean, so it has to keep building and passing
+  # on its own — an x86 runner would otherwise only ever exercise the AVX2 paths.
+  backends:
+    name: Test each backend explicitly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - name: serial
+        run: cargo test
+        env:
+          RUSTFLAGS: '-D warnings --cfg kopis_backend="serial"'
+      - name: avx2 (forced, no runtime detection)
+        run: cargo test
+        env:
+          RUSTFLAGS: '-D warnings -C target-feature=+avx2 --cfg kopis_backend="avx2"'

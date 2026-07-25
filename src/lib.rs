@@ -1,5 +1,8 @@
 #![no_std]
-#![forbid(unsafe_code)]
+// `unsafe` is confined to `backend::avx2`, which opts back in explicitly; with the AVX2
+// backend disabled the crate contains none at all.
+#![cfg_attr(not(kopis_avx2), forbid(unsafe_code))]
+#![cfg_attr(kopis_avx2, deny(unsafe_code))]
 #![warn(
     clippy::unwrap_used,
     missing_docs,
@@ -10,6 +13,7 @@
 #![doc = include_str!("../README.md")]
 
 mod arithmetic;
+mod backend;
 mod consts;
 mod impls;
 mod kem;

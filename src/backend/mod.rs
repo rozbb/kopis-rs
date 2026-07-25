@@ -1,0 +1,23 @@
+//! Architecture-specific backends.
+//!
+//! The portable ("serial") implementation of every operation lives in its natural home
+//! (`arithmetic/`, `ser.rs`, `sample.rs`) and is the *only* thing that exists when the crate is
+//! built with `--cfg kopis_backend="serial"`. That is also the form that gets extracted to
+//! Lean, so it is deliberately left untouched by everything here.
+//!
+//! This module holds the accelerated alternatives. Each serial entry point that has one starts
+//! with a small `#[cfg(kopis_avx2)]` block that hands off to the backend when it is usable;
+//! with the AVX2 backend disabled those blocks do not exist at all and the source reduces
+//! *exactly* to the portable code.
+//!
+//! All the `unsafe` in the crate lives either in [`avx2`] or in those dispatch blocks, and the
+//! blocks contain nothing but the guarded call. Everything else is under a crate-level
+//! `deny(unsafe_code)`, which becomes `forbid` outright in a serial build. See [`avx2`] for the
+//! safety argument the calls rely on.
+
+#[cfg(kopis_avx2)]
+#[allow(unsafe_code)]
+pub(crate) mod avx2;
+
+#[cfg(kopis_avx2)]
+pub(crate) use avx2::available as avx2_available;

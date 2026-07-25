@@ -62,9 +62,56 @@ println!("KEM ran successfully");
 
 We have implemented benchmarks for key generation, encapsulation, and decapsulation for all variants. Simply run `cargo bench`.
 
+# Backends
+
+The crate ships two implementations of its arithmetic. The **serial** backend is portable
+`no_std` Rust with no `unsafe` anywhere; it is the reference, and the one the Lean proofs are
+about. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
+bit-packing, and a four-way TurboSHAKE — that computes bit-identical results, checked against
+the serial code by tests in each module.
+
+By default there is nothing to configure: on x86 targets both backends are compiled and the
+AVX2 one is selected at first use by a CPUID check, so the binary still runs on machines
+without AVX2. On every other target only the serial backend exists.
+
+The choice can be forced with the `kopis_backend` cfg:
+
+```sh
+# portable only: no unsafe, no runtime dispatch, and what gets extracted to Lean
+RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
+
+# AVX2 unconditionally, with no runtime check and no fallback
+RUSTFLAGS='--cfg kopis_backend="avx2"' cargo build
+```
+
+`avx2` makes the build script verify that AVX2 really is available for the target — the target
+must be x86, and either `avx2` must be in the enabled target features (`-C target-feature=+avx2`,
+`-C target-cpu=native`) or the build must be a native one on a CPU that reports AVX2. If it is
+not, the build fails with an explanatory panic rather than producing a binary that would fault
+at run time.
+
+On a 12th-generation Intel Core (`cargo bench`, microseconds, lower is better):
+
+| operation           | serial | avx2  | speedup |
+| ------------------- | -----: | ----: | ------: |
+| kopis512 keygen     |  20.1  |  8.4  |   2.4× |
+| kopis512 encap      |  12.0  |  4.4  |   2.7× |
+| kopis512 decap      |  18.9  |  7.1  |   2.7× |
+| kopis768 keygen     |  34.3  | 14.6  |   2.4× |
+| kopis768 encap      |  15.7  |  5.1  |   3.1× |
+| kopis768 decap      |  24.7  |  8.5  |   2.9× |
+| kopis1024 keygen    |  53.0  | 22.6  |   2.3× |
+| kopis1024 encap     |  20.9  |  6.0  |   3.5× |
+| kopis1024 decap     |  31.0  | 10.4  |   3.0× |
+
 # Formal Verification
 
 We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates `lean/ExtractedRust.lean`.
+
+The extraction covers the serial backend only — the script sets `--cfg kopis_backend="serial"`,
+which removes the AVX2 dispatch before the compiler sees the crate, so what is extracted is
+exactly the portable code. The AVX2 backend is held to the same behaviour by tests that compare
+it against the serial code operation by operation, rather than by the proofs.
 
 That extracted code is then proved to match an audited Lean specification of Kopis. The proofs live in [`lean/`](lean/); see [`lean/README.md`](lean/README.md) for the layout. To check them:
 

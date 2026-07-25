@@ -22,7 +22,7 @@ fn cbd_diff(raw: u32, half: u32, mask: u32) -> u16 {
 }
 
 /// Computes the Centered Binomial Distribution using the given bytes as randomness
-fn cbd<const MU: usize>(buf: &[u8], out: &mut RingElem) {
+pub(crate) fn cbd<const MU: usize>(buf: &[u8], out: &mut RingElem) {
     assert_eq!(buf.len(), RING_DEG * MU / 8);
 
     // The three parameter sets use MU = 8, 10, and 6, and each gets a specialized branchless
@@ -101,6 +101,14 @@ fn cbd<const MU: usize>(buf: &[u8], out: &mut RingElem) {
 pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
     seed: &[u8; 32],
 ) -> Matrix<L, 1> {
+    // ℓ ≤ 4 for every parameter set, so the whole vector is one four-lane XOF batch.
+    #[cfg(kopis_avx2)]
+    #[allow(unsafe_code)]
+    if crate::backend::avx2_available() {
+        // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2.
+        return unsafe { crate::backend::avx2::sample::gen_secret_from_seed::<L, MU>(seed) };
+    }
+
     let mut secret = Matrix::default();
     // Buffer to hold XOF bytes. Can't do const math here, so we make it the max size
     // and cut it down
@@ -124,6 +132,14 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
 ///
 /// For each element (i,j), we compute TurboSHAKE128(seed || i || j, 256*13/8, DOMSEP_GENMAT).
 pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L, L> {
+    // The ℓ² entries are independent XOF calls, so they batch four to a vector.
+    #[cfg(kopis_avx2)]
+    #[allow(unsafe_code)]
+    if crate::backend::avx2_available() {
+        // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2.
+        return unsafe { crate::backend::avx2::sample::gen_matrix_from_seed::<L>(seed) };
+    }
+
     // Our output is a matrix of ring elements
     let mut mat = Matrix::default();
     // For each ring element we need to sample the same number of bytes

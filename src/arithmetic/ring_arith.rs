@@ -41,6 +41,17 @@ impl RingElem {
     pub(crate) fn deserialize(bytes: &[u8], bits_per_elem: usize) -> Self {
         assert_eq!(bytes.len(), bits_per_elem * RING_DEG / 8);
 
+        // One AVX2 unpacker covers every width, so it subsumes both specializations below.
+        #[cfg(kopis_avx2)]
+        #[allow(unsafe_code)]
+        if (1..=13).contains(&bits_per_elem) && crate::backend::avx2_available() {
+            // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2. The width
+            // and length preconditions are the range check above and the assertion.
+            return RingElem(unsafe {
+                crate::backend::avx2::ser::deserialize(bytes, bits_per_elem)
+            });
+        }
+
         // Specialize based on bits_per_elem. unwraps are okay because of the check aboev
         if bits_per_elem == crate::consts::MODULUS_Q_BITS {
             let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();
