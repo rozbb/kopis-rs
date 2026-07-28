@@ -170,7 +170,7 @@ fn test_file(filename: &str) {
 fn pqm4_kats() {
     let filenames = [
         "pqm4_test_vectors-kopis768-speed.txt",
-        "pqm4_test_vectors-kopis768-stack.txt"
+        "pqm4_test_vectors-kopis768-stack.txt",
     ];
 
     for filename in filenames {
