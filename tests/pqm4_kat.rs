@@ -1,9 +1,11 @@
 //! This module runs known-answer tests (KATs) using the test vectors distributed with the pqm4
 //! implementation of Kopis.
 //!
-//! Vectors are read from `pqm4_test_vectors.txt`. Every line that starts with `#` is a comment and
-//! is skipped, as are blank lines. The remaining lines come in groups of 6, one group per test
-//! vector, with the labels appearing in this fixed order:
+//! Vectors are read from `pqm4_test_vectors-kopis<LEVEL>-<IMPL>.txt`, where `<LEVEL>` is 512, 768,
+//! or 1024, and `<IMPL>` is `speed` or `stack` (the two pqm4 implementations of each parameter
+//! set, which must agree with each other and with us). Every line that starts with `#` is a
+//! comment and is skipped, as are blank lines. The remaining lines come in groups of 6, one group
+//! per test vector, with the labels appearing in this fixed order:
 //!
 //! * `keyseed`: The 32-byte seed the secret key is expanded from.
 //! * `encseed`: The 32-byte randomness used to encapsulate to the corresponding public key.
@@ -14,17 +16,17 @@
 //! * `ss`: The shared secret corresponding to `ct`.
 //!
 //! Each line has the form `<label><SPACE><content>`, where `<content>` is hex-encoded bytes.
-//!
-//! The vector file holds Kopis-768 vectors.
 
 use std::{fs, path::Path};
 
-use kopis::kopis768::{
-    KOPIS768_CIPHERTEXT_LEN, Kopis768Ciphertext, Kopis768PublicKey, Kopis768SecretKey,
-};
+use kopis::{kopis512, kopis768, kopis1024};
 
 /// The labels of the 6 lines making up a test vector, in the order they appear in the file.
 const LABELS: [&str; 6] = ["keyseed", "encseed", "pk", "sk", "ct", "ss"];
+
+/// The pqm4 implementations that each parameter set has vectors for. Both must produce identical
+/// answers.
+const IMPLS: [&str; 2] = ["speed", "stack"];
 
 /// A single pqm4 known-answer test vector. The expanded `sk` line is not represented here, since
 /// this crate only ever handles the 32-byte seed form of a secret key.
@@ -116,64 +118,91 @@ fn read_vectors(path: &Path) -> Vec<Pqm4Vector> {
         .collect()
 }
 
-fn test_file(filename: &str) {
-    let path = Path::new(filename);
-    let vectors = read_vectors(path);
-    assert!(!vectors.is_empty(), "no test vectors were read");
+/// Reads and verifies every vector file for a single Kopis level. This is a macro because each
+/// level uses distinct key/ciphertext types.
+macro_rules! pqm4_kat_test {
+    (
+        $test_name:ident,
+        $level:expr,
+        $sk_ty:ty,
+        $pk_ty:ty,
+        $ct_len:expr
+    ) => {
+        #[test]
+        fn $test_name() {
+            for impl_name in IMPLS {
+                let path_str = format!("tests/pqm4_test_vectors-kopis{}-{impl_name}.txt", $level);
+                let path = Path::new(&path_str);
+                let vectors = read_vectors(path);
+                assert!(!vectors.is_empty(), "{path_str}: no test vectors were read");
 
-    for vector in &vectors {
-        let ctx = || format!("vector starting on line {}", vector.line_num);
+                for vector in &vectors {
+                    let ctx = format!("{path_str}: vector starting on line {}", vector.line_num);
 
-        // Expand the secret key from its seed and check that the derived public key matches the
-        // recorded one.
-        let sk = Kopis768SecretKey::expand_from_seed(&vector.keyseed);
-        let mut pk_bytes = [0u8; Kopis768PublicKey::SERIALIZED_LEN];
-        sk.public_key().serialize(&mut pk_bytes);
-        assert_eq!(
-            pk_bytes.as_slice(),
-            vector.pk.as_slice(),
-            "{}: derived public key does not match recorded pk",
-            ctx()
-        );
+                    // Expand the secret key from its seed and check that the derived public key
+                    // matches the recorded one.
+                    let sk = <$sk_ty>::expand_from_seed(&vector.keyseed);
+                    let mut pk_bytes = [0u8; <$pk_ty>::SERIALIZED_LEN];
+                    sk.public_key().serialize(&mut pk_bytes);
+                    assert_eq!(
+                        pk_bytes.as_slice(),
+                        vector.pk.as_slice(),
+                        "{}: derived public key does not match recorded pk",
+                        ctx
+                    );
 
-        // Deserialize the recorded public key and re-run the deterministic encapsulation. The
-        // ciphertext and shared secret must match the recorded values.
-        let pk = Kopis768PublicKey::from_bytes(&pk_bytes);
-        let (ct, ss) = pk.encapsulate_deterministic(&vector.encseed);
-        assert_eq!(
-            ct.as_slice(),
-            vector.ct.as_slice(),
-            "{}: recomputed ct does not match recorded value",
-            ctx()
-        );
-        assert_eq!(
-            ss.as_bytes().as_slice(),
-            vector.ss.as_slice(),
-            "{}: recomputed ss does not match recorded value",
-            ctx()
-        );
+                    // Deserialize the recorded public key and re-run the deterministic
+                    // encapsulation. The ciphertext and shared secret must match the recorded
+                    // values.
+                    let pk = <$pk_ty>::from_bytes(&pk_bytes);
+                    let (ct, ss) = pk.encapsulate_deterministic(&vector.encseed);
+                    assert_eq!(
+                        ct.as_slice(),
+                        vector.ct.as_slice(),
+                        "{}: recomputed ct does not match recorded value",
+                        ctx
+                    );
+                    assert_eq!(
+                        ss.as_bytes().as_slice(),
+                        vector.ss.as_slice(),
+                        "{}: recomputed ss does not match recorded value",
+                        ctx
+                    );
 
-        // Decapsulating the recorded ciphertext must recover the recorded shared secret.
-        let recorded_ct: Kopis768Ciphertext =
-            to_array::<KOPIS768_CIPHERTEXT_LEN>(&vector.ct, "ct", vector.line_num);
-        let decapped_ss = sk.decapsulate(&recorded_ct);
-        assert_eq!(
-            decapped_ss.as_bytes().as_slice(),
-            vector.ss.as_slice(),
-            "{}: decapsulated ss does not match recorded value",
-            ctx()
-        );
-    }
+                    // Decapsulating the recorded ciphertext must recover the recorded shared
+                    // secret.
+                    let recorded_ct = to_array::<{ $ct_len }>(&vector.ct, "ct", vector.line_num);
+                    let decapped_ss = sk.decapsulate(&recorded_ct);
+                    assert_eq!(
+                        decapped_ss.as_bytes().as_slice(),
+                        vector.ss.as_slice(),
+                        "{}: decapsulated ss does not match recorded value",
+                        ctx
+                    );
+                }
+            }
+        }
+    };
 }
 
-#[test]
-fn pqm4_kats() {
-    let filenames = [
-        "pqm4_test_vectors-kopis768-speed.txt",
-        "pqm4_test_vectors-kopis768-stack.txt",
-    ];
-
-    for filename in filenames {
-        test_file(&format!("tests/{filename}"));
-    }
-}
+pqm4_kat_test!(
+    pqm4_kat_kopis512,
+    512,
+    kopis512::Kopis512SecretKey,
+    kopis512::Kopis512PublicKey,
+    kopis512::KOPIS512_CIPHERTEXT_LEN
+);
+pqm4_kat_test!(
+    pqm4_kat_kopis768,
+    768,
+    kopis768::Kopis768SecretKey,
+    kopis768::Kopis768PublicKey,
+    kopis768::KOPIS768_CIPHERTEXT_LEN
+);
+pqm4_kat_test!(
+    pqm4_kat_kopis1024,
+    1024,
+    kopis1024::Kopis1024SecretKey,
+    kopis1024::Kopis1024PublicKey,
+    kopis1024::KOPIS1024_CIPHERTEXT_LEN
+);
