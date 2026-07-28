@@ -1,4 +1,5 @@
-//! This module contains code for running known-answer tests (KATs).
+//! This module contains code for running known-answer tests (KATs) against the reference
+//! implementation.
 //!
 //! These tests read test vectors from `test_vectors-kopis<LEVEL>.jsonl` (where `<LEVEL>` is 512,
 //! 768, or 1024) and verify that our implementation reproduces the recorded values.
@@ -90,7 +91,7 @@ macro_rules! kat_test {
     ) => {
         #[test]
         fn $test_name() {
-            let path_str = format!("tests/test_vectors-kopis{}.jsonl", $level);
+            let path_str = format!("tests/ref_test_vectors-kopis{}.jsonl", $level);
             let path = Path::new(&path_str);
             let vectors = read_vectors(path);
 
