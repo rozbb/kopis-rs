@@ -17,6 +17,12 @@
 //! crate-level `deny(unsafe_code)`, which becomes `forbid` outright in a serial build. See
 //! [`avx2`] for the safety argument the calls rely on.
 
+/// The instruction-set-independent half of the two-prime NTT both vector backends use: the
+/// moduli, the ψ tables and the correctness argument. Their intrinsics and per-lane tables,
+/// whose shape depends on the vector width, stay in each backend.
+#[cfg(any(kopis_avx2, kopis_neon))]
+pub(crate) mod crt;
+
 #[cfg(kopis_avx2)]
 #[allow(unsafe_code)]
 pub(crate) mod avx2;

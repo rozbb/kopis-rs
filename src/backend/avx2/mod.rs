@@ -8,8 +8,8 @@
 //! from the portable code it stands in for. It transforms over two 16-bit primes rather than
 //! one 26-bit one, because AVX2 has a 16-bit high-multiply and no 32-bit equivalent; only the
 //! endpoints of the pipeline agree with the portable version, so it is tested end to end and
-//! the Lean proof does not cover it. Its module docs make the full argument. The NEON backend
-//! keeps the single prime and stays bit-identical.
+//! the Lean proof does not cover it. [`super::crt`] makes the full argument; the NEON backend
+//! does the same thing with the same constants.
 //!
 //! Hashing is deliberately absent. TurboSHAKE stays behind the `turboshake` crate for both
 //! backends, so there is no Keccak permutation here to keep in step with it — no matter how

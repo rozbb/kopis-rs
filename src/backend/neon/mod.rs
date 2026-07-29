@@ -1,11 +1,15 @@
 //! The AArch64 NEON backend.
 //!
-//! Every routine here is a lane-parallel restatement of a portable one and produces
-//! bit-identical output; the tests in each submodule check that against the serial code
-//! directly, which is what keeps the Lean correspondence proof meaningful for NEON builds. It
-//! mirrors [`super::avx2`] operation for operation — the only structural difference is that a
-//! NEON vector is four `i32`s rather than eight, so the negacyclic NTT's whole-vector levels run
-//! down to `len = 4` and only the last two levels (`len = 2, 1`) live inside a vector.
+//! [`sample`] and [`ser`] are lane-parallel restatements of portable routines and produce
+//! bit-identical output; the tests in each check that against the serial code directly, which
+//! is what keeps the Lean correspondence proof meaningful for them.
+//!
+//! [`ntt`] is not. It transforms over the two 16-bit primes of [`super::crt`] rather than the
+//! portable code's single 26-bit one, so only the endpoints of the pipeline agree and it is
+//! tested end to end by `neon_matches_serial` in [`crate::arithmetic::ntt`]. That module makes
+//! the argument for the trade; both vector backends do the same thing, and differ only in
+//! vector width — 8 `i16` here against AVX2's 16, so the NTT's whole-vector levels run down to
+//! `len = 8` and the last three live inside a vector.
 //!
 //! Hashing is deliberately absent, exactly as in the AVX2 backend: TurboSHAKE stays behind the
 //! `turboshake` crate, and Kopis samples its matrix in ℓ² independent XOF calls, so there is no

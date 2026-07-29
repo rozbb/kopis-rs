@@ -550,137 +550,78 @@ mod test {
         assert_eq!(a_ntt.mul_transpose(&s_ntt), mat_a.mul_transpose(&vec_s));
     }
 
-    // Unlike NEON, the AVX2 backend is *not* a reimplementation of the transforms above: it
-    // works over two 16-bit primes, so its NTT-domain values are different integers and nothing
+    // Neither vector backend is a reimplementation of the transforms above: both work over
+    // two 16-bit primes, so their NTT-domain values are different integers entirely and nothing
     // in the middle of the pipeline can be compared. What must still hold is that the endpoints
     // agree — feeding the same ring elements through both routes must produce the very same
-    // coefficients. This is the whole of the cross-check that the Lean correspondence proof
-    // would otherwise provide, so check it over the accumulator shape of every parameter set;
-    // those shapes are what keeps the product inside the bound the CRT reconstruction is exact
-    // within.
+    // coefficients. Check that over the accumulator shape of every parameter set, since those
+    // shapes are what keep the product inside the bound the CRT reconstruction is exact within.
+    #[allow(unused_macros)]
+    macro_rules! backend_matches_serial {
+        ($name:ident, $backend:path) => {
+            #[allow(unsafe_code)]
+            #[test]
+            fn $name() {
+                use $backend as backend;
+
+                if !backend::available() {
+                    return;
+                }
+                let mut rng = rng();
+
+                // (ℓ, μ/2) for kopis512, kopis768 and kopis1024
+                for (ell, half_mu) in [(2usize, 5u16), (3, 4), (4, 3)] {
+                    for _ in 0..100 {
+                        let uniform = rand_uniform(&mut rng, 13);
+                        let secret = rand_secret(&mut rng, half_mu);
+
+                        // The portable route: transform, accumulate ℓ products, reduce, invert.
+                        let mut serial_u = [0i32; RING_DEG];
+                        let mut serial_s = [0i32; RING_DEG];
+                        for i in 0..RING_DEG {
+                            serial_u[i] = uniform.0[i] as i32;
+                            serial_s[i] = secret.0[i] as i16 as i32;
+                        }
+                        ntt(&mut serial_u);
+                        ntt(&mut serial_s);
+                        let mut serial_acc = [0i64; RING_DEG];
+                        for _ in 0..ell {
+                            for i in 0..RING_DEG {
+                                serial_acc[i] = serial_acc[i].wrapping_add(
+                                    (serial_u[i] as i64).wrapping_mul(serial_s[i] as i64),
+                                );
+                            }
+                        }
+                        let mut serial_out = [0i32; RING_DEG];
+                        for i in 0..RING_DEG {
+                            serial_out[i] = mont_reduce(serial_acc[i]);
+                        }
+                        invntt(&mut serial_out);
+                        let serial_packed: [u16; RING_DEG] =
+                            core::array::from_fn(|i| to_wrapping_u16(serial_out[i]));
+
+                        // The same journey through the two 16-bit primes.
+                        // SAFETY: `available()` returned true just above.
+                        let vector_packed = unsafe {
+                            let u = backend::ntt::from_uniform(&uniform.0);
+                            let s = backend::ntt::from_secret(&secret.0);
+                            let mut acc = [0i64; RING_DEG];
+                            for _ in 0..ell {
+                                backend::ntt::pointwise_mul_acc(&mut acc, &u, &s);
+                            }
+                            backend::ntt::reduce_invntt(&acc)
+                        };
+
+                        assert_eq!(serial_packed, vector_packed, "two-prime pipeline, ℓ={ell}");
+                    }
+                }
+            }
+        };
+    }
+
     #[cfg(kopis_avx2)]
-    #[allow(unsafe_code)]
-    #[test]
-    fn avx2_matches_serial() {
-        use crate::backend::avx2;
+    backend_matches_serial!(avx2_matches_serial, crate::backend::avx2);
 
-        if !avx2::available() {
-            return;
-        }
-        let mut rng = rng();
-
-        // (ℓ, μ/2) for kopis512, kopis768 and kopis1024
-        for (ell, half_mu) in [(2usize, 5u16), (3, 4), (4, 3)] {
-            for _ in 0..100 {
-                let uniform = rand_uniform(&mut rng, 13);
-                let secret = rand_secret(&mut rng, half_mu);
-
-                // The serial route: transform, accumulate ℓ products, reduce and invert.
-                let mut serial_u = [0i32; RING_DEG];
-                let mut serial_s = [0i32; RING_DEG];
-                for i in 0..RING_DEG {
-                    serial_u[i] = uniform.0[i] as i32;
-                    serial_s[i] = secret.0[i] as i16 as i32;
-                }
-                ntt(&mut serial_u);
-                ntt(&mut serial_s);
-                let mut serial_acc = [0i64; RING_DEG];
-                for _ in 0..ell {
-                    for i in 0..RING_DEG {
-                        serial_acc[i] = serial_acc[i]
-                            .wrapping_add((serial_u[i] as i64).wrapping_mul(serial_s[i] as i64));
-                    }
-                }
-                let mut serial_out = [0i32; RING_DEG];
-                for i in 0..RING_DEG {
-                    serial_out[i] = mont_reduce(serial_acc[i]);
-                }
-                invntt(&mut serial_out);
-                let serial_packed: [u16; RING_DEG] =
-                    core::array::from_fn(|i| to_wrapping_u16(serial_out[i]));
-
-                // The same journey through the two 16-bit primes.
-                // SAFETY: `available()` returned true above.
-                let crt_packed = unsafe {
-                    let u = avx2::ntt::from_uniform(&uniform.0);
-                    let s = avx2::ntt::from_secret(&secret.0);
-                    let mut acc = [0i64; RING_DEG];
-                    for _ in 0..ell {
-                        avx2::ntt::pointwise_mul_acc(&mut acc, &u, &s);
-                    }
-                    avx2::ntt::reduce_invntt(&acc)
-                };
-
-                assert_eq!(serial_packed, crt_packed, "two-prime pipeline, ℓ={ell}");
-            }
-        }
-    }
-
-    // The NEON backend, unlike AVX2, *is* a reimplementation of the transforms above rather
-    // than a different algorithm — it keeps the single prime — so it can be held to the much
-    // stronger standard: every one of the four diverted entry points must produce the very
-    // integers the serial code does, which is what keeps the Lean correspondence proof
-    // covering AArch64 builds. Check each against the portable code it replaces.
     #[cfg(kopis_neon)]
-    #[allow(unsafe_code)]
-    #[test]
-    fn neon_matches_serial() {
-        use crate::backend::neon;
-
-        if !neon::available() {
-            return;
-        }
-        let mut rng = rng();
-
-        for _ in 0..200 {
-            // Forward transform of a uniform (13-bit) element
-            let uniform = rand_uniform(&mut rng, 13);
-            let mut serial = [0i32; RING_DEG];
-            for i in 0..RING_DEG {
-                serial[i] = uniform.0[i] as i32;
-            }
-            ntt(&mut serial);
-            // SAFETY: `available()` returned true just above.
-            let vector = unsafe { neon::ntt::from_uniform(&uniform.0) };
-            assert_eq!(serial, vector, "forward NTT of a uniform element");
-
-            // Forward transform of a CBD secret, whose coefficients are negative wrapping-u16
-            let secret = rand_secret(&mut rng, 5);
-            let mut serial_secret = [0i32; RING_DEG];
-            for i in 0..RING_DEG {
-                serial_secret[i] = secret.0[i] as i16 as i32;
-            }
-            ntt(&mut serial_secret);
-            // SAFETY: as above.
-            let vector_secret = unsafe { neon::ntt::from_secret(&secret.0) };
-            assert_eq!(serial_secret, vector_secret, "forward NTT of a secret");
-
-            // Pointwise accumulation, over the worst case of MAX_L terms
-            let lhs = NttElem(vector);
-            let rhs = NttElem(vector_secret);
-            let mut serial_acc = [0i64; RING_DEG];
-            let mut vector_acc = [0i64; RING_DEG];
-            for _ in 0..crate::consts::MAX_L {
-                for i in 0..RING_DEG {
-                    serial_acc[i] =
-                        serial_acc[i].wrapping_add((lhs.0[i] as i64).wrapping_mul(rhs.0[i] as i64));
-                }
-                // SAFETY: as above.
-                unsafe { neon::ntt::pointwise_mul_acc(&mut vector_acc, &lhs.0, &rhs.0) };
-            }
-            assert_eq!(serial_acc, vector_acc, "pointwise multiply-accumulate");
-
-            // Reduction, inverse transform and packing of that accumulator
-            let mut serial_out = [0i32; RING_DEG];
-            for i in 0..RING_DEG {
-                serial_out[i] = mont_reduce(serial_acc[i]);
-            }
-            invntt(&mut serial_out);
-            let serial_packed: [u16; RING_DEG] =
-                core::array::from_fn(|i| to_wrapping_u16(serial_out[i]));
-            // SAFETY: as above.
-            let vector_packed = unsafe { neon::ntt::reduce_invntt(&vector_acc) };
-            assert_eq!(serial_packed, vector_packed, "inverse NTT and packing");
-        }
-    }
+    backend_matches_serial!(neon_matches_serial, crate::backend::neon);
 }

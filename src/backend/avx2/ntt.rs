@@ -94,101 +94,11 @@ use core::arch::x86_64::*;
 
 use crate::consts::RING_DEG;
 
-// ---------------------------------------------------------------------------------------
-// Constants, generated and checked by the scalar model described above: both primes prime and
-// 1 mod 512, both Barrett constants verified exhaustively over the whole i16 input range, and
-// the CRT reconstruction verified against exact integer arithmetic.
-// ---------------------------------------------------------------------------------------
+use crate::backend::crt::{
+    self, BARRETT_SH, CRT_Q, CRT_Q1_INV_MONT, CRT_Q_HALF, Q1, Q1_INV, Q2, Q2_INV,
+    ZETAS_Q1, ZETAS_Q2,
+};
 
-/// The first NTT prime
-const Q1: i16 = 7681;
-/// The second NTT prime
-const Q2: i16 = 10753;
-/// q₁⁻¹ mod 2^16, for signed Montgomery reduction with R = 2^16
-const Q1_INV: i16 = -7679;
-/// q₂⁻¹ mod 2^16
-const Q2_INV: i16 = -10751;
-/// round(2^(16+11) / q₁), the Barrett multiplier for q₁
-const Q1_BARRETT_M: i16 = 17474;
-/// round(2^(16+11) / q₂)
-const Q2_BARRETT_M: i16 = 12482;
-/// The Barrett shift, shared by both primes. q₁ cannot go higher without its multiplier leaving
-/// an `i16` lane, and q₂ reaches the same `|r| ≤ q/2` at 11 as it does at 12, so one value
-/// serves both. That it *is* shared matters for more than tidiness: the shift is a `vpsraw`
-/// immediate, so a per-prime value would make every function below a const generic and
-/// monomorphize the whole transform twice, doubling this backend's instruction footprint.
-const BARRETT_SH: i32 = 11;
-/// 256⁻¹ · 2^32 mod q₁: undoes both the 1/256 of the inverse transform and the 2^-16 the
-/// pointwise Montgomery reduction introduces
-const INVNTT_SCALE_1: i16 = 1912;
-/// 256⁻¹ · 2^32 mod q₂
-const INVNTT_SCALE_2: i16 = 2536;
-/// q₁·q₂, the CRT modulus
-const CRT_Q: i32 = 82593793;
-/// ⌊q₁q₂/2⌋, the centering threshold for the reconstructed product
-const CRT_Q_HALF: i32 = 41296896;
-/// (q₁⁻¹ mod q₂) · 2^16 mod q₂, the Garner coefficient in Montgomery form
-const CRT_Q1_INV_MONT: i16 = 3563;
-
-/// Powers of ψ₁ = 62 (a primitive 512th root of unity mod q₁) in bit-reversed order and
-/// Montgomery form: `ZETAS_Q1[k] = ψ₁^brv8(k) · 2^16 mod q₁`, centered. Same layout as
-/// [`crate::arithmetic::ntt::ZETAS`]; the `crt_zetas_tables_are_correct` test recomputes both
-/// tables from ψ and checks every entry.
-#[rustfmt::skip]
-const ZETAS_Q1: [i16; 256] = [
-    -3593, 3777, -3182, 3625, -3696, -1100, 2456, 2194, 121, -2250, 834, -2495, -2319, 2876, -1701, 1414,
-    2816, -2088, -2237, 1986, -1599, 1993, 3706, -2006, -1525, -2557, 1296, 1483, -2830, 3364, 617, 1921,
-    -3689, -1738, 3266, -3600, 810, 1887, -638, -7, -438, -679, -1305, -1760, 396, -3174, -3555, -1881,
-    3772, -2535, -2440, -2555, 1535, -549, 3153, 2310, -1399, 1321, 514, -2956, -103, 2804, -2043, -1431,
-    -1054, 1698, -3456, 1166, 2426, 3831, 915, -2, -3417, -194, 2919, 2789, 3405, 2385, -2113, -2732,
-    2175, 373, 3692, -730, -1756, 3135, -2391, 660, -1497, 2572, -3145, 1350, -2224, -3588, -1681, 2883,
-    -1390, 1598, 3750, 2762, 2835, 2764, -2233, 3816, -1533, 1464, -727, 1521, 1386, -3428, -921, -2743,
-    -2160, 2649, -859, 2579, 1532, 1919, -486, 404, -1056, 783, 1799, -2665, 3480, 2133, -3310, -1168,
-    -17, 3744, 2422, 2001, 1278, 929, -1348, -2230, -179, -1242, -2059, -1070, 2161, 1649, 2072, 3177,
-    -2071, 1121, -436, 236, 715, 670, -658, -1476, -2378, 2767, 3542, -226, 1203, 1181, -151, -3794,
-    1712, -222, 2786, -451, -3547, 1779, -1151, -434, 3568, -3693, 3581, -1586, 1509, 2918, 2339, -1407,
-    3434, -3550, 2340, 2891, 2998, -3314, 3461, -2719, -2247, -2589, 1144, 1072, 1295, -2815, -3770, 3450,
-    3781, -2258, 796, 3163, -3208, -589, 2963, -124, 3214, 3334, -3366, -3745, 3723, 1931, -429, -402,
-    -3408, 83, -1526, 826, -1338, 2345, -2303, 2515, -642, -1837, -2965, -791, 370, 293, 3312, 2083,
-    -1689, -777, 2070, 2262, -893, 2386, -188, -1519, -2874, -1404, 1012, 2130, 1441, 2532, -3335, -1084,
-    -3343, 2937, 509, -1403, 2812, 3763, 592, 2005, 3657, 2460, -3677, 3752, 692, 1669, 2167, -3287,
-];
-
-/// Powers of ψ₂ = 10 (a primitive 512th root of unity mod q₂), laid out as for [`ZETAS_Q1`]
-#[rustfmt::skip]
-const ZETAS_Q2: [i16; 256] = [
-    1018, 223, 4188, -3688, 2413, -3686, 357, -376, 2695, -730, 4855, 2236, -425, 4544, 3364, -3784,
-    4875, -1520, -5063, -4035, 2503, 918, -3012, 4347, 1931, -1341, -3823, -341, -4095, -5175, -2629, -5213,
-    -3091, 4129, -2935, 2790, 268, 1284, 4, 3550, 2982, 1287, 205, 4513, -2565, -2178, 4616, -193,
-    -4102, 4742, -4876, -4744, -2984, -3062, -847, -4379, -2388, -1009, -3085, -1299, -2576, 4189, 1085, 544,
-    5023, 794, -567, -3198, 4734, -2998, 3441, -5341, 675, 2271, 1615, -2213, 512, 2774, 3057, -2045,
-    3615, -1458, -909, 5114, 2981, -4977, -116, 4580, -454, -5064, 4808, -1841, -886, -1356, -4828, -5156,
-    2737, 4286, -3169, -578, 5294, -636, 400, 151, -2884, -336, -1006, -326, 1572, -2740, -779, 2206,
-    -1586, 1068, -3715, -1268, 2684, -5116, 1324, 2973, -2234, -4123, 3337, -864, 472, -467, 970, 635,
-    -573, 2230, -1132, -4621, 2624, -4601, 3570, -3760, -5309, 3453, -5215, 854, -4250, 2428, 1381, 5172,
-    -5015, -4447, 3135, 2662, 3524, -1573, 2139, 458, -2196, -2657, 4782, -3410, 2062, 2015, -4784, 1635,
-    1349, -1722, 2909, -4359, 2680, 2087, 40, 3241, -2439, 2117, 2050, 2118, -4144, -274, 3148, -1930,
-    1992, 4408, 5005, -4428, 2419, 1639, 2283, -778, -2374, 663, 1409, -2237, -4254, -1122, 97, -5313,
-    -3535, -2813, 5083, 279, 4328, 2279, 2151, 355, -4003, 1204, -5356, -624, 5120, -4519, -1689, 1056,
-    3891, -3827, 1663, -2625, -2449, 3995, -1160, 2788, -4540, 3125, 5068, 3096, 1893, -2807, -5268, 2205,
-    -4889, -152, 569, 4973, -825, 4393, 4000, 1510, 3419, -3360, 693, -3260, 4967, 4859, 2963, 554,
-    -5107, -73, -4891, -1927, 5334, 2605, 2487, -2529, -834, 1782, 1111, 2113, 4720, -4670, -1053, -4403,
-];
-
-/// Elementwise `ZETAS · q⁻¹ mod 2^16`, the multiplier that produces the Montgomery quotient in
-/// one step (as `ZETAS_QINV` does in `ntt.rs`)
-const fn zetas_qinv(zetas: &[i16; 256], qinv: i16) -> [i16; 256] {
-    let mut table = [0i16; 256];
-    let mut k = 0;
-    while k < 256 {
-        table[k] = zetas[k].wrapping_mul(qinv);
-        k += 1;
-    }
-    table
-}
-
-const ZETAS_Q1_QINV: [i16; 256] = zetas_qinv(&ZETAS_Q1, Q1_INV);
-const ZETAS_Q2_QINV: [i16; 256] = zetas_qinv(&ZETAS_Q2, Q2_INV);
 
 /// A 32-byte-aligned per-lane ψ table for the transposed levels, with its q⁻¹-scaled twin.
 /// Group `h` occupies entries `16h..16h + 16`; lane `m` of that group serves coefficient
@@ -259,16 +169,9 @@ static INV2_Q2: Tbl<64> = lane_tbl(&ZETAS_Q2, Q2_INV, 127, -1, -4, true);
 static INV4_Q2: Tbl<32> = lane_tbl(&ZETAS_Q2, Q2_INV, 63, -1, -2, true);
 static INV8_Q2: Tbl<16> = lane_tbl(&ZETAS_Q2, Q2_INV, 31, 0, -1, true);
 
-/// Everything the transform needs for one of the two primes, so the level loops can be written
-/// once. The Barrett shift is *not* here: `vpsraw` takes an immediate, so it rides as a const
-/// generic on the functions that need it.
-struct Prime {
-    q: i16,
-    qinv: i16,
-    barrett_m: i16,
-    invntt_scale: i16,
-    zetas: &'static [i16; 256],
-    zetas_q: &'static [i16; 256],
+/// The per-lane ψ tables for one prime. Unlike everything in [`crate::backend::crt`], these
+/// are specific to this backend: their grouping is by AVX2's 16 `i16` lanes.
+struct LaneTables {
     fwd8: &'static Tbl<16>,
     fwd4: &'static Tbl<32>,
     fwd2: &'static Tbl<64>,
@@ -279,13 +182,7 @@ struct Prime {
     inv8: &'static Tbl<16>,
 }
 
-static P1: Prime = Prime {
-    q: Q1,
-    qinv: Q1_INV,
-    barrett_m: Q1_BARRETT_M,
-    invntt_scale: INVNTT_SCALE_1,
-    zetas: &ZETAS_Q1,
-    zetas_q: &ZETAS_Q1_QINV,
+static L1: LaneTables = LaneTables {
     fwd8: &FWD8_Q1,
     fwd4: &FWD4_Q1,
     fwd2: &FWD2_Q1,
@@ -296,23 +193,7 @@ static P1: Prime = Prime {
     inv8: &INV8_Q1,
 };
 
-/// The parameters for prime `SECOND` (`false` = q₁, `true` = q₂).
-///
-/// Selected by a const generic rather than passed as a `&Prime`, so that each monomorphization
-/// constant-folds the modulus, the Montgomery constant and the ψ-table addresses into the
-/// instruction stream. Specializing measurably beats sharing one copy between the primes, even
-/// though it doubles the instruction footprint of the transforms.
-const fn prime<const SECOND: bool>() -> &'static Prime {
-    if SECOND { &P2 } else { &P1 }
-}
-
-static P2: Prime = Prime {
-    q: Q2,
-    qinv: Q2_INV,
-    barrett_m: Q2_BARRETT_M,
-    invntt_scale: INVNTT_SCALE_2,
-    zetas: &ZETAS_Q2,
-    zetas_q: &ZETAS_Q2_QINV,
+static L2: LaneTables = LaneTables {
     fwd8: &FWD8_Q2,
     fwd4: &FWD4_Q2,
     fwd2: &FWD2_Q2,
@@ -322,6 +203,12 @@ static P2: Prime = Prime {
     inv4: &INV4_Q2,
     inv8: &INV8_Q2,
 };
+
+/// This backend's tables for prime `SECOND`, selected by const generic for the same reason
+/// [`crate::backend::crt::prime`] is: so each monomorphization folds the addresses in.
+const fn lanes<const SECOND: bool>() -> &'static LaneTables {
+    if SECOND { &L2 } else { &L1 }
+}
 
 // ---------------------------------------------------------------------------------------
 // Lane primitives
@@ -523,7 +410,8 @@ unsafe fn transpose16(ptr: *mut i16) {
 /// centered residues, `|a| ≤ q/2`.
 #[target_feature(enable = "avx2")]
 unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
-    let p = prime::<SECOND>();
+    let p = crt::prime::<SECOND>();
+    let t = lanes::<SECOND>();
     let q = _mm256_set1_epi16(p.q);
     let bm = _mm256_set1_epi16(p.barrett_m);
     let round = _mm256_set1_epi16(1i16 << (BARRETT_SH - 1));
@@ -585,23 +473,23 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
     }
 
     for j in 0..8 {
-        vertical!(ct_butterfly, p.fwd8, 0, j, j + 8); // len = 8
+        vertical!(ct_butterfly, t.fwd8, 0, j, j + 8); // len = 8
     }
     for h in 0..2 {
         for j in 0..4 {
-            vertical!(ct_butterfly, p.fwd4, h, 8 * h + j, 8 * h + j + 4); // len = 4
+            vertical!(ct_butterfly, t.fwd4, h, 8 * h + j, 8 * h + j + 4); // len = 4
         }
     }
     for h in 0..4 {
         for j in 0..2 {
-            vertical!(ct_butterfly, p.fwd2, h, 4 * h + j, 4 * h + j + 2); // len = 2
+            vertical!(ct_butterfly, t.fwd2, h, 4 * h + j, 4 * h + j + 2); // len = 2
         }
     }
     // Three more levels of growth since the last Barrett; re-center again.
     // SAFETY: `ptr` covers the whole block.
     unsafe { barrett_block(ptr, bm, round, q) };
     for h in 0..8 {
-        vertical!(ct_butterfly, p.fwd1, h, 2 * h, 2 * h + 1); // len = 1
+        vertical!(ct_butterfly, t.fwd1, h, 2 * h, 2 * h + 1); // len = 1
     }
 
     // SAFETY: `ptr` covers the whole block.
@@ -620,7 +508,8 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
 /// satisfy `|a| < q`.
 #[target_feature(enable = "avx2")]
 unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
-    let p = prime::<SECOND>();
+    let p = crt::prime::<SECOND>();
+    let t = lanes::<SECOND>();
     let q = _mm256_set1_epi16(p.q);
     let bm = _mm256_set1_epi16(p.barrett_m);
     let round = _mm256_set1_epi16(1i16 << (BARRETT_SH - 1));
@@ -643,11 +532,11 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
     }
 
     for h in 0..8 {
-        vertical!(p.inv1, h, 2 * h, 2 * h + 1); // len = 1
+        vertical!(t.inv1, h, 2 * h, 2 * h + 1); // len = 1
     }
     for h in 0..4 {
         for j in 0..2 {
-            vertical!(p.inv2, h, 4 * h + j, 4 * h + j + 2); // len = 2
+            vertical!(t.inv2, h, 4 * h + j, 4 * h + j + 2); // len = 2
         }
     }
     // The Gentleman-Sande sum path doubles per level; re-center every two levels so that both
@@ -656,11 +545,11 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
     unsafe { barrett_block(ptr, bm, round, q) };
     for h in 0..2 {
         for j in 0..4 {
-            vertical!(p.inv4, h, 8 * h + j, 8 * h + j + 4); // len = 4
+            vertical!(t.inv4, h, 8 * h + j, 8 * h + j + 4); // len = 4
         }
     }
     for j in 0..8 {
-        vertical!(p.inv8, 0, j, j + 8); // len = 8
+        vertical!(t.inv8, 0, j, j + 8); // len = 8
     }
     // SAFETY: `ptr` covers the whole block.
     unsafe { barrett_block(ptr, bm, round, q) };
@@ -731,7 +620,7 @@ unsafe fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
     elem: &[u16; RING_DEG],
     ptr: *mut i16,
 ) {
-    let p = prime::<SECOND>();
+    let p = crt::prime::<SECOND>();
     let q = _mm256_set1_epi16(p.q);
     let bm = _mm256_set1_epi16(p.barrett_m);
     let round = _mm256_set1_epi16(1i16 << (BARRETT_SH - 1));
@@ -854,7 +743,7 @@ pub(crate) fn pointwise_mul_acc(
 #[inline]
 #[target_feature(enable = "avx2")]
 unsafe fn reduce_block<const SECOND: bool>(acc_ptr: *const i32, ptr: *mut i16) {
-    let p = prime::<SECOND>();
+    let p = crt::prime::<SECOND>();
     let q = _mm256_set1_epi16(p.q);
     let qinv = _mm256_set1_epi16(p.qinv);
 
@@ -965,75 +854,6 @@ pub(crate) fn reduce_invntt(acc: &[i64; RING_DEG]) -> [u16; RING_DEG] {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    /// The two primitive 512th roots of unity underlying the ψ tables
-    const PSI1: u64 = 62;
-    const PSI2: u64 = 10;
-
-    fn pow_mod(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
-        let mut acc = 1u64;
-        base %= modulus;
-        while exp > 0 {
-            if exp & 1 == 1 {
-                acc = acc * base % modulus;
-            }
-            base = base * base % modulus;
-            exp >>= 1;
-        }
-        acc
-    }
-
-    // The constants that stand in for derived expressions must equal what they stand for.
-    #[test]
-    fn crt_literal_constants_are_correct() {
-        assert_eq!(CRT_Q, Q1 as i32 * Q2 as i32);
-        assert_eq!(CRT_Q_HALF, CRT_Q / 2);
-        // Each q⁻¹ really inverts q mod 2^16.
-        assert_eq!((Q1 as u16).wrapping_mul(Q1_INV as u16), 1);
-        assert_eq!((Q2 as u16).wrapping_mul(Q2_INV as u16), 1);
-        // The Barrett multipliers are round(2^(16+SH) / q).
-        for (q, m) in [(Q1, Q1_BARRETT_M), (Q2, Q2_BARRETT_M)] {
-            assert_eq!(
-                m as i64,
-                ((1i64 << (16 + BARRETT_SH)) + q as i64 / 2) / q as i64
-            );
-        }
-        // The Garner coefficient is (q₁⁻¹ mod q₂) in Montgomery form: q₁·M·2^-16 ≡ 1 (mod q₂).
-        let lifted = (CRT_Q1_INV_MONT as i64).rem_euclid(Q2 as i64);
-        assert_eq!(lifted * Q1 as i64 % Q2 as i64, (1i64 << 16) % Q2 as i64);
-        // The exactness bound really does fit the centered CRT range.
-        assert!(2 * 25_162_752 < CRT_Q as i64);
-    }
-
-    // Recompute both ψ tables from their roots and check every entry, plus the defining
-    // properties that make the transform negacyclic.
-    #[test]
-    fn crt_zetas_tables_are_correct() {
-        for (q, psi, table, qinv, scale) in [
-            (Q1 as u64, PSI1, &ZETAS_Q1, Q1_INV, INVNTT_SCALE_1),
-            (Q2 as u64, PSI2, &ZETAS_Q2, Q2_INV, INVNTT_SCALE_2),
-        ] {
-            assert_eq!(pow_mod(psi, 256, q), q - 1, "ψ^256 = -1 mod {q}");
-            assert_eq!(pow_mod(psi, 512, q), 1, "ψ^512 = 1 mod {q}");
-
-            for (k, &z) in table.iter().enumerate() {
-                let brv = (k as u8).reverse_bits() as u64;
-                let expected = pow_mod(psi, brv, q) * (1u64 << 16) % q;
-                // The table is centered, so compare after lifting back to [0, q).
-                assert_eq!((z as i64).rem_euclid(q as i64) as u64, expected, "ZETAS[{k}]");
-            }
-
-            // INVNTT_SCALE = 256⁻¹ · 2^32 mod q, so 256 · scale ≡ 2^32.
-            let lifted = (scale as i64).rem_euclid(q as i64) as u128;
-            assert_eq!(
-                (lifted * 256) % q as u128,
-                (1u128 << 32) % q as u128,
-                "INVNTT_SCALE for {q}"
-            );
-            // qinv is used to form the Montgomery quotient, so it must invert q mod 2^16.
-            assert_eq!((q as u16).wrapping_mul(qinv as u16), 1);
-        }
-    }
 
     // The transposed levels are only correct if `transpose16` really does put coefficient
     // block `m` in lane `m` — and if applying it twice gets back to coefficient order.
