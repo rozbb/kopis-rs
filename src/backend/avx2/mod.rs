@@ -1,8 +1,15 @@
 //! The x86-64 / x86 AVX2 backend.
 //!
-//! Every routine here is a lane-parallel restatement of a portable one and produces
-//! bit-identical output; the tests in each submodule check that against the serial code
-//! directly, which is what keeps the Lean correspondence proof meaningful for AVX2 builds.
+//! [`sample`] and [`ser`] are lane-parallel restatements of portable routines and produce
+//! bit-identical output; the tests in each check that against the serial code directly, which
+//! is what keeps the Lean correspondence proof meaningful for them.
+//!
+//! [`ntt`] is not, and this is the one place in the crate where an accelerated backend departs
+//! from the portable code it stands in for. It transforms over two 16-bit primes rather than
+//! one 26-bit one, because AVX2 has a 16-bit high-multiply and no 32-bit equivalent; only the
+//! endpoints of the pipeline agree with the portable version, so it is tested end to end and
+//! the Lean proof does not cover it. Its module docs make the full argument. The NEON backend
+//! keeps the single prime and stays bit-identical.
 //!
 //! Hashing is deliberately absent. TurboSHAKE stays behind the `turboshake` crate for both
 //! backends, so there is no Keccak permutation here to keep in step with it — no matter how

@@ -67,8 +67,17 @@ We have implemented benchmarks for key generation, encapsulation, and decapsulat
 The crate ships two implementations of its arithmetic. The **serial** backend is portable
 `no_std` Rust with no `unsafe` anywhere; it is the reference, and the one the Lean proofs are
 about. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
-bit-packing, and the binomial sampler — that computes bit-identical results, checked against the
-serial code by tests in each module.
+bit-packing, and the binomial sampler. The bit-packing and the sampler compute bit-identical
+results, checked against the serial code by tests in each module, as does the whole **neon**
+backend on AArch64.
+
+The AVX2 NTT is the one exception. AVX2 has a 16-bit high-multiply and no 32-bit equivalent, so
+it transforms over two 16-bit primes and recombines by the CRT instead of using the portable
+code's single 26-bit prime — worth about 9% on encapsulation. It computes the same ring
+products, and is tested end to end against the serial pipeline, against schoolbook
+multiplication, and by the KATs, but its intermediate values are different integers, so the
+Lean correspondence proof does not extend to it. If you want the proofs to cover the binary you
+are running on x86, build with `RUSTFLAGS='--cfg kopis_backend="serial"'`.
 
 Hashing is not among those paths. Every TurboSHAKE invocation, in both backends, goes through
 the [`turboshake`](https://crates.io/crates/turboshake) crate; this crate contains no Keccak
