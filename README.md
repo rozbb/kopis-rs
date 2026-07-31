@@ -69,7 +69,8 @@ The crate ships two implementations of its arithmetic. The **serial** backend is
 about. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
 bit-packing, and the binomial sampler; the **neon** backend does the same on AArch64. The
 bit-packing and the sampler compute bit-identical results, checked against the serial code by
-tests in each module.
+tests (the sampler directly in its own module; the bit-packing through the shared
+deserialization tests, which dispatch to the vector backend on hardware that has it).
 
 The NTT is the exception, on both. Neither vector unit's 32-bit multiply is as cheap as its
 16-bit one, so both transform over two 16-bit primes and recombine by the CRT instead of using

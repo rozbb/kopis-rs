@@ -62,7 +62,7 @@ impl RingElem {
             });
         }
 
-        // Specialize based on bits_per_elem. unwraps are okay because of the check aboev
+        // Specialize based on bits_per_elem. unwraps are okay because of the check above
         if bits_per_elem == crate::consts::MODULUS_Q_BITS {
             let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();
             RingElem(crate::ser::deserialize_13(arr))

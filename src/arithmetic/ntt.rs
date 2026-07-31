@@ -106,7 +106,12 @@ fn mont_reduce(a: i64) -> i32 {
     a.wrapping_sub(t.wrapping_mul(P as i64)).wrapping_shr(32) as i32
 }
 
-/// Centered Barrett reduction: for any i32 input, returns r ≡ x (mod p) with |r| ≤ p/2 + 1
+/// Centered Barrett reduction: for any i32 input, returns r ≡ x (mod p) with |r| ≤ p/2 + 41
+/// (checked exhaustively over all i32; for the |x| ≤ 16p this pipeline produces, |r| ≤ p/2 + 15).
+///
+/// Note the intermediate `q.wrapping_mul(P)` genuinely wraps i32 for |x| ≳ 43p; the double
+/// wrap cancels mod 2^32 and the result is still correct for every i32 input (verified
+/// exhaustively), and pipeline inputs stay ≤ 16p where nothing wraps at all.
 #[inline(always)]
 fn barrett_reduce(x: i32) -> i32 {
     let q = (x as i64)
@@ -132,7 +137,7 @@ fn to_wrapping_u16(x: i32) -> u16 {
     x as u16
 }
 
-/// In-place forward negacyclic NTT (Cooley-Tukey), then centering to |a[i]| ≤ p/2 + 1.
+/// In-place forward negacyclic NTT (Cooley-Tukey), then centering to |a[i]| ≤ p/2 + 41.
 ///
 /// Input coefficients must satisfy |a[i]| < 2^13. Butterflies add at most p in magnitude per
 /// level, so intermediate values stay below 8p + 2^13 < 2^29 and never overflow. The output
@@ -167,9 +172,9 @@ fn ntt(a: &mut [i32; RING_DEG]) {
 ///
 /// p is too large for Dilithium-style lazy growth to fit in an i32 across all 8 levels: the
 /// un-reduced sum path doubles per level. Starting below p, four levels reach 16p < 2^31;
-/// one Barrett pass then re-centers everything to ≤ p/2 + 1, and the remaining four levels
-/// reach at most 16(p/2 + 1) < 2^31 again. The Montgomery inputs also stay in range: the
-/// largest is ζ·(t - a) with |ζ| < p and |t - a| < 16p, and 16p² < 2^31 · p.
+/// one Barrett pass then re-centers everything to ≤ p/2 + 41, and the remaining four levels
+/// reach at most 16(p/2 + 41) = 402_641_552 < 2^31 again. The Montgomery inputs also stay in
+/// range: the largest is ζ·(t - a) with |ζ| < p and |t - a| < 16p, and 16p² < 2^31 · p.
 fn invntt(a: &mut [i32; RING_DEG]) {
     let mut k = RING_DEG;
     let mut len = 1;
@@ -200,7 +205,7 @@ fn invntt(a: &mut [i32; RING_DEG]) {
     }
 }
 
-/// A ring element in the NTT domain. Coefficients are centered mod-p values, |·| ≤ p/2 + 1.
+/// A ring element in the NTT domain. Coefficients are centered mod-p values, |·| ≤ p/2 + 41.
 // The NTT is an invertible linear map, so a transformed secret is exactly as sensitive as the
 // coefficient-domain one. Zeroize accordingly, matching RingElem.
 #[derive(Clone, Copy, Zeroize)]
@@ -286,9 +291,9 @@ impl<const X: usize, const Y: usize> Default for NttMatrix<X, Y> {
 
 /// Adds the pointwise product lhs ∘ rhs into the i64 accumulator, without reducing.
 ///
-/// Products of centered values are below (p/2 + 1)² and callers accumulate at most 4 (= MAX_L)
-/// of them, so the accumulator stays (just) below p² < 2^52, within Montgomery reduction's
-/// valid input range.
+/// Products of centered values are below (p/2 + 41)² and callers accumulate at most 4 (= MAX_L)
+/// of them, so the accumulator stays below 4·(p/2 + 41)² ≈ 2.54·10^15 < 2^52, comfortably
+/// within Montgomery reduction's valid input range of 2^31 · p.
 fn pointwise_mul_acc(acc: &mut [i64; RING_DEG], lhs: &NttElem, rhs: &NttElem) {
     #[cfg(kopis_avx2)]
     #[allow(unsafe_code)]

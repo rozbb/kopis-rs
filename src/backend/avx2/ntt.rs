@@ -72,9 +72,14 @@
 //! An `i16` lane holds only 3.05·q₂, so both transforms need interior reductions. The bounds,
 //! taken over the worst case q₂ = 10753:
 //!
-//! * Forward: inputs are centered, |a| ≤ q/2. A Cooley-Tukey level adds at most 0.75q, so
-//!   three levels reach 2.75q < 3.05q. Barrett after levels 3 and 6 re-centers to q/2, and the
-//!   final Barrett leaves the output at |a| ≤ q/2.
+//! * Forward: inputs are centered, |a| ≤ q/2. Barrett after levels 3 and 7 re-centers to q/2,
+//!   and the final Barrett leaves the output at |a| ≤ q/2. Note the second run is *four*
+//!   levels (len = 16, 8, 4, 2): the crude 0.75q-per-level budget in [`crate::backend::crt`]
+//!   does not cover it (it predicts 3.5q > 3.05q). The run is safe because the ψ magnitudes at
+//!   levels 4–7 are small enough — interval propagation with the actual per-butterfly ψ values
+//!   bounds the worst lane below 30_700 of 32_767. This differs from NEON, which re-centers
+//!   after levels 3 and 6; see [`crate::backend::crt`] for the shared argument and the caveat
+//!   about re-deriving the bound if the schedule or tables change.
 //! * Inverse: the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so
 //!   the usable bound is 1.52q. Starting under 0.7q, two levels reach 2.66q — as a *sum*,
 //!   which fits — and a Barrett after levels 2, 4 and 6 keeps it there. The last two levels
@@ -82,7 +87,8 @@
 //!
 //! Every one of those sites was checked against the `i16` range by the scalar model the
 //! constants were generated with, on random and extremal inputs for all three parameter sets;
-//! the worst lane value observed was 20411 of 32767.
+//! the worst lane value observed in those runs was 20411 of 32767 (the certified worst-case
+//! bound above is higher because it quantifies over all possible inputs).
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
@@ -485,7 +491,9 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
             vertical!(ct_butterfly, t.fwd2, h, 4 * h + j, 4 * h + j + 2); // len = 2
         }
     }
-    // Three more levels of growth since the last Barrett; re-center again.
+    // Four levels of growth since the last Barrett (len = 16, 8, 4, 2); re-center before the
+    // final level. The crude per-level budget does not cover a four-level run — the module
+    // docs give the sharper, table-dependent bound that does.
     // SAFETY: `ptr` covers the whole block.
     unsafe { barrett_block(ptr, bm, round, q) };
     for h in 0..8 {

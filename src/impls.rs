@@ -62,7 +62,13 @@ macro_rules! variant_impl {
                     Self(KemSecretKey::generate::<$variant_mu>(rng))
                 }
 
-                /// Returns the seed that produced this secret key
+                /// Returns the seed that produced this secret key.
+                ///
+                /// This seed **is** the complete long-term secret key — it is the canonical
+                /// serialized form, and anyone holding it can re-derive the full key with
+                /// [`Self::expand_from_seed`]. Handle it with the same care as the key itself:
+                /// any copy made of the returned bytes escapes this type's zeroize-on-drop
+                /// protection, so wipe such copies yourself when done with them.
                 pub fn seed(&self) -> &[u8; 32] {
                     self.0.seed()
                 }

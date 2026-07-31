@@ -4,8 +4,7 @@ import SpecTests.TestUtils
 /-!
 # Kopis spec tests
 
-Kopis does not yet ship with published known-answer test (KAT) vectors, so these
-tests are of two kinds:
+These tests are of three kinds:
 
 - **Fast `#guard` unit tests** exercising the pure ring layer (negacyclic
   multiplication, shifts, serialization round-trips, rounding). These run during
@@ -14,9 +13,10 @@ tests are of two kinds:
   KEM correctness — `KemDecap(sk, KemEncap(r, SkToPk(sk))) = k` — for every
   parameter set. This exercises the TurboSHAKE-heavy path, which is far too slow
   to evaluate at `#guard` time under the reference spec.
-
-When official Kopis KATs become available, add them next to the round-trip runner
-(mirroring `SpecTests/MLKEM/TestVectors.lean`).
+- **Known-answer tests** from the `SpecTests/Kopis/vectors/*.jsonl` files (see
+  the section below), also run by `lake exe kopisTests`. These are the same
+  vector files the Rust crate's `tests/ref_kat.rs` consumes, so passing both
+  runners cross-validates the Rust implementation against this spec.
 -/
 
 namespace Spec.Kopis.Test

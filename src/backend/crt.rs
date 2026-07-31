@@ -43,18 +43,26 @@
 //! prime, so both transforms need interior reductions where the single-prime code needs almost
 //! none. The bounds, taken over the worst case q₂ = 10753:
 //!
-//! * Forward: inputs are centered, |a| ≤ q/2. A Cooley-Tukey level adds at most 0.75q, so
-//!   three levels reach 2.75q < 3.05q. A Barrett pass after the third and sixth levels
-//!   re-centers to q/2, and a final one leaves the output at |a| ≤ q/2.
+//! * Forward: inputs are centered, |a| ≤ q/2, and a Cooley-Tukey level adds at most 0.75q per
+//!   level under the crude per-level budget. The two backends place their interior passes
+//!   *differently*. NEON re-centers after levels 3 and 6 plus a final pass (runs of 3, 3, 2),
+//!   which the crude budget covers: three levels reach at most 2.75q < 3.05q. AVX2 re-centers
+//!   after levels 3 and 7 plus a final pass (runs of 3, 4, 1), and the crude budget does *not*
+//!   cover a four-level run — it predicts 3.5q > 3.05q. AVX2's schedule is safe anyway
+//!   because the ψ magnitudes at its levels 4–7 are small enough: interval propagation with
+//!   the actual per-butterfly ψ values bounds the worst AVX2 lane below 30_700 of 32_767
+//!   (NEON's below 23_700). Anyone reordering the reductions or regenerating the ψ tables must
+//!   redo that propagation; the per-level budget alone does not justify the AVX2 schedule.
 //! * Inverse: the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so
 //!   the usable bound is 1.52q. Starting under 0.7q, two levels reach 2.66q — as a *sum*,
 //!   which fits — and a Barrett pass after the second, fourth and sixth levels keeps it there.
 //!   The last two levels end at 2.0q, which the final Montgomery scaling brings back under q.
+//!   Both backends follow this inverse schedule.
 //!
 //! Every one of those sites was checked against the `i16` range by the scalar model these
 //! constants were generated with, on random and extremal inputs for all three parameter sets;
-//! the worst lane value observed was 20411 of 32767. Both backends follow that schedule, so the
-//! analysis covers both.
+//! the worst lane value observed in those runs was 20411 of 32767 (the certified worst-case
+//! bounds above are higher because they quantify over all possible inputs).
 
 // ---------------------------------------------------------------------------------------
 // Constants, generated and checked by the scalar model described above: both primes prime and

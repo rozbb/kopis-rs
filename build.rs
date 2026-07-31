@@ -8,9 +8,11 @@
 //!
 //! By default the choice is made automatically: on x86/x86-64 targets the AVX2 backend is
 //! compiled in alongside the serial one and selected at *runtime* by a CPUID check, and on
-//! AArch64 the NEON backend is compiled in (NEON is baseline there, so it is always selected).
+//! AArch64 targets that carry the `neon` target feature with a hardfloat ABI the NEON backend
+//! is compiled in (it is always selected there, since the feature is confirmed at build time).
 //! Either way the resulting binary runs everywhere for its architecture. On every other target
-//! only the serial backend exists.
+//! — including softfloat AArch64 targets such as `aarch64-unknown-none-softfloat`, where
+//! enabling NEON is ABI-unsound — only the serial backend exists.
 //!
 //! The choice can be overridden with the `kopis_backend` cfg, e.g.
 //!
@@ -35,8 +37,12 @@
 //! "Available" is decided at build time, because that is the only time a compile-time panic
 //! can happen. For AVX2 it means: the target is x86/x86-64, and either `avx2` is in the
 //! target's enabled feature set (e.g. `-C target-feature=+avx2` or `-C target-cpu=native`), or
-//! we are not cross-compiling and the build host's CPU reports AVX2 support. For NEON it means
-//! the target is AArch64, where NEON is a mandatory part of the base ISA.
+//! we are not cross-compiling and the build host's CPU reports AVX2 support. For NEON it
+//! means: the target is AArch64, `neon` is in the target's enabled feature set, and the ABI is
+//! not softfloat. NEON is a mandatory part of the AArch64 base ISA, but rustc also supports
+//! softfloat AArch64 targets whose ABI is incompatible with the vector registers — enabling
+//! the `neon` feature there is unsound and slated to become a hard error
+//! (rust-lang/rust#134375) — so the architecture alone is not enough.
 
 use std::env;
 
@@ -95,10 +101,11 @@ fn main() {
         Some(Override::Neon) => {
             if !neon_is_available(is_aarch64) {
                 panic!(
-                    "kopis: --cfg kopis_backend=\"neon\" requires an AArch64 target (where NEON \
-                     is part of the base ISA), but the target architecture is `{}`. Remove the \
-                     override to use the portable backend.",
-                    arch
+                    "kopis: --cfg kopis_backend=\"neon\" requires an AArch64 target with the \
+                     `neon` target feature and a non-softfloat ABI, but the target is `{}`. \
+                     (On softfloat AArch64 targets enabling NEON is ABI-unsound; see \
+                     rust-lang/rust#134375.) Remove the override to use the portable backend.",
+                    env::var("TARGET").unwrap_or(arch)
                 );
             }
             println!("cargo::rustc-cfg=kopis_neon");
@@ -106,21 +113,34 @@ fn main() {
         }
 
         // Autodetect: compile in the accelerated backend for the target's architecture and pick
-        // at runtime. On x86 that is AVX2 behind a CPUID check; on AArch64 it is NEON, which is
-        // always present, so the check is a constant `true`.
+        // at runtime. On x86 that is AVX2 behind a CPUID check; on AArch64 it is NEON whenever
+        // the target's feature set and ABI actually permit it (see `neon_is_available`), in
+        // which case the runtime check is a constant `true`.
         None => {
             if is_x86 {
                 println!("cargo::rustc-cfg=kopis_avx2");
-            } else if is_aarch64 {
+            } else if neon_is_available(is_aarch64) {
                 println!("cargo::rustc-cfg=kopis_neon");
             }
         }
     }
 }
 
-/// Whether NEON can be assumed present for the target being built: AArch64 mandates it.
+/// Whether NEON can be assumed present for the target being built.
+///
+/// AArch64 mandates NEON in the base ISA, but that alone is not sufficient: rustc supports
+/// softfloat AArch64 targets (e.g. `aarch64-unknown-none-softfloat`) whose ABI is incompatible
+/// with the vector registers, where enabling the `neon` target feature is unsound and slated
+/// to become a hard error (rust-lang/rust#134375). So require the target to actually enable
+/// the `neon` feature *and* to not use the softfloat ABI.
 fn neon_is_available(is_aarch64: bool) -> bool {
-    is_aarch64
+    if !is_aarch64 {
+        return false;
+    }
+    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+    let has_neon = features.split(',').any(|feature| feature == "neon");
+    let softfloat = env::var("CARGO_CFG_TARGET_ABI").unwrap_or_default() == "softfloat";
+    has_neon && !softfloat
 }
 
 /// Parses `--cfg kopis_backend="..."` out of the flags cargo is passing to rustc.

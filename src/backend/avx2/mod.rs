@@ -1,8 +1,11 @@
 //! The x86-64 / x86 AVX2 backend.
 //!
 //! [`sample`] and [`ser`] are lane-parallel restatements of portable routines and produce
-//! bit-identical output; the tests in each check that against the serial code directly, which
-//! is what keeps the Lean correspondence proof meaningful for them.
+//! bit-identical output. [`sample`]'s own test checks that against the portable sampler
+//! directly; [`ser`] has no test module of its own and is instead exercised against the
+//! portable code through `RingElem::deserialize`'s tests (which dispatch here on AVX2
+//! hardware) and the KATs. That equivalence is what keeps the Lean correspondence proof
+//! meaningful for them.
 //!
 //! [`ntt`] is not, and this is the one place in the crate where an accelerated backend departs
 //! from the portable code it stands in for. It transforms over two 16-bit primes rather than

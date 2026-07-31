@@ -25,10 +25,11 @@
 //! back. Four groups cover the block, and a group needs only 8 of AArch64's 32 vector
 //! registers, so it stays in registers across all three levels.
 //!
-//! Reductions follow the schedule [`crate::backend::crt`] documents, stated by level number:
-//! forward, a Barrett pass after levels 3 and 6 plus one at the end; inverse, after levels 2, 4
-//! and 6. The numbering matches AVX2's even though the transposed section starts one level
-//! later here, so the growth bounds carry over unchanged.
+//! Reductions, stated by level number: forward, a Barrett pass after levels 3 and 6 plus one
+//! at the end (runs of 3, 3, 2, which the crude 0.75q-per-level budget in
+//! [`crate::backend::crt`] covers); inverse, after levels 2, 4 and 6. Note this forward
+//! schedule does *not* match AVX2's, which re-centers after levels 3 and 7 and rests on a
+//! sharper, table-dependent bound — growth bounds do not transfer between the two backends.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]

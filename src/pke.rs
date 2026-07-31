@@ -170,7 +170,14 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
         prod
     };
 
-    // b's coefficients are 10-bit after the rounding shift, so it transforms as uniform
+    // After the rounding shift, b's coefficients are 10-bit values *plus mod-2^16 garbage in
+    // bits 10-12* (the product's bits 13-15, shifted down). That is still fine to transform as
+    // uniform: `from_uniform_matrix` only needs coefficients < 2^13, and the NTT exactness
+    // bound already assumes 8191-magnitude operands. The garbage contributes only multiples of
+    // 2^10 to v' during encryption, which never reach the low 10 bits that ciphertext
+    // serialization keeps — so encryptions under this cached (dirty) form are bit-identical to
+    // ones under the clean form `from_bytes` builds (where `deserialize_10` masks to 10 bits),
+    // which the FO re-encryption equality check relies on.
     let vec_ntt = NttMatrix::from_uniform_matrix(&b);
 
     // Pack b into its serialized bytes; we keep those, not the structured vector.
