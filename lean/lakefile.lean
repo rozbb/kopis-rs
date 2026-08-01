@@ -47,8 +47,9 @@ lean_lib «TopLevelTheorems»
 /-! ## Spec test vectors
 
     `SpecTests` runs the audited specification against the Kopis test vectors
-    and KAT files under `SpecTests/Kopis/vectors/`. Not part of the default
-    `lake build` closure; run it via the `kopisTests` executable below
+    and KAT files under the crate's `tests/` directory (the same `.jsonl` files
+    the Rust `tests/ref_kat.rs` consumes). Not part of the default `lake build`
+    closure; run it via the `kopisTests` executable below
     (`lake exe kopisTests` = `make test-kopis-spec`). The runner reads the
     `.jsonl` vectors at run time relative to the current directory, so invoke
     it from this directory. -/

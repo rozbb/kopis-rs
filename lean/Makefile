@@ -37,7 +37,7 @@ prove-kopis:
 
 # Run the audited Lean spec against the standard Kopis test vectors + KAT
 # (SpecTests/Kopis/Run.lean).  `lake exe` builds the executable first.
-# Must be run from this directory: the runner reads SpecTests/Kopis/vectors/*
+# Must be run from this directory: the runner reads ../tests/ref_test_vectors-*.jsonl
 # relative to the current directory.
 .PHONY: test-kopis-spec
 test-kopis-spec:

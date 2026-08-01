@@ -41,8 +41,9 @@ make prove-kopis      # lake build Kopis — build + kernel-verify all proofs
 make test-kopis-spec  # lake exe kopisTests — run the spec against test vectors
 ```
 
-Run both from this directory: `test-kopis-spec` reads its vectors from
-`SpecTests/Kopis/vectors/` relative to the current directory.
+Run both from this directory: `test-kopis-spec` reads its vectors from the
+crate's `tests/` directory (as `../tests/ref_test_vectors-*.jsonl`, the same
+files the Rust `tests/ref_kat.rs` consumes) relative to the current directory.
 
 `make prove-kopis` succeeding *is* the proof — a green build means every
 theorem checked, with no `sorry`s and no errors.

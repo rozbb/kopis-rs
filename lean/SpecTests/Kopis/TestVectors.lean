@@ -13,10 +13,11 @@ These tests are of three kinds:
   KEM correctness — `KemDecap(sk, KemEncap(r, SkToPk(sk))) = k` — for every
   parameter set. This exercises the TurboSHAKE-heavy path, which is far too slow
   to evaluate at `#guard` time under the reference spec.
-- **Known-answer tests** from the `SpecTests/Kopis/vectors/*.jsonl` files (see
-  the section below), also run by `lake exe kopisTests`. These are the same
-  vector files the Rust crate's `tests/ref_kat.rs` consumes, so passing both
-  runners cross-validates the Rust implementation against this spec.
+- **Known-answer tests** read directly from the crate's
+  `tests/ref_test_vectors-kopis*.jsonl` files (see the section below), also run
+  by `lake exe kopisTests`. These are the very files the Rust crate's
+  `tests/ref_kat.rs` consumes, so passing both runners cross-validates the Rust
+  implementation against this spec.
 -/
 
 namespace Spec.Kopis.Test
@@ -108,9 +109,10 @@ def runKopisTests : IO Unit := do
 
 /-! ## Known-answer tests from external `.jsonl` vectors
 
-Reads the `SpecTests/Kopis/vectors/*.jsonl` files at runtime (one JSON object per
-line) so the vectors can be regenerated/updated without touching Lean source.
-Paths are relative to the package root, i.e. run from `lean/`:
+Reads the crate's `tests/ref_test_vectors-kopis*.jsonl` files at runtime (one
+JSON object per line) — the *same* files the Rust `tests/ref_kat.rs` consumes,
+so there is exactly one copy of the vectors and both implementations are held to
+it. Paths are relative to the package root, i.e. run from `lean/`:
 `lake exe kopisTests`. -/
 
 open Lean (Json fromJson?)
@@ -177,9 +179,9 @@ private def runKAT (p : ParameterSet) (path : System.FilePath) : IO Unit := do
 
 def runKopisKAT : IO Unit := do
   IO.println "=== Kopis known-answer tests (external vectors) ==="
-  runKAT .Kopis_512  "SpecTests/Kopis/vectors/test_vectors-kopis512.jsonl"
-  runKAT .Kopis_768  "SpecTests/Kopis/vectors/test_vectors-kopis768.jsonl"
-  runKAT .Kopis_1024 "SpecTests/Kopis/vectors/test_vectors-kopis1024.jsonl"
+  runKAT .Kopis_512  "../tests/ref_test_vectors-kopis512.jsonl"
+  runKAT .Kopis_768  "../tests/ref_test_vectors-kopis768.jsonl"
+  runKAT .Kopis_1024 "../tests/ref_test_vectors-kopis1024.jsonl"
   IO.println "ALL KAT OK"
 
 end Spec.Kopis.Test
