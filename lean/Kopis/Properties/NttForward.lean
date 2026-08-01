@@ -38,6 +38,9 @@ def aP (a : Array I32 256#usize) (c : ℕ) : Zp := ((aZ a c : ℤ) : Zp)
 
 theorem aP_def (a : Array I32 256#usize) (c : ℕ) : aP a c = ((aZ a c : ℤ) : Zp) := rfl
 
+theorem aP_congr {x y : Array I32 256#usize} {c : ℕ} (h : aZ x c = aZ y c) : aP x c = aP y c := by
+  unfold aP; rw [h]
+
 /-- `getElem!` after a `List.set` at an in-bounds index. -/
 theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ) (v : α) (k : ℕ)
     (hj : j < l.length) : (l.set j v)[k]! = if k = j then v else l[k]! := by
@@ -257,6 +260,126 @@ theorem ntt_inner_spec {st lenv : ℕ} (iter : core.ops.range.Range Usize)
     · intro c _ _; trivial
     · intro c _; trivial
   termination_by iter.«end».val - iter.start.val
+  decreasing_by scalar_decr_tac
+
+/-- The `ZETAS` entry read by `Array.index_usize`, as an integer. -/
+theorem zetas_val' (k : ℕ) (hk : k < 256)
+    (h : k < (arithmetic.ntt.ZETAS).val.length) :
+    (((arithmetic.ntt.ZETAS).val[k]'h).val : ℤ) = (ZN[k]! : ℤ) := by
+  rw [← zetas_val k hk, getElem!_pos _ k h]
+
+/-! ## The middle loop: every block at one level
+
+`ntt_loop0_loop0 a k len start` walks `start` over the blocks of the current level, running one
+butterfly per block.  At entry, `start = b₀·2·len` and `k + 1 = nb + b₀`, where `nb` is the number
+of blocks; the `b`-th block's twiddle is table entry `nb + b`.  The postcondition gives the
+butterfly relation for every block from `b₀` on, which at `b₀ = 0` is exactly `State_ct`'s
+`hbut`. -/
+
+theorem ntt_mid_spec {nb lenv b0 : ℕ}
+    (a : Array I32 256#usize) (k len start : Usize) (B : ℤ)
+    (hlen : len.val = lenv) (hlpos : 0 < lenv)
+    (hnb : nb * (2 * lenv) = 256)
+    (hb0 : b0 ≤ nb) (hstart : start.val = b0 * (2 * lenv)) (hk : k.val + 1 = nb + b0)
+    (hB0 : 0 ≤ B) (hBhi : B + pNtt ≤ 2147483647)
+    (hBu : ∀ c, start.val ≤ c → c < 256 → |aZ a c| ≤ B)
+    (hBg : ∀ c, c < 256 → |aZ a c| ≤ B + pNtt) :
+    arithmetic.ntt.ntt_loop0_loop0 a k len start
+      ⦃ (rk : Array I32 256#usize × Usize) =>
+        (∀ b, b0 ≤ b → b < nb → ∀ r', r' < lenv →
+            aP rk.1 (b * (2 * lenv) + r')
+              = aP a (b * (2 * lenv) + r') + zetaP (nb + b) * aP a (b * (2 * lenv) + lenv + r')
+            ∧ aP rk.1 (b * (2 * lenv) + lenv + r')
+              = aP a (b * (2 * lenv) + r') - zetaP (nb + b) * aP a (b * (2 * lenv) + lenv + r'))
+        ∧ (∀ c, c < start.val → aZ rk.1 c = aZ a c)
+        ∧ (∀ c, c < 256 → |aZ rk.1 c| ≤ B + pNtt)
+        ∧ rk.2.val = 2 * nb - 1 ⦄ := by
+  have hnb1 : 1 ≤ nb := by rcases Nat.eq_zero_or_pos nb with h | h; · omega
+                           exact h
+  have hnb128 : nb ≤ 128 := by nlinarith
+  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+  unfold arithmetic.ntt.ntt_loop0_loop0
+  by_cases hlt : start < consts.RING_DEG
+  · -- one more block
+    have hltv : start.val < 256 := by rw [← hRD]; scalar_tac
+    have hb0lt : b0 < nb := by nlinarith
+    have hkb : nb + b0 < 256 := by omega
+    have hlenb : lenv ≤ 128 := by nlinarith
+    step*
+    have hk1v : k1.val = nb + b0 := by omega
+    -- the twiddle read from the table
+    have hzv : (zeta.val : ℤ) = (ZN[nb + b0]! : ℤ) := by
+      have h1 : (zeta.val : ℤ) = (i.val : ℤ) := by
+        rw [zeta_post, IScalar.cast_val_eq,
+          show Min.min IScalarTy.I64.numBits IScalarTy.I32.numBits = 32 from rfl]
+        exact bmod_i32_exact (by scalar_tac) (by scalar_tac)
+      have h2 : (i.val : ℤ) = (ZN[k1.val]! : ℤ) := by
+        rw [i_post]; exact zetas_val' k1.val (by omega) _
+      rw [h1, h2, hk1v]
+    have hznlt : ZN[nb + b0]! < pNtt := by
+      have := ZN_lt (nb + b0) (by omega); unfold pNtt; exact_mod_cast this
+    have hzlo : -pNtt < (zeta.val : ℤ) := by rw [hzv]; exact_mod_cast (by omega : -(pNtt) < (ZN[nb + b0]! : ℤ))
+    have hzhi : (zeta.val : ℤ) < pNtt := by rw [hzv]; exact_mod_cast hznlt
+    have hzeta : ((zeta.val : ℤ) : Zp) * Rinv = zetaP (nb + b0) := by
+      rw [hzv, zetaP]; push_cast; ring
+    -- run the block's butterfly.  The two `rfl`s let `omega` see through the anonymous
+    -- `Range` constructor, whose projections it otherwise treats as opaque atoms.
+    have hi1v : i1.val = start.val + lenv := by rw [i1_post, hlen]
+    have hiS : ({ start := start, «end» := i1 } : core.ops.range.Range Usize).start.val
+        = start.val := rfl
+    have hiE : ({ start := start, «end» := i1 } : core.ops.range.Range Usize).«end».val
+        = i1.val := rfl
+    have hblkv : start.val + 2 * lenv ≤ 256 := by nlinarith
+    apply WP.spec_bind (ntt_inner_spec (st := start.val) (lenv := lenv)
+      { start := start, «end» := i1 } a len zeta (zetaP (nb + b0)) B hlen hlpos
+      (by omega) (by omega) (by omega) hblkv hzeta hzlo hzhi hB0 hBhi
+      (fun c hc1 hc2 => hBu c (by omega) (by omega))
+      (fun c hc1 hc2 => hBu c (by omega) (by omega))
+      hBg)
+    intro a1 ha1
+    obtain ⟨hA1, hU1, hU2, hU3, hBd1⟩ := ha1
+    rw [hiS] at hA1 hU1 hU2
+    -- advance to the next block
+    let* ⟨ i2, hi2 ⟩ ←
+      Std.Usize.mul_spec (show (2#usize).val * len.val ≤ Usize.max from by scalar_tac)
+    let* ⟨ start1, hs1 ⟩ ←
+      Std.Usize.add_spec (show start.val + i2.val ≤ Usize.max from by scalar_tac)
+    have hi2v : i2.val = 2 * lenv := by rw [hi2, hlen]
+    have hs1v : start1.val = (b0 + 1) * (2 * lenv) := by rw [hs1, hi2v, hstart]; ring
+    apply WP.spec_mono (ntt_mid_spec (nb := nb) (lenv := lenv) (b0 := b0 + 1)
+      a1 k1 len start1 B hlen hlpos hnb (by omega) hs1v (by omega) hB0 hBhi
+      (fun c hc1 hc2 => by rw [hU3 c (by omega)]; exact hBu c (by omega) hc2)
+      hBd1)
+    rintro rk ⟨hR1, hR2, hR3, hR4⟩
+    refine ⟨?_, ?_, hR3, hR4⟩
+    · intro b hb1 hb2 r' hr'
+      rcases eq_or_lt_of_le hb1 with hbe | hbgt
+      · -- this block: `rk` agrees with `a1` here, and `a1` is what the butterfly wrote
+        subst hbe
+        have hx1 : aP rk.1 (b0 * (2 * lenv) + r') = aP a1 (b0 * (2 * lenv) + r') :=
+          aP_congr (hR2 _ (by omega))
+        have hx2 : aP rk.1 (b0 * (2 * lenv) + lenv + r') = aP a1 (b0 * (2 * lenv) + lenv + r') :=
+          aP_congr (hR2 _ (by omega))
+        have hA := hA1 (start.val + r') (by omega) (by omega)
+        rw [show start.val + r' + lenv = b0 * (2 * lenv) + lenv + r' by omega, hstart] at hA
+        rw [hx1, hx2]
+        exact hA
+      · -- a later block: `a1` still agrees with `a` there
+        have h := hR1 b (by omega) hb2 r' hr'
+        rw [aP_congr (hU3 (b * (2 * lenv) + r') (by nlinarith)),
+          aP_congr (hU3 (b * (2 * lenv) + lenv + r') (by nlinarith))] at h
+        exact h
+    · intro c hc
+      rw [hR2 c (by omega), hU1 c (by omega)]
+  · -- done: `b0 = nb`
+    have hgev : 256 ≤ start.val := by rw [← hRD]; scalar_tac
+    have hb0eq : b0 = nb := by nlinarith
+    rw [if_neg hlt]
+    simp only [WP.spec_ok]
+    refine ⟨?_, ?_, hBg, by omega⟩
+    · intro b hb1 hb2; omega
+    · intro c _; trivial
+  termination_by 256 - start.val
   decreasing_by scalar_decr_tac
 
 end Kopis.Properties
