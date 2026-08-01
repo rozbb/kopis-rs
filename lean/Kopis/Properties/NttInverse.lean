@@ -786,4 +786,71 @@ theorem invntt_scale_loop_spec
   termination_by iter.slice.len.val - iter.i
   decreasing_by scalar_decr_tac
 
+/-! ## `arithmetic.ntt.invntt`: the whole inverse transform -/
+
+/-- **The extracted inverse NTT.**  If the input is the (scaled) leaf-evaluation vector of `f` —
+`State 256 1 cc f` — with coefficients bounded by `p`, then the output denotes
+`invScale · 2⁸ · cc · f`: the eight Gentleman-Sande layers contribute `2⁸`, and the final
+`INVNTT_SCALE` pass contributes `invScale = 256⁻¹·2³²`, so the two cancel to leave `cc · 2³² · f`.
+Every output coefficient is centred in `(-p, p)`. -/
+theorem invntt_full_spec (a : Array I32 256#usize) (f : ℕ → Zp) (cc : Zp)
+    (hst : State 256 1 cc f (aP a))
+    (hBd : ∀ x, x < 256 → |aZ a x| ≤ pNtt) :
+    arithmetic.ntt.invntt a
+      ⦃ (r : Array I32 256#usize) =>
+          (∀ x, x < 256 → aP r x = invScale * ((2 : Zp) ^ 8 * cc) * f x)
+          ∧ (∀ x, x < 256 → -pNtt < aZ r x ∧ aZ r x < pNtt) ⦄ := by
+  have hp0 : (0:ℤ) < pNtt := by unfold pNtt; norm_num
+  unfold arithmetic.ntt.invntt
+  -- the eight merge levels
+  apply WP.spec_bind (invntt_outer_spec 8 0 a consts.RING_DEG 1#usize f cc (by omega)
+    (by norm_num) (by simp only [consts.RING_DEG]; norm_num)
+    (by simpa using hst)
+    (fun x hx => by have h := hBd x hx; unfold invBnd; rw [if_neg (by norm_num)]; simpa using h))
+  rintro a1 ⟨hst1, hBd1⟩
+  -- the final `INVNTT_SCALE` pass, over a mutable slice view
+  let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
+  let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
+  have hs_len : s.length = 256 := by
+    rw [Slice.length, hs_val]; simpa using a1.property
+  have hit_len : it0.slice.length = 256 := by rw [h_it_slice]; exact hs_len
+  have horig : ∀ x, x < 256 → ((it0.slice.val[x]!).val : ℤ) = aZ a1 x := by
+    intro x _
+    unfold aZ
+    exact congrArg (fun l => ((l[x]! : I32).val : ℤ)) (by rw [h_it_slice, hs_val])
+  have hsB : ∀ x, x < 256 → |((it0.slice.val[x]!).val : ℤ)| ≤ 16 * pNtt := by
+    intro x hx; rw [horig x hx]; exact hBd1 x hx
+  let* ⟨ r_it, r_back, hr_len, hr_writes ⟩ ←
+    invntt_scale_loop_spec it0 (fun im => im) it0.slice (16 * pNtt) rfl
+      (by rw [h_it_zero]; exact Nat.zero_le _) hit_len hsB (le_refl _)
+      (fun _ him => him)
+      (fun _ _ x hx => by rw [h_it_zero] at hx; omega)
+      (fun _ _ _ _ _ => rfl)
+  simp only [h_it_back]
+  have hval_eq : (to_back (r_back r_it).slice).val = (r_back r_it).slice.val := by
+    rw [hto_back]
+    exact Std.Array.from_slice_val a1 (r_back r_it).slice hr_len
+  have hres : ∀ x, x < 256 →
+      aZ (to_back (r_back r_it).slice) x = (((r_back r_it).slice.val[x]!).val : ℤ) := by
+    intro x _
+    unfold aZ
+    rw [show (to_back (r_back r_it).slice).val[x]! = (r_back r_it).slice.val[x]! from
+      congrArg (fun l => l[x]!) hval_eq]
+  refine ⟨?_, ?_⟩
+  · intro x hx
+    have hb := hr_writes x hx
+    have hval : aP a1 x = (2 : Zp) ^ 8 * cc * f x := by
+      have h := State_root hst1 x hx
+      rw [h]
+      push_cast
+      ring
+    unfold aP
+    rw [hres x hx]
+    rw [hb.1, horig x hx, ← aP_def, hval]
+    ring
+  · intro x hx
+    have hb := hr_writes x hx
+    rw [hres x hx]
+    exact ⟨hb.2.1, hb.2.2⟩
+
 end Kopis.Properties
