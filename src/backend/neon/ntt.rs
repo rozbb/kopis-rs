@@ -37,7 +37,7 @@
 use core::arch::aarch64::*;
 
 use crate::backend::crt::{
-    self, BARRETT_SH, CRT_Q, CRT_Q1_INV_MONT, CRT_Q_HALF, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
+    self, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
     ZETAS_Q2,
 };
 use crate::consts::RING_DEG;

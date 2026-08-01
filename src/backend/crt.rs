@@ -260,7 +260,11 @@ mod test {
                 let brv = (k as u8).reverse_bits() as u64;
                 let expected = pow_mod(psi, brv, q) * (1u64 << 16) % q;
                 // The table is centered, so compare after lifting back to [0, q).
-                assert_eq!((z as i64).rem_euclid(q as i64) as u64, expected, "ZETAS[{k}]");
+                assert_eq!(
+                    (z as i64).rem_euclid(q as i64) as u64,
+                    expected,
+                    "ZETAS[{k}]"
+                );
             }
 
             // INVNTT_SCALE = 256⁻¹ · 2^32 mod q, so 256 · scale ≡ 2^32.

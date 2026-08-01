@@ -101,10 +101,9 @@ use core::arch::x86_64::*;
 use crate::consts::RING_DEG;
 
 use crate::backend::crt::{
-    self, BARRETT_SH, CRT_Q, CRT_Q1_INV_MONT, CRT_Q_HALF, Q1, Q1_INV, Q2, Q2_INV,
-    ZETAS_Q1, ZETAS_Q2,
+    self, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
+    ZETAS_Q2,
 };
-
 
 /// A 32-byte-aligned per-lane ψ table for the transposed levels, with its q⁻¹-scaled twin.
 /// Group `h` occupies entries `16h..16h + 16`; lane `m` of that group serves coefficient
@@ -639,11 +638,7 @@ unsafe fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
         // extension.
         unsafe {
             let x = _mm256_loadu_si256(elem.as_ptr().add(16 * i).cast());
-            let x = if REDUCE {
-                barrett(x, bm, round, q)
-            } else {
-                x
-            };
+            let x = if REDUCE { barrett(x, bm, round, q) } else { x };
             st(ptr, i, x);
         }
     }
