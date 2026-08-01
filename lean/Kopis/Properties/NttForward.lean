@@ -382,4 +382,109 @@ theorem ntt_mid_spec {nb lenv b0 : ℕ}
   termination_by 256 - start.val
   decreasing_by scalar_decr_tac
 
+/-! ## The outer loop: all eight levels
+
+`ntt_loop0 a k len` halves `len` until it reaches zero, running one full level per iteration.
+Writing `len = 2^d`, the level has `nb = 2^(7-d)` blocks, so the invariant carried across
+iterations is `State (2^(7-d)) (2·2^d) 1 f`, and each iteration is one `State_ct` step.  Every
+level adds at most `p` to the coefficient magnitude, which is where the `(d+1)·p` in the bound
+comes from. -/
+
+/-- `ntt_loop0` with `len = 0` does nothing: this is how the level loop stops. -/
+theorem ntt_loop0_zero (a : Array I32 256#usize) (k len : Usize) (hlen : len.val = 0) :
+    arithmetic.ntt.ntt_loop0 a k len ⦃ (r : Array I32 256#usize) => r = a ⦄ := by
+  unfold arithmetic.ntt.ntt_loop0
+  rw [if_neg (by scalar_tac)]
+  simp only [WP.spec_ok]
+
+theorem ntt_outer_spec : ∀ (d : ℕ) (a : Array I32 256#usize) (k len : Usize) (f : ℕ → Zp) (B : ℤ),
+    d ≤ 7 →
+    len.val = 2 ^ d →
+    k.val + 1 = 2 ^ (7 - d) →
+    State (2 ^ (7 - d)) (2 * 2 ^ d) 1 f (aP a) →
+    0 ≤ B → B + ((d : ℤ) + 1) * pNtt ≤ 2147483647 →
+    (∀ c, c < 256 → |aZ a c| ≤ B) →
+    arithmetic.ntt.ntt_loop0 a k len
+      ⦃ (r : Array I32 256#usize) =>
+          State 256 1 1 f (aP r) ∧ (∀ c, c < 256 → |aZ r c| ≤ B + ((d : ℤ) + 1) * pNtt) ⦄ := by
+  intro d
+  induction d with
+  | zero =>
+    intro a k len f B _ hlen hk hst hB0 hBhi hBd
+    have hp0 : (0:ℤ) ≤ pNtt := by unfold pNtt; norm_num
+    have hlen1 : len.val = 1 := by simpa using hlen
+    have hst' : State 128 (2 * 1) 1 f (aP a) := by simpa using hst
+    unfold arithmetic.ntt.ntt_loop0
+    rw [if_pos (by scalar_tac)]
+    -- the last level: 128 blocks of size 2
+    apply WP.spec_bind (ntt_mid_spec (nb := 128) (lenv := 1) (b0 := 0) a k len 0#usize B
+      hlen1 (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by simpa using hk)
+      hB0 (by push_cast at hBhi; linarith)
+      (fun c _ hc2 => hBd c hc2) (fun c hc => le_trans (hBd c hc) (by linarith)))
+    rintro ⟨a1, k1⟩ ⟨hA1, _, hBd1, hk1⟩
+    simp only at hA1 hBd1 hk1
+    -- one `State_ct` step takes `State 128 2` to `State 256 1`
+    have hst1 : State 256 1 1 f (aP a1) :=
+      State_ct (nb := 128) (m' := 1) (c := 1) (f := f) (a := aP a) (a' := aP a1)
+        (by norm_num) (by norm_num) hst'
+        (fun b hb r' hr' => hA1 b (Nat.zero_le _) hb r' hr')
+    -- the loop exits: `len / 2 = 0`
+    let* ⟨ len1, len1_post ⟩ ← Std.Usize.div_spec
+    have Hz := ntt_loop0_zero a1 k1 len1 (by rw [len1_post, hlen1])
+    apply WP.spec_mono Hz
+    rintro r rfl
+    refine ⟨hst1, fun c hc => ?_⟩
+    push_cast
+    linarith [hBd1 c hc]
+  | succ d ih =>
+    intro a k len f B hd hlen hk hst hB0 hBhi hBd
+    have hp0 : (0:ℤ) ≤ pNtt := by unfold pNtt; norm_num
+    have hdz : (0:ℤ) ≤ (d : ℤ) := Int.natCast_nonneg d
+    have hd6 : d ≤ 6 := by omega
+    have hsub : 7 - (d + 1) = 6 - d := by omega
+    have hsub2 : 7 - d = 6 - d + 1 := by omega
+    have hnbeq : 2 ^ (7 - d) = 2 * 2 ^ (6 - d) := by rw [hsub2]; ring
+    have hnb256 : 2 ^ (6 - d) * (2 * 2 ^ (d + 1)) = 256 := by
+      rw [show 2 ^ (6 - d) * (2 * 2 ^ (d + 1)) = 2 ^ ((6 - d) + (d + 2)) by ring,
+        show (6 - d) + (d + 2) = 8 by omega]
+      norm_num
+    have hlpos : 0 < 2 ^ (d + 1) := Nat.one_le_two_pow
+    have hnble : 2 * 2 ^ (6 - d) ≤ 256 := by
+      rw [← hnbeq]
+      have : (2:ℕ) ^ (7 - d) ≤ 2 ^ 7 := Nat.pow_le_pow_right (by norm_num) (by omega)
+      omega
+    have hst' : State (2 ^ (6 - d)) (2 * 2 ^ (d + 1)) 1 f (aP a) := by rw [hsub] at hst; exact hst
+    unfold arithmetic.ntt.ntt_loop0
+    rw [if_pos (by scalar_tac)]
+    -- run this level
+    apply WP.spec_bind (ntt_mid_spec (nb := 2 ^ (6 - d)) (lenv := 2 ^ (d + 1)) (b0 := 0)
+      a k len 0#usize B hlen hlpos hnb256 (Nat.zero_le _) (by simp)
+      (by rw [hk, hsub]; omega)
+      hB0 (by push_cast at hBhi ⊢; nlinarith)
+      (fun c _ hc2 => hBd c hc2) (fun c hc => le_trans (hBd c hc) (by linarith)))
+    rintro ⟨a1, k1⟩ ⟨hA1, _, hBd1, hk1⟩
+    simp only at hA1 hBd1 hk1
+    -- one `State_ct` step: `State nb (2·2^(d+1))` becomes `State (2·nb) (2^(d+1))`
+    have hstep : State (2 * 2 ^ (6 - d)) (2 ^ (d + 1)) 1 f (aP a1) :=
+      State_ct (nb := 2 ^ (6 - d)) (m' := 2 ^ (d + 1)) (c := 1) (f := f)
+        (a := aP a) (a' := aP a1) Nat.one_le_two_pow hnble hst'
+        (fun b hb r' hr' => hA1 b (Nat.zero_le _) hb r' hr')
+    have hst1 : State (2 ^ (7 - d)) (2 * 2 ^ d) 1 f (aP a1) := by
+      rw [hnbeq, show 2 * 2 ^ d = 2 ^ (d + 1) by ring]
+      exact hstep
+    -- halve `len` and recurse
+    let* ⟨ len1, len1_post ⟩ ← Std.Usize.div_spec
+    have hlen1 : len1.val = 2 ^ d := by
+      rw [len1_post, hlen, pow_succ]
+      omega
+    have hpos1 : 1 ≤ 2 ^ (6 - d) := Nat.one_le_two_pow
+    have IH := ih a1 k1 len1 f (B + pNtt) (by omega) hlen1
+      (by rw [hk1, hnbeq]; omega) hst1 (by linarith) (by push_cast at hBhi ⊢; nlinarith) hBd1
+    apply WP.spec_mono IH
+    rintro r ⟨hstr, hbr⟩
+    refine ⟨hstr, fun c hc => ?_⟩
+    have := hbr c hc
+    push_cast at this ⊢
+    linarith
+
 end Kopis.Properties
