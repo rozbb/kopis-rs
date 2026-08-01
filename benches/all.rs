@@ -2,28 +2,38 @@ use kopis::{
     kopis512::Kopis512SecretKey, kopis768::Kopis768SecretKey, kopis1024::Kopis1024SecretKey,
 };
 
-use criterion::{Criterion, criterion_group, criterion_main};
+use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+
+// Every benchmark below drives `bench_with_input` off a fixture built once, outside the timing
+// loop. Criterion passes that fixture through `black_box` before it invokes the closure (see
+// `routine.rs`), which is what stops the loop-invariant work here — key expansion, matrix setup,
+// hashing of fixed inputs — from being folded out of the measurement. Wrapping the individual
+// fields in `black_box` as well was measured to make no difference.
 
 macro_rules! bench_kopis_variant {
     ($bench_name:ident, $privkey_name:ident) => {
         fn $bench_name(c: &mut Criterion) {
-            let randomness = &[0u8; 32];
-
-            let gen_bench_name = format!("{}-gen-keypair-derand", stringify!($bench_name));
-            c.bench_function(&gen_bench_name, |b| {
-                b.iter(|| $privkey_name::expand_from_seed(randomness))
-            });
-            let sk = $privkey_name::expand_from_seed(randomness);
+            let seed = [0u8; 32];
+            let sk = $privkey_name::expand_from_seed(&seed);
             let pk = sk.public_key();
+            let (ct, _) = pk.encapsulate_deterministic(&seed);
 
-            let encap_bench_name = format!("{}-encap-derand", stringify!($bench_name));
-            c.bench_function(&encap_bench_name, |b| {
-                b.iter(|| pk.encapsulate_deterministic(randomness))
+            let input = (seed, sk, pk, ct);
+            let mut group = c.benchmark_group(stringify!($bench_name));
+
+            group.bench_with_input("gen-keypair-derand", &input, |b, (seed, ..)| {
+                b.iter(|| $privkey_name::expand_from_seed(seed))
             });
-            let (ct, _) = pk.encapsulate_deterministic(randomness);
 
-            let decap_bench_name = format!("{}-decap", stringify!($bench_name));
-            c.bench_function(&decap_bench_name, |b| b.iter(|| sk.decapsulate(&ct)));
+            group.bench_with_input("encap-derand", &input, |b, (seed, _, pk, _)| {
+                b.iter(|| pk.encapsulate_deterministic(seed))
+            });
+
+            group.bench_with_input("decap", &input, |b, (_, sk, _, ct)| {
+                b.iter(|| sk.decapsulate(ct))
+            });
+
+            group.finish();
         }
     };
 }
@@ -38,21 +48,27 @@ macro_rules! bench_libcrux_variant {
             let kg_randomness = [0u8; 64];
             let encap_randomness = [0u8; 32];
 
-            let gen_bench_name = format!("{}-gen-keypair-derand", stringify!($bench_name));
-            c.bench_function(&gen_bench_name, |b| {
-                b.iter(|| generate_key_pair(kg_randomness))
-            });
             let kp = generate_key_pair(kg_randomness);
-            let pk = kp.public_key();
+            let (ct, _) = encapsulate(kp.public_key(), encap_randomness);
 
-            let encap_bench_name = format!("{}-encap-derand", stringify!($bench_name));
-            c.bench_function(&encap_bench_name, |b| {
-                b.iter(|| encapsulate(&pk, encap_randomness))
+            let input = (kg_randomness, encap_randomness, kp, ct);
+            let mut group = c.benchmark_group(stringify!($bench_name));
+
+            group.bench_with_input("gen-keypair-derand", &input, |b, (kg_randomness, ..)| {
+                b.iter(|| generate_key_pair(*kg_randomness))
             });
-            let (ct, _) = encapsulate(&pk, encap_randomness);
 
-            let decap_bench_name = format!("{}-decap", stringify!($bench_name));
-            c.bench_function(&decap_bench_name, |b| b.iter(|| decapsulate(&kp, &ct)));
+            group.bench_with_input("encap-derand", &input, |b, (_, encap_randomness, kp, _)| {
+                // Borrowing the unpacked public key out of the keypair is not part of encap.
+                let pk = kp.public_key();
+                b.iter(|| encapsulate(pk, *encap_randomness))
+            });
+
+            group.bench_with_input("decap", &input, |b, (_, _, kp, ct)| {
+                b.iter(|| decapsulate(kp, ct))
+            });
+
+            group.finish();
         }
     };
 }
@@ -71,21 +87,38 @@ fn graviolamlkem768(c: &mut Criterion) {
     let kg_randomness = [0u8; 64];
     let encap_randomness = [0u8; 32];
 
-    c.bench_function("graviolamlkem768-gen-kepair-derand", |b| {
-        b.iter(|| DecapKey::keygen_internal(&kg_randomness))
-    });
-
-    let sk = DecapKey::generate().unwrap();
+    // Derandomized throughout, to match the other two implementations' fixtures.
+    let sk = DecapKey::keygen_internal(&kg_randomness);
     let pk = sk.encapsulation_key();
+    let (_, ct) = pk.clone().encaps_internal(Message(encap_randomness));
 
-    c.bench_function("graviolamlkem768-encap-derand", |b| {
-        b.iter(|| pk.clone().encaps_internal(Message(encap_randomness)))
-    });
-    let (_, ct) = pk.encaps().unwrap();
+    let input = (kg_randomness, encap_randomness, sk, pk, ct);
+    let mut group = c.benchmark_group("graviolamlkem768");
 
-    c.bench_function("graviolamlkem768-decap", |b| {
-        b.iter(|| sk.decaps_internal(&ct))
+    group.bench_with_input("gen-keypair-derand", &input, |b, (kg_randomness, ..)| {
+        b.iter(|| DecapKey::keygen_internal(kg_randomness))
     });
+
+    // `encaps_internal` consumes the `EncapKey`, so each iteration needs a fresh one. That clone
+    // copies ~5.8 KB of unpacked key material, which is setup rather than encapsulation work, so
+    // `iter_batched` keeps it out of the measurement.
+    group.bench_with_input(
+        "encap-derand",
+        &input,
+        |b, (_, encap_randomness, _, pk, _)| {
+            b.iter_batched(
+                || pk.clone(),
+                |pk| pk.encaps_internal(Message(*encap_randomness)),
+                BatchSize::SmallInput,
+            )
+        },
+    );
+
+    group.bench_with_input("decap", &input, |b, (_, _, sk, _, ct)| {
+        b.iter(|| sk.decaps_internal(ct))
+    });
+
+    group.finish();
 }
 
 criterion_group!(kopis_benches, kopis512, kopis768, kopis1024);

@@ -1,10 +1,10 @@
-use criterion::{Criterion, criterion_group, criterion_main};
-use kopis::kopis768::{KOPIS768_CIPHERTEXT_LEN, Kopis768PublicKey, Kopis768SecretKey};
+use criterion::{criterion_group, criterion_main, Criterion};
+use kopis::kopis768::{Kopis768PublicKey, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN};
 use rand::{CryptoRng, Rng};
 use sha3::{Digest, Sha3_512};
 use shake::{
-    Shake256,
     digest::{ExtendableOutput, Update, XofReader},
+    Shake256,
 };
 use subtle::ConstantTimeEq;
 
@@ -12,7 +12,15 @@ type Msg1 = [u8; Kopis768PublicKey::SERIALIZED_LEN + 32];
 type Msg2 = [u8; KOPIS768_CIPHERTEXT_LEN + 32];
 
 /// Outputs the first message of NoIC and the secret key
-fn noic_init_start(rng: &mut impl Rng, sid: &[u8; 32], pw: &[u8; 32]) -> (Msg1, Kopis768SecretKey) {
+fn noic_init_start(
+    rng: &mut impl Rng,
+    sid: &[u8; 32],
+    pw: &[u8; 32],
+) -> (
+    Msg1,
+    Kopis768SecretKey,
+    [u8; Kopis768PublicKey::SERIALIZED_LEN],
+) {
     let sk: [u8; 32] = rng.random();
     let decap_key = Kopis768SecretKey::expand_from_seed(&sk);
     let encap_key = decap_key.public_key();
@@ -58,7 +66,7 @@ fn noic_init_start(rng: &mut impl Rng, sid: &[u8; 32], pw: &[u8; 32]) -> (Msg1, 
     out_buf[..32].copy_from_slice(&s);
     out_buf[32..].copy_from_slice(&T);
 
-    (out_buf, decap_key)
+    (out_buf, decap_key, encap_key_bytes)
 }
 
 /// Returns the response message and the final key k
@@ -127,6 +135,7 @@ fn noic_resp(
 /// Processes the response message the returns the shared secret or panics on tag error
 fn noic_init_end(
     sk: &Kopis768SecretKey,
+    encap_key_bytes: &[u8; Kopis768PublicKey::SERIALIZED_LEN],
     sid: &[u8; 32],
     pw: &[u8; 32],
     msg1: &Msg1,
@@ -135,15 +144,12 @@ fn noic_init_end(
     let (tag, ct) = msg2.split_at(32);
     let k_s = sk.decapsulate(ct.try_into().unwrap());
 
-    let mut pk_bytes = [0u8; Kopis768PublicKey::SERIALIZED_LEN];
-    sk.public_key().serialize(&mut pk_bytes);
-
     // tag || K = H(K_s,sid,pw,pk,apk,cph)
     let h = Sha3_512::new()
         .chain_update(k_s.as_bytes())
         .chain_update(sid)
         .chain_update(pw)
-        .chain_update(pk_bytes)
+        .chain_update(encap_key_bytes)
         .chain_update(msg1)
         .chain_update(&ct)
         .finalize();
@@ -157,29 +163,42 @@ fn noic_init_end(
 }
 
 fn bench(c: &mut Criterion) {
-    use rand::Rng;
     let mut rng = rand::rng();
 
     let sid: [u8; 32] = rng.random();
     let pw: [u8; 32] = rng.random();
 
     // Sanity check
-    let (msg1, sk) = noic_init_start(&mut rng, &sid, &pw);
+    let (msg1, sk, encap_key_bytes) = noic_init_start(&mut rng, &sid, &pw);
     let (msg2, k1) = noic_resp(&mut rng, &sid, &pw, &msg1);
-    let k2 = noic_init_end(&sk, &sid, &pw, &msg1, &msg2);
+    let k2 = noic_init_end(&sk, &encap_key_bytes, &sid, &pw, &msg1, &msg2);
     assert_eq!(k1, k2);
 
-    c.bench_function("noic-kopis768-initStart", |b| {
-        b.iter(|| noic_init_start(&mut rng, &sid, &pw))
+    // The whole session state is fixed across iterations — `noic_init_end` is a pure function of
+    // it, and `noic_resp` is one apart from the 32 bytes of encapsulation randomness — so the
+    // hashes, the XOF and the public-key deserialization are all loop-invariant. Criterion passes
+    // the fixture through `black_box` before it invokes the closure (see `routine.rs`), which is
+    // what stops that work from being folded out of the measurement.
+    let input = (sid, pw, msg1, msg2, sk, encap_key_bytes);
+    let mut group = c.benchmark_group("noic-kopis768");
+
+    group.bench_with_input("initStart", &input, |b, (sid, pw, ..)| {
+        b.iter(|| noic_init_start(&mut rng, sid, pw))
     });
 
-    c.bench_function("noic-kopis768-resp", |b| {
-        b.iter(|| noic_resp(&mut rng, &sid, &pw, &msg1))
+    group.bench_with_input("resp", &input, |b, (sid, pw, msg1, ..)| {
+        b.iter(|| noic_resp(&mut rng, sid, pw, msg1))
     });
 
-    c.bench_function("noic-kopis768-initEnd", |b| {
-        b.iter(|| noic_init_end(&sk, &sid, &pw, &msg1, &msg2))
-    });
+    group.bench_with_input(
+        "initEnd",
+        &input,
+        |b, (sid, pw, msg1, msg2, sk, encap_key_bytes)| {
+            b.iter(|| noic_init_end(sk, encap_key_bytes, sid, pw, msg1, msg2))
+        },
+    );
+
+    group.finish();
 }
 
 criterion_group!(noic, bench);
