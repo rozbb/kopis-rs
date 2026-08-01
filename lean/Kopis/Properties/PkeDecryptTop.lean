@@ -107,7 +107,8 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
   -- c1 = cm << (10 - T)
   let* ⟨c1, hc1⟩ ← shift_left_spec cm i3 (by scalar_tac)
   -- v = <bprime, sk>, v1 = v[0][0]  (through the NTT bridge)
-  have hmulT := ntt_mul_transpose_spec bprime S sBound hfitex hbpbnd hskbnd
+  have hL4 : L.val ≤ 4 := by rw [← hℓ]; cases p <;> decide
+  have hmulT := ntt_mul_transpose_spec bprime S sBound hfitex hbpbnd hskbnd hL4
   rw [← hbpntt, ← hskfwd] at hmulT
   let* ⟨v, hv0⟩ ← hmulT
   have hv : ∀ (j : ℕ), j < 1 → ∀ (k : ℕ), k < 1 →

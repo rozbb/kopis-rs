@@ -319,7 +319,8 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   -- The multiplier spec is stated over the *coefficient* matrices; the stored NTT matrices are
   -- their forward images, so rewrite the spec (not the goal — rewriting the goal would perturb
   -- the program term and break the `let*` matching that follows).
-  have hmt := ntt_mul_transpose_spec mat_a vec_s ((MU.val / 2 : ℕ) : ℤ) hfitex hmatbnd hvecbnd
+  have hL4 : L.val ≤ 4 := by rw [← hℓ]; cases p <;> decide
+  have hmt := ntt_mul_transpose_spec mat_a vec_s ((MU.val / 2 : ℕ) : ℤ) hfitex hmatbnd hvecbnd hL4
   rw [← hmata_ntt, ← hvecs_ntt] at hmt
   let* ⟨prod, hprod0⟩ ← hmt
   have hprod : ∀ (j : ℕ), j < L.val → ∀ (k : ℕ), k < 1 →

@@ -25,32 +25,31 @@
   separate bounds on `ℓ` and `μ`: taking the worst `ℓ = 4` together with the worst `μ = 10`
   would give 41 937 920, which does *not* fit.  Only the three shipped pairings do.
 
-  ## Status: two obligations, not one
+  ## What lives where — the NTT proof is complete
 
-  **(1) The transform itself.**  That the Cooley-Tukey / Gentleman-Sande network computes the
-  negacyclic convolution mod `p`.  See `ntt_roundtrip` below for the intended route.  This is
-  the expected, and larger, piece of work.
+  There is no hole left.  The two obligations this file once carried are both discharged:
 
-  **(2) Raw magnitude lemmas — the one that is easy to miss.**  The exactness argument needs
+  **(1) The transform itself** — that the Cooley-Tukey / Gentleman-Sande networks compute the
+  negacyclic convolution mod `p` — lives in `NttMath` (the CRT/convolution mathematics),
+  `NttForward` / `NttInverse` (the extracted butterfly networks), `NttMul` (the pointwise
+  product and the `mont_reduce → invntt → to_wrapping_u16` pipeline) and `NttBridge`
+  (`ntt_mul_spec` / `ntt_mul_transpose_spec`, the matrix-level statements).
+
+  **(2) Raw magnitude lemmas — the ones that were easy to miss.**  The exactness argument needs
   bounds on the *stored representation*: that a `gen_matrix_from_seed` coefficient really is
   `< 2^13` as a `u16`, that a `gen_secret_from_seed` coefficient really denotes something in
   `[-μ/2, μ/2]` when read as an `i16`, and that a rounded vector's coefficients are `< 2^10`.
-  The existing development does not carry these.  It abstracts to residues almost immediately —
+  The rest of the development abstracts to residues almost immediately —
   `gen_matrix_from_seed_spec` concludes `toMatrix13 r = Spec.Kopis.GenMat …` in `ZMod (2^13)`,
   and the `GenSecret*` files work in `ZMod (2^13)` throughout — and a residue says nothing about
   magnitude.  The schoolbook multiplication never needed magnitudes (it is `u16` wrapping
   arithmetic, exact mod `2^16` whatever the inputs), so nothing upstream was ever asked to
-  preserve them.  The NTT does need them, so integrating it means threading magnitude
-  information through layers that currently discard it.
+  preserve them.  They are proved here (`gen_matrix_uniformBounded`, `gen_secret_secretBounded`,
+  `deserialize_10_uniformBounded`, `shift_right_uniformBounded`) and threaded to the call sites.
 
-  Both obligations are open, and are `sorry`ed rather than `axiom`ed so that the audit check at
-  the bottom of `TopLevelTheorems.lean` reports them.  They must not be worked around by adding
-  anything to the audited axiom list: an unproved NTT is exactly the kind of hole that check
-  exists to catch.
-
-  Note there is no *roundtrip* obligation here.  The bridge denotes coefficient matrices in the
-  forward direction (`nttFwdU`/`nttFwdS`, below), so `invNTT ∘ NTT = id` and NTT injectivity are
-  never needed; the convolution theorem is the whole of the remaining mathematics.
+  Note there is no *roundtrip* obligation anywhere.  The bridge denotes coefficient matrices in
+  the forward direction (`nttFwdU`/`nttFwdS`, in `NttBridge`), so `invNTT ∘ NTT = id` and NTT
+  injectivity are never needed; the convolution theorem is the whole of the mathematics.
 -/
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.GenMatrix
@@ -265,12 +264,13 @@ theorem to_canonical_spec (x : I32) (hlo : -pNtt < (x.val:ℤ)) (hhi : (x.val:�
     rw [hadd]
     exact ⟨rfl, by omega, hhi⟩
 
-/-! ## The outstanding obligation
+/-! ## The shape of the transform proof
 
-Everything above is arithmetic bookkeeping.  The mathematical content of the NTT is isolated
-in the single statement below.
+Everything above is arithmetic bookkeeping.  The mathematical content of the NTT is developed
+in `NttMath` / `NttForward` / `NttInverse` / `NttMul` / `NttBridge`; the route it takes is the
+one sketched here.
 
-**Intended proof route.**  Work level by level over the Cooley-Tukey network, using the CRT
+**The proof route.**  Work level by level over the Cooley-Tukey network, using the CRT
 splitting
 
     ℤ_p[X]/(X^{2m} - ζ²)  ≅  ℤ_p[X]/(X^m - ζ)  ×  ℤ_p[X]/(X^m + ζ),
@@ -284,12 +284,13 @@ introduced by each `mont_reduce` is cancelled by `INVNTT_SCALE = 256⁻¹ · 2^6
 of `invntt`, and the lazy-reduction schedule (one Barrett pass after level 4) is what keeps
 every intermediate inside `i32`.
 
-This is the genuinely substantial piece of work, and it is deliberately *not* stated as an
-`axiom`: it is `sorry`ed so that the audit gate in `TopLevelTheorems.lean` reports the hole. -/
+Nothing here is assumed: the audit gate in `TopLevelTheorems.lean` throws on `sorryAx`, so a
+regression that reopened any of it would fail the build. -/
 
-/-! ### `mont_reduce`: the next reduction spec to prove
+/-! ### `mont_reduce`, for reference
 
-The natural use of the `*_exact` lemmas above.
+`mont_reduce_spec` itself is proved in `NttReduceMont.lean`; this is the argument it makes,
+recorded here next to the `*_exact` lemmas it is built from.
 
 `mont_reduce a` computes `t := (a mod 2^32) · p⁻¹`, reinterpreted as an `i32`, and returns
 `(a - t·p) >> 32`.  The argument has four steps:
@@ -320,12 +321,11 @@ and `(X, sBound)` satisfies `fitsExactly` (so the integer product lands in `(-p/
 mod-`p` computation is exact). `signedOfU16` reads a wrapping-`u16` coefficient as its signed
 value, matching `from_secret`'s `as i16 as i32`.
 
-This is the single mathematical hole. It is `sorry`ed, not `axiom`ed, so the `TopLevelTheorems`
-audit gate reports it. Its eventual proof is the reduction specs + the CRT butterfly argument
-described above. NOTE: the escaping NTT-domain values (`mat_a_ntt` into the public key,
-`vec_s_ntt` into the secret key) additionally need `from_uniform_matrix` / `from_secret_matrix`
-specs relating them to a mathematical forward NTT; those are part of discharging this hole and
-are not yet stated here. -/
+The bridge itself is in `NttBridge.lean`: `nttFwdU`/`nttFwdS` denote the escaping NTT-domain
+values (`mat_a_ntt` into the public key, `vec_s_ntt` into the secret key) as the forward images
+of named coefficient matrices, and `ntt_mul_spec` / `ntt_mul_transpose_spec` are the multiplier
+statements.  The magnitude lemmas below are what discharge their preconditions at the call
+sites. -/
 
 /-- Every coefficient of every entry of a uniform matrix operand is `< 2^13`. -/
 def UniformBounded {X Y : Usize} (A : Mat X Y) : Prop :=
@@ -343,12 +343,12 @@ theorem spec_and {α} {m : Result α} {P Q : α → Prop}
   unfold WP.spec WP.theta WP.wp_return at *
   cases m <;> simp_all
 
-/-! ### Raw-magnitude lemmas (part of the NTT hole)
+/-! ### Raw-magnitude lemmas
 
 The exactness argument for `ntt_mul(_transpose)` needs bounds on the *stored representation*
 that the residue-level specs (`gen_matrix_from_seed_spec`, `gen_secret_from_seed_spec`,
-`Matrix.deserialize_10`, the rounding of a product to `R10`) discard.  These are stated here as
-`sorry`ed Hoare triples so the whole NTT hole is enumerable in one file. -/
+`Matrix.deserialize_10`, the rounding of a product to `R10`) discard.  All four are proved
+here, in one file, so the exactness preconditions are enumerable in one place. -/
 
 /-- `getElem!` after a `List.set` at an in-bounds index (local copy; the file-scoped
 copies elsewhere are `private`). -/
@@ -464,7 +464,7 @@ private theorem ntt_gen_matrix_loop0_bd {L : Usize} (iter : core.ops.range.Range
     rw [hnone]; simp only [WP.spec_ok]
     exact hmat
 
-/-- **Part of the NTT hole.** A matrix sampled from a seed has every `u16` coefficient `< 2^13`
+/-- **Exactness precondition.** A matrix sampled from a seed has every `u16` coefficient `< 2^13`
 (the 13-bit `from_bytes` read keeps them in `[0, 2^13)`). -/
 theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
     sample.gen_matrix_from_seed L seed
@@ -493,7 +493,7 @@ theorem signedOfU16_le_of_smallSigned {v : U16} {h : ℕ}
   unfold signedOfU16
   rcases hs with hlow | hhigh <;> split_ifs with hcond <;> rw [abs_le] <;> constructor <;> omega
 
-/-- **Part of the NTT hole (redrafted).** A CBD secret sampled from a seed has every
+/-- **Exactness precondition.** A CBD secret sampled from a seed has every
 coefficient, read as a signed `i16`, bounded in absolute value by `μ/2`.  The `μ ∈ {6, 8, 10}`
 hypothesis matches `gen_secret_from_seed_spec` (already in scope at every call site) and is
 needed because the extracted sampler only succeeds for those shipped parameter widths (for
@@ -641,7 +641,7 @@ private theorem ntt_matrix_deser10_outer_bd {L : Usize}
   termination_by iter.«end».val - iter.start.val
   decreasing_by scalar_decr_tac
 
-/-- **Part of the NTT hole (redrafted).** Deserializing an `L × 1` matrix of 10-bit-packed
+/-- **Exactness precondition.** Deserializing an `L × 1` matrix of 10-bit-packed
 coefficients from an `L·320`-byte buffer yields every `u16` coefficient `< 2^10 < 2^13`.  The
 length and no-overflow hypotheses match `matrix_deserialize_10_spec` (both are already in scope
 at every call site) and are needed because the extracted code `massert`s the buffer length and
@@ -724,7 +724,7 @@ private theorem ntt_toRingElem_coeff_val (re : arithmetic.ring_arith.RingElem)
   simp only [toRingElem, Vector.getElem_ofFn]
   rw [ZMod.val_natCast, Nat.mod_eq_of_lt hlt]
 
-/-- **Part of the NTT hole.** A right shift by `Q_BITS - P_BITS = 3` produces `u16`
+/-- **Exactness precondition.** A right shift by `Q_BITS - P_BITS = 3` produces `u16`
 coefficients `< 2^13` (a 16-bit value shifted right by 3 is `< 2^13`). -/
 theorem shift_right_uniformBounded {L : Usize}
     (self : arithmetic.matrix_arith.Matrix L 1#usize) (sh : Usize) (h : sh.val = 3) :

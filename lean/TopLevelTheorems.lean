@@ -469,14 +469,13 @@ the kernel alone. It is a 2⁸-case check about byte bit-extraction, not a
 cryptographic claim, but it is a real (if small) hole and could be closed by
 replacing `native_decide` with `decide`.
 
-**`sorryAx` — the single documented, deferred hole.** `sorryAx` IS in the closure, and the
-check below reports it as a loud warning (rather than failing) because the hole is
-`sorry`ed on purpose, never `axiom`ed, so it shows up here honestly: the NTT
-multiplication hole `ntt_spec` (`Kopis/Properties/NttBridge.lean`) — that the negacyclic NTT over
-`p = 50330113` computes the ring product, plus its raw-magnitude lemmas.  Everything else,
-including the three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites, is real
-proof.  The check still *fails* on any OTHER new assumption, so it keeps protecting the rest
-of the trust base. -/
+**`sorryAx` is NOT in the closure.** There are no `sorry`s left anywhere in the dependency
+closure of the theorems below — the NTT-multiplication hole `ntt_spec` is discharged
+(`Kopis/Properties/NttBridge.lean`: `ntt_mul_spec` / `ntt_mul_transpose_spec`, on top of the
+transform-network proofs in `NttForward`/`NttInverse`, the pointwise and inverse pipeline in
+`NttMul`, and the pure-mathematical CRT/convolution layer in `NttMath`).  The check below
+therefore treats `sorryAx` like any other unaudited assumption and *fails* the build if one
+ever reappears.  Everything in §3 is real proof. -/
 
 /-! The check itself. It recomputes the axiom footprint of every theorem in §3 and
 compares it against the audited list above. Any new assumption — including a
@@ -527,16 +526,10 @@ run_cmd do
     for a in (← Lean.collectAxioms t) do
       let s := a.toString
       if !found.contains s then found := found.push s
-  -- `sorryAx` covers a single documented, deferred hole, `sorry`ed (never `axiom`ed) so it
-  -- shows up here: the NTT-multiplication hole `ntt_spec` — that the negacyclic NTT over
-  -- `p = 50330113` computes the ring product, plus its raw-magnitude lemmas (Ntt.lean).
-  -- The three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites are now full proofs.
-  -- The gate still throws on ANY OTHER new assumption, so it keeps protecting the trust base.
-  let nttHole := "sorryAx"
-  if found.contains nttHole then
-    logWarning "AUDIT: one documented hole remains (sorryAx): the NTT-multiplication hole \
-      `ntt_spec` (NttBridge.lean).  Everything else is real proof."
-  let unexpected := found.filter (fun a => !audited.contains a && a != nttHole)
+  -- `sorryAx` is deliberately absent from the audited list: the development has no `sorry`s
+  -- left, so a `sorry` anywhere in the dependency closure now *fails* this check rather than
+  -- being tolerated.  Do not re-add an exemption for it.
+  let unexpected := found.filter (fun a => !audited.contains a)
   let unused := audited.filter (fun a => !found.contains a)
   unless unexpected.isEmpty && unused.isEmpty do
     throwError "TRUST BASE CHANGED — §4 of this file is out of date.\n\

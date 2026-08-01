@@ -79,7 +79,8 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
   -- rewrite the *spec* to be about the stored matrices, never the goal (rewriting the goal
   -- perturbs the program term and breaks the `let*` matching that follows)
-  have hmul := ntt_mul_spec Amat vec_sprime ((MU.val / 2 : ℕ) : ℤ) hfitex hpkmatbnd hspbnd
+  have hL4 : L.val ≤ 4 := by rw [← hℓ]; cases p <;> decide
+  have hmul := ntt_mul_spec Amat vec_sprime ((MU.val / 2 : ℕ) : ℤ) hfitex hpkmatbnd hspbnd hL4
   rw [← hpkmatfwd, ← hspntt] at hmul
   let* ⟨prod, hprod0⟩ ← hmul
   have hprod : ∀ (i : ℕ), i < L.val → ∀ (k : ℕ), k < 1 →
@@ -103,7 +104,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   have he2v : e2.val = 3 := by scalar_tac
   let* ⟨prod2, hprod2⟩ ← matrix_shift_right_spec prod1 e2 (by scalar_tac)
   -- vprime = <pk.vec, vec_sprime>  (through the NTT bridge)
-  have hmulT := ntt_mul_transpose_spec V vec_sprime ((MU.val / 2 : ℕ) : ℤ) hfitex hpkvecbnd hspbnd
+  have hmulT := ntt_mul_transpose_spec V vec_sprime ((MU.val / 2 : ℕ) : ℤ) hfitex hpkvecbnd hspbnd hL4
   rw [← hpkvecfwd, ← hspntt] at hmulT
   let* ⟨vprime, hvprime0⟩ ← hmulT
   have hvprime : ∀ (j : ℕ), j < 1 → ∀ (k : ℕ), k < 1 →

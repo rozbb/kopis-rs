@@ -595,4 +595,106 @@ theorem Ev_nconv (f g : ℕ → Zp) {c : Zp} (hc : c ^ 256 = -1) :
         rw [Finset.sum_mul]
         exact Finset.sum_congr rfl (fun i _ => by rw [Finset.sum_mul])
 
+/-! ## The convolution as a single sum
+
+`nconv` is stated as a double sum because that is the shape `Ev_nconv`'s proof wants.  For every
+other purpose the inner sum has exactly one surviving term — given `n < 256` and `i < 256` the
+partner index is forced to be `n - i` or `n + 256 - i` — so it collapses to `nconvR`, a single
+sum of 256 products.
+
+`nconvR` is stated over an arbitrary commutative ring on purpose.  The bridge has to compare
+*three* readings of the same convolution: over `ℤ` (where the exactness bound lives), over `ℤ/p`
+(where the transform computes), and over `ℤ/2¹⁶` (where the specification's answer lives).  With
+one polymorphic definition the first is carried into the other two by `nconvR_map`, a one-line
+consequence of `map_sum`, instead of by two separate re-derivations. -/
+
+/-- The negacyclic convolution of two length-256 coefficient functions, as a single sum:
+coefficient `n` collects `F i · G (n-i)` for `i ≤ n` and `-F i · G (n+256-i)` for `i > n`, the
+sign flip being `X²⁵⁶ = -1`. -/
+def nconvR {R : Type*} [CommRing R] (F G : ℕ → R) (n : ℕ) : R :=
+  ∑ i ∈ Finset.range 256, F i * (if i ≤ n then G (n - i) else -(G (n + 256 - i)))
+
+/-- The double sum of `nconv` collapses to the single sum of `nconvR`. -/
+theorem nconv_eq_nconvR (f g : ℕ → Zp) (n : ℕ) (hn : n < 256) :
+    nconv f g n = nconvR f g n := by
+  unfold nconv nconvR
+  refine Finset.sum_congr rfl (fun i hi => ?_)
+  have hi' : i < 256 := Finset.mem_range.mp hi
+  by_cases hle : i ≤ n
+  · rw [if_pos hle, Finset.sum_eq_single (n - i)]
+    · rw [if_pos (by omega)]
+    · intro j hj hne
+      have hj' : j < 256 := Finset.mem_range.mp hj
+      rw [if_neg (by omega), if_neg (by omega)]
+    · intro h; exact absurd (Finset.mem_range.mpr (by omega : n - i < 256)) h
+  · rw [if_neg hle, Finset.sum_eq_single (n + 256 - i)]
+    · rw [if_neg (by omega), if_pos (by omega)]; ring
+    · intro j hj hne
+      have hj' : j < 256 := Finset.mem_range.mp hj
+      rw [if_neg (by omega), if_neg (by omega)]
+    · intro h; exact absurd (Finset.mem_range.mpr (by omega : n + 256 - i < 256)) h
+
+/-- `nconvR` at `n < 256` reads its arguments only at indices below 256. -/
+theorem nconvR_congr {R : Type*} [CommRing R] {F F' G G' : ℕ → R} {n : ℕ} (hn : n < 256)
+    (hF : ∀ i, i < 256 → F i = F' i) (hG : ∀ j, j < 256 → G j = G' j) :
+    nconvR F G n = nconvR F' G' n := by
+  unfold nconvR
+  refine Finset.sum_congr rfl (fun i hi => ?_)
+  have hi' : i < 256 := Finset.mem_range.mp hi
+  rw [hF i hi']
+  congr 1
+  split_ifs with hle
+  · exact hG _ (by omega)
+  · rw [hG _ (by omega)]
+
+/-- The integer convolution casts into any commutative ring coefficientwise.  This is the bridge
+between the exactness bound (over `ℤ`) and the two quotients the proof works in. -/
+theorem nconvR_intCast {R : Type*} [CommRing R] (F G : ℕ → ℤ) (n : ℕ) :
+    ((nconvR F G n : ℤ) : R)
+      = nconvR (fun i => ((F i : ℤ) : R)) (fun j => ((G j : ℤ) : R)) n := by
+  unfold nconvR
+  rw [Int.cast_sum]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [Int.cast_mul]
+  congr 1
+  split_ifs
+  · rfl
+  · rw [Int.cast_neg]
+
+/-- A ring homomorphism carries `nconvR` to `nconvR` of the transported coefficients.  This is
+what relates the integer convolution to its `ℤ/p` and `ℤ/2¹⁶` readings. -/
+theorem nconvR_map {R S : Type*} [CommRing R] [CommRing S] (φ : R →+* S)
+    (F G : ℕ → R) (n : ℕ) :
+    φ (nconvR F G n) = nconvR (fun i => φ (F i)) (fun j => φ (G j)) n := by
+  unfold nconvR
+  rw [map_sum]
+  refine Finset.sum_congr rfl (fun i _ => ?_)
+  rw [map_mul]
+  congr 1
+  split_ifs
+  · rfl
+  · rw [map_neg]
+
+/-- **The exactness bound.**  Each output coefficient of an integer negacyclic convolution is a
+sum of 256 products, so it is bounded by `256 · bF · bG`.  With `bF = 2¹³-1` and `bG = μ/2` this
+is what `fitsExactly` compares against `p/2`. -/
+theorem abs_nconvR_le {F G : ℕ → ℤ} {bF bG : ℤ} {n : ℕ} (hn : n < 256)
+    (hF : ∀ i, i < 256 → |F i| ≤ bF) (hG : ∀ j, j < 256 → |G j| ≤ bG) :
+    |nconvR F G n| ≤ 256 * bF * bG := by
+  have hbF : 0 ≤ bF := le_trans (abs_nonneg _) (hF 0 (by omega))
+  have hterm : ∀ i ∈ Finset.range 256,
+      |F i * (if i ≤ n then G (n - i) else -(G (n + 256 - i)))| ≤ bF * bG := by
+    intro i hi
+    have hi' : i < 256 := Finset.mem_range.mp hi
+    rw [abs_mul]
+    refine mul_le_mul (hF i hi') ?_ (abs_nonneg _) hbF
+    split_ifs with h
+    · exact hG _ (by omega)
+    · rw [abs_neg]; exact hG _ (by omega)
+  calc |nconvR F G n| ≤ ∑ i ∈ Finset.range 256,
+        |F i * (if i ≤ n then G (n - i) else -(G (n + 256 - i)))| :=
+        Finset.abs_sum_le_sum_abs _ _
+    _ ≤ ∑ _i ∈ Finset.range 256, bF * bG := Finset.sum_le_sum hterm
+    _ = 256 * bF * bG := by rw [Finset.sum_const, Finset.card_range]; push_cast; ring
+
 end Kopis.Properties.NttMath
