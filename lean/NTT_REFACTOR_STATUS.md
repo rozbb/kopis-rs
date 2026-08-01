@@ -46,21 +46,43 @@
 >    extracted network really computes the CRT transform; magnitudes grow by at most `p` per
 >    level, so eight levels from `|a| < 2¹⁶` stay well inside `i32`.
 >
+> 4. **`Kopis/Properties/NttForward.lean` — the whole forward transform, DONE.**
+>    `ntt_inner_spec` (one butterfly block) → `ntt_mid_spec` (all blocks at one level) →
+>    `ntt_outer_spec` (all eight levels, one `State_ct` per level) → `ntt_barrett_loop_spec`
+>    (the closing `IterMut` Barrett pass) → **`ntt_full_spec`**: `arithmetic.ntt.ntt` on an input
+>    bounded by `2¹⁶` yields `State 256 1 1 f` with every coefficient centred in `(-p, p)`.
+>    Imported by `Kopis.lean`, so it is regression-protected.
+>
+> 5. **`Kopis/Properties/NttInverse.lean` — the Gentleman-Sande network, DONE up to the final
+>    scaling loop.** `invntt_inner_spec` → `invntt_mid_spec` → `invntt_barrett_loop_spec` (the
+>    mid-way pass) → `invntt_outer_spec` (all eight merge levels, one `State_gs` per level).
+>    The magnitude schedule is `invBnd`: `p, 2p, 4p, 8p`, Barrett reset, `p, 2p, 4p, 8p`, ending
+>    at `16p`.  **Watch out:** the loop-exit index `e = 8` needs `16p`, not `2^(e mod 4)·p` — an
+>    earlier draft got this wrong and it is a real (caught) bug, not a proof-plumbing detail.
+>
+>    This file adds ONE axiom, `I64.wrapping_neg_spec`, because aeneas leaves
+>    `core.num.I64.wrapping_neg` opaque (it is an `axiom` in `ExtractedRust.lean`, with no
+>    definition to unfold).  It is registered in `TopLevelTheorems.lean`'s audited list next to
+>    the two `count_ones` intrinsics.  **This assumption is avoidable and should be removed:**
+>    writing `0i64.wrapping_sub(ZETAS[k] as i64)` instead of `(ZETAS[k] as i64).wrapping_neg()`
+>    in `src/arithmetic/ntt.rs` extracts to `IScalar.wrapping_sub`, which aeneas gives real
+>    semantics — that would drop both the opaque function and this axiom from the trust base.
+>
 > **NEXT STEPS, in order:**
 >
-> 1. `ntt_loop1` — the closing Barrett pass. This is an `IterMut` slice loop (continuation-passing
->    `back` function), a different shape from the range loops. **There is a perfect template**:
->    `Kopis/Properties/MatrixArith.lean`'s `shift_right_loop0_loop0_spec`, together with the
->    `iter_mut_spec` / `iter_mut_next_spec` / `iter_mut_next_spec_none` helpers in
->    `RingArith.lean`. Worth writing once as a generic "map over an `IterMut`" lemma, because the
->    same shape recurs three times (`ntt_loop1`, `invntt_loop0_loop1`, `invntt_loop1`).
-> 2. Assemble `arithmetic.ntt.ntt` itself (Array→Slice→Array plumbing around the loops).
-> 3. `invntt`: four loops, using `State_gs` and the mid-way Barrett pass; the final
->    `INVNTT_SCALE` multiplication cancels the accumulated `2⁸` and the pointwise Montgomery
->    factor. Net effect to prove: if `v` satisfies `State 0-level c g` then `invntt v ≡ c·2³²·g`.
-> 4. `NttElem.from_uniform` / `from_secret`, `pointwise_mul_acc`, `reduce_invntt_to_ring_elem`.
-> 5. The matrix-level loops (`from_uniform_matrix`, `from_secret_matrix`, `mul`, `mul_transpose`).
-> 6. De-opaque `nttInvU`/`nttInvS` in `Ntt.lean` and discharge the four `sorry`s. Then flip the
+> 1. `invntt_loop1` — the final `INVNTT_SCALE` multiplication pass (an `IterMut` loop; use
+>    `invntt_barrett_loop_spec` as the template, the body is `mont_reduce (coeff · INVNTT_SCALE)`
+>    instead of `barrett_reduce`).  Then assemble `invntt_full_spec` the way `ntt_full_spec`
+>    assembles the forward transform.  Target statement: if the input satisfies
+>    `State 256 1 c g` then the output is `c · 2³² · g`, because the eight `State_gs` layers
+>    contribute `2⁸` and `INVNTT_SCALE = 256⁻¹·2⁶⁴` cancels it together with one Montgomery
+>    factor.
+> 2. `NttElem.from_uniform` / `from_secret` (each: a coefficient-widening loop then `ntt`),
+>    `pointwise_mul_acc`, `reduce_invntt_to_ring_elem` (`mont_reduce`, then `invntt`, then
+>    `to_wrapping_u16` — `to_wrapping_u16_spec` is already proved).
+> 3. The matrix-level loops: `from_uniform_matrix`, `from_secret_matrix`, `mul`, `mul_transpose`.
+> 4. De-opaque `nttInvU`/`nttInvS` in `Ntt.lean` and discharge the four `sorry`s, using
+>    `Ev_nconv` (the convolution theorem) and `cst_leaf_pow`.  Then flip the
 >    `TopLevelTheorems.lean` audit gate back to throwing on `sorryAx`.
 >
 > **Host notes.** 11 cores / 56 GB — the old 4 GB RAM constraint is gone; `LEAN_NUM_THREADS=8`
@@ -77,6 +99,9 @@
 >   * `all_goals` needs its tactic block on the *following* lines, indented; a multi-line
 >     `all_goals have ... := by` on one line breaks parsing.
 >   * A `-/` inside a doc comment (e.g. writing "32-/64-bit") silently closes the comment.
+>   * With the 256-element `ZN` list literal in context, `scalar_tac` and `scalar_decr_tac` blow
+>     the recursion limit trying to normalise it — use explicit bounds and `simp_wf; omega`.
+>   * `hBu2 _ (by omega) (by omega)` fails when the index is a metavariable: give it explicitly.
 
 ---
 
