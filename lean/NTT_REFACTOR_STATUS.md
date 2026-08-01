@@ -1,38 +1,84 @@
-# NTT + pubkey-refactor proof status
+# NTT proof status
 
-> ## ▶ RESUME HERE (paused 2026-07-24, waiting on more host RAM)
+> ## ▶ RESUME HERE (updated 2026-08-01, branch `avx2`)
 >
-> **Where we are:** `make prove-kopis` is GREEN. Down from 11 `sorry`s at the start of the
-> refactor to **4**, all in `Ntt.lean` — exactly the four core NTT transform specs
+> **Where we are.** `make prove-kopis` is GREEN (~7 s incremental, ~3.5 min clean) with the same
+> **4** `sorry`s as before — the four core transform specs in `Ntt.lean`
 > (`from_uniform_matrix_spec`, `from_secret_matrix_spec`, `ntt_mul_spec`,
-> `ntt_mul_transpose_spec`). Everything else (composites, all four magnitude lemmas,
-> `to_canonical_spec`) is real, committed proof. Latest commits on `worktree-ntt-mult`.
+> `ntt_mul_transpose_spec`). But the machinery to discharge them is now largely built:
 >
-> **Immediate RAM-blocked item:** `Kopis/Properties/NttReduce.lean` holds three FULLY-PROVEN,
-> `sorry`-free reduction value-specs (`mont_reduce_spec`, `to_wrapping_u16_spec`,
-> `barrett_reduce_spec`). They are NOT imported by `Kopis.lean` (so the build stays green)
-> because on this 4 GB host any two of these heavy WP-monadic proofs OOM (exit 137) when
-> co-elaborated. **First thing after more RAM:** add `import Kopis.Properties.NttReduce` to
-> `Kopis.lean` and run `make prove-kopis`; if it still strains, split the three into one file
-> each (each imports `Ntt`; `mont_reduce_spec` alone compiled to exit 0 standalone).
+> **DONE (committed, green, `sorry`-free):**
 >
-> **Then the real work — the 4 core transform specs (`ntt_spec`):** these are architecturally
-> blocked and need, in order:
->  1. The reduction value-specs above wired in (done, modulo RAM).
->  2. Replace `opaque nttInvU`/`nttInvS` in `Ntt.lean` with a concrete inverse-NTT `def`.
->  3. Prove the extracted `ntt`/`invntt` butterfly loops compute a mathematical NTT/invNTT
->     (Cooley–Tukey / Gentleman–Sande; 8-level CRT split of `X²⁵⁶+1`; `ZETAS` = bit-reversed
->     powers of ψ=49118445, a primitive 512-th root of unity mod p; Montgomery domain tracked
->     via `mont_reduce_spec`, cancelled by `INVNTT_SCALE`; lazy Barrett reduction after level 4).
->  4. From those, the roundtrip `invNTT ∘ NTT = id` (⟹ the two `from_*` specs) and the
->     convolution theorem `invNTT(NTT A ⊙ NTT s) = A·s` (⟹ the two `mul` specs), discharging
->     the `fitsExactly` exactness bound.
-> `symcrypt-lean/` does NOT help here: its Kopis is the pre-migration schoolbook version and has
-> no NTT. Verified numeric facts (all checked): `P·P_INV ≡ 1 mod 2³²`, `INVNTT_SCALE =
-> 256⁻¹·2⁶⁴ mod p`, `ψ²⁵⁶ ≡ -1 mod p`. This is multi-session work.
+> 1. **`Kopis/Properties/NttMath.lean` — the pure-math layer.** The design decision that makes
+>    this tractable: **no roots of unity, no bit-reversal, no Vandermonde.** The `ZETAS` table is
+>    treated as *data*; the only things needed from it are three numeric relations, each a
+>    `decide`d `Bool` check over a `List ℕ` copy of the table:
+>      * root:    `ζ₁² = -1`
+>      * CRT tree: `ζ_{2k}² = ζ_k`, `ζ_{2k+1}² = -ζ_k`
+>      * GS pairing: `ζ_{nb+b} · ζ_{2·nb-1-b} = -1`
+>    `zetas_val` bridges the table to `ExtractedRust` (needs `unseal arithmetic.ntt.ZETAS` — the
+>    extracted table is `@[irreducible]`).
+>    On top of that sits ONE invariant, `State nb m c f a` ("block `b` holds `f mod (X^m - c_{nb+b})`,
+>    scaled by `c`"), with two step lemmas: `State_ct` (one Cooley-Tukey layer) and `State_gs`
+>    (one Gentleman-Sande layer, which leaves the factor of 2 per layer that `INVNTT_SCALE`
+>    cancels). Plus `cst_leaf_pow` (every leaf constant has `c²⁵⁶ = -1`) and `Ev_nconv`, the
+>    convolution theorem.
 >
-> **Host note:** 4 cores / 4 GB. Always build with `LEAN_NUM_THREADS=2` (or `1` for the heavy
-> reduction proofs) — see the `Makefile`. Full `make prove-kopis` from a clean state ~4–5 min.
+> 2. **`NttReduceMont.lean` / `NttReduceBarrett.lean` / `NttReduceWrap.lean`** (collected by
+>    `NttReduce.lean`, now **imported by `Kopis.lean`**) — the three reduction value specs.
+>    These were bit-rotted *and* pathologically slow (~14 min, ~15 GB, then
+>    `(kernel) deep recursion detected`). Now ~2 s each. Two fixes, both documented in
+>    `NttReduce.lean` and worth remembering for any Aeneas WP proof:
+>      * **`clear_value` after the value equations.** `set` leaves its abbreviations *let-bound*,
+>        so the kernel zeta-expands them and reduces `BitVec` ops on 32-/64-bit literals inside
+>        every later side condition.
+>      * **Never let `omega` eliminate a division by a huge constant.** Restating Barrett's
+>        bounds over the euclidean decomposition `x·M + 2⁴⁷ = q·2⁴⁸ + r` makes them linear, and
+>        `linarith` closes them instantly.
+>
+> 3. **`Kopis/Properties/NttForward.lean` — the extracted forward butterfly network.** `aZ`/`aP`
+>    read an `[i32; 256]` as a coefficient function / its residue; `mont_val_Zp` is the single
+>    place the Montgomery representation is reasoned about. All three nested loops are proven:
+>      * `ntt_inner_spec`  — one butterfly block (innermost loop)
+>      * `ntt_mid_spec`    — every block at one level (middle loop)
+>      * `ntt_outer_spec`  — all eight levels (outer loop), applying `State_ct` once per level
+>    Conclusion: `arithmetic.ntt.ntt_loop0` takes `State 1 256 1 f` to `State 256 1 1 f`, i.e. the
+>    extracted network really computes the CRT transform; magnitudes grow by at most `p` per
+>    level, so eight levels from `|a| < 2¹⁶` stay well inside `i32`.
+>
+> **NEXT STEPS, in order:**
+>
+> 1. `ntt_loop1` — the closing Barrett pass. This is an `IterMut` slice loop (continuation-passing
+>    `back` function), a different shape from the range loops. **There is a perfect template**:
+>    `Kopis/Properties/MatrixArith.lean`'s `shift_right_loop0_loop0_spec`, together with the
+>    `iter_mut_spec` / `iter_mut_next_spec` / `iter_mut_next_spec_none` helpers in
+>    `RingArith.lean`. Worth writing once as a generic "map over an `IterMut`" lemma, because the
+>    same shape recurs three times (`ntt_loop1`, `invntt_loop0_loop1`, `invntt_loop1`).
+> 2. Assemble `arithmetic.ntt.ntt` itself (Array→Slice→Array plumbing around the loops).
+> 3. `invntt`: four loops, using `State_gs` and the mid-way Barrett pass; the final
+>    `INVNTT_SCALE` multiplication cancels the accumulated `2⁸` and the pointwise Montgomery
+>    factor. Net effect to prove: if `v` satisfies `State 0-level c g` then `invntt v ≡ c·2³²·g`.
+> 4. `NttElem.from_uniform` / `from_secret`, `pointwise_mul_acc`, `reduce_invntt_to_ring_elem`.
+> 5. The matrix-level loops (`from_uniform_matrix`, `from_secret_matrix`, `mul`, `mul_transpose`).
+> 6. De-opaque `nttInvU`/`nttInvS` in `Ntt.lean` and discharge the four `sorry`s. Then flip the
+>    `TopLevelTheorems.lean` audit gate back to throwing on `sorryAx`.
+>
+> **Host notes.** 11 cores / 56 GB — the old 4 GB RAM constraint is gone; `LEAN_NUM_THREADS=8`
+> is fine. Iterate with the Lean LSP MCP (`lean_diagnostic_messages` / `lean_goal`), not full
+> `lake build`s: it is seconds instead of minutes.
+>
+> **Gotchas hit repeatedly, worth knowing:**
+>   * `step*` leaves a `hmax` side goal per checked arithmetic op; putting the needed bound in
+>     context *before* `step*` lets it discharge them itself.
+>   * `omega` treats projections of an anonymous `Range` constructor (`{start := s, end := e}.start`)
+>     as opaque atoms — add an explicit `rfl` bridge first.
+>   * `step*` will auto-apply the theorem *currently being defined* when it sees a recursive call,
+>     leaving stray implicit-argument goals. Use an explicit `let* ... spec` for that step.
+>   * `all_goals` needs its tactic block on the *following* lines, indented; a multi-line
+>     `all_goals have ... := by` on one line breaks parsing.
+>   * A `-/` inside a doc comment (e.g. writing "32-/64-bit") silently closes the comment.
+
+---
 
 Status of the Lean correspondence proofs after three Rust changes landed on
 `worktree-ntt-mult`: (1) multiplication moved to a negacyclic NTT over `p = 50330113`;
