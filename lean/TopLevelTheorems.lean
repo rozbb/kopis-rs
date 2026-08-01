@@ -426,7 +426,16 @@ about compiled machine code and is out of scope for this development entirely.
 `U8.count_ones_spec` and `U32.count_ones_spec` give the meaning of Rust's popcount
 intrinsics, and `RustKopis.core.num.I64.wrapping_neg` is Rust's `i64::wrapping_neg`
 (used by the NTT to negate a twiddle factor) — all three are intrinsics that aeneas
-leaves opaque, carrying no logical content of their own.
+leaves opaque, carrying no definition to unfold.  `I64.wrapping_neg_spec` supplies
+the missing meaning of the third one (two's-complement negation, i.e. `Int.bmod` of
+the negation — the same value semantics aeneas gives every other `wrapping_*`
+operation), in the same way the two `count_ones_spec`s do for the first two.
+
+This last assumption is *avoidable*: writing `0i64.wrapping_sub(ZETAS[k] as i64)`
+instead of `(ZETAS[k] as i64).wrapping_neg()` in `src/arithmetic/ntt.rs` extracts to
+`IScalar.wrapping_sub`, which aeneas gives real semantics, so both
+`RustKopis.core.num.I64.wrapping_neg` and `I64.wrapping_neg_spec` would leave the
+trust base entirely.  That is a Rust change requiring re-extraction.
 
 **(d) Lean-side.** `propext`, `Classical.choice` and `Quot.sound` are the standard
 axioms of Lean's logic — every Mathlib development uses them, and they are
@@ -463,6 +472,7 @@ run_cmd do
   let audited : List String :=
     ["Aeneas.Std.core.fmt.Formatter",
      "Classical.choice",
+     "Kopis.Properties.I64.wrapping_neg_spec",
      "Kopis.Properties.U32.count_ones_spec",
      "Kopis.Properties.U8.count_ones_spec",
      "Kopis.Properties.conditional_select_array_u8_spec",

@@ -26,6 +26,35 @@ namespace Kopis.Properties
 open NttMath
 
 set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+
+/-! ## The one assumed intrinsic
+
+`ExtractedRust.lean` declares `core.num.I64.wrapping_neg` as an `axiom`: aeneas leaves Rust's
+`i64::wrapping_neg` opaque, so it carries no definition to unfold.  Its meaning therefore has to
+be assumed, exactly as for the two `count_ones` popcount intrinsics in `GenSecret.lean`.  The
+opaque function itself is already on `TopLevelTheorems.lean`'s audited list; this spec is added
+alongside it.
+
+Note this assumption is *avoidable*: writing `0i64.wrapping_sub(ZETAS[k] as i64)` instead of
+`(ZETAS[k] as i64).wrapping_neg()` in `src/arithmetic/ntt.rs` extracts to `IScalar.wrapping_sub`,
+which has real semantics, and would remove this axiom from the trust base.  That is a Rust
+change requiring re-extraction, so it is left as a recommendation. -/
+
+/-- **Assumed spec for `i64::wrapping_neg`.**  Two's-complement negation, i.e. `Int.bmod` of the
+negation — the same value semantics aeneas gives every other `wrapping_*` operation. -/
+@[step] axiom I64.wrapping_neg_spec (x : I64) :
+    core.num.I64.wrapping_neg x
+      ⦃ (r : I64) => (r.val : ℤ) = Int.bmod (-(x.val : ℤ)) (2 ^ 64) ⦄
+
+/-- On the range the twiddles occupy, `wrapping_neg` is exact negation. -/
+theorem I64_wrapping_neg_exact (x : I64)
+    (hlo : -9223372036854775808 < (x.val : ℤ)) (hhi : (x.val : ℤ) < 9223372036854775808) :
+    core.num.I64.wrapping_neg x ⦃ (r : I64) => (r.val : ℤ) = -(x.val : ℤ) ⦄ := by
+  apply WP.spec_mono (I64.wrapping_neg_spec x)
+  intro r hr
+  rw [hr]
+  exact bmod_i64_exact (by omega) (by omega)
 
 /-! ## The innermost loop: one Gentleman-Sande block
 
@@ -185,5 +214,135 @@ theorem invntt_inner_spec {st lenv : ℕ} (iter : core.ops.range.Range Usize)
     · intro c _; trivial
   termination_by iter.«end».val - iter.start.val
   decreasing_by scalar_decr_tac
+
+/-! ## The middle loop: every block at one level
+
+`invntt_loop0_loop0 a k len start` walks `start` over the blocks being merged.  `k` counts *down*
+here: entering with `b₀` blocks merged, `k = 2·nb - b₀`, so the block's table index is
+`k - 1 = 2·nb - 1 - b₀` — exactly the index `NttMath.zetaP_pair` pairs with the forward
+transform's `nb + b₀`. -/
+
+theorem invntt_mid_spec {nb lenv b0 : ℕ}
+    (a : Array I32 256#usize) (k len start : Usize) (B : ℤ)
+    (hlen : len.val = lenv) (hlpos : 0 < lenv)
+    (hnb : nb * (2 * lenv) = 256)
+    (hb0 : b0 ≤ nb) (hstart : start.val = b0 * (2 * lenv)) (hk : k.val = 2 * nb - b0)
+    (hpB : pNtt ≤ B) (hBhi : 2 * B ≤ 2147483647)
+    (hBu : ∀ c, start.val ≤ c → c < 256 → |aZ a c| ≤ B)
+    (hBg : ∀ c, c < 256 → |aZ a c| ≤ 2 * B) :
+    arithmetic.ntt.invntt_loop0_loop0 a k len start
+      ⦃ (rk : Array I32 256#usize × Usize) =>
+        (∀ b, b0 ≤ b → b < nb → ∀ r', r' < lenv →
+            aP rk.1 (b * (2 * lenv) + r')
+              = aP a (b * (2 * lenv) + r') + aP a (b * (2 * lenv) + lenv + r')
+            ∧ aP rk.1 (b * (2 * lenv) + lenv + r')
+              = (-(zetaP (2 * nb - 1 - b)))
+                * (aP a (b * (2 * lenv) + r') - aP a (b * (2 * lenv) + lenv + r')))
+        ∧ (∀ c, c < start.val → aZ rk.1 c = aZ a c)
+        ∧ (∀ c, c < 256 → |aZ rk.1 c| ≤ 2 * B)
+        ∧ rk.2.val = nb ⦄ := by
+  have hp0 : (0:ℤ) < pNtt := by unfold pNtt; norm_num
+  have hnb1 : 1 ≤ nb := by
+    rcases Nat.eq_zero_or_pos nb with h | h
+    · rw [h] at hnb; simp at hnb
+    · exact h
+  have hnb128 : nb ≤ 128 := by nlinarith
+  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+  unfold arithmetic.ntt.invntt_loop0_loop0
+  by_cases hlt : start < consts.RING_DEG
+  · have hltv : start.val < 256 := by rw [← hRD]; scalar_tac
+    have hb0lt : b0 < nb := by nlinarith
+    have hkb : 2 * nb - 1 - b0 < 256 := by omega
+    have hlenb : lenv ≤ 128 := by nlinarith
+    have hkpos : 1 ≤ k.val := by omega
+    step*
+    case hbound => scalar_tac
+    case hmax => scalar_tac
+    have hk1v : k1.val = 2 * nb - 1 - b0 := by omega
+    -- the twiddle: `neg_zeta = -ZETAS[k-1]`, so it denotes `-ζ_{2nb-1-b₀}`
+    have hzv : (i1.val : ℤ) = (ZN[2 * nb - 1 - b0]! : ℤ) := by
+      have h1 : (i1.val : ℤ) = (i.val : ℤ) := by
+        rw [i1_post, IScalar.cast_val_eq,
+          show Min.min IScalarTy.I64.numBits IScalarTy.I32.numBits = 32 from rfl]
+        exact bmod_i32_exact (by scalar_tac) (by scalar_tac)
+      have h2 : (i.val : ℤ) = (ZN[k1.val]! : ℤ) := by
+        rw [i_post]; exact zetas_val' k1.val (by omega) _
+      rw [h1, h2, hk1v]
+    have hznlt : ZN[2 * nb - 1 - b0]! < pNtt := by
+      have := ZN_lt (2 * nb - 1 - b0) (by omega); unfold pNtt; exact_mod_cast this
+    have hzn0 : (0:ℤ) ≤ (ZN[2 * nb - 1 - b0]! : ℤ) := by positivity
+    have hnz : (neg_zeta.val : ℤ) = -(i1.val : ℤ) := by
+      rw [neg_zeta_post]
+      exact bmod_i64_exact (by rw [hzv]; unfold pNtt at hznlt; omega)
+        (by rw [hzv]; unfold pNtt at hznlt; omega)
+    have hnzlo : -pNtt < (neg_zeta.val : ℤ) := by
+      rw [hnz, hzv]; unfold pNtt at hznlt ⊢; omega
+    have hnzhi : (neg_zeta.val : ℤ) < pNtt := by rw [hnz, hzv]; linarith
+    have hnzeta : ((neg_zeta.val : ℤ) : Zp) * Rinv = -(zetaP (2 * nb - 1 - b0)) := by
+      rw [hnz, hzv, zetaP]
+      push_cast
+      ring
+    -- run the block's merge
+    have hi2v : i2.val = start.val + lenv := by rw [i2_post, hlen]
+    have hiS : ({ start := start, «end» := i2 } : core.ops.range.Range Usize).start.val
+        = start.val := rfl
+    have hblkv : start.val + 2 * lenv ≤ 256 := by nlinarith
+    apply WP.spec_bind (invntt_inner_spec (st := start.val) (lenv := lenv)
+      { start := start, «end» := i2 } a len neg_zeta (-(zetaP (2 * nb - 1 - b0))) B hlen hlpos
+      (by omega) (by omega) (by omega) hblkv hnzeta hnzlo hnzhi hpB hBhi
+      (fun c hc1 hc2 => hBu c (by omega) (by omega))
+      (fun c hc1 hc2 => hBu c (by omega) (by omega))
+      hBg)
+    intro a1 ha1
+    obtain ⟨hA1, hU1, hU2, hU3, hBd1⟩ := ha1
+    rw [hiS] at hA1 hU1 hU2
+    -- advance to the next block
+    -- `scalar_tac` is avoided here: it would try to normalise the `ZN[...]` literal in context
+    have hUmax : 512 ≤ Usize.max := by
+      rcases Usize.bounds_eq with h | h <;> rw [h] <;> simp only [U32.max_eq, U64.max_eq] <;> omega
+    have h2u : (2#usize).val = 2 := rfl
+    let* ⟨ i3, hi3 ⟩ ←
+      Std.Usize.mul_spec (show (2#usize).val * len.val ≤ Usize.max from by rw [h2u, hlen]; omega)
+    let* ⟨ start1, hs1 ⟩ ←
+      Std.Usize.add_spec (show start.val + i3.val ≤ Usize.max from by
+        rw [hi3, hlen]; omega)
+    have hi3v : i3.val = 2 * lenv := by rw [hi3, hlen]
+    have hs1v : start1.val = (b0 + 1) * (2 * lenv) := by rw [hs1, hi3v, hstart]; ring
+    have IH := invntt_mid_spec (nb := nb) (lenv := lenv) (b0 := b0 + 1)
+      a1 k1 len start1 B hlen hlpos hnb (by omega) hs1v (by omega) hpB hBhi
+      (fun c hc1 hc2 => by rw [hU3 c (by omega)]; exact hBu c (by omega) hc2)
+      hBd1
+    apply WP.spec_mono IH
+    rintro rk ⟨hR1, hR2, hR3, hR4⟩
+    refine ⟨?_, ?_, hR3, hR4⟩
+    · intro b hb1 hb2 r' hr'
+      rcases eq_or_lt_of_le hb1 with hbe | hbgt
+      · subst hbe
+        have hx1 : aP rk.1 (b0 * (2 * lenv) + r') = aP a1 (b0 * (2 * lenv) + r') :=
+          aP_congr (hR2 _ (by omega))
+        have hx2 : aP rk.1 (b0 * (2 * lenv) + lenv + r') = aP a1 (b0 * (2 * lenv) + lenv + r') :=
+          aP_congr (hR2 _ (by omega))
+        have hA := hA1 (start.val + r') (by omega) (by omega)
+        rw [show start.val + r' + lenv = b0 * (2 * lenv) + lenv + r' by omega, hstart] at hA
+        rw [hx1, hx2]
+        exact hA
+      · have h := hR1 b (by omega) hb2 r' hr'
+        rw [aP_congr (hU3 (b * (2 * lenv) + r') (by nlinarith)),
+          aP_congr (hU3 (b * (2 * lenv) + lenv + r') (by nlinarith))] at h
+        exact h
+    · intro c hc
+      rw [hR2 c (by omega), hU1 c (by omega)]
+  · have hgev : 256 ≤ start.val := by rw [← hRD]; scalar_tac
+    have hb0eq : b0 = nb := by nlinarith
+    rw [if_neg hlt]
+    simp only [WP.spec_ok]
+    refine ⟨?_, ?_, hBg, by omega⟩
+    · intro b hb1 hb2; omega
+    · intro c _; trivial
+  termination_by 256 - start.val
+  decreasing_by
+    -- `scalar_decr_tac` is avoided: its `simp` normalises the `ZN` list literal in context
+    simp_wf
+    omega
 
 end Kopis.Properties
