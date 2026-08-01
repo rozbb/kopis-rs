@@ -70,13 +70,8 @@
 >
 > **NEXT STEPS, in order:**
 >
-> 1. `invntt_loop1` — the final `INVNTT_SCALE` multiplication pass (an `IterMut` loop; use
->    `invntt_barrett_loop_spec` as the template, the body is `mont_reduce (coeff · INVNTT_SCALE)`
->    instead of `barrett_reduce`).  Then assemble `invntt_full_spec` the way `ntt_full_spec`
->    assembles the forward transform.  Target statement: if the input satisfies
->    `State 256 1 c g` then the output is `c · 2³² · g`, because the eight `State_gs` layers
->    contribute `2⁸` and `INVNTT_SCALE = 256⁻¹·2⁶⁴` cancels it together with one Montgomery
->    factor.
+> 1. DONE — `invntt_scale_loop_spec` and `invntt_full_spec` are proven.  **Both transform
+>    networks are now complete end to end**: `ntt_full_spec` and `invntt_full_spec`.
 > 2. `NttElem.from_uniform` / `from_secret` (each: a coefficient-widening loop then `ntt`),
 >    `pointwise_mul_acc`, `reduce_invntt_to_ring_elem` (`mont_reduce`, then `invntt`, then
 >    `to_wrapping_u16` — `to_wrapping_u16_spec` is already proved).
