@@ -7,7 +7,7 @@ import Kopis.Properties.GenMatrix
 import Kopis.Properties.MatrixArith
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.Ntt
--- import Kopis.Properties.NttReduce  -- TEMP: bit-rotted, being repaired
+import Kopis.Properties.NttReduce
 import Kopis.Properties.GenSecretLoops
 import Kopis.Properties.GenSecretSpec
 import Kopis.Properties.GenSecretTop
