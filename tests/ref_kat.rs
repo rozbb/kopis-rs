@@ -94,32 +94,19 @@ macro_rules! kat_test {
             let path_str = format!("tests/ref_test_vectors-kopis{}.jsonl", $level);
             let path = Path::new(&path_str);
             let vectors = read_vectors(path);
+            for vector in vectors {
+                let failed = test_vector(&vector).is_err();
+                assert_eq!(failed, vector.malformed);
+            }
 
-            for vector in &vectors {
-                if vector.malformed {
-                    continue;
-                }
-
+            fn test_vector(vector: &KatVector) -> Result<(), ()> {
                 let ctx = || format!("Kopis-{} vector failed: {}", $level, vector.description);
 
                 // Expand the secret key from its 32-byte seed and check the derived public key
                 // matches the recorded one.
-                let seed: [u8; 32] = vector
-                    .sk
-                    .as_slice()
-                    .try_into()
-                    .unwrap_or_else(|_| panic!("{}: sk is not 32 bytes", ctx()));
+                let seed: [u8; 32] = vector.sk.as_slice().try_into().map_err(|_| ())?;
                 let sk = <$sk_ty>::expand_from_seed(&seed);
-                let pk = sk.public_key();
-
-                let mut pk_bytes = [0u8; <$pk_ty>::SERIALIZED_LEN];
-                pk.serialize(&mut pk_bytes);
-                assert_eq!(
-                    pk_bytes.as_slice(),
-                    vector.pk.as_slice(),
-                    "{}: derived public key does not match recorded pk",
-                    ctx()
-                );
+                let pk = <$pk_ty>::from_bytes(vector.pk.as_slice().try_into().map_err(|_| ())?);
 
                 // Re-run the (deterministic) encapsulation and check the ciphertext and shared
                 // secret match the recorded encapper values.
@@ -127,7 +114,7 @@ macro_rules! kat_test {
                     .encap_randomness
                     .as_slice()
                     .try_into()
-                    .unwrap_or_else(|_| panic!("{}: encap_randomness is not 32 bytes", ctx()));
+                    .map_err(|_| ())?;
                 let (encapper_ct, encapper_ss) = pk.encapsulate_deterministic(&encap_randomness);
                 assert_eq!(
                     encapper_ct.as_slice(),
@@ -142,12 +129,19 @@ macro_rules! kat_test {
                     ctx()
                 );
 
+                let computed_pk = sk.public_key();
+                let mut computed_pk_bytes = [0u8; <$pk_ty>::SERIALIZED_LEN];
+                computed_pk.serialize(&mut computed_pk_bytes);
+                assert_eq!(
+                    computed_pk_bytes.as_slice(),
+                    vector.pk.as_slice(),
+                    "{}: derived public key does not match recorded pk",
+                    ctx()
+                );
+
                 // Decapsulate the recorded decapper ciphertext and check the shared secret matches.
-                let decapper_ct: &[u8; $ct_len] = vector
-                    .decapper_ct
-                    .as_slice()
-                    .try_into()
-                    .unwrap_or_else(|_| panic!("{}: decapper_ct has wrong length", ctx()));
+                let decapper_ct: &[u8; $ct_len] =
+                    vector.decapper_ct.as_slice().try_into().map_err(|_| ())?;
                 let decapper_ss = sk.decapsulate(decapper_ct);
                 assert_eq!(
                     decapper_ss.as_bytes().as_slice(),
@@ -155,6 +149,8 @@ macro_rules! kat_test {
                     "{}: recomputed decapper_ss does not match recorded value",
                     ctx()
                 );
+
+                Ok(())
             }
         }
     };
