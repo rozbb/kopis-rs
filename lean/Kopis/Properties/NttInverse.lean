@@ -446,4 +446,210 @@ theorem invntt_barrett_loop_spec
   termination_by iter.slice.len.val - iter.i
   decreasing_by scalar_decr_tac
 
+/-! ## The outer loop: all eight merge levels
+
+`invntt_loop0 a k len` doubles `len` until it reaches 256.  Writing `len = 2^e`, the level merges
+`2^(8-e)` blocks in pairs, so the invariant carried across iterations is
+`State (2^(8-e)) (2^e) c f`, and each iteration is one `State_gs` step — which *doubles* the
+scale `c`, giving the `2^8` that `INVNTT_SCALE` cancels at the end.
+
+The magnitude schedule is `B_e = 2^(e mod 4) · p`: the sum path doubles each level, and the
+`if len1 = 16` branch (i.e. after the `e = 3` level) Barrett-reduces everything back under `p`.
+That is why the bound hypothesis below is stated as `2 ^ (e % 4) * pNtt` — it is exactly the
+schedule the code realises. -/
+
+/-- The coefficient bound entering the level with `len = 2^e`.  The sum path doubles each level
+and the `if len1 = 16` branch resets it after `e = 3`, giving `p, 2p, 4p, 8p, p, 2p, 4p, 8p`; once
+the loop has finished (`e = 8`) the last level's doubling leaves `16p`. -/
+def invBnd (e : ℕ) : ℤ := if e = 8 then 16 * pNtt else 2 ^ (e % 4) * pNtt
+
+theorem invBnd_le (e : ℕ) : invBnd e ≤ 16 * pNtt := by
+  have hp : (0:ℤ) < pNtt := by unfold pNtt; norm_num
+  unfold invBnd
+  split
+  · exact le_refl _
+  · have h : (2:ℤ) ^ (e % 4) ≤ 8 := by
+      have : e % 4 ≤ 3 := by omega
+      calc (2:ℤ) ^ (e % 4) ≤ 2 ^ 3 := pow_le_pow_right₀ (by norm_num) this
+        _ = 8 := by norm_num
+    nlinarith
+
+/-- `invntt_loop0` with `len = 256` does nothing: this is how the level loop stops. -/
+theorem invntt_loop0_done (a : Array I32 256#usize) (k len : Usize) (hlen : len.val = 256) :
+    arithmetic.ntt.invntt_loop0 a k len ⦃ (r : Array I32 256#usize) => r = a ⦄ := by
+  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+  unfold arithmetic.ntt.invntt_loop0
+  rw [if_neg (by scalar_tac)]
+  simp only [WP.spec_ok]
+
+theorem invntt_outer_spec : ∀ (d e : ℕ) (a : Array I32 256#usize) (k len : Usize)
+    (f : ℕ → Zp) (cc : Zp),
+    e + d = 8 →
+    len.val = 2 ^ e →
+    k.val = 2 ^ (8 - e) →
+    State (2 ^ (8 - e)) (2 ^ e) cc f (aP a) →
+    (∀ x, x < 256 → |aZ a x| ≤ invBnd e) →
+    arithmetic.ntt.invntt_loop0 a k len
+      ⦃ (r : Array I32 256#usize) =>
+          State 1 256 (cc * 2 ^ (8 - e)) f (aP r)
+          ∧ (∀ x, x < 256 → |aZ r x| ≤ 16 * pNtt) ⦄ := by
+  have hp0 : (0:ℤ) < pNtt := by unfold pNtt; norm_num
+  intro d
+  induction d with
+  | zero =>
+    intro e a k len f cc hed hlen hk hst hBd
+    have he : e = 8 := by omega
+    subst he
+    have Hz := invntt_loop0_done a k len (by rw [hlen]; norm_num)
+    apply WP.spec_mono Hz
+    rintro r rfl
+    refine ⟨by simpa using hst, fun x hx => ?_⟩
+    have h := hBd x hx
+    unfold invBnd at h
+    rw [if_pos rfl] at h
+    exact h
+  | succ d ih =>
+    intro e a k len f cc hed hlen hk hst hBd
+    have he7 : e ≤ 7 := by omega
+    have hsub : 8 - e = (7 - e) + 1 := by omega
+    have hnbeq : (2:ℕ) ^ (8 - e) = 2 * 2 ^ (7 - e) := by rw [hsub]; ring
+    have hnb256 : 2 ^ (7 - e) * (2 * 2 ^ e) = 256 := by
+      rw [show 2 ^ (7 - e) * (2 * 2 ^ e) = 2 ^ ((7 - e) + (e + 1)) by ring,
+        show (7 - e) + (e + 1) = 8 by omega]
+      norm_num
+    have hlpos : 0 < (2:ℕ) ^ e := Nat.one_le_two_pow
+    have hlt256 : (2:ℕ) ^ e < 256 := by
+      calc (2:ℕ) ^ e ≤ 2 ^ 7 := Nat.pow_le_pow_right (by norm_num) he7
+        _ < 256 := by norm_num
+    have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+    -- the magnitude bound entering this level, and after it
+    have hBe : (2:ℤ) ^ (e % 4) ≤ 8 := by
+      have : e % 4 ≤ 3 := by omega
+      calc (2:ℤ) ^ (e % 4) ≤ 2 ^ 3 := by
+            exact pow_le_pow_right₀ (by norm_num) this
+        _ = 8 := by norm_num
+    have hBe1 : (1:ℤ) ≤ 2 ^ (e % 4) := one_le_pow₀ (by norm_num)
+    have hBv : invBnd e = 2 ^ (e % 4) * pNtt := by unfold invBnd; rw [if_neg (by omega)]
+    have hB0 : pNtt ≤ invBnd e := by rw [hBv]; nlinarith
+    have hBhi : 2 * invBnd e ≤ 2147483647 := by rw [hBv]; unfold pNtt at *; nlinarith
+    unfold arithmetic.ntt.invntt_loop0
+    rw [if_pos (by scalar_tac)]
+    -- merge every block at this level
+    apply WP.spec_bind (invntt_mid_spec (nb := 2 ^ (7 - e)) (lenv := 2 ^ e) (b0 := 0)
+      a k len 0#usize (invBnd e) hlen hlpos hnb256 (Nat.zero_le _) (by simp)
+      (by rw [hk, hnbeq]; omega) hB0 hBhi
+      (fun x _ hx2 => hBd x hx2) (fun x hx => le_trans (hBd x hx) (by linarith)))
+    rintro ⟨a1, k1⟩ ⟨hA1, _, hBd1, hk1⟩
+    simp only at hA1 hBd1 hk1
+    -- one `State_gs` step, which doubles the scale
+    have hstep : State (2 ^ (7 - e)) (2 * 2 ^ e) (2 * cc) f (aP a1) :=
+      State_gs (nb := 2 ^ (7 - e)) (m' := 2 ^ e) (c := cc) (f := f) (a := aP a) (a' := aP a1)
+        Nat.one_le_two_pow
+        (by have h : (2:ℕ) ^ (7 - e) ≤ 2 ^ 7 := Nat.pow_le_pow_right (by norm_num) (by omega)
+            norm_num at h ⊢
+            omega)
+        ⟨7 - e, by omega, rfl⟩
+        (by rw [hnbeq] at hst; exact hst)
+        (fun b hb r' hr' => hA1 b (Nat.zero_le _) hb r' hr')
+    -- `len1 = 2·len`
+    let* ⟨ len1, hlen1v ⟩ ←
+      Std.Usize.mul_spec (show len.val * (2#usize).val ≤ Usize.max from by scalar_tac)
+    have hlen1 : len1.val = 2 ^ (e + 1) := by rw [hlen1v, hlen, pow_succ]
+    have hst1 : State (2 ^ (8 - (e + 1))) (2 ^ (e + 1)) (2 * cc) f (aP a1) := by
+      rw [show 8 - (e + 1) = 7 - e by omega, pow_succ, mul_comm ((2:ℕ) ^ e) 2]
+      exact hstep
+    have hk1' : k1.val = 2 ^ (8 - (e + 1)) := by rw [hk1, show 8 - (e + 1) = 7 - e by omega]
+    have hscale : cc * 2 ^ (8 - e) = (2 * cc) * 2 ^ (8 - (e + 1)) := by
+      rw [show 8 - e = (8 - (e + 1)) + 1 by omega, pow_succ]
+      ring
+    rw [hscale]
+    -- either the Barrett pass fires (after the `e = 3` level) or it does not
+    by_cases hbar : len1 = 16#usize
+    · rw [if_pos hbar]
+      have he3 : e = 3 := by
+        have h16 : len1.val = 16 := by rw [hbar]; rfl
+        rw [hlen1] at h16
+        have : (2:ℕ) ^ (e + 1) = 2 ^ 4 := by rw [h16]; norm_num
+        exact Nat.succ_injective (Nat.pow_right_injective (by norm_num) this)
+      -- after the `e = 3` level the bound is `16p`, which is inside Barrett's input range
+      have hBd1' : ∀ x, x < 256 → |aZ a1 x| ≤ 16 * pNtt := by
+        intro x hx
+        have h := hBd1 x hx
+        rw [hBv, he3] at h
+        norm_num at h ⊢
+        linarith
+      let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
+      let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
+      have hs_len : s.length = 256 := by
+        rw [Slice.length, hs_val]; simpa using a1.property
+      have hit_len : it0.slice.length = 256 := by rw [h_it_slice]; exact hs_len
+      have horig : ∀ x, x < 256 → ((it0.slice.val[x]!).val : ℤ) = aZ a1 x := by
+        intro x _
+        unfold aZ
+        exact congrArg (fun l => ((l[x]! : I32).val : ℤ)) (by rw [h_it_slice, hs_val])
+      have hsB : ∀ x, x < 256 → |((it0.slice.val[x]!).val : ℤ)| ≤ 16 * pNtt := by
+        intro x hx; rw [horig x hx]; exact hBd1' x hx
+      let* ⟨ r_it, r_back, hr_len, hr_writes ⟩ ←
+        invntt_barrett_loop_spec it0 (fun im => im) it0.slice (16 * pNtt) rfl
+          (by rw [h_it_zero]; exact Nat.zero_le _) hit_len hsB (by unfold pNtt; norm_num)
+          (fun _ him => him)
+          (fun _ _ x hx => by rw [h_it_zero] at hx; omega)
+          (fun _ _ _ _ _ => rfl)
+      simp only [h_it_back]
+      have hval_eq : (to_back (r_back r_it).slice).val = (r_back r_it).slice.val := by
+        rw [hto_back]
+        exact Std.Array.from_slice_val a1 (r_back r_it).slice hr_len
+      have hres : ∀ x, x < 256 →
+          aZ (to_back (r_back r_it).slice) x = (((r_back r_it).slice.val[x]!).val : ℤ) := by
+        intro x _
+        unfold aZ
+        rw [show (to_back (r_back r_it).slice).val[x]! = (r_back r_it).slice.val[x]! from
+          congrArg (fun l => l[x]!) hval_eq]
+      -- the Barrett pass preserves residues, so the `State` invariant survives it
+      have hst2 : State (2 ^ (8 - (e + 1))) (2 ^ (e + 1)) (2 * cc) f
+          (aP (to_back (r_back r_it).slice)) := by
+        refine State_congr (by rw [show 8 - (e + 1) = 7 - e by omega, ← pow_add,
+          show (7 - e) + (e + 1) = 8 by omega]; norm_num) hst1 (fun x hx => ?_)
+        have hb := hr_writes x hx
+        unfold aP
+        rw [hres x hx, horig x hx] at *
+        exact intCast_eq_of_emod hb.1
+      have hBd2 : ∀ x, x < 256 →
+          |aZ (to_back (r_back r_it).slice) x| ≤ invBnd (e + 1) := by
+        intro x hx
+        have hb := hr_writes x hx
+        have hpow : invBnd (e + 1) = pNtt := by
+          unfold invBnd; rw [he3, if_neg (by norm_num)]; norm_num
+        rw [hres x hx, abs_le, hpow]
+        exact ⟨le_of_lt hb.2.1, le_of_lt hb.2.2⟩
+      have IH := ih (e + 1) (to_back (r_back r_it).slice) k1 len1 f (2 * cc) (by omega) hlen1
+        hk1' hst2 hBd2
+      exact IH
+    · rw [if_neg hbar]
+      -- `len1 ≠ 16` rules out `e = 3`; `e = 7` is the last level, where the bound becomes `16p`
+      have hne3 : e ≠ 3 := by
+        rintro rfl
+        have h16 : len1.val = 16 := by rw [hlen1]; norm_num
+        exact hbar (by scalar_tac)
+      have hBd1' : ∀ x, x < 256 → |aZ a1 x| ≤ invBnd (e + 1) := by
+        intro x hx
+        have hb := hBd1 x hx
+        rw [hBv] at hb
+        rcases Nat.eq_or_lt_of_le he7 with he7' | he7'
+        · -- `e = 7`: the loop is about to stop, and `16p` is the final bound
+          subst he7'
+          have hpow : invBnd (7 + 1) = 16 * pNtt := by unfold invBnd; rw [if_pos rfl]
+          rw [hpow]
+          norm_num at hb ⊢
+          linarith
+        · have hmod : (e + 1) % 4 = (e % 4) + 1 := by omega
+          have hpow : invBnd (e + 1) = 2 ^ (e % 4) * 2 * pNtt := by
+            unfold invBnd; rw [if_neg (by omega), hmod, pow_succ]
+          rw [hpow]
+          have hring : (2:ℤ) ^ (e % 4) * 2 * pNtt = 2 * (2 ^ (e % 4) * pNtt) := by ring
+          rw [hring]
+          exact hb
+      have IH := ih (e + 1) a1 k1 len1 f (2 * cc) (by omega) hlen1 hk1' hst1 hBd1'
+      exact IH
+
 end Kopis.Properties
