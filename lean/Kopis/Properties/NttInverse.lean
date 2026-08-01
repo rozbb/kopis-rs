@@ -28,33 +28,19 @@ open NttMath
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 
-/-! ## The one assumed intrinsic
+/-! ## No assumed intrinsic here
 
-`ExtractedRust.lean` declares `core.num.I64.wrapping_neg` as an `axiom`: aeneas leaves Rust's
-`i64::wrapping_neg` opaque, so it carries no definition to unfold.  Its meaning therefore has to
-be assumed, exactly as for the two `count_ones` popcount intrinsics in `GenSecret.lean`.  The
-opaque function itself is already on `TopLevelTheorems.lean`'s audited list; this spec is added
-alongside it.
+The twiddle negation in `invntt` is written `0i64.wrapping_sub(ZETAS[k] as i64)` rather than
+`(ZETAS[k] as i64).wrapping_neg()`.  That is deliberate: aeneas leaves `i64::wrapping_neg`
+opaque (it extracts to an `axiom` with no body, so its meaning would have to be *assumed*,
+as for the two `count_ones` popcount intrinsics in `GenSecret.lean`), whereas `wrapping_sub`
+extracts to `IScalar.wrapping_sub`, a real `def` carrying real semantics.  The two compile to
+identical code, so the spelling costs nothing and keeps the assumption out of the trust base.
 
-Note this assumption is *avoidable*: writing `0i64.wrapping_sub(ZETAS[k] as i64)` instead of
-`(ZETAS[k] as i64).wrapping_neg()` in `src/arithmetic/ntt.rs` extracts to `IScalar.wrapping_sub`,
-which has real semantics, and would remove this axiom from the trust base.  That is a Rust
-change requiring re-extraction, so it is left as a recommendation. -/
-
-/-- **Assumed spec for `i64::wrapping_neg`.**  Two's-complement negation, i.e. `Int.bmod` of the
-negation — the same value semantics aeneas gives every other `wrapping_*` operation. -/
-@[step] axiom I64.wrapping_neg_spec (x : I64) :
-    core.num.I64.wrapping_neg x
-      ⦃ (r : I64) => (r.val : ℤ) = Int.bmod (-(x.val : ℤ)) (2 ^ 64) ⦄
-
-/-- On the range the twiddles occupy, `wrapping_neg` is exact negation. -/
-theorem I64_wrapping_neg_exact (x : I64)
-    (hlo : -9223372036854775808 < (x.val : ℤ)) (hhi : (x.val : ℤ) < 9223372036854775808) :
-    core.num.I64.wrapping_neg x ⦃ (r : I64) => (r.val : ℤ) = -(x.val : ℤ) ⦄ := by
-  apply WP.spec_mono (I64.wrapping_neg_spec x)
-  intro r hr
-  rw [hr]
-  exact bmod_i64_exact (by omega) (by omega)
+Concretely, `core.num.I64.wrapping_sub` comes with the `@[simp]` value lemma
+`(wrapping_sub x y).val = Int.bmod (x.val - y.val) (2 ^ 64)`, which is exactly what the
+assumed `wrapping_neg` spec used to state — and `bmod_i64_exact` turns it into plain
+negation on the range the twiddles occupy.  See `neg_zeta` in `invntt_mid_spec` below. -/
 
 /-! ## The innermost loop: one Gentleman-Sande block
 
@@ -271,8 +257,11 @@ theorem invntt_mid_spec {nb lenv b0 : ℕ}
     have hznlt : ZN[2 * nb - 1 - b0]! < pNtt := by
       have := ZN_lt (2 * nb - 1 - b0) (by omega); unfold pNtt; exact_mod_cast this
     have hzn0 : (0:ℤ) ≤ (ZN[2 * nb - 1 - b0]! : ℤ) := by positivity
+    -- `neg_zeta = 0 - ZETAS[k-1]`; `wrapping_sub` is `Int.bmod` of the difference, which is
+    -- exact here because the twiddle is far inside `i64` range.
     have hnz : (neg_zeta.val : ℤ) = -(i1.val : ℤ) := by
-      rw [neg_zeta_post]
+      rw [neg_zeta_post, core.num.I64.wrapping_sub_val_eq,
+        show ((0#i64).val : ℤ) = 0 from rfl, zero_sub]
       exact bmod_i64_exact (by rw [hzv]; unfold pNtt at hznlt; omega)
         (by rw [hzv]; unfold pNtt at hznlt; omega)
     have hnzlo : -pNtt < (neg_zeta.val : ℤ) := by

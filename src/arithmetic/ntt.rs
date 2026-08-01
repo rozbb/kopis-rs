@@ -182,7 +182,10 @@ fn invntt(a: &mut [i32; RING_DEG]) {
         let mut start = 0;
         while start < RING_DEG {
             k -= 1;
-            let neg_zeta = (ZETAS[k] as i64).wrapping_neg();
+            // `0 - z` rather than `z.wrapping_neg()`: aeneas leaves `i64::wrapping_neg` opaque
+            // (it extracts to an axiom with no definition), whereas `wrapping_sub` gets real
+            // semantics. Identical codegen, one fewer assumption in the Lean trust base.
+            let neg_zeta = 0i64.wrapping_sub(ZETAS[k] as i64);
             for j in start..start + len {
                 let t = a[j];
                 a[j] = t.wrapping_add(a[j + len]);

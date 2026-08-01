@@ -154,16 +154,18 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
     (hfit : L.val * 10 * 256 ≤ Usize.max) :
     pke.PkePublicKey.from_bytes L bytes
       ⦃ (pk : pke.PkePublicKey L) =>
-          toVecN 10 (nttInvU pk.vec_ntt)
-            = Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
-                (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
-                  (32 * 10 * L.val) (by omega)) ∧
-          UniformBounded (nttInvU pk.vec_ntt) ∧
+          (∃ V : Mat L 1#usize, pk.vec_ntt = nttFwdU V ∧
+              toVecN 10 V
+                = Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
+                    (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
+                      (32 * 10 * L.val) (by omega)) ∧
+              UniformBounded V) ∧
           matSeedBytes pk
             = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
                 (32 * 10 * L.val) 32 (by omega) ∧
-          toMatrix13 (nttInvU pk.mat_a_ntt) = Spec.Kopis.GenMat L.val (arrayToBytes pk.matrix_seed) ∧
-          UniformBounded (nttInvU pk.mat_a_ntt) ∧
+          (∃ Amat : Mat L L, pk.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes pk.matrix_seed) ∧
+              UniformBounded Amat) ∧
           vecBytesFlat pk
             = (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
                 (32 * 10 * L.val) (by omega)).cast (by ring) ⦄ := by
@@ -242,11 +244,8 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
           (32 * 10 * L.val) (by omega)).toList := by
     rw [Vector.toList_cast, sliceToBytes_toList, ← hvbtake, sliceToBytes_toList]
   have hbyteslen : bytes.val.length = 320 * L.val + 32 := by rw [Slice.length] at hlen; exact hlen
-  refine ⟨?_, ?_, hseedbytes, ?_, ?_, ?_⟩
-  · rw [hvecntt]; exact hvec.trans (deserialize_vec_toList_cast rfl _ _ hab)
-  · rw [hvecntt]; exact hvecbnd
-  · rw [hmatntt]; exact hmat
-  · rw [hmatntt]; exact hmatbnd
+  refine ⟨⟨vec, hvecntt, hvec.trans (deserialize_vec_toList_cast rfl _ _ hab), hvecbnd⟩,
+          hseedbytes, ⟨mat_a, hmatntt, hmat, hmatbnd⟩, ?_⟩
   · -- the stored vector bytes are exactly the input's `[0, 32·10·ℓ)` prefix
     have hvsl' : vec_slice.val.length = 32 * 10 * L.val := by rw [Slice.length] at hvslen'; exact hvslen'
     rw [← hvbtake]

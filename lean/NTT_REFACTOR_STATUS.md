@@ -1,11 +1,134 @@
 # NTT proof status
 
-> ## ▶ RESUME HERE (updated 2026-08-01, branch `avx2`)
+> ## ▶ RESUME HERE (updated 2026-08-01 later, branch `avx2`)
 >
-> **Where we are.** `make prove-kopis` is GREEN (~7 s incremental, ~3.5 min clean) with the same
-> **4** `sorry`s as before — the four core transform specs in `Ntt.lean`
+> ### Plan status: steps 1–3 DONE and green; step 4 in progress.
+>
+> A four-step plan is underway.  **Steps 1, 2 and 3 are complete and `make prove-kopis` is
+> GREEN with the audit gate passing.**  Step 4 (the convolution theorem) is under way; see the
+> step-4 note at the end of this block for exactly where it stands.
+>
+> **Step 1 — DONE, green.** The `I64.wrapping_neg` assumption is *gone from the trust base*.
+> `src/arithmetic/ntt.rs:185` now writes `0i64.wrapping_sub(ZETAS[k] as i64)` instead of
+> `(ZETAS[k] as i64).wrapping_neg()`; aeneas gives `wrapping_sub` real semantics
+> (`core.num.I64.wrapping_sub_val_eq : (wrapping_sub x y).val = Int.bmod (x.val - y.val) (2^64)`)
+> whereas it left `wrapping_neg` as a bodiless `axiom`.  Re-extracted: the diff is *only* the
+> removal of the `axiom` declaration, the one call site, and line-number comment shifts — no
+> structural churn.  `NttInverse.lean` lost both the `axiom I64.wrapping_neg_spec` and the (dead)
+> `I64_wrapping_neg_exact`; the one live use is now a three-line rewrite in `invntt_mid_spec`.
+> `TopLevelTheorems.lean` §4 group (c) is down from 3 assumptions to 2, and the audit gate
+> confirmed it: `New assumptions: []`, `Audited assumptions no longer used:
+> [RustKopis.core.num.I64.wrapping_neg]`.  Rust tests pass (33).
+> **Do not "simplify" that call back to `wrapping_neg`** — it silently re-adds two trust-base entries.
+>
+> **Step 2 — DONE, green.** The three `kopisNNN_keygen` top-level theorems are weakened to their
+> *observable* conjuncts (`z`, `pkStructBytes`, `pkHash`), dropping the two conjuncts that
+> characterised `pke_sk` and `mat_a_ntt` coefficient-wise.  `nttInv*` now appears **0 times** in
+> `TopLevelTheorems.lean` (was 6).  Nothing is lost: neither field is observable (the secret key's
+> wire form is its 32-byte `seed`; `mat_a_ntt` is never serialized), and both are pinned
+> *behaviourally* and more strongly by §3.2 (keygen→encap) and §3.3 (keygen→decap), which are
+> byte-level end-to-end.  The rationale is written up in the §3.1 doc block — keep it, it is the
+> answer to "why doesn't keygen mention the secret any more?".
+>
+> **Step 3 — DONE, green.**  `opaque nttInvU/nttInvS` are replaced by concrete forward
+> `def`s `nttFwdU`/`nttFwdS : Mat X Y → NttMatrix X Y` (via `Result.getD`, a total `ok`-extractor).
+> *Why:* an `opaque` constant admits only reflexivity and congruence, so
+> `nttInvU (from_uniform_matrix A) = A` was not merely unproven but **underivable** — there are
+> models where `nttInvU` is constant.  Going forward also removes the need for the NTT roundtrip
+> theorem and NTT injectivity entirely; the convolution theorem becomes the whole remaining
+> mathematics.  Downstream, a consumer names its coefficient matrix and carries
+> `stored = nttFwdU A`; facts about one stored object are **bundled into a single existential** so
+> no uniqueness lemma is ever needed (that was the original design's stated objection to
+> existentials, and bundling answers it).
+>
+> All eleven consumer files are migrated: `Ntt`, `ExpandDecap`, `KeyGen`, `PkeEncryptTop`,
+> `PkeDecryptTop`, `KeyGenHyps`, `KemEncap`, `KemDecap`, `KemFromBytes`, `PkeFromBytes`, `Impls`,
+> plus the six `KeyGenCapstone` destructurings.  `nttInvU`/`nttInvS` now appear **nowhere in the
+> development** except one doc paragraph in `Ntt.lean` explaining why the direction was flipped.
+>
+> Four lessons paid for during the migration — all of them will bite again:
+>   * The proof bodies get *simpler*, not harder: bound side-conditions go from
+>     `(by rw [hmata_ntt]; exact hmatbnd)` to just `hmatbnd`.
+>   * **Rewrite the spec theorem, not the goal.**  `rw [hmata_ntt]` on the goal also rewrites the
+>     *program* term, which breaks the `let*` matching of the very next step (`pke_hash_spec`
+>     stops unifying).  Instead: `have hmt := ntt_mul_transpose_spec …;
+>     rw [← hmata_ntt, ← hvecs_ntt] at hmt; let* ⟨prod, hprod0⟩ ← hmt`.
+>   * **`let*` splits bundled existentials** into witness-then-conjuncts, flattened.  A
+>     postcondition `(∃ S, a ∧ b ∧ c) ∧ d ∧ …` destructures as `⟨S, ha, hb, hc, hd, …⟩`, *not* as
+>     a nested pattern.  Regroup with explicit `⟨⟨S, ha, hb, hc⟩, hd, …⟩` when re-proving it.
+>   * A stale destructuring pattern shows up as **`(deterministic) timeout at whnf`**, not as a
+>     type error — exactly the misdiagnosis recorded in the `KeyGenCapstone` post-mortem below.
+>     If you see that timeout after changing a postcondition's shape, fix the pattern; do not
+>     raise `maxHeartbeats`.
+>
+> **Module layout changed.**  The bridge moved out of `Ntt.lean` into a new
+> **`Kopis/Properties/NttBridge.lean`**.  This is forced, not cosmetic: the bridge specs need
+> `ntt_full_spec` from `NttForward`, `NttForward` needs `NttReduce`, and the reduction files need
+> `Ntt.lean`'s scalar groundwork (`pNtt`, `to_canonical_spec`, the `*_exact` lemmas) — so
+> `Ntt.lean` sits *below* `NttForward` and cannot import it.  `NttBridge` sits above both and
+> holds `Result.getD`, `nttFwdU`/`nttFwdS`, the coefficient-widening loop specs and the four
+> bridge specs.  `ExpandDecap` imports `NttBridge` instead of `Ntt`; `Kopis.lean` imports it too.
+> (An earlier attempt to instead hoist the scalar core into a shared `NttScalar.lean` was
+> abandoned — the reduction files need `to_canonical_spec` as well, so the split would have had
+> to drag most of `Ntt.lean` along.)
+>
+> **Step 4 — HALF DONE.  Two of the four `sorry`s are DISCHARGED; two remain.**
+> `from_uniform_matrix_spec` and `from_secret_matrix_spec` are now **real proofs**.  What is left
+> is `ntt_mul_spec` and `ntt_mul_transpose_spec` — the convolution theorem, and nothing else.
+>
+> The chain that discharged them, all in `NttBridge.lean`, all real proof:
+>
+>   * `bmod_pow16_eq_signed` and `bmod_i16_exact` — the two `Int.bmod` facts the secret widening
+>     needs (`NttBridge.lean`).
+>   * **`from_uniform_loop_spec`** — the uniform coefficient-widening loop:
+>     `aZ r c = elem[c]` (zero-extended) for `c ≥ iter.start`, untouched below.
+>   * **`from_secret_loop_spec`** — the same for the secret loop, landing on
+>     `signedOfU16 elem[c]`.
+>   * **`from_uniform_elem_spec`** and **`from_secret_elem_spec`** — the *element-level forward
+>     transform*, i.e. widening composed with `ntt_full_spec`.  Each concludes
+>     `State 256 1 1 f (aP r)` for its coefficient function `f` (unsigned resp. `signedOfU16`),
+>     with every output coefficient centred in `(-p, p)`.  `ntt_full_spec` needs only `B = 65536`,
+>     which both widenings satisfy (`|zero-extended u16| < 65536`, `|signedOfU16 _| ≤ 32768`), so
+>     the composition is direct.
+>
+  * **`from_uniform_matrix_inner_ok` / `_outer_ok` / `_ok`** and their `from_secret` twins — the
+>     two nested matrix loops are entrywise maps of the element transform, so they inherit its
+>     totality.  Postcondition is just `fun _ => True`, which in the Aeneas `⦃ … ⦄` reading *is*
+>     the success claim (the triple is false on both `fail` and `div`).
+>   * **`spec_eq_getD`** — a `⦃ fun _ => True ⦄` triple upgrades to `⦃ r => r = Result.getD m ⦄`.
+>     Since `nttFwdU A` is *defined* as `Result.getD (from_uniform_matrix A)`, this closes the two
+>     `from_*_matrix` specs outright.  This is the payoff of the forward direction: in the old
+>     inverse-shaped design these two were underivable; here they are two-line consequences of
+>     "the loops terminate without panicking".
+>
+> **What remains is exactly the convolution theorem** — `ntt_mul_spec` and
+> `ntt_mul_transpose_spec`, the only two `sorry`s left in the development.
+>
+> **(d) The convolution theorem** for `ntt_mul_spec` / `ntt_mul_transpose_spec` is the genuinely
+> irreducible remainder, and it is untouched.  `Ev_nconv` (`NttMath.lean:547`) already proves the
+> mathematical statement — evaluation at any `c` with `c²⁵⁶ = -1` is a ring hom — so the work is
+> connecting it to `State 256 1 1` on both operands plus the `fitsExactly` exactness argument
+> that makes the mod-`p` answer determine the integer one.
+>
+> Tactic notes paid for while proving the two loops above:
+>   * `step*` handles the whole cast chain *and* auto-applies the recursive call, leaving just the
+>     final pointwise goal — put `hend1 : iter1.«end».val = 256` in context *before* `step*` so it
+>     can discharge the recursive precondition itself.  It names hypotheses `i1_post`, `i2_post`,
+>     `a1_post`, `r_post1`/`r_post2`, and introduces the postcondition's `∀ c` binder as an
+>     inaccessible — recover it with `rename_i c`.
+>   * The `u16 → i16` step is **not** an in-bounds cast (a `u16` up to 65535 exceeds `I16.max`), so
+>     `UScalar.hcast_inBounds_spec` does not apply.  Use `UScalar.hcast_val_eq`, which gives
+>     `Int.bmod x.val (2 ^ 16)` — definitionally `signedOfU16`.  The uniform loop's single
+>     `u16 → i32` step *is* in bounds, but `bmod_i32_exact` is the cleaner route there too.
+>   * Do not `subst` the index equation `c = iter.start.val` — later steps still refer to `c`.
+>     Rewrite with it instead, and finish with `← getElem!_pos _ iter.start.val hei`.
+>
+> ---
+>
+> **Where we were.** `make prove-kopis` was GREEN (~7 s incremental, ~3.5 min clean) with
+> **4** `sorry`s — the four core transform specs in `Ntt.lean`
 > (`from_uniform_matrix_spec`, `from_secret_matrix_spec`, `ntt_mul_spec`,
-> `ntt_mul_transpose_spec`). But the machinery to discharge them is now largely built:
+> `ntt_mul_transpose_spec`). The machinery to discharge them is largely built:
 >
 > **DONE (committed, green, `sorry`-free):**
 >

@@ -9,6 +9,7 @@ import Kopis.Properties.MulTranspose
 import Kopis.Properties.Ntt
 import Kopis.Properties.NttReduce
 import Kopis.Properties.NttForward
+import Kopis.Properties.NttBridge
 import Kopis.Properties.NttInverse
 import Kopis.Properties.GenSecretLoops
 import Kopis.Properties.GenSecretSpec

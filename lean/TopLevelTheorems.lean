@@ -169,80 +169,95 @@ The `2#usize`/`10#usize`-style literals are the Rust const generics `ℓ` and `�
 /-! ### §3.1 Key generation — `expand_from_seed` matches `ExpandDecapKey`
 
 `KemSecretKey::expand_from_seed` is what `Kopis512SecretKey::expand_from_seed`
-and (via a random seed) `Kopis512SecretKey::generate` call. Each of the four
-fields of the resulting secret key is the corresponding component of the spec's
-`ExpandDecapKey`: the secret vector, the implicit-rejection seed `z`, the
-serialized public key, and its hash. The fifth conjunct records that the public
-matrix `A` is the spec's `GenMat` of the matrix seed.
+and (via a random seed) `Kopis512SecretKey::generate` call. The conjuncts below say
+that the *observable* components of the resulting key are the corresponding components
+of the spec's `ExpandDecapKey`: the implicit-rejection seed `z`, the serialized public
+key, and its hash.
 
-`ExpandDecapKey` returns those four as a nested tuple, so the `let` block at the top of
-each statement below names them once — `secret`, `z`, `pk`, `pkHash` — instead of
-leaving `.2.2.1`-style projections scattered through the conjuncts. Those are plain
-`let`s and definitionally transparent, so the statement is the same proposition as the
-projected form; they buy readability and nothing else. -/
+`ExpandDecapKey` returns its components as a nested tuple, so the `let` block at the top
+of each statement below names them once — `z`, `pk`, `pkHash` — instead of leaving
+`.2.2.1`-style projections scattered through the conjuncts. Those are plain `let`s and
+definitionally transparent, so the statement is the same proposition as the projected
+form; they buy readability and nothing else.
+
+**Why the in-memory secret and public matrix are not stated here.** The internal fields
+`pke_sk : NttMatrix L 1` and `pke_pk.mat_a_ntt : NttMatrix L L` hold NTT-domain data —
+an invertible linear image of the coefficient form, not the coefficient form itself.
+Earlier versions of these theorems characterised them coefficient-wise, via a
+representation-bridging function from stored NTT data back to coefficients. That is a
+claim about *representation*, not about behaviour, and stating it forced a bridging
+definition into the audit surface that a reader would then have to check is the right
+one. It has been dropped, for two reasons.
+
+First, neither field is observable. `KemSecretKey`'s wire form is the 32-byte `seed`
+it stores (see `seed()` in `src/kem.rs`); the expanded `pke_sk` never reaches a byte
+buffer. `mat_a_ntt` is likewise never serialized — `PkePublicKey::serialize` writes
+`vec_bytes || matrix_seed` and `from_bytes` re-derives the matrix, which is exactly
+what the `pkStructBytes` conjunct below already pins down, byte for byte.
+
+Second, both fields are pinned *behaviourally*, and more strongly, by the composite
+theorems that follow. §3.2 (`kopisNNN_keygen_then_encapsulate`) runs encapsulation
+against the generated key: encapsulation multiplies by `mat_a_ntt`, so a wrong matrix
+gives ciphertext bytes that differ from `KemEncap`'s. §3.3
+(`kopisNNN_keygen_then_decapsulate`) runs decapsulation, which multiplies by `pke_sk`,
+against the spec's `KemDecap` — and `KemDecap` re-derives the secret from the seed, so a
+wrong stored secret gives a different shared secret. Between them, every use the library
+makes of these two fields is covered at the byte level, with no representation bridge
+anywhere in the statement. -/
 
 /-- **Kopis-512 key generation matches the spec.** -/
 theorem kopis512_keygen (seed : Array U8 32#usize) :
     RustKopis.kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
       ⦃ (ksk : RustKopis.kem.KemSecretKey 2#usize) =>
-          -- the spec's key-expansion output, with its four components named
+          -- the spec's key-expansion output, with its observable components named
           let dk     := Spec.Kopis.ExpandDecapKey .Kopis_512 (Properties.arrayToBytes seed)
-          let secret := dk.1        -- the secret vector `s`
           let z      := dk.2.1      -- the implicit-rejection seed
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
-          Properties.toVector13 (Properties.nttInvS ksk.pke_sk) = secret ∧
           Properties.arrayToBytes ksk.z = z ∧
           Properties.pkStructBytes ksk.pke_pk .Kopis_512 rfl = pk ∧
-          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ∧
-          Properties.toMatrix13 (Properties.nttInvU ksk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat 2 (Properties.arrayToBytes ksk.pke_pk.matrix_seed) ⦄ := by
+          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 2#usize 10#usize seed
     .Kopis_512 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide))
-  rintro ksk ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
-  exact ⟨h1, h3, h4, h5, h6⟩
+  rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
+    ⟨_Am, _hAfwd, _hAmat, _hAbnd⟩, ⟨_V, _hVfwd, _hVbnd, _hVbytes⟩⟩
+  exact ⟨hz, hpkb, hhash⟩
 
 /-- **Kopis-768 key generation matches the spec.** -/
 theorem kopis768_keygen (seed : Array U8 32#usize) :
     RustKopis.kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
       ⦃ (ksk : RustKopis.kem.KemSecretKey 3#usize) =>
-          -- the spec's key-expansion output, with its four components named
+          -- the spec's key-expansion output, with its observable components named
           let dk     := Spec.Kopis.ExpandDecapKey .Kopis_768 (Properties.arrayToBytes seed)
-          let secret := dk.1        -- the secret vector `s`
           let z      := dk.2.1      -- the implicit-rejection seed
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
-          Properties.toVector13 (Properties.nttInvS ksk.pke_sk) = secret ∧
           Properties.arrayToBytes ksk.z = z ∧
           Properties.pkStructBytes ksk.pke_pk .Kopis_768 rfl = pk ∧
-          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ∧
-          Properties.toMatrix13 (Properties.nttInvU ksk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat 3 (Properties.arrayToBytes ksk.pke_pk.matrix_seed) ⦄ := by
+          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 3#usize 8#usize seed
     .Kopis_768 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide))
-  rintro ksk ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
-  exact ⟨h1, h3, h4, h5, h6⟩
+  rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
+    ⟨_Am, _hAfwd, _hAmat, _hAbnd⟩, ⟨_V, _hVfwd, _hVbnd, _hVbytes⟩⟩
+  exact ⟨hz, hpkb, hhash⟩
 
 /-- **Kopis-1024 key generation matches the spec.** -/
 theorem kopis1024_keygen (seed : Array U8 32#usize) :
     RustKopis.kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
       ⦃ (ksk : RustKopis.kem.KemSecretKey 4#usize) =>
-          -- the spec's key-expansion output, with its four components named
+          -- the spec's key-expansion output, with its observable components named
           let dk     := Spec.Kopis.ExpandDecapKey .Kopis_1024 (Properties.arrayToBytes seed)
-          let secret := dk.1        -- the secret vector `s`
           let z      := dk.2.1      -- the implicit-rejection seed
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
-          Properties.toVector13 (Properties.nttInvS ksk.pke_sk) = secret ∧
           Properties.arrayToBytes ksk.z = z ∧
           Properties.pkStructBytes ksk.pke_pk .Kopis_1024 rfl = pk ∧
-          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ∧
-          Properties.toMatrix13 (Properties.nttInvU ksk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat 4 (Properties.arrayToBytes ksk.pke_pk.matrix_seed) ⦄ := by
+          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 4#usize 6#usize seed
     .Kopis_1024 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide))
-  rintro ksk ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
-  exact ⟨h1, h3, h4, h5, h6⟩
+  rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
+    ⟨_Am, _hAfwd, _hAmat, _hAbnd⟩, ⟨_V, _hVfwd, _hVbnd, _hVbytes⟩⟩
+  exact ⟨hz, hpkb, hhash⟩
 
 /-! ### §3.2 Encapsulation — key generation then encapsulate matches `KemEncap`
 
@@ -422,25 +437,21 @@ what the implicit-rejection branch of decapsulation is proved against. Again
 functional only — that these operations are *actually* constant-time is a claim
 about compiled machine code and is out of scope for this development entirely.
 
-**(c) Opaque arithmetic intrinsics (3 assumptions).**
+**(c) Opaque arithmetic intrinsics (2 assumptions).**
 `U8.count_ones_spec` and `U32.count_ones_spec` give the meaning of Rust's popcount
-intrinsics, and `RustKopis.core.num.I64.wrapping_neg` is Rust's `i64::wrapping_neg`
-(used by the NTT to negate a twiddle factor) — all three are intrinsics that aeneas
-leaves opaque, carrying no definition to unfold.  `I64.wrapping_neg_spec` supplies
-the missing meaning of the third one (two's-complement negation, i.e. `Int.bmod` of
-the negation — the same value semantics aeneas gives every other `wrapping_*`
-operation), in the same way the two `count_ones_spec`s do for the first two.
+intrinsics — `RustKopis.core.num.U8.count_ones` and `RustKopis.core.num.U32.count_ones`
+are intrinsics that aeneas leaves opaque, carrying no definition to unfold, so their
+meaning has to be assumed.
 
-`I64.wrapping_neg_spec` is **not yet in the audited list above**: the inverse-NTT
-proofs that use it are not reachable from the §3 theorems until the NTT bridge
-specs in `Ntt.lean` are discharged.  It must be added to the list at that point
-(the gate throws on audited-but-unused entries as well as on new ones).
-
-This assumption is *avoidable*: writing `0i64.wrapping_sub(ZETAS[k] as i64)`
-instead of `(ZETAS[k] as i64).wrapping_neg()` in `src/arithmetic/ntt.rs` extracts to
-`IScalar.wrapping_sub`, which aeneas gives real semantics, so both
-`RustKopis.core.num.I64.wrapping_neg` and `I64.wrapping_neg_spec` would leave the
-trust base entirely.  That is a Rust change requiring re-extraction.
+The inverse NTT used to add a third entry here, `RustKopis.core.num.I64.wrapping_neg`
+(Rust's `i64::wrapping_neg`, used to negate a twiddle factor), with an assumed
+`I64.wrapping_neg_spec` alongside it.  **Both are now gone.**  `src/arithmetic/ntt.rs`
+writes the negation as `0i64.wrapping_sub(ZETAS[k] as i64)` instead, which extracts to
+`IScalar.wrapping_sub` — a real `def` with real semantics (`@[simp]` value lemma
+`(wrapping_sub x y).val = Int.bmod (x.val - y.val) (2 ^ 64)`) rather than an axiom.
+Identical codegen, one fewer assumption.  See the header note in
+`Kopis/Properties/NttInverse.lean`; do not "simplify" that call back to
+`wrapping_neg`, which would silently re-add both entries to this list.
 
 **(d) Lean-side.** `propext`, `Classical.choice` and `Quot.sound` are the standard
 axioms of Lean's logic — every Mathlib development uses them, and they are
@@ -461,7 +472,7 @@ replacing `native_decide` with `decide`.
 **`sorryAx` — the single documented, deferred hole.** `sorryAx` IS in the closure, and the
 check below reports it as a loud warning (rather than failing) because the hole is
 `sorry`ed on purpose, never `axiom`ed, so it shows up here honestly: the NTT
-multiplication hole `ntt_spec` (`Kopis/Properties/Ntt.lean`) — that the negacyclic NTT over
+multiplication hole `ntt_spec` (`Kopis/Properties/NttBridge.lean`) — that the negacyclic NTT over
 `p = 50330113` computes the ring product, plus its raw-magnitude lemmas.  Everything else,
 including the three `kopisXXX_keygen_encap_spec` key-gen→encapsulate composites, is real
 proof.  The check still *fails* on any OTHER new assumption, so it keeps protecting the rest
@@ -492,7 +503,6 @@ run_cmd do
      "RustKopis.Slice.Insts.SubtleConstantTimeEq.ct_eq",
      "RustKopis.U8.Insts.SubtleConditionallySelectable.conditional_select",
      "RustKopis.U8.Insts.SubtleConstantTimeEq.ct_eq",
-     "RustKopis.core.num.I64.wrapping_neg",
      "RustKopis.core.num.U32.count_ones",
      "RustKopis.core.num.U8.count_ones",
      "RustKopis.subtle.Choice",
@@ -525,7 +535,7 @@ run_cmd do
   let nttHole := "sorryAx"
   if found.contains nttHole then
     logWarning "AUDIT: one documented hole remains (sorryAx): the NTT-multiplication hole \
-      `ntt_spec` (Ntt.lean).  Everything else is real proof."
+      `ntt_spec` (NttBridge.lean).  Everything else is real proof."
   let unexpected := found.filter (fun a => !audited.contains a && a != nttHole)
   let unused := audited.filter (fun a => !found.contains a)
   unless unexpected.isEmpty && unused.isEmpty do

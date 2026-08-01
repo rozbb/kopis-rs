@@ -35,12 +35,16 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     (hfit : L.val * 10 * 256 ≤ Usize.max)
     (hlenout : out_buf.length = Spec.Kopis.ctSize p)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize p))
-    (hpkvec : toVecN 10 (nttInvU pk.vec_ntt)
+    -- the coefficient matrices the stored NTT-domain public key denotes, named explicitly
+    -- (every call site knows them, so no existential is needed here)
+    (V : Mat L 1#usize) (Amat : Mat L L)
+    (hpkvecfwd : pk.vec_ntt = nttFwdU V) (hpkmatfwd : pk.mat_a_ntt = nttFwdU Amat)
+    (hpkvec : toVecN 10 V
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10 (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
-    (hpkvecbnd : UniformBounded (nttInvU pk.vec_ntt))
-    (hpkmat : toMatrix13 (nttInvU pk.mat_a_ntt)
+    (hpkvecbnd : UniformBounded V)
+    (hpkmat : toMatrix13 Amat
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p) (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
-    (hpkmatbnd : UniformBounded (nttInvU pk.mat_a_ntt)) :
+    (hpkmatbnd : UniformBounded Amat) :
     pke.encrypt_deterministic MU T pk msg coins out_buf
       ⦃ (r : Slice U8) => ∃ h : r.length = Spec.Kopis.ctSize p,
           sliceToBytes r (Spec.Kopis.ctSize p) h
@@ -73,13 +77,16 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   let* ⟨sprime_ntt, hspntt⟩ ← from_secret_matrix_spec vec_sprime
   have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
-  let* ⟨prod, hprod0⟩ ← ntt_mul_spec pk.mat_a_ntt sprime_ntt ((MU.val / 2 : ℕ) : ℤ) hfitex hpkmatbnd
-    (by rw [hspntt]; exact hspbnd)
+  -- rewrite the *spec* to be about the stored matrices, never the goal (rewriting the goal
+  -- perturbs the program term and breaks the `let*` matching that follows)
+  have hmul := ntt_mul_spec Amat vec_sprime ((MU.val / 2 : ℕ) : ℤ) hfitex hpkmatbnd hspbnd
+  rw [← hpkmatfwd, ← hspntt] at hmul
+  let* ⟨prod, hprod0⟩ ← hmul
   have hprod : ∀ (i : ℕ), i < L.val → ∀ (k : ℕ), k < 1 →
       toRingElem ((prod.val[i]!).val[k]!) = ∑ jj ∈ Finset.range L.val,
-        toRingElem (((nttInvU pk.mat_a_ntt).val[i]!).val[jj]!)
+        toRingElem ((Amat.val[i]!).val[jj]!)
           * toRingElem ((vec_sprime.val[jj]!).val[k]!) := by
-    intro i hi k hk; rw [hprod0 i hi k hk, hspntt]
+    intro i hi k hk; exact hprod0 i hi k hk
   -- H1_VAL = 4
   simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
   let* ⟨e0, he0, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
@@ -96,13 +103,14 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   have he2v : e2.val = 3 := by scalar_tac
   let* ⟨prod2, hprod2⟩ ← matrix_shift_right_spec prod1 e2 (by scalar_tac)
   -- vprime = <pk.vec, vec_sprime>  (through the NTT bridge)
-  let* ⟨vprime, hvprime0⟩ ← ntt_mul_transpose_spec pk.vec_ntt sprime_ntt ((MU.val / 2 : ℕ) : ℤ)
-    hfitex hpkvecbnd (by rw [hspntt]; exact hspbnd)
+  have hmulT := ntt_mul_transpose_spec V vec_sprime ((MU.val / 2 : ℕ) : ℤ) hfitex hpkvecbnd hspbnd
+  rw [← hpkvecfwd, ← hspntt] at hmulT
+  let* ⟨vprime, hvprime0⟩ ← hmulT
   have hvprime : ∀ (j : ℕ), j < 1 → ∀ (k : ℕ), k < 1 →
       toRingElem ((vprime.val[j]!).val[k]!) = ∑ ii ∈ Finset.range L.val,
-        toRingElem (((nttInvU pk.vec_ntt).val[ii]!).val[j]!)
+        toRingElem ((V.val[ii]!).val[j]!)
           * toRingElem ((vec_sprime.val[ii]!).val[k]!) := by
-    intro j hj k hk; rw [hvprime0 j hj k hk, hspntt]
+    intro j hj k hk; exact hvprime0 j hj k hk
   let* ⟨arow, harow⟩ ← Array.index_usize_spec vprime 0#usize (by have := vprime.property; scalar_tac)
   let* ⟨vprime1, hvprime1⟩ ← Array.index_usize_spec arow 0#usize (by have := arow.property; scalar_tac)
   -- message decode
@@ -139,14 +147,14 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
       getElem!_pos vprime.val 0 (by have := vprime.property; simp only [Slice.length] at *; scalar_tac),
       getElem!_pos _ 0 (by have := (vprime.val[0]!).property; simp only [Slice.length] at *; scalar_tac)]
   have hip : toRingElem vprime1 = ∑ ii ∈ Finset.range L.val,
-      toRingElem (((nttInvU pk.vec_ntt).val[ii]!).val[0]!) * toRingElem ((vec_sprime.val[ii]!).val[0]!) := by
+      toRingElem ((V.val[ii]!).val[0]!) * toRingElem ((vec_sprime.val[ii]!).val[0]!) := by
     rw [hvp1_pos]; exact hvprime 0 (by norm_num) 0 (by norm_num)
   -- cm's pre-rounding value equals the spec's `vprime - m·2⁹` (at R10)
   have hcv : (toRingElem c).coerce (2 ^ 10)
       = Spec.Kopis.Polynomial.sub
-          (Spec.Kopis.innerProduct (toVecN 10 (nttInvU pk.vec_ntt)) ((toVector13 vec_sprime).coerce (2 ^ 10)))
+          (Spec.Kopis.innerProduct (toVecN 10 V) ((toVector13 vec_sprime).coerce (2 ^ 10)))
           (((toPolyN 1 a1).coerce (2 ^ 10)).shiftLeft 9) := by
-    rw [hc, coerce_sub10, innerProduct_coerce_bridge (nttInvU pk.vec_ntt) vec_sprime vprime1 hip]
+    rw [hc, coerce_sub10, innerProduct_coerce_bridge V vec_sprime vprime1 hip]
     congr 1
     rw [hmp, he3v, msg_shift_bridge]
   -- toPolyN T c2 = RoundToRt T (that value)
@@ -156,12 +164,12 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     · rw [hc2, he4v]
   -- b' correspondence: toVecN 10 prod2 = RoundToR10 (over L.val)
   have hbcorr : toVecN 10 prod2 = Spec.Kopis.RoundToR10 L.val
-      (Spec.Kopis.matVecMul (toMatrix13 (nttInvU pk.mat_a_ntt)) (toVector13 vec_sprime)) := by
+      (Spec.Kopis.matVecMul (toMatrix13 Amat) (toVector13 vec_sprime)) := by
     apply Vector.ext
     intro idx hidx
     have hs := hprod2 idx hidx 0 (by norm_num); rw [he2v] at hs
     simp only [toVecN, Vector.getElem_ofFn]
-    exact prod2_roundR10_bridge_nt (nttInvU pk.mat_a_ntt) vec_sprime prod prod1 prod2 idx hidx
+    exact prod2_roundR10_bridge_nt Amat vec_sprime prod prod1 prod2 idx hidx
       (fun i₀ hi₀ => hprod i₀ hi₀ 0 (by norm_num)) (hprod1 idx hidx 0 (by norm_num)) hs
   have hbprime : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.RoundToR10 (Spec.Kopis.ℓ p)
       (Spec.Kopis.matVecMul
@@ -179,7 +187,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
             (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
           ((Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins)).coerce (2 ^ 10)))
         (((Spec.Kopis.deserialize 1 ((arrayToBytes msg).cast rfl)).coerce (2 ^ 10)).shiftLeft 9)) := by
-    have hA : Spec.Kopis.innerProduct (toVecN 10 (nttInvU pk.vec_ntt)) ((toVector13 vec_sprime).coerce (2 ^ 10))
+    have hA : Spec.Kopis.innerProduct (toVecN 10 V) ((toVector13 vec_sprime).coerce (2 ^ 10))
         = Spec.Kopis.innerProduct
             (Spec.Kopis.PolyVector.deserialize 10
               (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))

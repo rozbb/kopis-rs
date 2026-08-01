@@ -27,13 +27,6 @@ def Array.Insts.CoreCmpPartialEqArray {T : Type} {U : Type} (N : Std.Usize)
   eq := core.array.equality.PartialEqArray.eq cmpPartialEqInst
 }
 
-/-- [core::num::{i64}::wrapping_neg]:
-    Source: '/rustc/library/core/src/num/int_macros.rs', lines 2363:8-2363:47
-    Name pattern: [core::num::{i64}::wrapping_neg]
-    Visibility: public -/
-@[rust_fun "core::num::{i64}::wrapping_neg"]
-axiom core.num.I64.wrapping_neg : Std.I64 → Result Std.I64
-
 /-- [core::num::{u32}::count_ones]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
     Name pattern: [core::num::{u32}::count_ones]
@@ -2098,7 +2091,7 @@ def arithmetic.ntt.ntt
   ok (to_slice_mut_back s1)
 
 /-- [kopis::arithmetic::ntt::invntt]: loop 2:
-    Source: 'src/arithmetic/ntt.rs', lines 186:12-190:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 189:12-193:13 -/
 @[rust_loop]
 def arithmetic.ntt.invntt_loop0_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (a : Array Std.I32 256#usize)
@@ -2125,7 +2118,7 @@ def arithmetic.ntt.invntt_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::invntt]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 183:8-192:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 183:8-195:9 -/
 @[rust_loop]
 def arithmetic.ntt.invntt_loop0_loop0
   (a : Array Std.I32 256#usize) (k : Std.Usize) (len : Std.Usize)
@@ -2137,7 +2130,7 @@ def arithmetic.ntt.invntt_loop0_loop0
     let k1 ← k - 1#usize
     let i ← Array.index_usize arithmetic.ntt.ZETAS k1
     let i1 ← lift (IScalar.cast .I64 i)
-    let neg_zeta ← core.num.I64.wrapping_neg i1
+    let neg_zeta ← lift (core.num.I64.wrapping_sub 0#i64 i1)
     let i2 ← start + len
     let a1 ←
       arithmetic.ntt.invntt_loop0_loop0_loop0 { start, «end» := i2 } a len
@@ -2149,7 +2142,7 @@ def arithmetic.ntt.invntt_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::invntt]: loop 3:
-    Source: 'src/arithmetic/ntt.rs', lines 197:12-199:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 200:12-202:13 -/
 @[rust_loop]
 def arithmetic.ntt.invntt_loop0_loop1
   (iter : core.slice.iter.IterMut Std.I32)
@@ -2170,7 +2163,7 @@ def arithmetic.ntt.invntt_loop0_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::invntt]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 181:4-201:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 181:4-204:5 -/
 @[rust_loop]
 def arithmetic.ntt.invntt_loop0
   (a : Array Std.I32 256#usize) (k : Std.Usize) (len : Std.Usize) :
@@ -2195,7 +2188,7 @@ def arithmetic.ntt.invntt_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::invntt]: loop 4:
-    Source: 'src/arithmetic/ntt.rs', lines 203:4-205:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 206:4-208:5 -/
 @[rust_loop]
 def arithmetic.ntt.invntt_loop1
   (iter : core.slice.iter.IterMut Std.I32)
@@ -2219,7 +2212,7 @@ def arithmetic.ntt.invntt_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::invntt]:
-    Source: 'src/arithmetic/ntt.rs', lines 178:0-206:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 178:0-209:1 -/
 def arithmetic.ntt.invntt
   (a : Array Std.I32 256#usize) : Result (Array Std.I32 256#usize) := do
   let a1 ← arithmetic.ntt.invntt_loop0 a consts.RING_DEG 1#usize
@@ -2231,19 +2224,19 @@ def arithmetic.ntt.invntt
   ok (to_slice_mut_back s1)
 
 /-- [kopis::arithmetic::ntt::NttElem]
-    Source: 'src/arithmetic/ntt.rs', lines 212:0-212:54 -/
+    Source: 'src/arithmetic/ntt.rs', lines 215:0-215:54 -/
 @[reducible]
 def arithmetic.ntt.NttElem := Array Std.I32 256#usize
 
 /-- [kopis::arithmetic::ntt::{impl core::clone::Clone for kopis::arithmetic::ntt::NttElem}::clone]:
-    Source: 'src/arithmetic/ntt.rs', lines 211:9-211:14
+    Source: 'src/arithmetic/ntt.rs', lines 214:9-214:14
     Visibility: public -/
 def arithmetic.ntt.NttElem.Insts.CoreCloneClone.clone
   (self : arithmetic.ntt.NttElem) : Result arithmetic.ntt.NttElem := do
   ok self
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::clone::Clone for kopis::arithmetic::ntt::NttElem}]
-    Source: 'src/arithmetic/ntt.rs', lines 211:9-211:14 -/
+    Source: 'src/arithmetic/ntt.rs', lines 214:9-214:14 -/
 @[reducible]
 def arithmetic.ntt.NttElem.Insts.CoreCloneClone : core.clone.Clone
   arithmetic.ntt.NttElem := {
@@ -2251,7 +2244,7 @@ def arithmetic.ntt.NttElem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::marker::Copy for kopis::arithmetic::ntt::NttElem}]
-    Source: 'src/arithmetic/ntt.rs', lines 211:16-211:20 -/
+    Source: 'src/arithmetic/ntt.rs', lines 214:16-214:20 -/
 @[reducible]
 def arithmetic.ntt.NttElem.Insts.CoreMarkerCopy : core.marker.Copy
   arithmetic.ntt.NttElem := {
@@ -2259,7 +2252,7 @@ def arithmetic.ntt.NttElem.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- [kopis::arithmetic::ntt::{impl zeroize::Zeroize for kopis::arithmetic::ntt::NttElem}::zeroize]:
-    Source: 'src/arithmetic/ntt.rs', lines 211:22-211:29
+    Source: 'src/arithmetic/ntt.rs', lines 214:22-214:29
     Visibility: public -/
 def arithmetic.ntt.NttElem.Insts.ZeroizeZeroize.zeroize
   (self : arithmetic.ntt.NttElem) : Result arithmetic.ntt.NttElem := do
@@ -2269,7 +2262,7 @@ def arithmetic.ntt.NttElem.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl zeroize::Zeroize for kopis::arithmetic::ntt::NttElem}]
-    Source: 'src/arithmetic/ntt.rs', lines 211:22-211:29 -/
+    Source: 'src/arithmetic/ntt.rs', lines 214:22-214:29 -/
 @[reducible]
 def arithmetic.ntt.NttElem.Insts.ZeroizeZeroize : zeroize.Zeroize
   arithmetic.ntt.NttElem := {
@@ -2277,7 +2270,7 @@ def arithmetic.ntt.NttElem.Insts.ZeroizeZeroize : zeroize.Zeroize
 }
 
 /-- [kopis::arithmetic::ntt::{impl core::default::Default for kopis::arithmetic::ntt::NttElem}::default]:
-    Source: 'src/arithmetic/ntt.rs', lines 215:4-217:5
+    Source: 'src/arithmetic/ntt.rs', lines 218:4-220:5
     Visibility: public -/
 def arithmetic.ntt.NttElem.Insts.CoreDefaultDefault.default
   : Result arithmetic.ntt.NttElem := do
@@ -2285,7 +2278,7 @@ def arithmetic.ntt.NttElem.Insts.CoreDefaultDefault.default
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::default::Default for kopis::arithmetic::ntt::NttElem}]
-    Source: 'src/arithmetic/ntt.rs', lines 214:0-218:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 217:0-221:1 -/
 @[reducible]
 def arithmetic.ntt.NttElem.Insts.CoreDefaultDefault : core.default.Default
   arithmetic.ntt.NttElem := {
@@ -2293,7 +2286,7 @@ def arithmetic.ntt.NttElem.Insts.CoreDefaultDefault : core.default.Default
 }
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_uniform]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 246:8-248:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 249:8-251:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttElem.from_uniform_loop
   (iter : core.ops.range.Range Std.Usize)
@@ -2312,7 +2305,7 @@ def arithmetic.ntt.NttElem.from_uniform_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_uniform]:
-    Source: 'src/arithmetic/ntt.rs', lines 228:4-251:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 231:4-254:5 -/
 def arithmetic.ntt.NttElem.from_uniform
   (elem : arithmetic.ring_arith.RingElem) : Result arithmetic.ntt.NttElem := do
   let a := Array.repeat 256#usize 0#i32
@@ -2323,7 +2316,7 @@ def arithmetic.ntt.NttElem.from_uniform
   ok a2
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_secret]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 274:8-276:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 277:8-279:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttElem.from_secret_loop
   (iter : core.ops.range.Range Std.Usize)
@@ -2343,7 +2336,7 @@ def arithmetic.ntt.NttElem.from_secret_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttElem}::from_secret]:
-    Source: 'src/arithmetic/ntt.rs', lines 258:4-279:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 261:4-282:5 -/
 def arithmetic.ntt.NttElem.from_secret
   (elem : arithmetic.ring_arith.RingElem) : Result arithmetic.ntt.NttElem := do
   let a := Array.repeat 256#usize 0#i32
@@ -2354,13 +2347,13 @@ def arithmetic.ntt.NttElem.from_secret
   ok a2
 
 /-- [kopis::arithmetic::ntt::NttMatrix]
-    Source: 'src/arithmetic/ntt.rs', lines 284:0-284:90 -/
+    Source: 'src/arithmetic/ntt.rs', lines 287:0-287:90 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.ntt.NttElem Y) X
 
 /-- [kopis::arithmetic::ntt::{impl core::clone::Clone for kopis::arithmetic::ntt::NttMatrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/ntt.rs', lines 283:9-283:14
+    Source: 'src/arithmetic/ntt.rs', lines 286:9-286:14
     Visibility: public -/
 def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt.NttMatrix X Y) :
@@ -2372,7 +2365,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::clone::Clone for kopis::arithmetic::ntt::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt.rs', lines 283:9-283:14 -/
+    Source: 'src/arithmetic/ntt.rs', lines 286:9-286:14 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
   Std.Usize) : core.clone.Clone (arithmetic.ntt.NttMatrix X Y) := {
@@ -2380,7 +2373,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt::{impl zeroize::Zeroize for kopis::arithmetic::ntt::NttMatrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/ntt.rs', lines 283:16-283:23
+    Source: 'src/arithmetic/ntt.rs', lines 286:16-286:23
     Visibility: public -/
 def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize.zeroize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt.NttMatrix X Y) :
@@ -2392,7 +2385,7 @@ def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl zeroize::Zeroize for kopis::arithmetic::ntt::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt.rs', lines 283:16-283:23 -/
+    Source: 'src/arithmetic/ntt.rs', lines 286:16-286:23 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
   Std.Usize) : zeroize.Zeroize (arithmetic.ntt.NttMatrix X Y) := {
@@ -2400,7 +2393,7 @@ def arithmetic.ntt.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt::{impl core::default::Default for kopis::arithmetic::ntt::NttMatrix<X, Y>}::default]:
-    Source: 'src/arithmetic/ntt.rs', lines 287:4-289:5
+    Source: 'src/arithmetic/ntt.rs', lines 290:4-292:5
     Visibility: public -/
 def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default
   (X : Std.Usize) (Y : Std.Usize) : Result (arithmetic.ntt.NttMatrix X Y) := do
@@ -2410,7 +2403,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default
   ok a1
 
 /-- Trait implementation: [kopis::arithmetic::ntt::{impl core::default::Default for kopis::arithmetic::ntt::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt.rs', lines 286:0-290:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 289:0-293:1 -/
 @[reducible]
 def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
   Std.Usize) : core.default.Default (arithmetic.ntt.NttMatrix X Y) := {
@@ -2418,7 +2411,7 @@ def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt::pointwise_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 314:4-316:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 317:4-319:5 -/
 @[rust_loop]
 def arithmetic.ntt.pointwise_mul_acc_loop
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -2442,7 +2435,7 @@ def arithmetic.ntt.pointwise_mul_acc_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::pointwise_mul_acc]:
-    Source: 'src/arithmetic/ntt.rs', lines 297:0-317:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 300:0-320:1 -/
 @[reducible]
 def arithmetic.ntt.pointwise_mul_acc
   (acc : Array Std.I64 256#usize) (lhs : arithmetic.ntt.NttElem)
@@ -2453,7 +2446,7 @@ def arithmetic.ntt.pointwise_mul_acc
     { start := 0#usize, «end» := consts.RING_DEG } acc lhs rhs
 
 /-- [kopis::arithmetic::ntt::reduce_invntt_to_ring_elem]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 337:4-339:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 340:4-342:5 -/
 @[rust_loop]
 def arithmetic.ntt.reduce_invntt_to_ring_elem_loop0
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -2472,7 +2465,7 @@ def arithmetic.ntt.reduce_invntt_to_ring_elem_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::reduce_invntt_to_ring_elem]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 343:4-345:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 346:4-348:5 -/
 @[rust_loop]
 def arithmetic.ntt.reduce_invntt_to_ring_elem_loop1
   (iter : core.ops.range.Range Std.Usize) (v : Array Std.I32 256#usize)
@@ -2491,7 +2484,7 @@ def arithmetic.ntt.reduce_invntt_to_ring_elem_loop1
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::reduce_invntt_to_ring_elem]:
-    Source: 'src/arithmetic/ntt.rs', lines 321:0-347:1 -/
+    Source: 'src/arithmetic/ntt.rs', lines 324:0-350:1 -/
 def arithmetic.ntt.reduce_invntt_to_ring_elem
   (acc : Array Std.I64 256#usize) : Result arithmetic.ring_arith.RingElem := do
   let v := Array.repeat 256#usize 0#i32
@@ -2504,7 +2497,7 @@ def arithmetic.ntt.reduce_invntt_to_ring_elem
     { start := 0#usize, «end» := consts.RING_DEG } v2 out
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 354:12-356:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 357:12-359:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2528,7 +2521,7 @@ def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 353:8-357:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 356:8-360:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2548,7 +2541,7 @@ def arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]:
-    Source: 'src/arithmetic/ntt.rs', lines 351:4-359:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 354:4-362:5 -/
 def arithmetic.ntt.NttMatrix.from_uniform_matrix
   {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.matrix_arith.Matrix X Y) :
   Result (arithmetic.ntt.NttMatrix X Y)
@@ -2558,7 +2551,7 @@ def arithmetic.ntt.NttMatrix.from_uniform_matrix
     { start := 0#usize, «end» := X } mat ret
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_secret_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 365:12-367:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 368:12-370:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2582,7 +2575,7 @@ def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_secret_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 364:8-368:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 367:8-371:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -2602,7 +2595,7 @@ def arithmetic.ntt.NttMatrix.from_secret_matrix_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_secret_matrix]:
-    Source: 'src/arithmetic/ntt.rs', lines 362:4-370:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 365:4-373:5 -/
 def arithmetic.ntt.NttMatrix.from_secret_matrix
   {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.matrix_arith.Matrix X Y) :
   Result (arithmetic.ntt.NttMatrix X Y)
@@ -2616,7 +2609,7 @@ def arithmetic.ntt.NttMatrix.from_secret_matrix
 @[global_simps, irreducible] def consts.MAX_L : Std.Usize := 4#usize
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]: loop 2:
-    Source: 'src/arithmetic/ntt.rs', lines 382:16-384:17 -/
+    Source: 'src/arithmetic/ntt.rs', lines 385:16-387:17 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2640,7 +2633,7 @@ def arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 380:12-386:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 383:12-389:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2667,7 +2660,7 @@ def arithmetic.ntt.NttMatrix.mul_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 379:8-387:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 382:8-390:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2688,7 +2681,7 @@ def arithmetic.ntt.NttMatrix.mul_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul]:
-    Source: 'src/arithmetic/ntt.rs', lines 374:4-389:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 377:4-392:5 -/
 def arithmetic.ntt.NttMatrix.mul
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix Y Z)
@@ -2702,7 +2695,7 @@ def arithmetic.ntt.NttMatrix.mul
     other result
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]: loop 2:
-    Source: 'src/arithmetic/ntt.rs', lines 401:16-403:17 -/
+    Source: 'src/arithmetic/ntt.rs', lines 404:16-406:17 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2727,7 +2720,7 @@ def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]: loop 1:
-    Source: 'src/arithmetic/ntt.rs', lines 399:12-405:13 -/
+    Source: 'src/arithmetic/ntt.rs', lines 402:12-408:13 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2754,7 +2747,7 @@ def arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]: loop 0:
-    Source: 'src/arithmetic/ntt.rs', lines 398:8-406:9 -/
+    Source: 'src/arithmetic/ntt.rs', lines 401:8-409:9 -/
 @[rust_loop]
 def arithmetic.ntt.NttMatrix.mul_transpose_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -2775,7 +2768,7 @@ def arithmetic.ntt.NttMatrix.mul_transpose_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::mul_transpose]:
-    Source: 'src/arithmetic/ntt.rs', lines 393:4-408:5 -/
+    Source: 'src/arithmetic/ntt.rs', lines 396:4-411:5 -/
 def arithmetic.ntt.NttMatrix.mul_transpose
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix X Z)

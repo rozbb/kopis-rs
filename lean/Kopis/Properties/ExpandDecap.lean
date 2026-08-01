@@ -1,7 +1,7 @@
 import Kopis.Properties.PkeHash
 import Kopis.Properties.RoundTop
 import Kopis.Properties.MulTranspose
-import Kopis.Properties.Ntt
+import Kopis.Properties.NttBridge
 open Aeneas Aeneas.Std Result RustKopis
 open Spec (𝔹)
 open scoped Spec.Notations
@@ -219,17 +219,23 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     (_hL : L.val < 256) :
     pke.expand_decap_key L MU sk
       ⦃ (r : pke.PkeSecretKey L × Array U8 32#usize × pke.PkePublicKey L × Array U8 32#usize) =>
-          toVector13 (nttInvS r.1) = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes sk)).1 ∧
-          SecretBounded (nttInvS r.1) ((MU.val / 2 : ℕ) : ℤ) ∧
+          -- the secret vector `s`: `pke_sk` is its NTT-domain image, it is the spec's secret,
+          -- and its coefficients are within the secret bound
+          (∃ S : Mat L 1#usize, r.1 = nttFwdS S ∧
+              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes sk)).1 ∧
+              SecretBounded S ((MU.val / 2 : ℕ) : ℤ)) ∧
           arrayToBytes r.2.1 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.1 ∧
           pkStructBytes r.2.2.1 p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.1 ∧
           arrayToBytes r.2.2.2 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.2 ∧
-          toMatrix13 (nttInvU r.2.2.1.mat_a_ntt)
-            = Spec.Kopis.GenMat L.val (arrayToBytes r.2.2.1.matrix_seed) ∧
-          UniformBounded (nttInvU r.2.2.1.mat_a_ntt) ∧
-          UniformBounded (nttInvU r.2.2.1.vec_ntt) ∧
-          vecBytesFlat r.2.2.1
-            = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 (nttInvU r.2.2.1.vec_ntt)) ⦄ := by
+          -- the public matrix `A`: `mat_a_ntt` is its NTT-domain image, and it is `GenMat`
+          (∃ Amat : Mat L L, r.2.2.1.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes r.2.2.1.matrix_seed) ∧
+              UniformBounded Amat) ∧
+          -- the public vector `b`: `vec_ntt` is its NTT-domain image, and `vec_bytes` is its
+          -- serialization
+          (∃ V : Mat L 1#usize, r.2.2.1.vec_ntt = nttFwdU V ∧
+              UniformBounded V ∧
+              vecBytesFlat r.2.2.1 = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) ⦄ := by
   unfold pke.expand_decap_key
   step*
   -- domain separator + injected byte
@@ -310,12 +316,16 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   -- the NTT `mul_transpose` computes the schoolbook product `mat_aᵀ · vec_s`
   have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
-  let* ⟨prod, hprod0⟩ ← ntt_mul_transpose_spec mat_a_ntt vec_s_ntt ((MU.val / 2 : ℕ) : ℤ) hfitex
-    (by rw [hmata_ntt]; exact hmatbnd) (by rw [hvecs_ntt]; exact hvecbnd)
+  -- The multiplier spec is stated over the *coefficient* matrices; the stored NTT matrices are
+  -- their forward images, so rewrite the spec (not the goal — rewriting the goal would perturb
+  -- the program term and break the `let*` matching that follows).
+  have hmt := ntt_mul_transpose_spec mat_a vec_s ((MU.val / 2 : ℕ) : ℤ) hfitex hmatbnd hvecbnd
+  rw [← hmata_ntt, ← hvecs_ntt] at hmt
+  let* ⟨prod, hprod0⟩ ← hmt
   have hprod : ∀ (j : ℕ), j < L.val → ∀ (k : ℕ), k < 1 →
       toRingElem ((prod.val[j]!).val[k]!) = ∑ ii ∈ Finset.range L.val,
         toRingElem ((mat_a.val[ii]!).val[j]!) * toRingElem ((vec_s.val[ii]!).val[k]!) := by
-    intro j hj k hk; rw [hprod0 j hj k hk, hmata_ntt, hvecs_ntt]
+    intro j hj k hk; exact hprod0 j hj k hk
   -- H1_VAL = 4, Q_BITS - P_BITS = 3, computed via the scalar step specs
   simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
   let* ⟨j0, hj0, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
@@ -373,14 +383,11 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
             DOMSEP_KGEXPAND 96) 32 32 (by omega)))) := by
     rw [hvecb, hmata, hmatseed, hvecs, hsecseed, roundExpr_cast hℓ, hμ]
   simp only [Spec.Kopis.ExpandDecapKey]
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · -- secret key (denoted coefficient vector)
-    rw [hvecs_ntt]
+  refine ⟨⟨vec_s, hvecs_ntt, ?_, hvecbnd⟩, hzseed, ?_, ?_,
+          ⟨mat_a, hmata_ntt, hmata, hmatbnd⟩, ⟨prod2, hvecntt, hprod2bnd, ?_⟩⟩
+  · -- the secret vector is the spec's secret
     apply Vector.toList_inj.mp
     rw [eqRec_toList, hvecs, hsecseed, hℓ, hμ]
-  · -- secret key magnitude bound
-    rw [hvecs_ntt]; exact hvecbnd
-  · exact hzseed
   · -- public key (serialized bytes)
     unfold pkStructBytes
     apply Vector.toList_inj.mp
@@ -393,13 +400,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     rw [vecBytesFlat_of_loop _ prod2 hbytes, hvecbcast]
     simp only [Vector.toList_cast, bappend_toList]
     rw [serialize_eqRec_toList, hmsb]
-  · -- mat_a denoted by mat_a_ntt equals GenMat
-    rw [hmata_ntt]; exact hmata
-  · -- mat_a_ntt magnitude bound
-    rw [hmata_ntt]; exact hmatbnd
-  · -- vec_ntt magnitude bound
-    rw [hvecntt]; exact hprod2bnd
-  · -- vec_bytes are the serialization of what vec_ntt denotes
-    rw [vecBytesFlat_of_loop _ prod2 hbytes, hvecntt]
+  · -- vec_bytes are the serialization of the public vector
+    rw [vecBytesFlat_of_loop _ prod2 hbytes]
 
 end Kopis.Properties

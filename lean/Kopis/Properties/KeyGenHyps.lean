@@ -67,28 +67,28 @@ theorem genMat_cast {ℓ ℓ' : ℕ} (h : ℓ = ℓ') (ms : 𝔹 32) :
 
 /-- **`hpkvec` holds for a key-gen public key**: the stored vector bytes are the serialization
 of what `vec_ntt` denotes (`hvb`), so deserializing them recovers it (roundtrip). -/
-theorem keygen_hpkvec {L : Usize} (self : pke.PkePublicKey L)
+theorem keygen_hpkvec {L : Usize} (self : pke.PkePublicKey L) (V : Mat L 1#usize)
     (p : Spec.Kopis.ParameterSet) (hℓ : Spec.Kopis.ℓ p = L.val)
     (h : 0 + 32 * 10 * Spec.Kopis.ℓ p ≤ Spec.Kopis.pkSize p)
     (hvb : vecBytesFlat self
-      = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 (nttInvU self.vec_ntt))) :
-    toVecN 10 (nttInvU self.vec_ntt)
+      = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) :
+    toVecN 10 V
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice (pkStructBytes self p hℓ) 0 (32 * 10 * Spec.Kopis.ℓ p) h) := by
   rw [slice_pkStructBytes_left,
     deserialize_vec_toList_cast hℓ
       ((vecBytesFlat self).cast (by rw [hℓ]; ring))
-      ((Spec.Kopis.PolyVector.serialize 10 (toVecN 10 (nttInvU self.vec_ntt))).cast (by ring))
+      ((Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)).cast (by ring))
       (by rw [Vector.toList_cast, Vector.toList_cast, hvb]),
     polyVector_deserialize_serialize 10 (by omega)]
 
 /-- **`hpkmat` holds for a key-gen public key** (`mat_a = GenMat(matrix_seed)`). -/
-theorem keygen_hpkmat {L : Usize} (self : pke.PkePublicKey L)
+theorem keygen_hpkmat {L : Usize} (self : pke.PkePublicKey L) (Amat : Mat L L)
     (p : Spec.Kopis.ParameterSet) (hℓ : Spec.Kopis.ℓ p = L.val)
     (h : 32 * 10 * Spec.Kopis.ℓ p + 32 ≤ Spec.Kopis.pkSize p)
-    (hmat : toMatrix13 (nttInvU self.mat_a_ntt)
+    (hmat : toMatrix13 Amat
       = Spec.Kopis.GenMat L.val (arrayToBytes self.matrix_seed)) :
-    toMatrix13 (nttInvU self.mat_a_ntt)
+    toMatrix13 Amat
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
           (Spec.slice (pkStructBytes self p hℓ) (32 * 10 * Spec.Kopis.ℓ p) 32 h) := by
   rw [slice_pkStructBytes_right, hmat, genMat_cast hℓ (matSeedBytes self)]

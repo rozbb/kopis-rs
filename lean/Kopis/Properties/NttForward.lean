@@ -42,7 +42,7 @@ theorem aP_congr {x y : Array I32 256#usize} {c : ℕ} (h : aZ x c = aZ y c) : a
   unfold aP; rw [h]
 
 /-- `getElem!` after a `List.set` at an in-bounds index. -/
-theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ) (v : α) (k : ℕ)
+private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ) (v : α) (k : ℕ)
     (hj : j < l.length) : (l.set j v)[k]! = if k = j then v else l[k]! := by
   by_cases h : k = j
   · subst h

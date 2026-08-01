@@ -56,27 +56,30 @@ the cached hash, which is `turboSHAKE256` of those bytes. -/
 theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 672) :
     kem.KemPublicKey.from_bytes 2#usize bytes
       ⦃ (kpk : kem.KemPublicKey 2#usize) =>
-          toVecN 10 (nttInvU kpk.pke_pk.vec_ntt)
-            = Spec.Kopis.PolyVector.deserialize 10
-                (Spec.slice (sliceToBytes bytes 672 hlen) 0
-                  (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by decide)) ∧
-          UniformBounded (nttInvU kpk.pke_pk.vec_ntt) ∧
-          toMatrix13 (nttInvU kpk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
-                (Spec.slice (sliceToBytes bytes 672 hlen)
-                  (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by decide)) ∧
-          UniformBounded (nttInvU kpk.pke_pk.mat_a_ntt) ∧
+          (∃ V : Mat 2#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
+              toVecN 10 V
+                = Spec.Kopis.PolyVector.deserialize 10
+                    (Spec.slice (sliceToBytes bytes 672 hlen) 0
+                      (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by decide)) ∧
+              UniformBounded V) ∧
+          (∃ Amat : Mat 2#usize 2#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat
+                = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
+                    (Spec.slice (sliceToBytes bytes 672 hlen)
+                      (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by decide)) ∧
+              UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 672 hlen) DOMSEP_PKHASH 32 ⦄ := by
   unfold kem.KemPublicKey.from_bytes
-  let* ⟨ pke_pk, hvec, hvecbnd, hseed, hmat, hmatbnd, hvecbytes ⟩ ← pke_from_bytes_spec (L := 2#usize) bytes
+  let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
+    pke_from_bytes_spec (L := 2#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
   let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk (by scalar_tac) (by scalar_tac)
   -- the parsed key re-serializes to the input bytes
   have hpk : pkStructBytes pke_pk .Kopis_512 rfl = sliceToBytes bytes 672 hlen :=
     pkStructBytes_eq_of_parts pke_pk .Kopis_512 rfl (sliceToBytes bytes 672 hlen)
       (by decide) (by decide) hvecbytes hseed
-  refine ⟨hvec, hvecbnd, ?_, hmatbnd, ?_⟩
+  refine ⟨⟨V, hvfwd, hvec, hvecbnd⟩, ⟨Am, hmfwd, ?_, hmatbnd⟩, ?_⟩
   · exact hmat.trans (congrArg (Spec.Kopis.GenMat 2) hseed)
   · rw [hh]
     refine turboSHAKE256_congr _ _ _ _ ?_
@@ -106,9 +109,10 @@ theorem kopis512_from_bytes_encap_spec (pk_bytes : Array U8 672#usize)
   clear hsdef
   have hsb : sliceToBytes s 672 hslen = arrayToBytes pk_bytes :=
     (arrayToBytes_eq_sliceToBytes pk_bytes s hslen hsval.symm).symm
-  let* ⟨ kpk, hpkvec, hpkvecbnd, hpkmat, hpkmatbnd, hpkh ⟩ ← kopis512_kem_from_bytes_spec s hslen
+  let* ⟨ kpk, V, hVfwd, hpkvec, hpkvecbnd, Am, hAfwd, hpkmat, hpkmatbnd, hpkh ⟩ ←
+    kopis512_kem_from_bytes_spec s hslen
   have hres := kopis512_encapsulate_deterministic_spec kpk randomness
-    (sliceToBytes s 672 hslen) hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
+    (sliceToBytes s 672 hslen) V Am hVfwd hAfwd hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
   rw [hsb] at hres
   exact hres
 
@@ -120,27 +124,30 @@ the cached hash, which is `turboSHAKE256` of those bytes. -/
 theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 992) :
     kem.KemPublicKey.from_bytes 3#usize bytes
       ⦃ (kpk : kem.KemPublicKey 3#usize) =>
-          toVecN 10 (nttInvU kpk.pke_pk.vec_ntt)
-            = Spec.Kopis.PolyVector.deserialize 10
-                (Spec.slice (sliceToBytes bytes 992 hlen) 0
-                  (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by decide)) ∧
-          UniformBounded (nttInvU kpk.pke_pk.vec_ntt) ∧
-          toMatrix13 (nttInvU kpk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
-                (Spec.slice (sliceToBytes bytes 992 hlen)
-                  (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by decide)) ∧
-          UniformBounded (nttInvU kpk.pke_pk.mat_a_ntt) ∧
+          (∃ V : Mat 3#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
+              toVecN 10 V
+                = Spec.Kopis.PolyVector.deserialize 10
+                    (Spec.slice (sliceToBytes bytes 992 hlen) 0
+                      (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by decide)) ∧
+              UniformBounded V) ∧
+          (∃ Amat : Mat 3#usize 3#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat
+                = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
+                    (Spec.slice (sliceToBytes bytes 992 hlen)
+                      (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by decide)) ∧
+              UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 992 hlen) DOMSEP_PKHASH 32 ⦄ := by
   unfold kem.KemPublicKey.from_bytes
-  let* ⟨ pke_pk, hvec, hvecbnd, hseed, hmat, hmatbnd, hvecbytes ⟩ ← pke_from_bytes_spec (L := 3#usize) bytes
+  let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
+    pke_from_bytes_spec (L := 3#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
   let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk (by scalar_tac) (by scalar_tac)
   -- the parsed key re-serializes to the input bytes
   have hpk : pkStructBytes pke_pk .Kopis_768 rfl = sliceToBytes bytes 992 hlen :=
     pkStructBytes_eq_of_parts pke_pk .Kopis_768 rfl (sliceToBytes bytes 992 hlen)
       (by decide) (by decide) hvecbytes hseed
-  refine ⟨hvec, hvecbnd, ?_, hmatbnd, ?_⟩
+  refine ⟨⟨V, hvfwd, hvec, hvecbnd⟩, ⟨Am, hmfwd, ?_, hmatbnd⟩, ?_⟩
   · exact hmat.trans (congrArg (Spec.Kopis.GenMat 3) hseed)
   · rw [hh]
     refine turboSHAKE256_congr _ _ _ _ ?_
@@ -170,9 +177,10 @@ theorem kopis768_from_bytes_encap_spec (pk_bytes : Array U8 992#usize)
   clear hsdef
   have hsb : sliceToBytes s 992 hslen = arrayToBytes pk_bytes :=
     (arrayToBytes_eq_sliceToBytes pk_bytes s hslen hsval.symm).symm
-  let* ⟨ kpk, hpkvec, hpkvecbnd, hpkmat, hpkmatbnd, hpkh ⟩ ← kopis768_kem_from_bytes_spec s hslen
+  let* ⟨ kpk, V, hVfwd, hpkvec, hpkvecbnd, Am, hAfwd, hpkmat, hpkmatbnd, hpkh ⟩ ←
+    kopis768_kem_from_bytes_spec s hslen
   have hres := kopis768_encapsulate_deterministic_spec kpk randomness
-    (sliceToBytes s 992 hslen) hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
+    (sliceToBytes s 992 hslen) V Am hVfwd hAfwd hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
   rw [hsb] at hres
   exact hres
 
@@ -184,27 +192,30 @@ the cached hash, which is `turboSHAKE256` of those bytes. -/
 theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 1312) :
     kem.KemPublicKey.from_bytes 4#usize bytes
       ⦃ (kpk : kem.KemPublicKey 4#usize) =>
-          toVecN 10 (nttInvU kpk.pke_pk.vec_ntt)
-            = Spec.Kopis.PolyVector.deserialize 10
-                (Spec.slice (sliceToBytes bytes 1312 hlen) 0
-                  (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by decide)) ∧
-          UniformBounded (nttInvU kpk.pke_pk.vec_ntt) ∧
-          toMatrix13 (nttInvU kpk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
-                (Spec.slice (sliceToBytes bytes 1312 hlen)
-                  (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by decide)) ∧
-          UniformBounded (nttInvU kpk.pke_pk.mat_a_ntt) ∧
+          (∃ V : Mat 4#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
+              toVecN 10 V
+                = Spec.Kopis.PolyVector.deserialize 10
+                    (Spec.slice (sliceToBytes bytes 1312 hlen) 0
+                      (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by decide)) ∧
+              UniformBounded V) ∧
+          (∃ Amat : Mat 4#usize 4#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat
+                = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
+                    (Spec.slice (sliceToBytes bytes 1312 hlen)
+                      (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by decide)) ∧
+              UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 1312 hlen) DOMSEP_PKHASH 32 ⦄ := by
   unfold kem.KemPublicKey.from_bytes
-  let* ⟨ pke_pk, hvec, hvecbnd, hseed, hmat, hmatbnd, hvecbytes ⟩ ← pke_from_bytes_spec (L := 4#usize) bytes
+  let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
+    pke_from_bytes_spec (L := 4#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
   let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk (by scalar_tac) (by scalar_tac)
   -- the parsed key re-serializes to the input bytes
   have hpk : pkStructBytes pke_pk .Kopis_1024 rfl = sliceToBytes bytes 1312 hlen :=
     pkStructBytes_eq_of_parts pke_pk .Kopis_1024 rfl (sliceToBytes bytes 1312 hlen)
       (by decide) (by decide) hvecbytes hseed
-  refine ⟨hvec, hvecbnd, ?_, hmatbnd, ?_⟩
+  refine ⟨⟨V, hvfwd, hvec, hvecbnd⟩, ⟨Am, hmfwd, ?_, hmatbnd⟩, ?_⟩
   · exact hmat.trans (congrArg (Spec.Kopis.GenMat 4) hseed)
   · rw [hh]
     refine turboSHAKE256_congr _ _ _ _ ?_
@@ -234,9 +245,10 @@ theorem kopis1024_from_bytes_encap_spec (pk_bytes : Array U8 1312#usize)
   clear hsdef
   have hsb : sliceToBytes s 1312 hslen = arrayToBytes pk_bytes :=
     (arrayToBytes_eq_sliceToBytes pk_bytes s hslen hsval.symm).symm
-  let* ⟨ kpk, hpkvec, hpkvecbnd, hpkmat, hpkmatbnd, hpkh ⟩ ← kopis1024_kem_from_bytes_spec s hslen
+  let* ⟨ kpk, V, hVfwd, hpkvec, hpkvecbnd, Am, hAfwd, hpkmat, hpkmatbnd, hpkh ⟩ ←
+    kopis1024_kem_from_bytes_spec s hslen
   have hres := kopis1024_encapsulate_deterministic_spec kpk randomness
-    (sliceToBytes s 1312 hslen) hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
+    (sliceToBytes s 1312 hslen) V Am hVfwd hAfwd hpkvec hpkvecbnd hpkmat hpkmatbnd hpkh
   rw [hsb] at hres
   exact hres
 

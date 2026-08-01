@@ -16,20 +16,26 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hL : L.val < 256) :
     kem.KemSecretKey.expand_from_seed L MU seed
       ⦃ (ksk : kem.KemSecretKey L) =>
-          toVector13 (nttInvS ksk.pke_sk) = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes seed)).1 ∧
-          SecretBounded (nttInvS ksk.pke_sk) ((MU.val / 2 : ℕ) : ℤ) ∧
+          (∃ S : Mat L 1#usize, ksk.pke_sk = nttFwdS S ∧
+              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes seed)).1 ∧
+              SecretBounded S ((MU.val / 2 : ℕ) : ℤ)) ∧
           arrayToBytes ksk.z = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.1 ∧
           pkStructBytes ksk.pke_pk p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.1 ∧
           arrayToBytes ksk.hash_pke_pk = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.2 ∧
-          toMatrix13 (nttInvU ksk.pke_pk.mat_a_ntt)
-            = Spec.Kopis.GenMat L.val (arrayToBytes ksk.pke_pk.matrix_seed) ∧
-          UniformBounded (nttInvU ksk.pke_pk.mat_a_ntt) ∧
-          UniformBounded (nttInvU ksk.pke_pk.vec_ntt) ∧
-          vecBytesFlat ksk.pke_pk
-            = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 (nttInvU ksk.pke_pk.vec_ntt)) ⦄ := by
+          (∃ Amat : Mat L L, ksk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes ksk.pke_pk.matrix_seed) ∧
+              UniformBounded Amat) ∧
+          (∃ V : Mat L 1#usize, ksk.pke_pk.vec_ntt = nttFwdU V ∧
+              UniformBounded V ∧
+              vecBytesFlat ksk.pke_pk = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) ⦄ := by
   unfold kem.KemSecretKey.expand_from_seed
-  let* ⟨pke_sk, z, pke_pk, hash_pke_pk, h1, h2, h3, h4, h5, h6, h7, h8, h9⟩ ←
+  -- `let*` splits each bundled existential into its witness followed by its conjuncts, so the
+  -- pattern names 4 tuple components + 15 postcondition parts; regroup them to rebuild the
+  -- three existentials.
+  let* ⟨pke_sk, z, pke_pk, hash_pke_pk,
+        S, hS1, hS2, hS3, hz, hpk, hhash,
+        Am, hA1, hA2, hA3, V, hV1, hV2, hV3⟩ ←
     expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL
-  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9⟩
+  exact ⟨⟨S, hS1, hS2, hS3⟩, hz, hpk, hhash, ⟨Am, hA1, hA2, hA3⟩, ⟨V, hV1, hV2, hV3⟩⟩
 
 end Kopis.Properties
