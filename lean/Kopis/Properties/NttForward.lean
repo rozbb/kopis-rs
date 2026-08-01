@@ -590,4 +590,101 @@ theorem ntt_barrett_loop_spec
   termination_by iter.slice.len.val - iter.i
   decreasing_by scalar_decr_tac
 
+/-! ## `arithmetic.ntt.ntt`: the whole forward transform
+
+The eight butterfly levels followed by the Barrett pass.  The `Array → Slice → Array` plumbing
+around the second loop follows `MatrixArith.matrix_shift_right_spec`. -/
+
+/-- `State` only reads coefficients below 256, so it transfers along any pointwise agreement
+there.  Used to carry the transform invariant across the Barrett pass, which changes the stored
+values but not their residues. -/
+theorem State_congr {nb m : ℕ} {c : Zp} {f g h : ℕ → Zp} (hnb : nb * m ≤ 256)
+    (hst : State nb m c f g) (heq : ∀ x, x < 256 → h x = g x) : State nb m c f h := by
+  intro b hb r' hr'
+  have hidx : b * m + r' < 256 := by
+    have h2 : (b + 1) * m ≤ nb * m := Nat.mul_le_mul_right _ hb
+    have h3 : (b + 1) * m = b * m + m := by ring
+    omega
+  rw [heq _ hidx]
+  exact hst b hb r' hr'
+
+/-- **The extracted forward NTT computes the CRT transform.**  Given an input whose coefficients
+are bounded by `B ≤ 2¹⁶` (which both `from_uniform` and `from_secret` supply), the result
+satisfies `State 256 1 1 f`: coefficient `b` is the evaluation of the input polynomial at the
+`b`-th leaf constant.  The Barrett pass leaves every coefficient centred in `(-p, p)`. -/
+theorem ntt_full_spec (a : Array I32 256#usize) (f : ℕ → Zp) (B : ℤ)
+    (hf : ∀ c, c < 256 → aP a c = f c)
+    (hB0 : 0 ≤ B) (hBhi : B ≤ 65536)
+    (hBd : ∀ c, c < 256 → |aZ a c| ≤ B) :
+    arithmetic.ntt.ntt a
+      ⦃ (r : Array I32 256#usize) =>
+          State 256 1 1 f (aP r)
+          ∧ (∀ c, c < 256 → -pNtt < aZ r c ∧ aZ r c < pNtt) ⦄ := by
+  have hp : pNtt = 50330113 := rfl
+  unfold arithmetic.ntt.ntt
+  -- `len := RING_DEG / 2 = 128 = 2^7`
+  let* ⟨ len, hlenv ⟩ ← Std.Usize.div_spec
+  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+  have h2p7 : (2:ℕ) ^ 7 = 128 := by norm_num
+  have hlen : len.val = 2 ^ 7 := by
+    have h1 : len.val = 256 / 2 := by rw [hlenv, hRD]
+    omega
+  -- the eight butterfly levels
+  have hst0 : State (2 ^ (7 - 7)) (2 * 2 ^ 7) 1 f (aP a) := by
+    refine State_root_intro (fun r' hr' => ?_)
+    rw [one_mul]
+    exact hf r' hr'
+  apply WP.spec_bind (ntt_outer_spec 7 a 0#usize len f B (le_refl _) hlen (by norm_num) hst0
+    hB0 (by push_cast; rw [hp]; linarith) hBd)
+  rintro a1 ⟨hst1, hBd1⟩
+  have hBd1' : ∀ c, c < 256 → |aZ a1 c| ≤ B + 8 * pNtt := by
+    intro c hc
+    have := hBd1 c hc
+    push_cast at this
+    linarith
+  -- the Barrett pass, over a mutable slice view of the array
+  let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
+  let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
+  have hs_len : s.length = 256 := by
+    rw [Slice.length, hs_val]
+    simpa using a1.property
+  have hit_len : it0.slice.length = 256 := by rw [h_it_slice]; exact hs_len
+  have hsB : ∀ j, j < 256 → |((it0.slice.val[j]!).val : ℤ)| ≤ B + 8 * pNtt := by
+    intro j hj
+    have hveq : it0.slice.val = a1.val := by rw [h_it_slice, hs_val]
+    rw [show it0.slice.val[j]! = a1.val[j]! from congrArg (fun l => l[j]!) hveq]
+    exact hBd1' j hj
+  let* ⟨ r_it, r_back, hr_len, hr_writes ⟩ ←
+    ntt_barrett_loop_spec it0 (fun im => im) it0.slice (B + 8 * pNtt) rfl
+      (by rw [h_it_zero]; exact Nat.zero_le _) hit_len hsB (by rw [hp]; linarith)
+      (fun _ him => him)
+      (fun _ _ j hj => by rw [h_it_zero] at hj; omega)
+      (fun _ _ _ _ _ => rfl)
+  simp only [h_it_back]
+  -- write the slice back into the array
+  have hval_eq : (to_back (r_back r_it).slice).val = (r_back r_it).slice.val := by
+    rw [hto_back]
+    exact Std.Array.from_slice_val a1 (r_back r_it).slice hr_len
+  have hres : ∀ c, c < 256 →
+      aZ (to_back (r_back r_it).slice) c = (((r_back r_it).slice.val[c]!).val : ℤ) := by
+    intro c _
+    unfold aZ
+    rw [show (to_back (r_back r_it).slice).val[c]! = (r_back r_it).slice.val[c]! from
+      congrArg (fun l => l[c]!) hval_eq]
+  have horig : ∀ c, c < 256 → ((it0.slice.val[c]!).val : ℤ) = aZ a1 c := by
+    intro c _
+    unfold aZ
+    exact congrArg (fun l => ((l[c]! : I32).val : ℤ)) (by rw [h_it_slice, hs_val])
+  refine ⟨?_, ?_⟩
+  · -- the Barrett pass preserves every residue, so the transform invariant survives
+    refine State_congr (by norm_num) hst1 (fun x hx => ?_)
+    have hb := hr_writes x hx
+    unfold aP
+    rw [hres x hx, horig x hx] at *
+    exact intCast_eq_of_emod hb.1
+  · intro c hc
+    have hb := hr_writes c hc
+    rw [hres c hc]
+    exact ⟨hb.2.1, hb.2.2⟩
+
 end Kopis.Properties
