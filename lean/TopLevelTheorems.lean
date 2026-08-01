@@ -431,7 +431,12 @@ the missing meaning of the third one (two's-complement negation, i.e. `Int.bmod`
 the negation — the same value semantics aeneas gives every other `wrapping_*`
 operation), in the same way the two `count_ones_spec`s do for the first two.
 
-This last assumption is *avoidable*: writing `0i64.wrapping_sub(ZETAS[k] as i64)`
+`I64.wrapping_neg_spec` is **not yet in the audited list above**: the inverse-NTT
+proofs that use it are not reachable from the §3 theorems until the NTT bridge
+specs in `Ntt.lean` are discharged.  It must be added to the list at that point
+(the gate throws on audited-but-unused entries as well as on new ones).
+
+This assumption is *avoidable*: writing `0i64.wrapping_sub(ZETAS[k] as i64)`
 instead of `(ZETAS[k] as i64).wrapping_neg()` in `src/arithmetic/ntt.rs` extracts to
 `IScalar.wrapping_sub`, which aeneas gives real semantics, so both
 `RustKopis.core.num.I64.wrapping_neg` and `I64.wrapping_neg_spec` would leave the
@@ -472,7 +477,6 @@ run_cmd do
   let audited : List String :=
     ["Aeneas.Std.core.fmt.Formatter",
      "Classical.choice",
-     "Kopis.Properties.I64.wrapping_neg_spec",
      "Kopis.Properties.U32.count_ones_spec",
      "Kopis.Properties.U8.count_ones_spec",
      "Kopis.Properties.conditional_select_array_u8_spec",
