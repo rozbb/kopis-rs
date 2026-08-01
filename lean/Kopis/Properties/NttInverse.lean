@@ -652,4 +652,138 @@ theorem invntt_outer_spec : ∀ (d e : ℕ) (a : Array I32 256#usize) (k len : U
       have IH := ih (e + 1) a1 k1 len1 f (2 * cc) (by omega) hlen1 hk1' hst1 hBd1'
       exact IH
 
+
+/-! ## The final `INVNTT_SCALE` pass
+
+`invntt_loop1` multiplies every coefficient by `INVNTT_SCALE = 256⁻¹·2⁶⁴` and Montgomery-reduces,
+which divides by `2³²`.  Net: multiplication by `256⁻¹·2³²`, cancelling the `2⁸` the eight
+Gentleman-Sande layers accumulated and one Montgomery factor from the pointwise product. -/
+
+/-- The scalar the final pass applies: `INVNTT_SCALE · 2⁻³²`. -/
+def invScale : Zp := ((44652572 : ℕ) : Zp) * Rinv
+
+/-- What the final pass establishes for one coefficient. -/
+def ScaleOK (x orig : ℤ) : Prop :=
+  ((x : ℤ) : Zp) = invScale * ((orig : ℤ) : Zp) ∧ -pNtt < x ∧ x < pNtt
+
+theorem invntt_scale_loop_spec
+    (iter : core.slice.iter.IterMut I32)
+    (back : core.slice.iter.IterMut I32 → core.slice.iter.IterMut I32)
+    (orig : Slice I32) (B : ℤ)
+    (h_slice : iter.slice = orig)
+    (h_iter_i : iter.i ≤ orig.length)
+    (hlen : orig.length = 256)
+    (hB : ∀ j, j < 256 → |((orig.val[j]!).val : ℤ)| ≤ B)
+    (hBle : B ≤ 16 * pNtt)
+    (hback_len : ∀ im : core.slice.iter.IterMut I32,
+      im.slice.length = 256 → (back im).slice.length = 256)
+    (hback_writes : ∀ im : core.slice.iter.IterMut I32, im.slice.length = 256 →
+      ∀ j, j < iter.i → ScaleOK (((back im).slice.val[j]!).val : ℤ) ((orig.val[j]!).val : ℤ))
+    (hback_rest : ∀ im : core.slice.iter.IterMut I32, im.slice.length = 256 →
+      ∀ j, iter.i ≤ j → j < 256 → (back im).slice.val[j]! = im.slice.val[j]!) :
+    arithmetic.ntt.invntt_loop1 iter back
+      ⦃ (p : core.slice.iter.IterMut I32 ×
+              (core.slice.iter.IterMut I32 → core.slice.iter.IterMut I32)) =>
+          (p.2 p.1).slice.length = 256 ∧
+          ∀ j, j < 256 →
+            ScaleOK (((p.2 p.1).slice.val[j]!).val : ℤ) ((orig.val[j]!).val : ℤ) ⦄ := by
+  unfold arithmetic.ntt.invntt_loop1
+  by_cases hlt : iter.i < iter.slice.len
+  · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
+    obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
+    rw [ho]
+    simp only []
+    have hi_pe : iter.slice.length = orig.length := by rw [h_slice]
+    have hi_lt : iter.i < 256 := by rw [← hlen, ← hi_pe]; scalar_tac
+    -- the element being reduced is `orig[iter.i]`
+    have hbv : orig.val.length = 256 := by rw [← hlen]
+    have hb : iter.i < orig.val.length := by omega
+    have helem : iter.slice[iter.i] = orig.val[iter.i]! := by
+      rw [getElem!_pos orig.val iter.i hb]
+      exact List.getElem_of_eq (by rw [h_slice]) _
+    have hBelem : |((iter.slice[iter.i]).val : ℤ)| ≤ B := by rw [helem]; exact hB _ hi_lt
+    rw [abs_le] at hBelem
+    step*
+    have e_i : (i.val : ℤ) = ((iter.slice[iter.i]).val : ℤ) := by
+      rw [i_post, IScalar.cast_val_eq,
+        show Min.min IScalarTy.I64.numBits IScalarTy.I32.numBits = 32 from rfl]
+      exact bmod_i32_exact (by scalar_tac) (by scalar_tac)
+    have e_i1 : (i1.val : ℤ) = 44652572 := by
+      rw [i1_post, IScalar.cast_val_eq,
+        show Min.min IScalarTy.I64.numBits IScalarTy.I32.numBits = 32 from rfl,
+        show (arithmetic.ntt.INVNTT_SCALE : I32).val = 44652572 from by
+          simp only [arithmetic.ntt.INVNTT_SCALE]; rfl]
+      exact bmod_i32_exact (by norm_num) (by norm_num)
+    -- `|coeff| ≤ 16p` and `INVNTT_SCALE < p`, so the product is well inside `2^31·p`
+    have hprod : -35957903912010176 ≤ (i.val : ℤ) * (i1.val : ℤ)
+        ∧ (i.val : ℤ) * (i1.val : ℤ) ≤ 35957903912010176 := by
+      rw [e_i, e_i1]
+      unfold pNtt at hBle
+      constructor <;> nlinarith [hBelem.1, hBelem.2]
+    have e_i2 : (i2.val : ℤ) = (i.val : ℤ) * (i1.val : ℤ) := by
+      rw [i2_post, I64_wrapping_mul_exact i i1 (by linarith [hprod.1]) (by linarith [hprod.2])]
+    have hpow31 : (2:ℤ) ^ 31 * pNtt = 108083094669492224 := by unfold pNtt; norm_num
+    apply WP.spec_bind (mont_reduce_spec i2
+      (by rw [e_i2, hpow31]; linarith [hprod.1]) (by rw [e_i2, hpow31]; linarith [hprod.2]))
+    intro coeff1 hcc
+    obtain ⟨hc1mod, hc1lo, hc1hi⟩ := hcc
+    apply WP.spec_mono
+      (invntt_scale_loop_spec iter1 (fun im => back (next_back im (some coeff1))) orig B
+        (by rw [hit2_slice, h_slice]) (by rw [hit2_i]; omega) hlen hB hBle ?len ?writes ?rest)
+    case len =>
+      intro im him
+      have him_set : (next_back im (some coeff1)).slice.length = 256 := by
+        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
+      exact hback_len _ him_set
+    case writes =>
+      intro im him j hj
+      rw [hit2_i] at hj
+      have him_set : (next_back im (some coeff1)).slice.length = 256 := by
+        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
+      by_cases hji : j = iter.i
+      · subst hji
+        have hrest := hback_rest (next_back im (some coeff1)) him_set iter.i (le_refl _) hi_lt
+        have hkey : (back (next_back im (some coeff1))).slice.val[iter.i]! = coeff1 := by
+          rw [hrest, hsome_set]
+          exact Slice.getElem!_Nat_setAtNat_eq _ _ _ (by rw [him]; exact hi_lt)
+        rw [hkey]
+        refine ⟨?_, hc1lo, hc1hi⟩
+        rw [← helem]
+        have hmodfix : ((coeff1.val : ℤ) * 2 ^ 32) % pNtt
+            = (44652572 * ((iter.slice[iter.i]).val : ℤ)) % pNtt := by
+          rw [hc1mod, e_i2, e_i, e_i1]
+          ring_nf
+        exact mont_val_Zp (t := (coeff1.val : ℤ)) (x := ((iter.slice[iter.i]).val : ℤ))
+          (zeta := 44652572) (γ := invScale) (by rw [invScale]; push_cast; ring) hmodfix
+      · exact hback_writes (next_back im (some coeff1)) him_set j (by omega)
+    case rest =>
+      intro im him j hj_ge hj_lt
+      rw [hit2_i] at hj_ge
+      have him_set : (next_back im (some coeff1)).slice.length = 256 := by
+        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
+      have hrest := hback_rest (next_back im (some coeff1)) him_set j (by omega) hj_lt
+      rw [hrest, hsome_set]
+      exact Slice.getElem!_Nat_setAtNat_ne _ _ _ _ (by omega)
+    intro r hpost; exact hpost
+  · have hge : iter.i ≥ iter.slice.len := by scalar_tac
+    have hi_eq : iter.i = 256 := by
+      have hpe : iter.slice.length = orig.length := by rw [h_slice]
+      have hl : iter.slice.len.val = 256 := by
+        rw [← hlen, ← hpe]; simp [Slice.len, Slice.length]
+      scalar_tac
+    let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec_none
+    obtain ⟨ho, hit2_eq, hsome_back⟩ := h_all
+    rw [ho]
+    have hbi : next_back iter1 none = iter := (hsome_back iter1 none).trans hit2_eq
+    show (back (next_back iter1 none)).slice.length = 256 ∧
+        ∀ j, j < 256 →
+          ScaleOK (((back (next_back iter1 none)).slice.val[j]!).val : ℤ)
+            ((orig.val[j]!).val : ℤ)
+    refine ⟨by rw [hbi]; exact hback_len iter (by rw [h_slice, hlen]), ?_⟩
+    intro j hj
+    rw [hbi]
+    exact hback_writes iter (by rw [h_slice, hlen]) j (by omega)
+  termination_by iter.slice.len.val - iter.i
+  decreasing_by scalar_decr_tac
+
 end Kopis.Properties
