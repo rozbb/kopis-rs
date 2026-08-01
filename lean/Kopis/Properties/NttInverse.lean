@@ -345,4 +345,105 @@ theorem invntt_mid_spec {nb lenv b0 : ℕ}
     simp_wf
     omega
 
+
+/-! ## The mid-way Barrett pass
+
+After the `len = 8` level the code re-centres every coefficient (the `if len1 = 16` branch), so
+the remaining four levels start from `|a| < p` again.  `invntt_loop0_loop1` has the same body as
+the forward transform's `ntt_loop1`, so this is `ntt_barrett_loop_spec` verbatim on the other
+function. -/
+
+theorem invntt_barrett_loop_spec
+    (iter : core.slice.iter.IterMut I32)
+    (back : core.slice.iter.IterMut I32 → core.slice.iter.IterMut I32)
+    (orig : Slice I32) (B : ℤ)
+    (h_slice : iter.slice = orig)
+    (h_iter_i : iter.i ≤ orig.length)
+    (hlen : orig.length = 256)
+    (hB : ∀ j, j < 256 → |((orig.val[j]!).val : ℤ)| ≤ B)
+    (hBle : B ≤ 42 * pNtt)
+    (hback_len : ∀ im : core.slice.iter.IterMut I32,
+      im.slice.length = 256 → (back im).slice.length = 256)
+    (hback_writes : ∀ im : core.slice.iter.IterMut I32, im.slice.length = 256 →
+      ∀ j, j < iter.i → BarrettOK (((back im).slice.val[j]!).val : ℤ) ((orig.val[j]!).val : ℤ))
+    (hback_rest : ∀ im : core.slice.iter.IterMut I32, im.slice.length = 256 →
+      ∀ j, iter.i ≤ j → j < 256 → (back im).slice.val[j]! = im.slice.val[j]!) :
+    arithmetic.ntt.invntt_loop0_loop1 iter back
+      ⦃ (p : core.slice.iter.IterMut I32 ×
+              (core.slice.iter.IterMut I32 → core.slice.iter.IterMut I32)) =>
+          (p.2 p.1).slice.length = 256 ∧
+          ∀ j, j < 256 →
+            BarrettOK (((p.2 p.1).slice.val[j]!).val : ℤ) ((orig.val[j]!).val : ℤ) ⦄ := by
+  unfold arithmetic.ntt.invntt_loop0_loop1
+  by_cases hlt : iter.i < iter.slice.len
+  · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
+    obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
+    rw [ho]
+    simp only []
+    have hi_pe : iter.slice.length = orig.length := by rw [h_slice]
+    have hi_lt : iter.i < 256 := by rw [← hlen, ← hi_pe]; scalar_tac
+    -- the element being reduced is `orig[iter.i]`
+    have hbv : orig.val.length = 256 := by rw [← hlen]
+    have hb : iter.i < orig.val.length := by omega
+    have helem : iter.slice[iter.i] = orig.val[iter.i]! := by
+      rw [getElem!_pos orig.val iter.i hb]
+      exact List.getElem_of_eq (by rw [h_slice]) _
+    have hBelem : |((iter.slice[iter.i]).val : ℤ)| ≤ B := by rw [helem]; exact hB _ hi_lt
+    rw [abs_le] at hBelem
+    let* ⟨ coeff1, hc1mod, hc1lo, hc1hi ⟩ ←
+      barrett_reduce_spec (iter.slice[iter.i]) (by linarith [hBelem.1]) (by linarith [hBelem.2])
+    apply WP.spec_mono
+      (invntt_barrett_loop_spec iter1 (fun im => back (next_back im (some coeff1))) orig B
+        (by rw [hit2_slice, h_slice]) (by rw [hit2_i]; omega) hlen hB hBle ?len ?writes ?rest)
+    case len =>
+      intro im him
+      have him_set : (next_back im (some coeff1)).slice.length = 256 := by
+        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
+      exact hback_len _ him_set
+    case writes =>
+      intro im him j hj
+      rw [hit2_i] at hj
+      have him_set : (next_back im (some coeff1)).slice.length = 256 := by
+        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
+      by_cases hji : j = iter.i
+      · subst hji
+        have hrest := hback_rest (next_back im (some coeff1)) him_set iter.i (le_refl _) hi_lt
+        have hkey : (back (next_back im (some coeff1))).slice.val[iter.i]! = coeff1 := by
+          rw [hrest, hsome_set]
+          exact Slice.getElem!_Nat_setAtNat_eq _ _ _ (by rw [him]; exact hi_lt)
+        rw [hkey]
+        refine ⟨?_, hc1lo, hc1hi⟩
+        rw [← helem]
+        exact hc1mod
+      · exact hback_writes (next_back im (some coeff1)) him_set j (by omega)
+    case rest =>
+      intro im him j hj_ge hj_lt
+      rw [hit2_i] at hj_ge
+      have him_set : (next_back im (some coeff1)).slice.length = 256 := by
+        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
+      have hrest := hback_rest (next_back im (some coeff1)) him_set j (by omega) hj_lt
+      rw [hrest, hsome_set]
+      exact Slice.getElem!_Nat_setAtNat_ne _ _ _ _ (by omega)
+    intro r hpost; exact hpost
+  · have hge : iter.i ≥ iter.slice.len := by scalar_tac
+    have hi_eq : iter.i = 256 := by
+      have hpe : iter.slice.length = orig.length := by rw [h_slice]
+      have hl : iter.slice.len.val = 256 := by
+        rw [← hlen, ← hpe]; simp [Slice.len, Slice.length]
+      scalar_tac
+    let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec_none
+    obtain ⟨ho, hit2_eq, hsome_back⟩ := h_all
+    rw [ho]
+    have hbi : next_back iter1 none = iter := (hsome_back iter1 none).trans hit2_eq
+    show (back (next_back iter1 none)).slice.length = 256 ∧
+        ∀ j, j < 256 →
+          BarrettOK (((back (next_back iter1 none)).slice.val[j]!).val : ℤ)
+            ((orig.val[j]!).val : ℤ)
+    refine ⟨by rw [hbi]; exact hback_len iter (by rw [h_slice, hlen]), ?_⟩
+    intro j hj
+    rw [hbi]
+    exact hback_writes iter (by rw [h_slice, hlen]) j (by omega)
+  termination_by iter.slice.len.val - iter.i
+  decreasing_by scalar_decr_tac
+
 end Kopis.Properties
