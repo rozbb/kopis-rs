@@ -23,12 +23,12 @@ export LEAN_NUM_THREADS
 # ---------------------------------------------------------------------------
 
 # Build (= kernel-verify) the Kopis proof library: the extracted ExtractedRustSerial.lean
-# plus every Kopis/Properties/*.lean, then TopLevelTheorems.lean, which restates the
+# plus every Kopis/Properties/*.lean, then TopLevelTheoremsSerial.lean, which restates the
 # top-level results, and TrustBase.lean, which re-checks their axiom footprint against
 # the audited list.  A green build IS the machine-checked proof.
 .PHONY: prove-kopis
 prove-kopis:
-	$(LAKE) build Kopis TopLevelTheorems TrustBase
+	$(LAKE) build Kopis TopLevelTheoremsSerial TrustBase
 
 # Build the AVX2 side: the second extraction (ExtractedRustAvx2.lean, from an
 # `--cfg kopis_backend="avx2"` build) plus Kopis/Avx2/*, whose Intrinsics.lean supplies the

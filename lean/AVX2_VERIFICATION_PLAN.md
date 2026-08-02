@@ -163,7 +163,7 @@ These differ per file and this matters:
   and is the highest-value thing to mechanize — it is exactly what breaks silently if
   anyone reorders reductions or regenerates ψ tables.
 - **`cpu.rs` — out of scope.** CPUID/XGETBV is unverifiable here; `--exclude` it and
-  record `available()` as an assumption in `TopLevelTheorems.lean`.
+  record `available()` as an assumption in `TopLevelTheoremsSerial.lean`.
 
 ## Steps
 
@@ -193,7 +193,7 @@ These differ per file and this matters:
    — reuse those), then `transpose16` as a permutation lemma, then the growth-bound
    interval propagation, then the CRT end-to-end theorem through `NttMath.lean`.
 7. **Update `extract_rust_to_lean.sh`** to emit both backends, and `lean/lakefile.lean`
-   for the new `Kopis.Avx2` files. Extend the `TopLevelTheorems.lean` trust-base check
+   for the new `Kopis.Avx2` files. Extend the `TopLevelTheoremsSerial.lean` trust-base check
    to enumerate the intrinsic axioms.
 
 ## Verification
@@ -218,6 +218,6 @@ These differ per file and this matters:
 ## Trust base
 
 Grows by: `Vec256` semantics, 38 intrinsic definitions, and `available()`. All must be
-listed explicitly in `TopLevelTheorems.lean`. This is strictly better than the current
+listed explicitly in `TopLevelTheoremsSerial.lean`. This is strictly better than the current
 state (AVX2 wholly unverified) and comparable to libcrux — minus their `admit()`ed
 bit↔lane bridges, which we prove.

@@ -5,12 +5,12 @@
 > **`make prove-kopis` is GREEN with ZERO `sorry`s, and the audit gate now throws on `sorryAx`.**
 >
 > The NTT-multiplication hole (`ntt_spec`) is fully discharged.  `#print axioms` on every §3
-> theorem of `TopLevelTheorems.lean` no longer contains `sorryAx`, and the gate has been flipped
+> theorem of `TopLevelTheoremsSerial.lean` no longer contains `sorryAx`, and the gate has been flipped
 > back so that a `sorry` reappearing anywhere in the dependency closure *fails the build*.
 > **Do not re-add an exemption for `sorryAx`.**
 >
 > The remaining trust base is exactly the audited list in `TrustBase.lean` (§4 of
-> `TopLevelTheorems.lean` until 2026-08-02, when it moved): Lean's
+> `TopLevelTheoremsSerial.lean` until 2026-08-02, when it moved): Lean's
 > three logical axioms, the aeneas-opaque extern types/functions (turboshake, subtle,
 > `count_ones`), and one `native_decide` in `Spec/Defs.lean:380`.
 >
@@ -148,7 +148,7 @@ step lemmas `State_ct` / `State_gs`.  The factor of two per Gentleman-Sande laye
 
 `PkeSerialize`, `PkeHash`, `ExpandDecap`, `PkeEncryptTop`, `PkeDecryptTop`, `KeyGen`, `KemDecap`,
 `KemEncap`, `Impls`, `KeyGenHyps`, `KeyGenCapstone`, `PkeFromBytes`, `KemFromBytes`,
-`TopLevelTheorems`, plus the whole `Ntt*` stack above.
+`TopLevelTheoremsSerial`, plus the whole `Ntt*` stack above.
 
 ### Threading pattern
 

@@ -1,9 +1,9 @@
-import TopLevelTheorems
+import TopLevelTheoremsSerial
 
 /-!
 # The trust base — what `kopis-rs`'s proofs assume
 
-`TopLevelTheorems.lean` states what is proved. This file states what it is proved *on top of*,
+`TopLevelTheoremsSerial.lean` states what is proved. This file states what it is proved *on top of*,
 and contains the build-time check that keeps the two honest: it recomputes the axiom footprint
 of every top-level theorem and fails the build if it is not exactly the audited list below.
 Read this file second.
@@ -31,7 +31,7 @@ open Lean
 
 /-! ## The portable (`RustKopisSerial`) backend
 
-Everything in `TopLevelTheorems.lean` §3 rests on exactly the assumptions listed here. Beyond
+Everything in `TopLevelTheoremsSerial.lean` §3 rests on exactly the assumptions listed here. Beyond
 Lean's own three axioms they fall into four groups.
 
 **(a) The `turboshake` crate (5 assumptions).** `turboshake` is an external crates.io
@@ -120,7 +120,7 @@ def serialAudited : List String :=
 
 /-- The theorems whose footprint `serialAudited` describes: **every** theorem in
 `Kopis.TopLevel`, which the coverage check below enforces. That is the thirteen top-level
-results of `TopLevelTheorems.lean` §3, plus the two lemmas that explain how to read them —
+results of `TopLevelTheoremsSerial.lean` §3, plus the two lemmas that explain how to read them —
 `triple_means_success` (§1), which is what licenses reading each `⦃ … ⦄` as "terminates without
 panicking", and `arrayToBytes_is_identity` (§2), which is what says the translation layer is not
 throwing information away. Those two are as load-bearing for an auditor as the theorems they
@@ -157,7 +157,7 @@ Two things are checked, because the audited list and the theorem list can each r
   the assumptions of is exactly the situation this file exists to prevent, and "it only explains
   the notation" is not a reason — an explanatory lemma proved by `sorry` would mislead an
   auditor about how to read every theorem below it. Without this check, adding a theorem to
-  `TopLevelTheorems.lean` and forgetting to list it here would leave it unaudited while the
+  `TopLevelTheoremsSerial.lean` and forgetting to list it here would leave it unaudited while the
   build stayed green, which is an easy mistake now that the statements and the assumptions live
   in different files. -/
 

@@ -284,7 +284,7 @@ introduced by each `mont_reduce` is cancelled by `INVNTT_SCALE = 256⁻¹ · 2^6
 of `invntt`, and the lazy-reduction schedule (one Barrett pass after level 4) is what keeps
 every intermediate inside `i32`.
 
-Nothing here is assumed: the audit gate in `TopLevelTheorems.lean` throws on `sorryAx`, so a
+Nothing here is assumed: the audit gate in `TopLevelTheoremsSerial.lean` throws on `sorryAx`, so a
 regression that reopened any of it would fail the build. -/
 
 /-! ### `mont_reduce`, for reference

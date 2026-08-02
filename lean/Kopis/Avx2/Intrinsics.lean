@@ -31,7 +31,7 @@ that bound the wrapper panics, and nothing is claimed.
 ## What is *not* assumed here
 
 * `cpu::available` — the CPUID/XGETBV probe. It is opaque for the same reason but says nothing
-  about arithmetic; it is recorded as an assumption in `TopLevelTheorems.lean`.
+  about arithmetic; it is recorded as an assumption in `TopLevelTheoremsSerial.lean`.
 * Any relation between this model and the portable code. That is what the correspondence
   proofs are for.
 

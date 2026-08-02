@@ -51,20 +51,20 @@ lean_lib «Kopis»
 
 /-! ## The audit surface
 
-    `TopLevelTheorems.lean` restates the top-level correspondence theorems and the
+    `TopLevelTheoremsSerial.lean` restates the top-level correspondence theorems and the
     translation functions they are stated through — what a human reviewer needs in
     order to check what has actually been proved. It re-proves nothing (each
     statement is discharged by the theorem proved in `Kopis`), so a restatement that
     drifted would fail to compile. Start here when reviewing, then `TrustBase`. -/
 @[default_target]
-lean_lib «TopLevelTheorems»
+lean_lib «TopLevelTheoremsSerial»
 
 /-! ## The trust base
 
     `TrustBase.lean` is the other half of the audit surface: the assumptions the
     theorems rest on, and a build-time check that recomputes the axiom footprint
     of every top-level theorem and fails if it is not exactly the audited list.
-    Separate from `TopLevelTheorems.lean` because the trust base is the one part
+    Separate from `TopLevelTheoremsSerial.lean` because the trust base is the one part
     of the audit that differs per backend. -/
 @[default_target]
 lean_lib «TrustBase»
