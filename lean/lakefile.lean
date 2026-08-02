@@ -29,7 +29,17 @@ lean_lib «ExtractedRustAvx2»
 
 lean_lib «KopisAvx2» where
   roots := #[`Kopis.Avx2]
-  globs := #[.andSubmodules `Kopis.Avx2]
+
+/-! ## The generated twin proof stack (phase E)
+
+    `Kopis/Avx2/Properties/*.lean` is `Kopis/Properties/*.lean` with the extraction and this
+    stack's namespace renamed, produced by `scripts/gen_avx2_twins.py`. It is a *separate*
+    library, and deliberately not part of `KopisAvx2`, so that a twin which does not yet compile
+    — the ones touching the six runtime-dispatch points — cannot block the results that do.
+    Build it with `lake build KopisAvx2Properties`; expect a cold build to take hours. -/
+lean_lib «KopisAvx2Properties» where
+  roots := #[`Kopis.Avx2.Properties]
+  globs := #[.andSubmodules `Kopis.Avx2.Properties]
 
 /-! ## Specifications library
 

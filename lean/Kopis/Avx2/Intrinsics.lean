@@ -28,10 +28,15 @@ consumes, and the shape that says "this call succeeds, and here is what it retur
 memory accessors the equation is conditional on the bound the Rust wrapper asserts; outside
 that bound the wrapper panics, and nothing is claimed.
 
+## The CPU probe
+
+`cpu::available` is opaque for the same reason as the intrinsics, but nothing about *what it
+returns* is assumed: every dispatch point is proved on both branches, so the result holds
+whatever CPUID says. The only thing assumed is that the probe terminates without failing —
+`available_ok` below — which is far weaker than "it correctly detects AVX2".
+
 ## What is *not* assumed here
 
-* `cpu::available` — the CPUID/XGETBV probe. It is opaque for the same reason but says nothing
-  about arithmetic; it is recorded as an assumption in `TopLevelTheoremsSerial.lean`.
 * Any relation between this model and the portable code. That is what the correspondence
   proofs are for.
 
@@ -66,6 +71,21 @@ exactly a 256- and a 128-bit word. `bits` / `bits'` read that word; injectivity 
 
 axiom bits : Vec256 → BitVec 256
 axiom bits' : Vec128 → BitVec 128
+
+/-- The width guard `(1..=13).contains(&bits)` terminates and does not fail.  `contains` is a
+`core` comparison that charon does not lower, so aeneas emits it uninterpreted; like
+`available_ok` this assumes only that it *returns*, not what it returns — both outcomes are
+proved.  It appears nowhere in the serial extraction: the guard is part of the AVX2 dispatch.  -/
+axiom rangeInclusive_contains_ok {Idx U : Type}
+    (i1 : core.cmp.PartialOrd Idx Idx) (i2 : core.cmp.PartialOrd Idx U)
+    (i3 : core.cmp.PartialOrd U Idx)
+    (r : core.ops.range.RangeInclusive Idx) (x : U) :
+    ∃ b, RustKopisAvx2.core.ops.range.RangeInclusive.contains i1 i2 i3 r x = ok b
+
+/-- The CPU probe terminates and does not fail.  Nothing is assumed about *which* answer it
+gives: every dispatch point is proved on both branches.  This is the whole of `cpu::available`'s
+contribution to the trust base. -/
+axiom available_ok : ∃ b, RustKopisAvx2.backend.avx2.cpu.available = ok b
 
 axiom bits_inj {a b : Vec256} : bits a = bits b → a = b
 axiom bits'_inj {a b : Vec128} : bits' a = bits' b → a = b

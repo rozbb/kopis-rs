@@ -409,7 +409,102 @@ spec can reuse that bridge.
 so these are genuinely new for this backend and belong in the AVX2 row of `TrustBase.lean`
 exactly as their twins are in the serial row.
 
-*Where to resume.* **Phase E**, then F. E is better understood now than when this plan was
+*Phase E — the generator exists and was trialled; the stack is not built.*
+`scripts/gen_avx2_twins.py` implements E2 without needing E1's restructure: it writes
+`Kopis/Avx2/Properties/*.lean` from `Kopis/Properties/*.lean` under three substitutions
+(`RustKopisSerial`, `ExtractedRustSerial`, and `Kopis.Properties → Kopis.Avx2.Properties`),
+plus an `import Kopis.Bits.Stream` and a re-open of the shared bit-stream vocabulary, which is
+deliberately *not* duplicated. Renaming this stack's own namespace in the copy is what makes the
+E1 restructure unnecessary — the serial files are untouched, and the aggregator
+`Kopis/Avx2/Properties.lean` is generated too, so a generated `TopLevelTheoremsAvx2` can import
+it. (The Makefile note about `import Kopis` needing "a rule of its own" is the alternative that
+was taken.)
+
+Trial run: all 59 modules generate, and the build got far enough to show two kinds of failure.
+One was a generator bug (a file with no bit-stream use got the `open` without the `import`), now
+fixed. The other is the real thing: `Kopis/Avx2/Properties/Serialize.lean`'s `from_bytes_spec`
+fails at the `WP.spec_bind` for `RingElem::deserialize` — one of the six dispatch points, exactly
+as §E2 predicts. **The generated output is not checked in**, because a red tree must not be
+committed; regenerate with `python3 scripts/gen_avx2_twins.py` from `lean/`.
+
+**Budget warning for whoever picks this up.** A cold build of the twin stack is *hours*, not
+minutes — the AVX2 extraction is 6947 lines against the serial 4684, so every twin elaborates
+more slowly than its original, and there are 59 of them. Start it early, let it run, and collect
+the failure list; do not expect to iterate on it interactively.
+
+*Phase F — not started, but scouted.* Two notes for whoever takes it:
+
+* **F1's prerequisite is built.** `barrett` and `mont_mul` are three lines each, but their
+  *value* specs need a bridge from signed `BitVec 16` arithmetic to `ℤ`, because the serial
+  `mont_reduce_spec` / `barrett_reduce_spec` are stated over `I32`/`I64` with `Int.bmod`.
+  `Kopis/Avx2/LaneArith.lean` is that bridge: `mulhi_lane_toInt` (lane `i` of `vpmulhw` is
+  `⌊aᵢ·bᵢ / 2¹⁶⌋` — the step Montgomery reduction rests on, and the one where a sign-extension
+  error would be invisible at the bit level), plus `mullo`, `add`, `sub` and `srai` restated on
+  lanes over ℤ. With those, an F1 lane spec is ordinary integer arithmetic in the same shape as
+  `Kopis/Properties/NttReduce*.lean`. F3 and F4 will want the same bridge.
+* **F2's shape, from reading the code.** `inlane_transpose8` claims: for each 128-bit half `h`
+  and `r, c < 8`, `lane16 v'[r] (8h+c) = lane16 v[c] (8h+r)`. The three passes are word, dword
+  and qword interleaves, and `v'[2i] = unpacklo_epi64(b_i, b_{i+4})`,
+  `v'[2i+1] = unpackhi_epi64(b_i, b_{i+4})`. The 32- and 64-bit unpack axioms need restating on
+  16-bit lanes; one lemma does both — from `laneOf (w·q) x i = laneOf (w·q) y j` conclude
+  `∀ t < q, laneOf w x (q·i+t) = laneOf w y (q·j+t)`, which follows from `laneOf_laneOf` in
+  `Lanes.lean`. `transpose16` then wraps it with the `vperm2i128 0x20/0x31` pass that swaps the
+  off-diagonal 8×8 blocks.
+
+*Phase E3 — dispatch point 1 is written but not yet verified.* `scripts/gen_avx2_twins.py`
+gained declarative **patches**: a theorem whose serial proof unfolds a dispatch point cannot
+transfer, so its proof is replaced by an entry in `PATCHES` rather than hand-edited in the
+generated file. A patch that stops applying makes the generator fail loudly; a hand edit would
+be silently overwritten or silently stale. The first patch is `from_bytes_spec`.
+
+Two things that patch taught us, both recorded because they will recur:
+
+* **The AVX2 dispatch adds a second opaque guard.** The Rust is
+  `if (1..=13).contains(&bits) && avx2_available()`, and *`contains` is opaque too* — charon does
+  not lower it, so aeneas emits it as an axiom, and it appears nowhere in the serial extraction.
+  So the dispatch needs `rangeInclusive_contains_ok` alongside `available_ok`. Both are
+  termination-only assumptions ("it returns"), not behavioural ones; all three reachable paths
+  are proved to compute the same bit stream.
+* **Elaborating the dispatch inside `Serialize.lean` is very slow, and three separate fixes did
+  not help.** The unpatched file takes 106 s; with the patch it did not finish in fifty minutes.
+  Ruled out by experiment: `step*` (replaced with the by-hand assertion discharge that
+  `DeserializeCm.lean` uses — still >30 min), and `grind` inside the statements' `getElem` proof
+  terms (replaced with `getElem!` throughout so no proof term is re-elaborated — still >30 min).
+  The remaining suspect is the `simp only [core.array.TryFromSharedArraySlice.try_from,
+  dif_pos hb, reduceIte, …]` applied to the *whole* nested dispatch body, three times over
+  (once per reachable path).
+
+  That recommendation was then tested and **found wanting**, which is the more useful result:
+  extracting the `deserialize_13` block on its own into `Kopis/Avx2/Ser13.lean`
+  (`ExtractedRustAvx2` + `Kopis/Bits/Stream.lean`, no `Spec` import) did *not* build in seconds
+  either — it was still going after ten minutes, for a block the twin had previously got through
+  in under 106 s. So the cost is not the dispatch proof and not the file it lives in: **the
+  width-13 block is expensive in the AVX2 environment specifically.**
+
+  The "raised heartbeats are hiding a failing tactic" hypothesis was then tested and **also
+  refuted**: the same block with the *default* heartbeat limit ran for eight minutes without
+  reporting an error. So nothing is failing — the block is simply slow to elaborate here, and
+  the remaining variable is the environment it elaborates in.
+
+  **One concrete lead, and a design smell worth fixing either way.** `Kopis/Avx2/Lanes.lean`
+  marks eight lemmas `@[simp]` — `getLsbD_laneOf` and the seven `laneOf_ofLanes*`. Those join
+  the *global* simp set, so once the twin gains `import Kopis.Avx2.Ser` (which the dispatch
+  patch needs) every `simp` call in `Serialize.lean`'s heavy width-13 proofs has eight more
+  lemmas to try. Making them `@[local simp]`, or dropping the attribute and passing them
+  explicitly at their (few) use sites, is worth doing on its own account and is the cheapest
+  thing left to try. Note it does *not* explain the standalone `Ser13.lean` measurement, which
+  never imported them — so if that does not help, the next experiment is to time the *serial*
+  block in the same isolated shape, which separates "AVX2 environment" from "isolated from
+  `Spec.Kopis.Spec`" as the cause.
+
+  The patch as written is **unverified**; treat it as a draft of the argument, not as working
+  code. `Kopis/Avx2/Ser13.lean` was not kept — regenerate it from `Serialize.lean`'s
+  `deserialize_13` block if you want to retry that route.
+
+*Where to resume.* Verify the `from_bytes_spec` patch compiles (`lake build
+Kopis.Avx2.Properties.Serialize`), then work outwards: `Serialize.lean` is near the dependency
+root, so until it is green the other 58 twins cannot even be attempted. Then E1/E2/E4 and the
+remaining five dispatch points, then F. E is better understood now than when this plan was
 written: `SerGeneric.lean` and `CbdGeneric.lean` are two hand-made instances of exactly the twin
 generation E1/E2 describe, and both compiled under the `RustKopisSerial → RustKopisAvx2`
 substitution with no other change — 1672 lines in one case, first try. That is strong evidence

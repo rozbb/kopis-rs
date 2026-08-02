@@ -25,7 +25,7 @@ namespace Kopis.Avx2
 
 /-- Bit `j` of lane `i` is bit `w * i + j` of the word — the defining property of `laneOf`,
 which every proof below is ultimately a rearrangement of. -/
-@[simp] theorem getLsbD_laneOf {n : Nat} (w : Nat) (x : BitVec n) (i j : Nat) :
+theorem getLsbD_laneOf {n : Nat} (w : Nat) (x : BitVec n) (i j : Nat) :
     (laneOf w x i).getLsbD j = (decide (j < w) && x.getLsbD (w * i + j)) := by
   simp [laneOf]
 
@@ -86,19 +86,19 @@ def ofLanes8' (f : Nat → BitVec 8) : BitVec 128 := concatLanes 8 f 16
 /-- The 128-bit word whose 16-bit lane `i` is `f i`. -/
 def ofLanes16' (f : Nat → BitVec 16) : BitVec 128 := concatLanes 16 f 8
 
-@[simp] theorem laneOf_ofLanes8 (f : Nat → BitVec 8) {i : Nat} (h : i < 32) :
+theorem laneOf_ofLanes8 (f : Nat → BitVec 8) {i : Nat} (h : i < 32) :
     laneOf 8 (ofLanes8 f) i = f i := laneOf_concatLanes 8 f 32 i h
-@[simp] theorem laneOf_ofLanes16 (f : Nat → BitVec 16) {i : Nat} (h : i < 16) :
+theorem laneOf_ofLanes16 (f : Nat → BitVec 16) {i : Nat} (h : i < 16) :
     laneOf 16 (ofLanes16 f) i = f i := laneOf_concatLanes 16 f 16 i h
-@[simp] theorem laneOf_ofLanes32 (f : Nat → BitVec 32) {i : Nat} (h : i < 8) :
+theorem laneOf_ofLanes32 (f : Nat → BitVec 32) {i : Nat} (h : i < 8) :
     laneOf 32 (ofLanes32 f) i = f i := laneOf_concatLanes 32 f 8 i h
-@[simp] theorem laneOf_ofLanes64 (f : Nat → BitVec 64) {i : Nat} (h : i < 4) :
+theorem laneOf_ofLanes64 (f : Nat → BitVec 64) {i : Nat} (h : i < 4) :
     laneOf 64 (ofLanes64 f) i = f i := laneOf_concatLanes 64 f 4 i h
-@[simp] theorem laneOf_ofLanes128 (f : Nat → BitVec 128) {i : Nat} (h : i < 2) :
+theorem laneOf_ofLanes128 (f : Nat → BitVec 128) {i : Nat} (h : i < 2) :
     laneOf 128 (ofLanes128 f) i = f i := laneOf_concatLanes 128 f 2 i h
-@[simp] theorem laneOf_ofLanes8' (f : Nat → BitVec 8) {i : Nat} (h : i < 16) :
+theorem laneOf_ofLanes8' (f : Nat → BitVec 8) {i : Nat} (h : i < 16) :
     laneOf 8 (ofLanes8' f) i = f i := laneOf_concatLanes 8 f 16 i h
-@[simp] theorem laneOf_ofLanes16' (f : Nat → BitVec 16) {i : Nat} (h : i < 8) :
+theorem laneOf_ofLanes16' (f : Nat → BitVec 16) {i : Nat} (h : i < 8) :
     laneOf 16 (ofLanes16' f) i = f i := laneOf_concatLanes 16 f 8 i h
 
 /-! ## Lanes determine the word
