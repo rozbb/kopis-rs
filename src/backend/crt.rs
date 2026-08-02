@@ -160,46 +160,53 @@ pub(crate) const fn zetas_qinv(zetas: &[i16; 256], qinv: i16) -> [i16; 256] {
 pub(crate) const ZETAS_Q1_QINV: [i16; 256] = zetas_qinv(&ZETAS_Q1, Q1_INV);
 pub(crate) const ZETAS_Q2_QINV: [i16; 256] = zetas_qinv(&ZETAS_Q2, Q2_INV);
 
-/// Everything a transform needs for one of the two primes that is not instruction-set
-/// specific, so each backend's level loops can be written once and specialized per prime.
-///
-/// The Barrett shift is deliberately absent: it is an instruction immediate, so it lives as
-/// [`BARRETT_SH`], shared by both primes precisely so that it need not be a const generic.
-pub(crate) struct Prime {
-    pub(crate) q: i16,
-    pub(crate) qinv: i16,
-    pub(crate) barrett_m: i16,
-    pub(crate) invntt_scale: i16,
-    pub(crate) zetas: &'static [i16; 256],
-    pub(crate) zetas_q: &'static [i16; 256],
+// ---------------------------------------------------------------------------------------
+// The per-prime parameters, as one accessor each.
+//
+// Everything a transform needs for one of the two primes that is not instruction-set specific,
+// so each backend's level loops can be written once and specialized per prime. The Barrett
+// shift is deliberately absent: it is an instruction immediate, so it lives as `BARRETT_SH`,
+// shared by both primes precisely so that it need not be a const generic.
+//
+// `SECOND` is a const generic rather than a `&Prime` parameter so that each monomorphization
+// constant-folds the modulus, the Montgomery constant and the ψ-table addresses into the
+// instruction stream. Specializing measurably beats sharing one copy between the primes, even
+// though it doubles the instruction footprint of the transforms.
+//
+// These return values rather than a `&'static Prime` because a function that *returns* a
+// reference to a static is one of the things aeneas cannot translate (it fails with
+// `Unreachable` at the first field read); reading a static inside a function is fine. Each of
+// these still folds to a constant, or to one load from a fixed address, per monomorphization.
+// ---------------------------------------------------------------------------------------
+
+/// The modulus
+pub(crate) const fn q<const SECOND: bool>() -> i16 {
+    if SECOND { Q2 } else { Q1 }
 }
 
-pub(crate) static P1: Prime = Prime {
-    q: Q1,
-    qinv: Q1_INV,
-    barrett_m: Q1_BARRETT_M,
-    invntt_scale: INVNTT_SCALE_1,
-    zetas: &ZETAS_Q1,
-    zetas_q: &ZETAS_Q1_QINV,
-};
+/// q⁻¹ mod 2^16, for signed Montgomery reduction
+pub(crate) const fn qinv<const SECOND: bool>() -> i16 {
+    if SECOND { Q2_INV } else { Q1_INV }
+}
 
-pub(crate) static P2: Prime = Prime {
-    q: Q2,
-    qinv: Q2_INV,
-    barrett_m: Q2_BARRETT_M,
-    invntt_scale: INVNTT_SCALE_2,
-    zetas: &ZETAS_Q2,
-    zetas_q: &ZETAS_Q2_QINV,
-};
+/// The Barrett multiplier, round(2^(16+`BARRETT_SH`) / q)
+pub(crate) const fn barrett_m<const SECOND: bool>() -> i16 {
+    if SECOND { Q2_BARRETT_M } else { Q1_BARRETT_M }
+}
 
-/// The parameters for prime `SECOND` (`false` = q₁, `true` = q₂).
-///
-/// Selected by a const generic rather than passed as a `&Prime`, so that each monomorphization
-/// constant-folds the modulus, the Montgomery constant and the ψ-table addresses into the
-/// instruction stream. Specializing measurably beats sharing one copy between the primes, even
-/// though it doubles the instruction footprint of the transforms.
-pub(crate) const fn prime<const SECOND: bool>() -> &'static Prime {
-    if SECOND { &P2 } else { &P1 }
+/// 256⁻¹ · 2^32 mod q, the inverse transform's final scaling
+pub(crate) const fn invntt_scale<const SECOND: bool>() -> i16 {
+    if SECOND { INVNTT_SCALE_2 } else { INVNTT_SCALE_1 }
+}
+
+/// ψ entry `k`, in bit-reversed order and Montgomery form
+pub(crate) fn zeta<const SECOND: bool>(k: usize) -> i16 {
+    if SECOND { ZETAS_Q2[k] } else { ZETAS_Q1[k] }
+}
+
+/// The matching `ψ·q⁻¹ mod 2^16`, which produces the Montgomery quotient in one step
+pub(crate) fn zeta_q<const SECOND: bool>(k: usize) -> i16 {
+    if SECOND { ZETAS_Q2_QINV[k] } else { ZETAS_Q1_QINV[k] }
 }
 
 #[cfg(test)]

@@ -1,8 +1,66 @@
 # Formally verifying the AVX2 backend
 
 > Drafted 2026-08-01, after `./extract_rust_to_lean.sh` was run with
-> `RUSTFLAGS='--cfg kopis_backend="avx2"'` and aborted. Nothing in the tree has been
-> changed yet — this is the plan only. Companion to `NTT_REFACTOR_STATUS.md`.
+> `RUSTFLAGS='--cfg kopis_backend="avx2"'` and aborted. Companion to `NTT_REFACTOR_STATUS.md`.
+>
+> **Steps 1–4 are done** — see *Status* below. Steps 5–7 (the correspondence proofs) are not
+> started.
+
+## Status (2026-08-01)
+
+`./extract_rust_to_lean.sh` now extracts **both** backends and completes with no errors:
+`lean/ExtractedRust.lean` (serial, byte-identical to before) and `lean/ExtractedRustAvx2.lean`
+(AVX2, 6947 lines, namespace `RustKopisAvx2`). `make prove-kopis` is unaffected and green;
+`make prove-avx2` builds the new extraction plus the intrinsic semantics.
+
+What landed:
+
+* **`src/backend/avx2/intrinsics.rs`** — 42 safe wrappers (30 instructions, 12 memory
+  accessors) over the `Vec256` / `Vec128` newtypes. `#[target_feature(enable = "avx2")]` makes
+  them safe to call from the rest of the backend, which now contains **no `unsafe` and no raw
+  pointers at all**.
+* **`lean/Kopis/Avx2/Intrinsics.lean`** — one axiom per wrapper, over
+  `bits : Vec256 → BitVec 256` with derived lane views. This is the review surface and the whole
+  of the added trust base.
+* The pointer refactor of step 3, plus three changes forced by aeneas limitations found the
+  hard way (below).
+* `charon --opaque 'kopis::backend::avx2::intrinsics' --opaque 'kopis::backend::avx2::cpu'`.
+  `cpu` is `--opaque` rather than `--exclude` as originally planned: excluding it makes the
+  `avx2_available()` dispatch block untranslatable.
+
+Verification of the refactor: `cargo test` green under `--cfg kopis_backend="avx2"` (33 tests,
+including `avx2_matches_serial`, `sample::matches_serial`, `transpose16_permutes_as_documented`
+and `crt::zetas_tables_are_correct`), under `serial`, and `cargo check` green for
+`--cfg kopis_backend="neon"` on aarch64. In the generated assembly every wrapper is inlined —
+zero calls or jumps into `intrinsics::` — and no bounds-check panic path survives in the NTT
+symbols. Benchmarks: encapsulation 4.7536 → 4.7561 µs (+0.05%), key generation 15.81 →
+15.62 µs (−1.2%), decapsulation within a run-to-run spread of ±4% on this 4-core host, which is
+too noisy to resolve a change of the size we are looking for. Static instruction count for the
+backend rose 2174 → 2413, most of it the one copy the layout change added (`from_ring_elem` now
+writes its block through the `i16`-of-`i32` accessor rather than transforming in place).
+
+### Three aeneas limitations, none of them documented
+
+Each was isolated with a ~10-line file through `charon rustc` + `aeneas`, after the whole-crate
+error spans pointed somewhere unhelpful. Worth knowing before writing more extractable Rust:
+
+1. **A function that returns a `&'static` reference cannot be translated.** `fn f() -> &'static
+   P { &S }` fails with `Unreachable` at `interp/Interp.ml:609` — reported not at the function
+   but at the first *field read* through the returned reference, which is why the original
+   report blamed `p.q`. Reading a static inside a function is fine. This is what
+   `crate::backend::crt::prime::<SECOND>() -> &'static Prime` was, and it is now six accessors
+   returning values (`crt::q`, `crt::qinv`, `crt::zeta`, …). The AVX2 per-lane ψ tables took the
+   same treatment: selected at the use site instead of through a `&'static Tbl<N>` accessor.
+2. **A `const`/`static` initializer *block* containing a loop cannot be translated** —
+   `const A: [T; N] = { let mut a = ...; while ... ; a };` gives `Internal error, please file an
+   issue`. The identical loop inside a `const fn` that the initializer calls is fine. That is
+   the one-line change `ser.rs`'s `PLANS` needed.
+3. **A reference inside a struct reached by reference** (`Prime { zetas: &'static [i16; 256] }`
+   behind `&'static Prime`) kills the whole run with `Invalid_argument "option is None"` out of
+   `translate_global_eval`. Subsumed by fixing (1), but it fails differently and earlier.
+
+`#[target_feature]`, `unsafe`, const generics, `#[repr(align)]` and statics holding large arrays
+all extract without trouble.
 
 ## Context
 

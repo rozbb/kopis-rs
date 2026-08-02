@@ -13,6 +13,23 @@ package «kopis»
     between the Rust source and the proofs below. -/
 lean_lib «ExtractedRust»
 
+/-! ## The AVX2 backend
+
+    `ExtractedRustAvx2.lean` is the same crate extracted from an
+    `--cfg kopis_backend="avx2"` build, in its own namespace: the AVX2 backend
+    plus the dispatch blocks that reach it. `backend::avx2::intrinsics` and
+    `backend::avx2::cpu` are extracted opaquely, so what it contains for those
+    is uninterpreted axioms; `Kopis/Avx2/Intrinsics.lean` supplies their
+    semantics and is the *only* place that does.
+
+    Neither is in the default target: the audited claim is still about the
+    serial backend, and `make prove-kopis` should not pay for a second
+    extraction. Build this side with `make prove-avx2`. -/
+lean_lib «ExtractedRustAvx2»
+
+lean_lib «KopisAvx2» where
+  roots := #[`Kopis.Avx2.Intrinsics]
+
 /-! ## Specifications library
 
     `Spec` collects the audited, executable specification the Rust code is

@@ -9,13 +9,12 @@
 //! the fields out is exactly the extraction [`super::ser`] already does for deserialization and
 //! is shared with it. What is left is two small population counts per coefficient.
 
-#[cfg(target_arch = "x86")]
-use core::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-use core::arch::x86_64::*;
-
 use crate::{arithmetic::RingElem, consts::RING_DEG};
 
+use super::intrinsics::{
+    Vec256, add_epi16, and_si256, cvtsi32_si128, load_u16, load_u8, set1_epi16, shuffle_epi8,
+    srl_epi16, srli_epi16, store_u16, sub_epi16,
+};
 use super::ser;
 
 /// Popcounts of the values 0..16, duplicated across both 128-bit halves so `vpshufb` can look
@@ -35,10 +34,10 @@ const NIBBLE_POPCOUNT: Nibbles = Nibbles([
 /// set, contributes itself.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn popcount_small(v: __m256i, lut: __m256i) -> __m256i {
-    let low = _mm256_shuffle_epi8(lut, _mm256_and_si256(v, _mm256_set1_epi16(0x000F)));
-    let bit4 = _mm256_and_si256(_mm256_srli_epi16::<4>(v), _mm256_set1_epi16(1));
-    _mm256_add_epi16(low, bit4)
+fn popcount_small(v: Vec256, lut: Vec256) -> Vec256 {
+    let low = shuffle_epi8(lut, and_si256(v, set1_epi16(0x000F)));
+    let bit4 = and_si256(srli_epi16::<4>(v), set1_epi16(1));
+    add_epi16(low, bit4)
 }
 
 /// Shifts each 16-bit lane right by a count that is constant per call but not a literal.
@@ -47,8 +46,8 @@ fn popcount_small(v: __m256i, lut: __m256i) -> __m256i {
 /// `_mm256_srl_epi16` exposes; that saves monomorphizing the caller over the shift.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn shift_right_dynamic(v: __m256i, count: usize) -> __m256i {
-    _mm256_srl_epi16(v, _mm_cvtsi32_si128(count as i32))
+fn shift_right_dynamic(v: Vec256, count: usize) -> Vec256 {
+    srl_epi16(v, cvtsi32_si128(count as i32))
 }
 
 /// Samples one ring element from the centered binomial distribution.
@@ -63,21 +62,17 @@ fn shift_right_dynamic(v: __m256i, count: usize) -> __m256i {
 pub(crate) fn cbd<const MU: usize>(buf: &[u8]) -> RingElem {
     let fields = ser::deserialize(buf, MU);
 
-    // SAFETY: `Nibbles` is 32-byte aligned and exactly 32 bytes long.
-    let lut = unsafe { _mm256_load_si256(NIBBLE_POPCOUNT.0.as_ptr().cast()) };
-    let half_mask = _mm256_set1_epi16(((1u16 << (MU / 2)) - 1) as i16);
+    let lut = load_u8(&NIBBLE_POPCOUNT.0, 0);
+    let half_mask = set1_epi16(((1u16 << (MU / 2)) - 1) as i16);
 
     let mut out = RingElem::default();
     for i in 0..RING_DEG / 16 {
-        // SAFETY: `i < RING_DEG / 16`, so the 16-`u16` load and store are both in bounds.
-        unsafe {
-            let field = _mm256_loadu_si256(fields.as_ptr().add(16 * i).cast());
-            let low = _mm256_and_si256(field, half_mask);
-            // `MU / 2 < 16`, so a 16-bit shift is enough to bring the high half down.
-            let high = _mm256_and_si256(shift_right_dynamic(field, MU / 2), half_mask);
-            let coeff = _mm256_sub_epi16(popcount_small(low, lut), popcount_small(high, lut));
-            _mm256_storeu_si256(out.0.as_mut_ptr().add(16 * i).cast(), coeff);
-        }
+        let field = load_u16(&fields, i);
+        let low = and_si256(field, half_mask);
+        // `MU / 2 < 16`, so a 16-bit shift is enough to bring the high half down.
+        let high = and_si256(shift_right_dynamic(field, MU / 2), half_mask);
+        let coeff = sub_epi16(popcount_small(low, lut), popcount_small(high, lut));
+        store_u16(&mut out.0, i, coeff);
     }
     out
 }

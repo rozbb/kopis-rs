@@ -12,12 +12,17 @@
 //! and mask. Eight coefficients per pass, with the group's width entering only through the
 //! shuffle and shift vectors.
 
-#[cfg(target_arch = "x86")]
-use core::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-use core::arch::x86_64::*;
+// Explicit `for i in 0..N` index loops, as in the rest of the crate: an `iter_mut().enumerate()`
+// here does extract, but as an iterator state machine that the correspondence proof would then
+// have to reason through.
+#![allow(clippy::needless_range_loop)]
 
 use crate::consts::RING_DEG;
+
+use super::intrinsics::{
+    and_si256, broadcastsi128_si256, load_i32, load_u8, load_u8x16, packus_epi32,
+    permute4x64_epi64, set1_epi32, setzero_si256, shuffle_epi8, srlv_epi32, store_u16,
+};
 
 /// The widest packing the crate uses, and so the largest width [`PLANS`] covers
 const MAX_BITS: usize = 13;
@@ -58,8 +63,12 @@ const fn plan(bits: usize) -> Plan {
     Plan { shuffle, shift }
 }
 
-/// One plan per supported width. Index 0 is unused padding so `bits` indexes directly.
-const PLANS: [Plan; MAX_BITS + 1] = {
+/// Builds every plan.
+///
+/// A `const fn` rather than the loop written directly in `PLANS`'s initializer, because aeneas
+/// cannot translate a `const`/`static` initializer block that contains a loop — it reports an
+/// internal error — whereas a `const fn` the initializer calls is translated normally.
+const fn plans() -> [Plan; MAX_BITS + 1] {
     let mut plans = [plan(0); MAX_BITS + 1];
     let mut bits = 1;
     while bits <= MAX_BITS {
@@ -67,7 +76,10 @@ const PLANS: [Plan; MAX_BITS + 1] = {
         bits += 1;
     }
     plans
-};
+}
+
+/// One plan per supported width. Index 0 is unused padding so `bits` indexes directly.
+const PLANS: [Plan; MAX_BITS + 1] = plans();
 
 /// Deserializes `RING_DEG` coefficients of `bits` bits each from `bytes`.
 ///
@@ -81,15 +93,9 @@ const PLANS: [Plan; MAX_BITS + 1] = {
 #[target_feature(enable = "avx2")]
 pub(crate) fn deserialize(bytes: &[u8], bits: usize) -> [u16; RING_DEG] {
     let plan = &PLANS[bits];
-    // SAFETY: `Plan` is 32-byte aligned and `shuffle`/`shift` are 32 bytes each at offsets 0
-    // and 32, so both loads are aligned and in bounds.
-    let (shuffle, shift) = unsafe {
-        (
-            _mm256_load_si256(plan.shuffle.as_ptr().cast()),
-            _mm256_load_si256(plan.shift.as_ptr().cast()),
-        )
-    };
-    let mask = _mm256_set1_epi32((1i32 << bits) - 1);
+    let shuffle = load_u8(&plan.shuffle, 0);
+    let shift = load_i32(&plan.shift, 0);
+    let mask = set1_epi32((1i32 << bits) - 1);
 
     // A group is 8 coefficients packed into `bits` bytes, and the vector path reads a whole
     // 16 bytes from a group's start, so the last few groups would read past the end of a
@@ -105,30 +111,27 @@ pub(crate) fn deserialize(bytes: &[u8], bits: usize) -> [u16; RING_DEG] {
 
     let mut out = [0u16; RING_DEG];
     for pair in 0..GROUPS / 2 {
-        // SAFETY: for a group in the head, `group * bits + 16 ≤ 32 * bits = bytes.len()`, so
-        // the load is in bounds. For one in the tail, its offset into `tail` is at most
-        // `31 * bits - tail_start = (⌊15/bits⌋ - 1) * bits ≤ 15 - bits`, so the 16-byte load
-        // stays inside the 32-byte scratch buffer. The store covers
-        // `out[16 * pair .. 16 * pair + 16]`, within `RING_DEG = 16 * (GROUPS / 2)`.
-        unsafe {
-            let mut wide = [_mm256_setzero_si256(); 2];
-            for (half, slot) in wide.iter_mut().enumerate() {
-                let group = 2 * pair + half;
-                let src = if group < head_groups {
-                    bytes.as_ptr().add(group * bits)
-                } else {
-                    tail.as_ptr().add(group * bits - tail_start)
-                };
-                let raw = _mm256_broadcastsi128_si256(_mm_loadu_si128(src.cast()));
-                let windows = _mm256_shuffle_epi8(raw, shuffle);
-                *slot = _mm256_and_si256(_mm256_srlv_epi32(windows, shift), mask);
-            }
-            // Every value is at most 13 bits, so the unsigned saturating pack is exact; the
-            // qword permute repairs the lane interleaving `vpackusdw` introduces.
-            let packed = _mm256_packus_epi32(wide[0], wide[1]);
-            let packed = _mm256_permute4x64_epi64(packed, 0b11_01_10_00);
-            _mm256_storeu_si256(out.as_mut_ptr().add(16 * pair).cast(), packed);
+        let mut wide = [setzero_si256(); 2];
+        for half in 0..2 {
+            // For a group in the head, `group * bits + 16 ≤ 32 * bits = bytes.len()`, so the
+            // load is in bounds. For one in the tail, its offset into `tail` is at most
+            // `31 * bits - tail_start = (⌊15/bits⌋ - 1) * bits ≤ 15 - bits`, so the 16-byte
+            // load stays inside the 32-byte scratch buffer.
+            let group = 2 * pair + half;
+            let raw = if group < head_groups {
+                broadcastsi128_si256(load_u8x16(bytes, group * bits))
+            } else {
+                broadcastsi128_si256(load_u8x16(&tail, group * bits - tail_start))
+            };
+            let windows = shuffle_epi8(raw, shuffle);
+            wide[half] = and_si256(srlv_epi32(windows, shift), mask);
         }
+        // Every value is at most 13 bits, so the unsigned saturating pack is exact; the
+        // qword permute repairs the lane interleaving `vpackusdw` introduces.
+        let packed = packus_epi32(wide[0], wide[1]);
+        // The store covers `out[16 * pair .. 16 * pair + 16]`, within
+        // `RING_DEG = 16 * (GROUPS / 2)`.
+        store_u16(&mut out, pair, permute4x64_epi64::<0b11_01_10_00>(packed));
     }
 
     out

@@ -22,21 +22,30 @@
 //!
 //! # Safety
 //!
-//! This module is where the crate's `unsafe` lives, and it is there for exactly two reasons:
+//! All of this module's `unsafe` is confined to [`intrinsics`] and [`cpu`], and it is there for
+//! exactly two reasons:
 //!
 //! * SIMD intrinsics, which require the `avx2` target feature. Every function that uses them
 //!   carries `#[target_feature(enable = "avx2")]`, so the compiler emits the instructions
-//!   without them being enabled crate-wide, and calling such a function from outside is unsafe
-//!   precisely because the caller must know the CPU has AVX2. [`available`] is the only thing
-//!   that establishes that, and every entry point is reached through a call site guarded by it.
-//! * Unaligned pointer loads and stores over fixed-size arrays. The arrays are all
-//!   `[_; RING_DEG]` with `RING_DEG = 256`, or short fixed scratch buffers; the indices are all
-//!   bounded by construction, and each site carries the bound that makes it in-range.
+//!   without them being enabled crate-wide, and calling such a function from outside one is
+//!   unsafe precisely because the caller must know the CPU has AVX2. [`available`] is the only
+//!   thing that establishes that, and every entry point is reached through a call site guarded
+//!   by it. Within the backend, where every function carries the attribute, the calls are safe.
+//! * Unaligned loads and stores over fixed-size arrays. These are [`intrinsics`]' memory
+//!   accessors, which take an array reference and a vector index and bounds-check it, so
+//!   [`ntt`], [`ser`] and [`sample`] contain no `unsafe` and no raw pointers at all.
 //!
 //! There is no raw allocation, no lifetime erasure, and no aliasing: inputs are `&` and outputs
 //! are `&mut` or returned by value, so the borrow checker still separates them.
+//!
+//! # Extraction
+//!
+//! [`intrinsics`] exists so that this backend can be extracted to Lean: it is the one module
+//! charon is told to keep opaque, and the Lean side supplies its semantics by hand. See its
+//! module docs and `lean/AVX2_VERIFICATION_PLAN.md`.
 
 mod cpu;
+mod intrinsics;
 pub(crate) mod ntt;
 pub(crate) mod sample;
 pub(crate) mod ser;

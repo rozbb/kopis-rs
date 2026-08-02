@@ -149,7 +149,7 @@ static L2: LaneTables = LaneTables {
 };
 
 /// This backend's tables for prime `SECOND`, selected by const generic for the same reason
-/// [`crate::backend::crt::prime`] is: so each monomorphization folds the addresses in.
+/// [`crate::backend::crt::q`] and its siblings are: so each monomorphization folds the addresses in.
 const fn lanes<const SECOND: bool>() -> &'static LaneTables {
     if SECOND { &L2 } else { &L1 }
 }
@@ -358,10 +358,9 @@ unsafe fn store_group(ptr: *mut i16, g: usize, v: &mut [int16x8_t; 8]) {
 /// centered residues, `|a| ≤ q/2`.
 #[target_feature(enable = "neon")]
 unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
-    let p = crt::prime::<SECOND>();
     let t = lanes::<SECOND>();
-    let q = vdupq_n_s16(p.q);
-    let bm = vdupq_n_s16(p.barrett_m);
+    let q = vdupq_n_s16(crt::q::<SECOND>());
+    let bm = vdupq_n_s16(crt::barrett_m::<SECOND>());
     let round = vdupq_n_s16(1i16 << (BARRETT_SH - 1));
 
     // Levels with len ≥ 8: both halves of every butterfly are whole vectors, and ψ is constant
@@ -373,8 +372,8 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
         let mut start = 0usize;
         while start < VECS {
             k += 1;
-            let z = vdupq_n_s16(p.zetas[k]);
-            let zq = vdupq_n_s16(p.zetas_q[k]);
+            let z = vdupq_n_s16(crt::zeta::<SECOND>(k));
+            let zq = vdupq_n_s16(crt::zeta_q::<SECOND>(k));
             let mut i = start;
             while i < start + half {
                 // SAFETY: `i + half < VECS` because `start + 2*half ≤ VECS`.
@@ -460,10 +459,9 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
 /// satisfy `|a| < q`.
 #[target_feature(enable = "neon")]
 unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
-    let p = crt::prime::<SECOND>();
     let t = lanes::<SECOND>();
-    let q = vdupq_n_s16(p.q);
-    let bm = vdupq_n_s16(p.barrett_m);
+    let q = vdupq_n_s16(crt::q::<SECOND>());
+    let bm = vdupq_n_s16(crt::barrett_m::<SECOND>());
     let round = vdupq_n_s16(1i16 << (BARRETT_SH - 1));
 
     // Levels with len < 8, in transposed form: len = 1, then 2, then 4.
@@ -521,9 +519,9 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
         while start < VECS {
             k -= 1;
             // The table entries are centered, so |ψ| ≤ q/2 and the negation cannot overflow.
-            let neg_zeta = p.zetas[k].wrapping_neg();
+            let neg_zeta = crt::zeta::<SECOND>(k).wrapping_neg();
             let z = vdupq_n_s16(neg_zeta);
-            let zq = vdupq_n_s16(neg_zeta.wrapping_mul(p.qinv));
+            let zq = vdupq_n_s16(neg_zeta.wrapping_mul(crt::qinv::<SECOND>()));
             let mut i = start;
             while i < start + half {
                 // SAFETY: `i + half < VECS` because `start + 2*half ≤ VECS`.
@@ -547,8 +545,8 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
     }
 
     // One final Montgomery multiply undoes both the 1/256 and the Montgomery factor.
-    let scale = vdupq_n_s16(p.invntt_scale);
-    let scale_q = vdupq_n_s16(p.invntt_scale.wrapping_mul(p.qinv));
+    let scale = vdupq_n_s16(crt::invntt_scale::<SECOND>());
+    let scale_q = vdupq_n_s16(crt::invntt_scale::<SECOND>().wrapping_mul(crt::qinv::<SECOND>()));
     for i in 0..VECS {
         // SAFETY: `i < VECS`.
         unsafe { st(ptr, i, mont_mul(ld(ptr, i), scale, scale_q, q)) };
@@ -574,9 +572,8 @@ unsafe fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
     elem: &[u16; RING_DEG],
     ptr: *mut i16,
 ) {
-    let p = crt::prime::<SECOND>();
-    let q = vdupq_n_s16(p.q);
-    let bm = vdupq_n_s16(p.barrett_m);
+    let q = vdupq_n_s16(crt::q::<SECOND>());
+    let bm = vdupq_n_s16(crt::barrett_m::<SECOND>());
     let round = vdupq_n_s16(1i16 << (BARRETT_SH - 1));
     for i in 0..VECS {
         // SAFETY: `i < VECS` is in range for both the 256-`u16` source and the block.
@@ -688,9 +685,8 @@ pub(crate) fn pointwise_mul_acc(
 #[inline]
 #[target_feature(enable = "neon")]
 unsafe fn reduce_block<const SECOND: bool>(acc_ptr: *const i32, ptr: *mut i16) {
-    let p = crt::prime::<SECOND>();
-    let q = vdupq_n_s16(p.q);
-    let qinv = vdupq_n_s16(p.qinv);
+    let q = vdupq_n_s16(crt::q::<SECOND>());
+    let qinv = vdupq_n_s16(crt::qinv::<SECOND>());
 
     for i in 0..VECS {
         // SAFETY: `i < VECS` covers the 8 `i32` at `8i` and the 8 `i16` of output vector `i`.

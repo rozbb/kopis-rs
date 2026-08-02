@@ -31,6 +31,14 @@ export LEAN_NUM_THREADS
 prove-kopis:
 	$(LAKE) build Kopis TopLevelTheorems
 
+# Build the AVX2 side: the second extraction (ExtractedRustAvx2.lean, from an
+# `--cfg kopis_backend="avx2"` build) plus Kopis/Avx2/*, whose Intrinsics.lean supplies the
+# hand-written semantics of the opaque SIMD wrappers.  Kept out of `prove-kopis` because the
+# audited claim is still about the serial backend and this is a second 7k-line extraction.
+.PHONY: prove-avx2
+prove-avx2:
+	$(LAKE) build KopisAvx2
+
 # ---------------------------------------------------------------------------
 # Spec tests
 # ---------------------------------------------------------------------------
@@ -51,6 +59,7 @@ test-kopis-spec:
 help:
 	@echo "Kopis targets (run from kopis-rs/lean):"
 	@echo "  make prove-kopis       build + kernel-verify the Kopis proofs (lake build Kopis)"
+	@echo "  make prove-avx2        build the AVX2 extraction + its intrinsic semantics"
 	@echo "  make test-kopis-spec   run the Lean spec test vectors + KAT (lake exe kopisTests)"
 	@echo ""
 	@echo "  Parallelism is capped at LEAN_NUM_THREADS=$(LEAN_NUM_THREADS) to fit RAM on small hosts."
