@@ -84,7 +84,7 @@ from `../src/*.rs`.
 open Aeneas Aeneas.Std Result
 open Spec (𝔹)
 
-namespace Kopis.TopLevel
+namespace Kopis.TopLevelSerial
 
 set_option maxRecDepth 8000
 
@@ -474,4 +474,4 @@ proof about Rust semantics can see.
 charon/aeneas, and that `Spec/Kopis/Spec.lean` faithfully reflects `kopis-spec.md`
 is a matter for human review plus the KAT runner. -/
 
-end Kopis.TopLevel
+end Kopis.TopLevelSerial

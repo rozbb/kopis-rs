@@ -119,28 +119,28 @@ def serialAudited : List String :=
    "propext"]
 
 /-- The theorems whose footprint `serialAudited` describes: **every** theorem in
-`Kopis.TopLevel`, which the coverage check below enforces. That is the thirteen top-level
+`Kopis.TopLevelSerial`, which the coverage check below enforces. That is the thirteen top-level
 results of `TopLevelTheoremsSerial.lean` §3, plus the two lemmas that explain how to read them —
 `triple_means_success` (§1), which is what licenses reading each `⦃ … ⦄` as "terminates without
 panicking", and `arrayToBytes_is_identity` (§2), which is what says the translation layer is not
 throwing information away. Those two are as load-bearing for an auditor as the theorems they
 explain, and auditing them costs nothing: their axioms are a subset of the list above. -/
 def serialTheorems : List Name :=
-  [``Kopis.TopLevel.triple_means_success,
-   ``Kopis.TopLevel.arrayToBytes_is_identity,
-   ``Kopis.TopLevel.kopis512_keygen,
-   ``Kopis.TopLevel.kopis768_keygen,
-   ``Kopis.TopLevel.kopis1024_keygen,
-   ``Kopis.TopLevel.kopis512_keygen_then_encapsulate,
-   ``Kopis.TopLevel.kopis768_keygen_then_encapsulate,
-   ``Kopis.TopLevel.kopis1024_keygen_then_encapsulate,
-   ``Kopis.TopLevel.kopis512_keygen_then_decapsulate,
-   ``Kopis.TopLevel.kopis768_keygen_then_decapsulate,
-   ``Kopis.TopLevel.kopis1024_keygen_then_decapsulate,
-   ``Kopis.TopLevel.pk_serialize_matches_translation,
-   ``Kopis.TopLevel.kopis512_from_bytes_then_encapsulate,
-   ``Kopis.TopLevel.kopis768_from_bytes_then_encapsulate,
-   ``Kopis.TopLevel.kopis1024_from_bytes_then_encapsulate]
+  [``Kopis.TopLevelSerial.triple_means_success,
+   ``Kopis.TopLevelSerial.arrayToBytes_is_identity,
+   ``Kopis.TopLevelSerial.kopis512_keygen,
+   ``Kopis.TopLevelSerial.kopis768_keygen,
+   ``Kopis.TopLevelSerial.kopis1024_keygen,
+   ``Kopis.TopLevelSerial.kopis512_keygen_then_encapsulate,
+   ``Kopis.TopLevelSerial.kopis768_keygen_then_encapsulate,
+   ``Kopis.TopLevelSerial.kopis1024_keygen_then_encapsulate,
+   ``Kopis.TopLevelSerial.kopis512_keygen_then_decapsulate,
+   ``Kopis.TopLevelSerial.kopis768_keygen_then_decapsulate,
+   ``Kopis.TopLevelSerial.kopis1024_keygen_then_decapsulate,
+   ``Kopis.TopLevelSerial.pk_serialize_matches_translation,
+   ``Kopis.TopLevelSerial.kopis512_from_bytes_then_encapsulate,
+   ``Kopis.TopLevelSerial.kopis768_from_bytes_then_encapsulate,
+   ``Kopis.TopLevelSerial.kopis1024_from_bytes_then_encapsulate]
 
 /-! ## The check
 
@@ -164,7 +164,7 @@ Two things are checked, because the audited list and the theorem list can each r
 open Lean in
 run_cmd do
   let backends : List (String × Name × List String × List Name) :=
-    [("RustKopisSerial", `Kopis.TopLevel, serialAudited, serialTheorems)]
+    [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited, serialTheorems)]
   let env ← getEnv
   for (label, ns, audited, theorems) in backends do
     -- Footprint.
