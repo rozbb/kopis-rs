@@ -367,22 +367,54 @@ It compiled first try, which is direct evidence for §E's premise that the 298 i
 declarations transfer mechanically. When E automates the generation, this file should become one
 of its outputs rather than a hand copy.
 
-*Where to resume.* Phases D, E and F are untouched.
-
-**D** is more work than §D of this plan suggests, for a reason worth recording: the portable
-`sample::cbd` is *not* one generic routine. It has three hand-written specialised branches
-(`MU = 8`, `10`, `6`) plus a fallback, so "bit-identical to the portable sampler" is three
-correspondence proofs, not one. The AVX2 side, by contrast, is now cheap: it calls
-`ser::deserialize`, which Phase C characterises, so its output is
+*Phase D — landed in full.* `avx2_cbd_eq` (`Kopis/Avx2/CbdEq.lean`):
 
 ```
-out[k] = popcount(streamNat buf (MU·k) (MU/2)) − popcount(streamNat buf (MU·k + MU/2) (MU/2))
+backend::avx2::sample::cbd MU buf = sample::cbd MU buf out
 ```
 
-wrapped to `u16` — and that is exactly `cbdX buf (MU/2) (MU·k) − cbdX buf (MU/2) (MU·k + MU/2)`,
-since `cbdX` (`GenSecretLoops.lean`) is defined as a sum of stream bits, i.e. a popcount. So the
-route is: characterise the AVX2 side through `deserialize_streamNat` (short), then port
-`cbd_spec`'s chain from `GenSecretLoops.lean` as in `SerGeneric.lean`. Note that `cbd_spec`'s
-postcondition is `ZMod (2^13)`-valued; a *function* equality needs the raw `u16` characterisation,
-so port the raw intermediate loop specs rather than `cbd_spec` itself. `popcount_small`'s
-validity bound (values `< 32`) follows from `MU/2 ≤ 5`, not from an assumption.
+for `MU ∈ {6, 8, 10}`. `Kopis/Avx2/Cbd.lean` proves `cbd_streamNat`: for
+`MU = 2·half` with `1 ≤ half ≤ 5`,
+
+```
+backend::avx2::sample::cbd MU buf  →  out[k] = cbdU16 buf half (MU·k)
+```
+
+i.e. coefficient `k` is `popcount(low half of its field) − popcount(high half)` as a wrapping
+`u16`. Along the way: `popcount_small_spec` (one `vpshufb` over the nibble table plus bit 4 is
+the popcount of any lane below 32 — the high byte of each lane is zero, so its lookup yields
+`nibblePop 0 = 0` and does not disturb the 16-bit sum, which is the step `sample.rs`'s comment
+asserts), and `shift_right_dynamic_spec`. The `< 32` bound comes from `half ≤ 5`, as intended.
+
+`cbdX` moved to `Kopis/Bits/Stream.lean` alongside `streamNat`, so both backends are proved
+against one definition; `testBit_streamNat` is what lets a popcount of the *deserializer's
+output* be read as a popcount of the *stream*, which is what makes the AVX2 side cheap.
+
+The portable side is ported in `Kopis/Avx2/CbdGeneric.lean` (1672 lines: `GenSecret.lean`'s
+helper block plus `GenSecretLoops.lean` up to its spec bridge, one substitution, nothing else).
+It is genuinely three correspondence proofs and not one — the portable `sample::cbd` is not a
+generic routine but three hand-written specialised branches (`MU = 8` nibble, `MU = 10` five-byte
+group, `MU = 6` three-byte group) plus a fallback — but they were already proved on the serial
+side, so the port carries them over.
+
+The one thing worth recording about D: the two sides are characterised in *different types*.
+`cbd_streamNat` gives a raw `u16`; `cbd_spec` gives a value in `ZMod (2¹³)` and `cbd_bd` a
+magnitude bound. A `u16` that is small-signed with bound `b` is determined by its residue mod
+`2¹³` once `2b < 2¹³`, and `b = MU/2 ≤ 5`, so the two pin down the same word
+(`u16_eq_of_smallSigned`). Any later phase needing a raw equality against a `ZMod`-valued serial
+spec can reuse that bridge.
+
+**Two new assumptions.** `CbdGeneric.U8.count_ones_spec` and `CbdGeneric.U32.count_ones_spec`:
+`RustKopisAvx2.core.num.{U8,U32}.count_ones` are different opaque constants from the serial ones,
+so these are genuinely new for this backend and belong in the AVX2 row of `TrustBase.lean`
+exactly as their twins are in the serial row.
+
+*Where to resume.* **Phase E**, then F. E is better understood now than when this plan was
+written: `SerGeneric.lean` and `CbdGeneric.lean` are two hand-made instances of exactly the twin
+generation E1/E2 describe, and both compiled under the `RustKopisSerial → RustKopisAvx2`
+substitution with no other change — 1672 lines in one case, first try. That is strong evidence
+the mechanical transfer works; when E automates it, those two files should become its outputs
+rather than hand copies. E's remaining work: the restructure (E1), the generator (E2), the six
+dispatch theorems (E3) — of which the `deserialize` and `gen_secret_from_seed_loop` points are
+now discharged by `avx2_deserialize_eq` and `avx2_cbd_eq` — and wiring `TopLevelTheoremsAvx2`
+into the build with its own `TrustBase` row (E4).

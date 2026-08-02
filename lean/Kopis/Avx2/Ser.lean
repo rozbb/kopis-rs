@@ -28,12 +28,17 @@ set_option maxHeartbeats 2000000
 The shift counts and the mask arrive as `i32`s whose *values* the plan spec fixes, while the
 intrinsic axioms speak of their bit patterns.  For a non-negative `i32` the two agree. -/
 
-/-- A non-negative `i32` has the bit pattern of its value. -/
-theorem i32_bv_toNat {x : I32} {v : ℕ} (hv : x.val = (v : ℤ)) : x.bv.toNat = v := by
-  have hlt : (x.bv.toNat : ℤ) < 2 ^ 32 := by exact_mod_cast x.bv.isLt
+/-- A non-negative signed scalar has the bit pattern of its value. -/
+theorem iscalar_bv_toNat {ty : IScalarTy} {x : IScalar ty} {v : ℕ} (hv : x.val = (v : ℤ)) :
+    x.bv.toNat = v := by
+  have hlt : (x.bv.toNat : ℤ) < 2 ^ ty.numBits := by exact_mod_cast x.bv.isLt
   have h := BitVec.toInt_eq_toNat_cond x.bv
   rw [show x.bv.toInt = (v : ℤ) from hv] at h
   split at h <;> omega
+
+/-- A non-negative `i32` has the bit pattern of its value. -/
+theorem i32_bv_toNat {x : I32} {v : ℕ} (hv : x.val = (v : ℤ)) : x.bv.toNat = v :=
+  iscalar_bv_toNat hv
 
 /-! ## Where a group's register comes from
 

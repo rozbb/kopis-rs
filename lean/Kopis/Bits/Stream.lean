@@ -195,4 +195,94 @@ theorem streamNat_of_byteWindow (bytes : Slice U8) (base sh len : ℕ) (hlen : s
       show (8 * base + sh + c) % 8 = (sh + c) % 8 from by omega,
       ← hbit (sh + c) (by omega), Nat.testBit_shiftRight]
 
+/-! ## Population counts over the stream
+
+The centred binomial sampler counts the set bits of a `half`-bit window.  Both backends compute
+that count — the portable one bit by bit, the AVX2 one with a nibble `vpshufb` lookup — so, like
+`streamNat`, it is defined once here and both are proved against it.
+
+`cbdX` was `Kopis/Properties/GenSecretLoops.lean`'s; it is backend-agnostic and moved here so the
+AVX2 sampler can be stated through the same object rather than a copy. -/
+
+/-- Popcount of the `half`-bit stream window at `p`. -/
+def cbdX (buf : Slice U8) (half p : ℕ) : ℕ := ∑ i ∈ Finset.range half, streamBit buf (p + i)
+
+theorem cbdX_le (buf : Slice U8) (half p : ℕ) : cbdX buf half p ≤ half := by
+  unfold cbdX
+  calc ∑ i ∈ Finset.range half, streamBit buf (p + i)
+      ≤ ∑ _i ∈ Finset.range half, 1 := Finset.sum_le_sum (fun i _ => streamBit_le_one buf (p + i))
+    _ = half := by simp
+
+/-- Bit `i` of a stream window is the stream's bit — the fact that lets a popcount of the
+*extracted field* be read as a popcount of the *stream*, which is what the vector sampler needs
+(it counts bits of the deserializer's output, not of the buffer). -/
+theorem testBit_streamNat (bytes : Slice U8) (lo len i : ℕ) (hi : i < len) :
+    ((streamNat bytes lo len).testBit i).toNat = streamBit bytes (lo + i) := by
+  have hsplit : streamNat bytes lo len
+      = streamNat bytes lo i + 2 ^ i * streamNat bytes (lo + i) (len - i) := by
+    conv_lhs => rw [show len = i + (len - i) from by omega]
+    rw [streamNat_split]
+  have hlt : streamNat bytes lo i < 2 ^ i := streamNat_lt _ _ _
+  have hcomm : streamNat bytes lo i + 2 ^ i * streamNat bytes (lo + i) (len - i)
+      = 2 ^ i * streamNat bytes (lo + i) (len - i) + streamNat bytes lo i := by ring
+  rw [hsplit, hcomm, Nat.testBit_two_pow_mul_add _ hlt, if_neg (by omega), Nat.sub_self]
+  -- bit 0 of the remaining window is its first stream bit
+  have htail : streamNat bytes (lo + i) (len - i)
+      = streamNat bytes (lo + i) 1 + 2 * streamNat bytes (lo + i + 1) (len - i - 1) := by
+    conv_lhs => rw [show len - i = 1 + (len - i - 1) from by omega]
+    rw [streamNat_split]
+    norm_num
+  have hone : streamNat bytes (lo + i) 1 = streamBit bytes (lo + i) := by
+    simp [streamNat]
+  have hb : streamBit bytes (lo + i) ≤ 1 := streamBit_le_one _ _
+  rw [htail, hone, Nat.testBit_zero]
+  rcases Nat.eq_zero_or_pos (streamBit bytes (lo + i)) with h0 | h1
+  · simp [h0, Nat.add_mul_mod_self_left]
+  · have : streamBit bytes (lo + i) = 1 := by omega
+    simp [this, Nat.add_mul_mod_self_left]
+
+/-- The popcount of a stream window, as a popcount of its *value*. -/
+theorem cbdX_eq_bitSum (bytes : Slice U8) (half p : ℕ) :
+    cbdX bytes half p
+      = ∑ i ∈ Finset.range half, ((streamNat bytes p half).testBit i).toNat := by
+  unfold cbdX
+  exact (Finset.sum_congr rfl fun i hi =>
+    testBit_streamNat bytes p half i (Finset.mem_range.mp hi)).symm
+
+/-! ## Masking and shifting a window
+
+The sampler splits each `MU`-bit field into two `MU/2`-bit halves with a mask and a shift.  On
+the stream those are just shorter windows. -/
+
+/-- Masking a window to its low `k` bits is the shorter window. -/
+theorem streamNat_mod (bytes : Slice U8) (p len k : ℕ) (h : k ≤ len) :
+    streamNat bytes p len % 2 ^ k = streamNat bytes p k := by
+  conv_lhs => rw [show len = k + (len - k) from by omega, streamNat_split]
+  rw [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt (streamNat_lt _ _ _)]
+
+/-- Shifting a window down by `k` is the window starting `k` bits later. -/
+theorem streamNat_shiftRight (bytes : Slice U8) (p len k : ℕ) (h : k ≤ len) :
+    streamNat bytes p len >>> k = streamNat bytes (p + k) (len - k) := by
+  conv_lhs => rw [show len = k + (len - k) from by omega, streamNat_split]
+  rw [Nat.shiftRight_eq_div_pow, Nat.add_mul_div_left _ _ (by positivity : 0 < 2 ^ k),
+    Nat.div_eq_of_lt (streamNat_lt _ _ _), Nat.zero_add]
+
+/-- A popcount taken over more bits than the window has counts the same bits: the extra ones are
+zero.  This is what lets `popcount_small`, which always sums five bits, compute a `half`-bit
+popcount for any `half ≤ 5`. -/
+theorem cbdX_eq_bitSum_of_le (bytes : Slice U8) (half p n : ℕ) (h : half ≤ n) :
+    ∑ i ∈ Finset.range n, ((streamNat bytes p half).testBit i).toNat = cbdX bytes half p := by
+  rw [show n = half + (n - half) from by omega, Finset.sum_range_add]
+  have hzero : ∀ i ∈ Finset.range (n - half),
+      ((streamNat bytes p half).testBit (half + i)).toNat = 0 := by
+    intro i _
+    rw [Nat.testBit_lt_two_pow
+      (lt_of_lt_of_le (streamNat_lt bytes p half) (Nat.pow_le_pow_right (by norm_num) (by omega)))]
+    rfl
+  rw [Finset.sum_congr rfl hzero, Finset.sum_const_zero, Nat.add_zero, cbdX_eq_bitSum]
+
+/-- The sampler's coefficient, as the wrapping `u16` difference of the two halves' popcounts. -/
+def cbdU16 (buf : Slice U8) (half p : ℕ) : ℕ :=
+  (cbdX buf half p + 2 ^ 16 - cbdX buf half (p + half)) % 2 ^ 16
+
 end Kopis.Properties

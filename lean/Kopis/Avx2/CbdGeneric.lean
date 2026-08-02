@@ -1,10 +1,171 @@
-import Kopis.Properties.GenSecret
-open Aeneas Aeneas.Std Result RustKopisSerial
+/-
+  # Kopis/Avx2/CbdGeneric.lean — the portable sampler, in the AVX2 namespace.
+
+  As with `Kopis/Avx2/SerGeneric.lean`: the AVX2 sampler is compared against
+  `RustKopisAvx2.sample.cbd`, a different Lean constant from the serial `sample.cbd` even though
+  the bodies are identical, so the serial proof has to exist here too.
+
+  This is `Kopis/Properties/GenSecretLoops.lean` up to (not including) its spec bridge, with
+  `RustKopisSerial` replaced by `RustKopisAvx2` and nothing else changed — the iterator step
+  specs, the three specialised branches (`MU = 8` nibble, `MU = 10` five-byte group, `MU = 6`
+  three-byte group), the generic fallback, and both the value (`cbd_spec`) and magnitude
+  (`cbd_bd`) results.  `cbdX` itself is not redefined: it now lives in `Kopis/Bits/Stream.lean`
+  and both backends share it.
+
+  Like `SerGeneric.lean`, this should become an output of Phase E's twin generation rather than
+  a hand copy.
+-/
+import ExtractedRustAvx2
+import Kopis.Bits.Stream
+
+open Aeneas Aeneas.Std Result RustKopisAvx2
 open scoped BigOperators
-namespace Kopis.Properties
+
+namespace Kopis.Avx2.CbdGeneric
+
+open Kopis.Properties
+open arithmetic.ring_arith (RingElem)
+
 
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
+
+/-! ## Prerequisites from the serial stack
+
+Three things `GenSecretLoops.lean` inherits from its imports, reproduced here for the AVX2
+extraction's constants: the two `IterMut` step lemmas (`Kopis/Properties/RingArith.lean`) and
+the two `count_ones` axioms (`Kopis/Properties/GenSecret.lean`).
+
+The `count_ones` axioms are genuinely new *assumptions* for this backend —
+`RustKopisAvx2.core.num.{U8,U32}.count_ones` are different opaque constants from the serial
+ones — so they belong in the AVX2 row of `TrustBase.lean` exactly as their serial twins are in
+the serial row. -/
+
+
+set_option maxHeartbeats 1000000
+
+/-! ## `count_ones` (popcount) — opaque compiler intrinsics, axiomatized as the
+number of set bits (= sum of the bit values). -/
+
+@[step] axiom U32.count_ones_spec (x : U32) :
+    core.num.U32.count_ones x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 32, (x.bv.getLsbD i).toNat ⦄
+
+@[step] axiom U8.count_ones_spec (x : U8) :
+    core.num.U8.count_ones x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 8, (x.bv.getLsbD i).toNat ⦄
+
+/-- Popcount of `w` masked to its low `h` bits (`mask = 2^h - 1`) is the sum of
+the low `h` bits of `w`. -/
+theorem popcount_low_mask (w mask : U32) (h : ℕ) (hh : h ≤ 32)
+    (hmask : ∀ i, mask.bv.getLsbD i = decide (i < h)) :
+    ∑ i ∈ Finset.range 32, ((w &&& mask).bv.getLsbD i).toNat
+      = ∑ i ∈ Finset.range h, (w.bv.getLsbD i).toNat := by
+  have hstep : ∀ i, ((w &&& mask).bv.getLsbD i).toNat
+      = if i < h then (w.bv.getLsbD i).toNat else 0 := by
+    intro i
+    rw [show (w &&& mask).bv = w.bv &&& mask.bv from rfl, BitVec.getLsbD_and, hmask i]
+    by_cases hi : i < h <;> simp [hi]
+  rw [Finset.sum_congr rfl (fun i _ => hstep i), ← Finset.sum_filter]
+  congr 1
+  ext i
+  simp only [Finset.mem_filter, Finset.mem_range]
+  omega
+
+/-- The 3-byte little-endian window `buf[bi] + 2⁸·buf[bi+1] + 2¹⁶·buf[bi+2]`
+(with OOB bytes read as 0 via `!`) has bit `b` (for `b < 16`) equal to the
+corresponding stream bit `buf[(8bi+b)/8][(8bi+b)%8]`. -/
+theorem window_testBit (buf : Slice U8) (bi b : ℕ) (hb : b < 24) :
+    (((buf.val[bi]!).val) + 2 ^ 8 * (buf.val[bi+1]!).val + 2 ^ 16 * (buf.val[bi+2]!).val).testBit b
+      = (buf.val[(8*bi+b)/8]!).val.testBit ((8*bi+b)%8) := by
+  have h0 : (buf.val[bi]!).val < 2 ^ 8 := by have := (buf.val[bi]!).hBounds; omega
+  have h1 : (buf.val[bi+1]!).val < 2 ^ 8 := by have := (buf.val[bi+1]!).hBounds; omega
+  rw [show ((buf.val[bi]!).val) + 2 ^ 8 * (buf.val[bi+1]!).val + 2 ^ 16 * (buf.val[bi+2]!).val
+        = 2 ^ 8 * ((buf.val[bi+1]!).val + 2 ^ 8 * (buf.val[bi+2]!).val) + (buf.val[bi]!).val from by ring,
+    Nat.testBit_two_pow_mul_add _ h0 b]
+  by_cases hb8 : b < 8
+  · -- bit in the low byte
+    rw [if_pos hb8, show (8*bi+b)/8 = bi from by omega, show (8*bi+b)%8 = b from by omega]
+  · rw [if_neg hb8, show ((buf.val[bi+1]!).val + 2 ^ 8 * (buf.val[bi+2]!).val)
+          = 2 ^ 8 * (buf.val[bi+2]!).val + (buf.val[bi+1]!).val from by ring,
+      Nat.testBit_two_pow_mul_add _ h1 (b - 8)]
+    by_cases hb16 : b < 16
+    · -- second byte
+      rw [if_pos (show b - 8 < 8 by omega),
+        show (8*bi+b)/8 = bi+1 from by omega, show (8*bi+b)%8 = b-8 from by omega]
+    · -- third byte
+      rw [if_neg (show ¬ b - 8 < 8 by omega), show b - 8 - 8 = b - 16 from by omega,
+        show (8*bi+b)/8 = bi+2 from by omega, show (8*bi+b)%8 = b-16 from by omega]
+
+/-- The mask `2^half - 1` has bit `i` set iff `i < half`. -/
+theorem mask_getLsbD (mask : U32) (half : ℕ) (hm : mask.val = 2 ^ half - 1) (i : ℕ) :
+    mask.bv.getLsbD i = decide (i < half) := by
+  have h : mask.bv.getLsbD i = mask.val.testBit i := by rw [UScalar.val, BitVec.getLsbD]
+  rw [h, hm, Nat.testBit_two_pow_sub_one]
+
+/-- `u16::wrapping_sub` cast into `ZMod (2¹³)` is the `ZMod` difference (the wrap
+`% 2¹⁶` is absorbed since `2¹³ ∣ 2¹⁶`). -/
+theorem wrapping_sub_toZMod13 (a b : U16) :
+    (((core.num.U16.wrapping_sub a b).val : ℕ) : ZMod (2 ^ 13))
+      = (a.val : ZMod (2 ^ 13)) - (b.val : ZMod (2 ^ 13)) := by
+  have hsize : UScalar.size .U16 = 2 ^ 16 := by rw [UScalar.size_def]; rfl
+  have hy : b.val ≤ 2 ^ 16 := by have := U16.lt_succ_max b; omega
+  have h216 : ((2 ^ 16 : ℕ) : ZMod (2 ^ 13)) = 0 := by
+    rw [show (2 : ℕ) ^ 16 = 2 ^ 13 * 8 from by norm_num, Nat.cast_mul, ZMod.natCast_self, zero_mul]
+  have castMod : ∀ x : ℕ, ((x % 2 ^ 16 : ℕ) : ZMod (2 ^ 13)) = (x : ZMod (2 ^ 13)) := fun x => by
+    conv_rhs => rw [← Nat.mod_add_div x (2 ^ 16)]
+    push_cast; ring
+  rw [core.num.U16.wrapping_sub_val_eq, hsize, castMod, Nat.cast_add, Nat.cast_sub hy, h216]
+  ring
+
+/-- **Bit heart of CBD.**  The popcount of the low `half` bits of the shifted
+window `raw4 = W >> bit_in_byte` equals the spec's `∑ streamBit` over the
+corresponding `half` stream positions. -/
+theorem window_popcount (buf : Slice U8) (byte_idx off half : ℕ)
+    (shifted : U32) (hoff : off + half ≤ 24) (_hhalf : half ≤ 8)
+    (hshift : shifted.val = ((buf.val[byte_idx]!).val + 2 ^ 8 * (buf.val[byte_idx+1]!).val
+        + 2 ^ 16 * (buf.val[byte_idx+2]!).val) >>> off) :
+    ∑ i ∈ Finset.range half, (shifted.bv.getLsbD i).toNat
+      = ∑ i ∈ Finset.range half, streamBit buf (8 * byte_idx + off + i) := by
+  apply Finset.sum_congr rfl
+  intro i hi
+  simp only [Finset.mem_range] at hi
+  have hbridge : shifted.bv.getLsbD i = shifted.val.testBit i := by rw [UScalar.val, BitVec.getLsbD]
+  rw [hbridge, hshift, Nat.testBit_shiftRight,
+    window_testBit buf byte_idx (off + i) (by omega),
+    show 8 * byte_idx + (off + i) = 8 * byte_idx + off + i from by ring]
+  rfl
+
+
+@[step]
+theorem iter_mut_next_spec {T : Type}
+  (it : core.slice.iter.IterMut T)
+  (h : it.i < it.slice.len) :
+  core.slice.iter.IteratorIterMut.next it
+  ⦃ p =>
+    let (o, it', back) := p
+    o = some (it.slice[it.i]) ∧
+    it'.slice = it.slice ∧
+    it'.i = it.i + 1 ∧
+    (∀ it'', back it'' none = it'') ∧
+    (∀ it'' x, back it'' (some x) = { it'' with slice := it''.slice.setAtNat it.i x })
+  ⦄ := by
+  simp only [core.slice.iter.IteratorIterMut.next, h, ↓reduceDIte]
+  simp
+
+@[step]
+theorem iter_mut_next_spec_none {T : Type}
+  (it : core.slice.iter.IterMut T)
+  (h : it.i ≥ it.slice.len) :
+  core.slice.iter.IteratorIterMut.next it
+  ⦃ p =>
+    let (o, it', back) := p
+    o = none ∧ it' = it ∧ ∀ it'' ox, back it'' ox = it''
+  ⦄ := by
+  simp only [core.slice.iter.IteratorIterMut.next]
+  split
+  · agrind
+  · simp
 
 /-! ## `Iter`/`Enumerate` step specs (generic; replicated from `Symcrust`'s
 `Iterators.lean`, which lives in a different library; these depend only on
@@ -1507,49 +1668,4 @@ theorem cbd_bd (MU : Usize) (buf : Slice U8) (out : RingElem)
         · exact h6 (by scalar_tac)
         · exact h10 (by scalar_tac)
 
-/-! ## Bridge to the spec's `bytesToBits` centered-binomial coefficients. -/
-
-open Spec (bytesToBits)
-
-/-- `cbdX` (a popcount over `cnt` stream bits) equals the spec's `Fin`-sum over the
-bridged bit stream `bytesToBits (sliceToBytes …)`. -/
-theorem cbdX_eq_specSum (buf1 : Slice U8) (μ p cnt : ℕ) (h : buf1.length = 32 * μ)
-    (hbnd : ∀ (j : Fin cnt), p + j.val < 8 * (32 * μ)) :
-    cbdX buf1 cnt p
-      = ∑ j : Fin cnt,
-          ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[p + j.val]'(by simpa using hbnd j)).toNat := by
-  unfold cbdX
-  rw [← Fin.sum_univ_eq_sum_range (fun i => streamBit buf1 (p + i)) cnt]
-  apply Finset.sum_congr rfl
-  intro j _
-  exact (streamBit_eq_bit buf1 μ (p + j.val) h (hbnd j)).symm
-
-/-- The CBD coefficient (`cbdVal`) computed by the Rust sampler equals the spec's
-`(x : ZMod 2¹³) - (y : ZMod 2¹³)` centered-binomial value for coefficient `k`. -/
-theorem cbdVal_eq_specCoeff (buf1 : Slice U8) (μ k : ℕ) (h : buf1.length = 32 * μ) (hk : k < 256) :
-    cbdVal buf1 μ (μ / 2) k
-      = ((∑ j : Fin (μ / 2),
-            ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[μ * k + j.val]'(by
-              have h2 : μ * k + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
-              have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
-              have _h4 : μ * 256 = 8 * (32 * μ) := by ring
-              simpa using (by omega : μ * k + j.val < 8 * (32 * μ)))).toNat : ℕ) : ZMod (2 ^ 13))
-      - ((∑ j : Fin (μ / 2),
-            ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[μ * k + μ / 2 + j.val]'(by
-              have h2 : μ * k + μ / 2 + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
-              have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
-              have _h4 : μ * 256 = 8 * (32 * μ) := by ring
-              simpa using (by omega : μ * k + μ / 2 + j.val < 8 * (32 * μ)))).toNat : ℕ) : ZMod (2 ^ 13)) := by
-  unfold cbdVal
-  rw [cbdX_eq_specSum buf1 μ (μ * k) (μ / 2) h (fun j => by
-        have h2 : μ * k + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
-        have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
-        have h4 : μ * 256 = 8 * (32 * μ) := by ring
-        omega),
-      cbdX_eq_specSum buf1 μ (μ * k + μ / 2) (μ / 2) h (fun j => by
-        have h2 : μ * k + μ / 2 + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
-        have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
-        have h4 : μ * 256 = 8 * (32 * μ) := by ring
-        omega)]
-
-end Kopis.Properties
+end Kopis.Avx2.CbdGeneric
