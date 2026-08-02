@@ -1,223 +1,304 @@
-# Formally verifying the AVX2 backend
+# Verifying the AVX2 backend — plan of work
 
-> Drafted 2026-08-01, after `./extract_rust_to_lean.sh` was run with
-> `RUSTFLAGS='--cfg kopis_backend="avx2"'` and aborted. Companion to `NTT_REFACTOR_STATUS.md`.
->
-> **Steps 1–4 are done** — see *Status* below. Steps 5–7 (the correspondence proofs) are not
-> started.
+> Rewritten 2026-08-02 as an execution plan. Written to be read cold: everything needed to pick
+> this up with no prior context is here or is one command away. Companion to
+> `NTT_REFACTOR_STATUS.md` (the serial NTT proof, complete) and `TrustBase.lean` (the assumptions).
 
-## Status (2026-08-01)
+## 0. Where things stand
 
-`./extract_rust_to_lean.sh` now extracts **both** backends and completes with no errors:
-`lean/ExtractedRustSerial.lean` (serial, byte-identical to before) and `lean/ExtractedRustAvx2.lean`
-(AVX2, 6947 lines, namespace `RustKopisAvx2`). `make prove-kopis` is unaffected and green;
-`make prove-kopis-avx2` builds the new extraction plus the intrinsic semantics.
+The scaffolding is done and committed; **no AVX2 correspondence proof exists yet**. Concretely:
 
-What landed:
+* `../extract_rust_to_lean.sh` extracts the crate twice, with no errors:
+  `ExtractedRustSerial.lean` (namespace `RustKopisSerial`, 4684 lines) and
+  `ExtractedRustAvx2.lean` (namespace `RustKopisAvx2`, 6947 lines).
+* `src/backend/avx2/intrinsics.rs` wraps all 45 SIMD operations behind `Vec256`/`Vec128`
+  newtypes. `charon --opaque` keeps that module and `backend::avx2::cpu` opaque, so aeneas emits
+  them as uninterpreted constants; the rest of the backend translates normally. Nothing outside
+  `intrinsics.rs` contains `unsafe` or a raw pointer.
+* `Kopis/Avx2/Intrinsics.lean` gives those constants meaning: one axiom per operation, over
+  `bits : Vec256 → BitVec 256` with lane views derived from it. **This is the added trust base
+  and the file a reviewer must read.** It is assumed, not proved, and not checked against
+  silicon — Phase A below is about that.
+* `make prove-kopis` builds both backends; `make prove-kopis-serial` is the machine-checked
+  serial proof; `make prove-kopis-avx2` builds the AVX2 extraction and the intrinsic axioms and
+  proves nothing (the target name is aspirational).
+* `TopLevelTheoremsAvx2.lean` is generated from `TopLevelTheoremsSerial.lean` by `make generated`
+  and is **not** in the build graph — it cannot compile until the proofs below exist.
 
-* **`src/backend/avx2/intrinsics.rs`** — 42 safe wrappers (30 instructions, 12 memory
-  accessors) over the `Vec256` / `Vec128` newtypes. `#[target_feature(enable = "avx2")]` makes
-  them safe to call from the rest of the backend, which now contains **no `unsafe` and no raw
-  pointers at all**.
-* **`lean/Kopis/Avx2/Intrinsics.lean`** — one axiom per wrapper, over
-  `bits : Vec256 → BitVec 256` with derived lane views. This is the review surface and the whole
-  of the added trust base.
-* The pointer refactor of step 3, plus three changes forced by aeneas limitations found the
-  hard way (below).
-* `charon --opaque 'kopis::backend::avx2::intrinsics' --opaque 'kopis::backend::avx2::cpu'`.
-  `cpu` is `--opaque` rather than `--exclude` as originally planned: excluding it makes the
-  `avx2_available()` dispatch block untranslatable.
+Re-verify all of that with `make prove-kopis` from `lean/`. If it is not green, stop and fix that
+first; nothing below is meaningful on a red tree.
 
-Verification of the refactor: `cargo test` green under `--cfg kopis_backend="avx2"` (33 tests,
-including `avx2_matches_serial`, `sample::matches_serial`, `transpose16_permutes_as_documented`
-and `crt::zetas_tables_are_correct`), under `serial`, and `cargo check` green for
-`--cfg kopis_backend="neon"` on aarch64. In the generated assembly every wrapper is inlined —
-zero calls or jumps into `intrinsics::` — and no bounds-check panic path survives in the NTT
-symbols. Benchmarks: encapsulation 4.7536 → 4.7561 µs (+0.05%), key generation 15.81 →
-15.62 µs (−1.2%), decapsulation within a run-to-run spread of ±4% on this 4-core host, which is
-too noisy to resolve a change of the size we are looking for. Static instruction count for the
-backend rose 2174 → 2413, most of it the one copy the layout change added (`from_ring_elem` now
-writes its block through the `i16`-of-`i32` accessor rather than transforming in place).
+## 1. The measurement that shapes everything
 
-### Three aeneas limitations, none of them documented
+Compare the two extractions declaration by declaration (re-run this if you doubt it):
 
-Each was isolated with a ~10-line file through `charon rustc` + `aeneas`, after the whole-crate
-error spans pointed somewhere unhelpful. Worth knowing before writing more extractable Rust:
+```
+declarations: serial=304  avx2=460  shared-name=304
+  identical body : 298
+  differing body : 6
+  only in avx2   : 156      (ntt 67, intrinsics 47, ser 15, sample 6, crt ~19, cpu 1)
+```
 
-1. **A function that returns a `&'static` reference cannot be translated.** `fn f() -> &'static
-   P { &S }` fails with `Unreachable` at `interp/Interp.ml:609` — reported not at the function
-   but at the first *field read* through the returned reference, which is why the original
-   report blamed `p.q`. Reading a static inside a function is fine. This is what
-   `crate::backend::crt::prime::<SECOND>() -> &'static Prime` was, and it is now six accessors
-   returning values (`crt::q`, `crt::qinv`, `crt::zeta`, …). The AVX2 per-lane ψ tables took the
-   same treatment: selected at the use site instead of through a `&'static Tbl<N>` accessor.
-2. **A `const`/`static` initializer *block* containing a loop cannot be translated** —
-   `const A: [T; N] = { let mut a = ...; while ... ; a };` gives `Internal error, please file an
-   issue`. The identical loop inside a `const fn` that the initializer calls is fine. That is
-   the one-line change `ser.rs`'s `PLANS` needed.
-3. **A reference inside a struct reached by reference** (`Prime { zetas: &'static [i16; 256] }`
-   behind `&'static Prime`) kills the whole run with `Invalid_argument "option is None"` out of
-   `translate_global_eval`. Subsumed by fixing (1), but it fails differently and earlier.
+The six whose bodies differ are exactly the runtime-dispatch points:
 
-`#[target_feature]`, `unsafe`, const generics, `#[repr(align)]` and statics holding large arrays
-all extract without trouble.
+```
+arithmetic.ntt.NttElem.from_uniform          arithmetic.ring_arith.RingElem.deserialize
+arithmetic.ntt.NttElem.from_secret           sample.gen_secret_from_seed_loop
+arithmetic.ntt.pointwise_mul_acc
+arithmetic.ntt.reduce_invntt_to_ring_elem
+```
 
-## Context
+Three consequences that drive the plan:
 
-`./extract_rust_to_lean.sh` with `RUSTFLAGS='--cfg kopis_backend="avx2"'` aborts
-(`236/238` then `Uncaught exception`). The failures are not incidental:
+**(a) Every constant is new, even where the code is identical.**
+`RustKopisAvx2.pke.PkePublicKey.serialize` is a different Lean constant from the serial one with
+a byte-identical body. So the AVX2 top-level theorems need a parallel proof stack — but 298/304
+of it should transfer by renaming the namespace, because the goals are identical modulo names.
+That is mechanical work (Phase E), not mathematics.
 
-- Four `[Error] Unreachable` at `ntt.rs:420/520/631/750`, all at column 30–33 = `p.q`,
-  the argument to the first `_mm256_set1_epi16` in `ntt_block`, `invntt_block`,
-  `split_and_transform`, `reduce_block`. The span is misleading — aeneas's symbolic
-  interpreter hit the intrinsic call and fell off a match (`interp/Interp.ml:609`,
-  an internal assert-false). `__m256i` is a rustc builtin type with no MIR definition
-  and `core::arch::x86_64` intrinsics are `extern "unadjusted"` declarations with **no
-  body**, so charon has nothing to lower. One root cause, four hits, each poisoning a
-  whole function.
-- `Raw ptr casts are only supported between pointers to literal types` at
-  `pointwise_mul_acc` (`ntt.rs:701-738`) — same root cause, plus `.add(16 * i)` raw
-  pointer arithmetic, which aeneas does not model regardless.
+**(b) The dispatch points extract as an honest case split.** For example:
 
-No Rust rewrite makes intrinsics extractable. The fix is to stop extracting them:
-present the extractor an opaque interface, and supply that interface's semantics by
-hand in Lean. This is libcrux's architecture (`libcrux/crates/utils/intrinsics/src/avx2_extract.rs`
-+ `libcrux/fstar-helpers/fstar-bitvec/BitVec.Intrinsics.fsti`), adapted to aeneas/Lean.
+```lean
+let b1 ← backend.avx2.cpu.available
+if b1 then (let a ← backend.avx2.ser.deserialize bytes bits_per_elem; ok a)
+      else (…the portable code, unchanged…)
+```
 
-**Outcome:** the AVX2 backend joins `ExtractedRustSerial.lean` and gets correspondence
-proofs alongside the portable code, with a documented trusted base of hand-written
-intrinsic semantics.
+`backend.avx2.cpu.available : Result Bool` is an axiom with **no** semantic assumption attached,
+and none is needed: prove the postcondition on *both* branches and it holds whatever CPUID says.
+The only thing that must be assumed about it is that it does not fail or diverge —
 
-## What can and cannot be reused from libcrux
+```lean
+axiom available_ok : ∃ b, RustKopisAvx2.backend.avx2.cpu.available = ok b
+```
 
-Coverage of the 38 intrinsics used across `src/backend/avx2/`:
+— which is far weaker than "it correctly detects AVX2", and is the whole of the CPU probe's
+contribution to the trust base. (An earlier draft of this document said `available()` should be
+recorded as an assumption about feature detection. That was wrong; this is better.)
 
-| Bucket | N | Detail |
-|---|---|---|
-| Lane-level spec in `avx2_extract.rs` | 8 | `add/sub/mullo/mulhi_epi16`, `srai_epi16`, `set1_epi16`, `setzero`, `and_si256` |
-| Bit-level model in `BitVec.Intrinsics.fsti` | 5 | `shuffle_epi8`, `srli_epi16`, `castsi256_si128`, `extracti128_si256`, `mm_loadu_si128` |
-| Wrapper, no spec | 15 | the `_epi32` family, `permute2x128`, `permute4x64`, `unpack*_epi32/64`, `packs_epi32` |
-| Absent | 10 | `unpacklo/unpackhi_epi16`, `cvtepu16_epi32`, `packus_epi32`, `broadcastsi128_si256`, `srl_epi16`, `cvtsi32_si128`, `load_si256`, `loadu/storeu_si256` |
+**(c) The real mathematical work is small and identifiable**: `ser` (15 declarations), `sample`
+(6), and `ntt` (67). `ser` and `sample` claim *bit-identical* output to the portable routines, so
+their theorems are equalities between two functions in the same namespace. `ntt` does not — it
+computes over two 16-bit primes and only the endpoints agree — so it needs a genuine end-to-end
+theorem through the CRT. That asymmetry is why the order below is ser → sample → ntt.
 
-Two consequences:
+## 2. Operating notes
 
-1. **The arithmetic core is fully covered.** `mont_mul` (`ntt.rs:271`) and `barrett`
-   (`ntt.rs:283`) use only `mullo/mulhi/sub/add/srai_epi16` — all in the lane-spec
-   bucket. Their specs (`map2 (+.) (vec256_as_i16x16 lhs) ...`) transcribe directly.
-2. **The transpose network is not covered at all.** `unpacklo/unpackhi_epi16` (10 uses
-   in `ntt.rs`), `permute2x128_si256` (4), `permute4x64_epi64` (3), `cvtepu16_epi32` (4)
-   have no libcrux model. libcrux's AVX2 proof effort is weighted toward serialization;
-   ours is weighted toward `transpose16`. That is the work we own.
+**Build.** From `lean/`: `make prove-kopis-serial` (≈1788 jobs), `make prove-kopis-avx2` (≈1697),
+`make prove-kopis` for both. Incremental builds after touching one proof file are seconds; a cold
+build is minutes. To check a scratch file without adding it to a library:
+`lake env lean Scratch.lean`.
 
-Do **not** copy F* source into Lean: `bit_vec n` there is `i:nat{i<n} -> bit` with
-`mk_bv` plus a `Tactics.*` normalization stack that has no Lean counterpart. The
-*specs* are reusable ideas; the code is not. Also note libcrux `admit()`s the
-bit↔lane bridge (`lemma_mm256_mullo_epi16 ... = admit()`) and ships
-`mm256_set1_epi16_no_semantics` / `mullo_epi16_specialized1..3`. We can prove those
-bridges in Lean rather than admit them.
+**Memory.** The host is 4 cores / 4 GB. `LEAN_NUM_THREADS` is 8 in the Makefile; if a build dies
+with exit 137 (OOM) or starts swap-thrashing, re-run with
+`make prove-kopis LEAN_NUM_THREADS=2`. Keep new proof files small and separately importable
+rather than growing one big file — heavy WP-monadic proofs co-elaborated in one module have OOMed
+this box before.
 
-**Licensing:** libcrux `Cargo.toml` says `license = "Apache-2.0"` but the repo ships
-`LICENSE-MIT` too; kopis is `MIT/Apache-2.0`. Author the Rust wrappers fresh (they are
-`unimplemented!()` stubs — trivial) rather than vendoring, and treat the specs as
-prior art to cite in the trust-base doc.
+**Git.** Commit after every green milestone; never commit a red tree, and never commit a `sorry`.
+`TrustBase.lean` fails the build if any serial theorem's axiom footprint changes, so a stray
+`sorry` in the serial stack breaks `prove-kopis-serial` loudly — that is intended, do not weaken
+it. Use `sorry` freely in scratch files that are in no library.
 
-## Architecture
+**Generated files.** `ExtractedRust*.lean` are charon/aeneas output and `TopLevelTheoremsAvx2.lean`
+is `make generated` output. Never hand-edit any of them; change the source and regenerate.
 
-Four layers, bottom up:
+**Skills.** `lean4:prove` / `lean4:autoprove` for guided and autonomous proving,
+`lean4:proof-repair` for compiler-guided repair, `lean4:golf` once something compiles. The
+lean-lsp MCP tools (`lean_goal`, `lean_multi_attempt`, `lean_local_search`, `lean_hammer_premise`)
+are far cheaper than rebuilding to see a goal state.
 
-1. `src/backend/avx2/intrinsics.rs` — safe wrappers over an opaque `Vec256`/`Vec128`
-   newtype, one per intrinsic, unsafety and `#[target_feature]` confined inside,
-   `#[inline(always)]`. Slice-typed loads/stores (`loadu_si256_i16(&[i16]) -> Vec256`,
-   `storeu_si256_i16(&mut [i16], Vec256)`) following libcrux's shape — this is what
-   removes the raw-pointer problem.
-2. `charon --opaque 'kopis::backend::avx2::intrinsics::_'` (plus `--exclude` for
-   `cpu`). Aeneas already emits opaque items as `axiom Vec256 : Type` /
-   `axiom mm256_add_epi16 : Vec256 → Vec256 → Result Vec256` — see
-   `/home/dev/aeneas/tests/lean/BuiltinAuto.lean:25` and `LoopSharedBorrowProj.lean:38`.
-   **No cfg-swapped shim file is needed**, unlike libcrux; one `intrinsics.rs` serves
-   both compilation and extraction.
-3. `lean/Kopis/Avx2/Intrinsics.lean` — `Vec256 := BitVec 256` as ground truth, plus
-   `toLanes : BitVec 256 → Vector (BitVec 16) 16` and a *proven* lane view. Each
-   intrinsic defined bit-level; lane-level lemmas derived, not admitted.
-4. `lean/Kopis/Avx2/*.lean` — correspondence proofs against `Spec`.
+**Aeneas traps found the hard way.** Each was isolated with a ~10-line file through
+`charon rustc --preset=aeneas` + `aeneas`; whole-crate error spans point somewhere misleading, so
+reach for a minimal repro early.
 
-## Target theorems
+1. **A function returning a `&'static` reference cannot be translated** — `Unreachable` at
+   `interp/Interp.ml:609`, reported at the first *field read* through the reference, not at the
+   function. Reading a static inside a function is fine. This is why `crt::prime::<SECOND>()`
+   became six value-returning accessors.
+2. **A `const`/`static` initializer block containing a loop cannot be translated** — `Internal
+   error, please file an issue`. The same loop inside a `const fn` the initializer calls is fine.
+3. **A reference field in a struct reached by reference** kills the run with
+   `Invalid_argument "option is None"` from `translate_global_eval`.
 
-These differ per file and this matters:
+`#[target_feature]`, `unsafe`, const generics, `#[repr(align)]`, statics holding large arrays,
+`copy_from_slice` and `iter_mut().enumerate()` all extract fine — though the last produces
+iterator-state-machine Lean that is unpleasant to prove about, so prefer indexed loops.
 
-- **`ser.rs` / `sample.rs` — direct equivalence.** `mod.rs` states both are
-  "lane-parallel restatements of portable routines and produce bit-identical output".
-  So: `avx2::ser::deserialize bytes bits = Spec.deserialize_generic bytes bits` and
-  `avx2::sample::cbd MU buf = Spec.cbd MU buf`. Cleanest targets; do these first.
-- **`ntt.rs` — NOT equivalence with the serial NTT.** Per `mod.rs` and
-  `src/backend/crt.rs`, AVX2 runs two 16-bit transforms (q₁=7681, q₂=10753) where the
-  portable code runs one 26-bit one; "the NTT-domain values are different integers
-  entirely" and "only the endpoints of the pipeline agree". The theorem is
-  end-to-end over the CRT reconstruction: the `split_and_transform → pointwise_mul_acc
-  → reduce_block → invntt_block` pipeline computes the same ring product as
-  `arithmetic::ntt`, discharged through the existing `NttMath.lean` (commit `21321dc`).
-- **`ntt.rs` growth bounds — a real, separable obligation.** `crt.rs:52-60` notes the
-  crude per-level budget predicts 3.5q > 3.05q for AVX2's four-level run (levels 4–7)
-  and that safety rests on interval propagation with actual per-butterfly ψ values
-  bounding the worst lane below 30 700 of 32 767. That argument is currently prose only
-  and is the highest-value thing to mechanize — it is exactly what breaks silently if
-  anyone reorders reductions or regenerates ψ tables.
-- **`cpu.rs` — out of scope.** CPUID/XGETBV is unverifiable here; `--exclude` it and
-  record `available()` as an assumption in `TopLevelTheoremsSerial.lean`.
+---
 
-## Steps
+## Phase A — make the intrinsic model testable, and test it
 
-1. **Baseline the gap.** Run charon with `--opaque` on the intrinsics path, then
-   `aeneas -print-unknown-externals` to get the authoritative list of externals needing
-   Lean definitions. Do not trust the 38-name grep — it misses trait-dispatched and
-   generic instantiations.
-2. **`src/backend/avx2/intrinsics.rs`.** Wrap all 38. Verify codegen is unchanged
-   (`cargo asm` or benchmark diff) — `#[inline(always)]` over a newtype should be free,
-   but confirm rather than assume, since this is the hot path.
-3. **Refactor away raw pointers.** `ld`/`st` (`ntt.rs:229`, `:241`) take `&[i16; 256]` /
-   `&mut [i16; 256]` and index; `ld_tbl` (`ntt.rs:253`) slices `table.z`/`table.zq`
-   instead of `.as_ptr().add().cast()`; `ntt_block`, `invntt_block`, `reduce_block`,
-   `split_and_transform`, `pointwise_mul_acc` take array refs. `ser.rs` `_mm256_load_si256`
-   on `Plan`/`Nibbles` fields becomes a slice load. Keep `#[repr(align(32))]`.
-4. **`lean/Kopis/Avx2/Intrinsics.lean`.** Ground `Vec256 := BitVec 256`; define
-   `toLanes`/`ofLanes` and prove they are inverse. Define each intrinsic; derive
-   lane-level rewrite lemmas (`@[simp]`) for the arithmetic ops so downstream proofs
-   never see bits. Order of work: arithmetic ops (transcribe libcrux specs) → shifts →
-   `shuffle_epi8`/`srlv` (port the `mk_bv` bit-index formulas) → **the transpose family,
-   written from scratch against the Intel SDM**.
-5. **`ser.rs` + `sample.rs` proofs.** Bit-level throughout; this is where the libcrux
-   bit-vector models pay off most. `sample.rs` `cbd` builds on `ser::deserialize`, so
-   the deserialize theorem is a prerequisite.
-6. **`ntt.rs` proofs.** `mont_mul`/`barrett` lane specs first (they mirror the already-
-   proven `mont_reduce_spec`/`barrett_reduce_spec` in `lean/Kopis/Properties/NttReduce.lean`
-   — reuse those), then `transpose16` as a permutation lemma, then the growth-bound
-   interval propagation, then the CRT end-to-end theorem through `NttMath.lean`.
-7. **Update `extract_rust_to_lean.sh`** to emit both backends, and `lean/lakefile.lean`
-   for the new `Kopis.Avx2` files. Extend the `TopLevelTheoremsSerial.lean` trust-base check
-   to enumerate the intrinsic axioms.
+**Why first.** `Kopis/Avx2/Intrinsics.lean` is 45 assumptions about what Intel silicon does,
+written by reading the SDM. Nothing checks them. Every AVX2 theorem is worthless if one is wrong,
+and the failure is silent. This is the highest-value work in the plan and it is self-contained.
 
-## Verification
+**Do it additively — do not rewrite the axioms.** Their content has been reviewed; keep one axiom
+per operation in its current form. Add, in a new file `Kopis/Avx2/Model.lean`:
 
-- `cargo test` — `sample.rs`'s `matches_serial` and `arithmetic::ntt`'s
-  `avx2_matches_serial` must stay green across the pointer refactor. These are the
-  ground truth that the refactor changed nothing.
-- Benchmark before/after the wrapper + pointer refactor; a regression means
-  `#[inline(always)]` did not fire and the wrapper needs adjusting.
-- `./extract_rust_to_lean.sh` must complete with no `Unreachable` and no
-  `Could not translate the body of`.
-- `make prove-kopis` green, no new `sorry`. Note the host is 4 cores / 4 GB and
-  `NTT_REFACTOR_STATUS.md` records OOM (exit 137) when co-elaborating heavy WP-monadic
-  proofs — build with `LEAN_NUM_THREADS=2`, and keep each intrinsic-model file small and
-  separately importable from the start rather than splitting later.
-- **Differential-test the Lean models.** The intrinsic semantics are axioms; nothing
-  checks `mm256_mulhi_epi16`'s Lean definition against silicon. Add a `SpecTests` runner
-  that evaluates the Lean model on random inputs and compares against a Rust harness
-  dumping real intrinsic outputs (libcrux has `BitVec.Intrinsics.TestShuffle.fst` for
-  the same reason). Highest priority for the shuffle/permute family we author ourselves.
+1. A **computable** model per operation, e.g. `def addEpi16 (a b : BitVec 256) : BitVec 256 := …`
+   built from `BitVec.extractLsb'` / `++` so that it evaluates under `#eval`.
+2. A theorem per operation deriving the model from the axiom — for the lane-wise ones,
+   `∀ i < 16, laneOf 16 (addEpi16 (bits a) (bits b)) i = lane16 a i + lane16 b i`, i.e. the model
+   satisfies exactly what the axiom asserts. These are proofs, not assumptions.
 
-## Trust base
+Then differential-test the models against real hardware:
 
-Grows by: `Vec256` semantics, 38 intrinsic definitions, and `available()`. All must be
-listed explicitly in `TopLevelTheoremsSerial.lean`. This is strictly better than the current
-state (AVX2 wholly unverified) and comparable to libcrux — minus their `admit()`ed
-bit↔lane bridges, which we prove.
+3. A Rust test (`tests/intrinsics_vectors.rs`, or a `#[cfg(test)]` module inside
+   `src/backend/avx2/intrinsics.rs` since the wrappers are `pub(crate)`) that evaluates each of
+   the 45 wrappers on N random inputs (N ≥ 1000, fixed seed so it is reproducible) and writes
+   `tests/intrinsics_vectors.jsonl`: one record per call, inputs and output as hex bytes.
+4. A Lean runner under `SpecTests/Avx2/`, following the existing `SpecTests/Kopis/Run.lean`
+   pattern (it already reads `.jsonl` from `../tests/`), evaluating each model on the same inputs
+   and comparing. Wire it as a `lean_exe` alongside `kopisTests`.
+
+**Acceptance:** `make prove-kopis` green; the runner passes on ≥1000 vectors per operation; and a
+deliberately corrupted model (flip a bound in `satS`, say) makes it fail — record that negative
+check in the session log, do not commit the corruption.
+
+**Expected trouble.** `permute2x128_si256` and `permute4x64_epi64` take their immediate as a
+runtime argument after extraction, so cover the immediates the backend actually uses (`0x20`,
+`0x31`, `0xD8`, `0b11_01_10_00`) rather than all 256. `shuffle_epi8`'s control bytes should
+include the zeroing high-bit case, which the backend never exercises but the axiom claims.
+
+## Phase B — lane algebra
+
+The downstream proofs will drown without rewriting machinery. In `Kopis/Avx2/Lanes.lean`:
+
+* `laneOf` simp lemmas: lane of `++`, lane of `extractLsb'`, lane at a shifted index.
+* The bridge both ways: 16 lanes determine the 256-bit word
+  (`(∀ i < 16, laneOf 16 x i = laneOf 16 y i) → x = y`) and its 8-, 32- and 64-bit analogues.
+  This is what lets a lane-wise axiom be used where a whole-register fact is needed and vice
+  versa — it is the thing libcrux `admit()`s and we said we would prove.
+* A `@[progress]`-shaped restatement of each intrinsic spec, so `progress` drives the extracted
+  monadic code without manual `obtain`.
+
+**Acceptance:** every lemma proved, no `sorry`; plus a smoke test that `mont_mul`'s extracted form
+has the expected lane value, closed by `progress` + `simp` with no manual bit surgery.
+
+## Phase C — `ser::deserialize` is bit-identical to the portable unpacker
+
+**Target.**
+
+```lean
+theorem avx2_deserialize_eq (bytes : Slice U8) (bits : Usize) (h : …) :
+  RustKopisAvx2.backend.avx2.ser.deserialize bytes bits
+    = RustKopisAvx2.ser.deserialize_generic bytes bits
+```
+
+Both sides are in the *same* namespace, so this needs no serial proof and no spec — a
+self-contained equality between two functions, and the cleanest first real target.
+
+**Shape of the argument.** A group of 8 coefficients of `w` bits occupies exactly `w` bytes;
+coefficient `k` starts at byte `⌊kw/8⌋`, bit `kw mod 8`. The vector path broadcasts the group's 16
+bytes to both halves, `vpshufb`s each lane's 4-byte window into place, `vpsrlvd`s by the per-lane
+bit offset, masks, then `vpackusdw` + `vpermq` to reassemble. So: the byte selected by the shuffle
+control for lane `k` is the byte the scalar code reads, and the shift and mask extract the same
+bit field. Do one lane, then quantify.
+
+**Watch for:** the tail. The last `⌊15/bits⌋` groups are read from a zero-padded 32-byte scratch
+buffer because a 16-byte load would run past the end; the proof must cover head and tail paths,
+and the `copy_from_slice` bound (`bytes.len() - tail_start`) is where an off-by-one would hide.
+`PLANS` is a const table built by a `const fn`, so its 14 entries are concrete — `decide` on a
+single width may be cheaper than reasoning about `plan`, but prefer `decide` over `native_decide`
+(the latter widens the trust base, and `TrustBase.lean` already flags the one that exists).
+
+**Acceptance:** proved for all `bits ∈ 1..=13`, no `sorry`. Composing it with the spec comes later,
+via Phase E's twin of the serial `deserialize_generic` proof.
+
+## Phase D — `sample::cbd` is bit-identical to the portable sampler
+
+**Target.** `RustKopisAvx2.backend.avx2.sample.cbd MU buf = RustKopisAvx2.sample.cbd MU buf` for
+`MU ∈ {6, 8, 10}`.
+
+Builds directly on Phase C: `cbd` starts by calling `ser::deserialize buf MU`, then per 16-bit
+lane computes `popcount(low half) − popcount(high half)` via a nibble `vpshufb` lookup plus bit 4.
+`popcount_small` is valid only for values below 32 — derive that side condition from the parameter
+bound (`MU/2 ≤ 6`) rather than assuming it.
+
+**Acceptance:** proved for the three `MU` values the crate instantiates, no `sorry`.
+
+## Phase E — the parallel proof stack and the six dispatch theorems
+
+Only start this with a few hours in hand: it touches ~60 files and is mechanical, so it is a poor
+use of an unattended night compared with C and D, and a fine use of a morning.
+
+1. **Restructure.** `Kopis/Properties/` → `Kopis/Serial/Properties/`, namespace
+   `Kopis.Properties` → `Kopis.Serial.Properties`, aggregator `Kopis.lean` → `Kopis/Serial.lean`.
+   Update `TrustBase.lean`'s eleven `Kopis.Properties.…_spec` strings and its theorem list, and
+   the lakefile. This makes the aggregator backend-named, so the generated audit copy's
+   `import Kopis` becomes `import Kopis.Serial` and substitutes cleanly — see the note in
+   `Makefile`, since that import is currently the one thing the three `sed` rules cannot reach.
+2. **Generate the twins.** Extend `make generated` to produce `Kopis/Avx2/Properties/*` from
+   `Kopis/Serial/Properties/*` with the same substitutions. The 298 identical-bodied declarations
+   should transfer; the generated files that fail to compile are exactly those touching the six
+   dispatch points, and that failure list *is* the work list. Do not fight it — let the build tell
+   you.
+3. **The six dispatch theorems.** Each is `if available then <avx2> else <serial>`: discharge the
+   serial branch with the generated twin, the AVX2 branch with Phases C/D (for `deserialize` and
+   `gen_secret_from_seed_loop`) or Phase F (for the four NTT entry points). State `available_ok`
+   as in §1(b) and put it in the AVX2 row of `TrustBase.lean`.
+4. **Wire it up.** `lean_lib «TopLevelTheoremsAvx2»`, add it to `prove-kopis-avx2`, and add the
+   second row to `backends` in `TrustBase.lean` with its own audited list (which will include the
+   45 intrinsic axioms and `available_ok`). The lists must stay separate — a union check would let
+   a serial theorem depend on an intrinsic axiom unnoticed.
+
+**Acceptance:** `make prove-kopis` green with `TopLevelTheoremsAvx2` in the graph and
+`TrustBase.lean` reporting two rows. Probe the gate as before: dropping an audited axiom, or a
+theorem from the AVX2 row, must fail the build.
+
+## Phase F — the NTT
+
+The hard one, and it will not be finished in a night. Four separable pieces, in dependency order:
+
+1. **`mont_mul` / `barrett` lane specs.** These mirror `mont_reduce_spec` / `barrett_reduce_spec`
+   already proved in `Kopis/Properties/NttReduce*.lean` — reuse those statements, re-proved at
+   16-bit lane width over the Phase B algebra.
+2. **`transpose16` is a permutation.** After it, `v[k]` lane `m` holds coefficient `16m + k`, and
+   applying it twice is the identity. No prior art anywhere — libcrux does not model the
+   unpack/permute family — so this is ours to do from the SDM. The Rust test
+   `transpose16_permutes_as_documented` states exactly the property to prove.
+3. **The growth bound.** `crt.rs:52-60` records that the crude 0.75q-per-level budget predicts
+   3.5q > 3.05q for AVX2's four-level run (levels 4–7), and that safety rests instead on interval
+   propagation with the actual per-butterfly ψ values, bounding the worst lane below 30 700 of
+   32 767. **That argument exists only as prose.** Mechanizing it is the highest-value single
+   theorem in this phase: it is what breaks silently if anyone reorders a reduction or regenerates
+   a ψ table, and no test would catch it.
+4. **The end-to-end CRT theorem.** `split_and_transform → pointwise_mul_acc → reduce_block →
+   invntt_block` computes the same ring product as `arithmetic::ntt`, discharged through the
+   existing `NttMath.lean` (`nconvR`, `Ev_nconv`, `cst_leaf_pow`). The NTT-domain values are
+   *different integers* from the serial ones — only the endpoints agree — so there is no
+   stage-by-stage correspondence to lean on, unlike everything in Phases C–E.
+
+## 3. Priorities if the night is short
+
+A (testable model) → B (lane algebra) → C (`deserialize`) → D (`cbd`). If only A lands, the night
+was still worth it: it is the difference between 45 assumptions and 45 *tested* assumptions, and
+it is the one piece whose absence undermines everything else.
+
+Do **not** start Phase F speculatively. Do **not** restructure directories (E1) unless C and D are
+done and committed.
+
+## 4. Prior art and licensing
+
+Lane-level specs for the arithmetic operations follow libcrux's
+`crates/utils/intrinsics/src/avx2_extract.rs`; the bit-level ones follow
+`fstar-helpers/fstar-bitvec/BitVec.Intrinsics.fsti`. The arithmetic core is fully covered there;
+the transpose network (`unpacklo/unpackhi_epi16`, `permute2x128_si256`, `permute4x64_epi64`,
+`cvtepu16_epi32`) is not covered at all. Do not copy F* source into Lean — `bit_vec n` there is
+`i:nat{i<n} -> bit` with a `Tactics.*` normalization stack that has no Lean counterpart; the
+*specs* are reusable ideas, the code is not. libcrux `admit()`s its bit↔lane bridge and ships
+`mm256_set1_epi16_no_semantics`; we prove ours (Phase B).
+
+libcrux is Apache-2.0 with an MIT file also shipped; kopis is MIT/Apache-2.0. The Rust wrappers
+were authored fresh rather than vendored, and the specs are cited as prior art here.
+
+## 5. Session log
+
+*(Append: date, what was attempted, what landed, what blocked, where to resume.)*
+
+**2026-08-02.** Scaffolding complete and committed: both extractions clean, `intrinsics.rs`
+wrappers, `Kopis/Avx2/Intrinsics.lean` axioms, `TrustBase.lean` split out of the audit file with
+per-backend footprint and coverage checks, Makefile restructured into
+`prove-kopis{,-serial,-avx2}` with a generate-and-verify rule for `TopLevelTheoremsAvx2.lean`. No
+correspondence proof attempted yet. Resume at Phase A.
