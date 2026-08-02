@@ -302,3 +302,87 @@ wrappers, `Kopis/Avx2/Intrinsics.lean` axioms, `TrustBase.lean` split out of the
 per-backend footprint and coverage checks, Makefile restructured into
 `prove-kopis{,-serial,-avx2}` with a generate-and-verify rule for `TopLevelTheoremsAvx2.lean`. No
 correspondence proof attempted yet. Resume at Phase A.
+
+**2026-08-02 (later).** Phases A and B done, Phase C substantially done. No `sorry` anywhere;
+`make prove-kopis` green throughout.
+
+*Phase A — landed.* `Kopis/Avx2/Model.lean` gives a computable `BitVec` model per intrinsic and
+proves, from each axiom, `∃ c, f a b = ok c ∧ bits c = Model.f (bits a) (bits b)` — so each axiom
+pins its result down to exactly the model, and the model runs.
+`src/backend/avx2/intrinsics_vectors.rs` records 47 858 vectors (≥ 1000 per wrapper, all 45)
+from real silicon into `tests/intrinsics_vectors.jsonl`; `SpecTests/Avx2/Run.lean`
+(`make test-avx2-model`, ~2 s) replays them through the models and refuses to report success if
+an operation is missing or thin. A plain `cargo test` on an AVX2 host now re-checks the
+committed file against that CPU, so drift is caught continuously.
+
+Two findings worth keeping. (i) The first negative check — flipping `satS`'s upper bound from
+32767 to 32766 — *passed*, because the two agree after truncation; that is a genuinely
+equivalent change, not a hole. (ii) The second — 32767 to 32000 — initially also passed, because
+uniform random 32-bit lanes essentially never land near the 16-bit saturation boundary. The
+generator now draws a third of its inputs from a boundary-hugging distribution, and with that the
+corruption is caught immediately. **A differential test over uniform inputs does not exercise
+saturation at all**; if anyone adds an operation here, add the matching structured inputs.
+
+*Phase B — landed.* `Kopis/Avx2/Lanes.lean`: `laneOf_concatLanes` (build a word from its lanes),
+`eq_of_laneOf_eq` and the `Vec256`/`Vec128` corollaries (the bit↔lane bridge libcrux `admit()`s),
+`laneOf_split`, `laneOf_laneOf`, `laneOf_and`. The `@[progress]`-shaped restatements in the
+original plan turned out not to be needed: this repo's proofs use `let*`/`step`, not `progress`,
+and the `∃ c, … = ok c ∧ …` axioms feed `obtain`+`rw` directly.
+
+*Phase C — landed in full.* `avx2_deserialize_eq` (`Kopis/Avx2/SerEq.lean`):
+
+```
+backend::avx2::ser::deserialize bytes bits = ser::deserialize_generic bytes bits
+```
+
+for every width `1 ≤ bits ≤ 13` and every correctly-sized input. Its axiom footprint is exactly
+the eleven intrinsics the vector path uses — the ones Phase A tested against silicon — plus
+`propext`/`Classical.choice`/`Quot.sound`. Proved in dependency order:
+
+* `Kopis/Bits/Stream.lean` — the bit stream, lifted out of `Kopis/Properties/Serialize.lean` so
+  both backends are proved against the same object. New: `streamNat_of_byteWindow`, the four-byte
+  window lemma the vector path needs.
+* `Kopis/Avx2/SerPlan.lean` — `PLANS_spec`: for every width 1..=13 the table holds
+  `⌊k·w/8⌋ + b` and `(k·w) % 8`. Three loop specs; `w` stays symbolic.
+* `Kopis/Avx2/SerLane.lean` — `lane_chain_value`: `vpshufb`+`vpsrlvd`+`vpand` puts coefficient
+  `8·group + k` in lane `k`. And `pack_permute_value`: `vpackusdw` + `vpermq 0b11_01_10_00`
+  reassembles two groups into sixteen coefficients in order.
+* `Kopis/Avx2/SerTail.lean` — head and tail loads made to say the same thing.
+  `head_load_in_bounds` is the tight one.
+* `Kopis/Avx2/Ser.lean` — `inner_loop_spec` (a pair's two groups) and `outer_loop_spec` (sixteen
+  pairs, each store covering `out[16·pair .. +16]`).
+
+* `Kopis/Avx2/Ser.lean` — `inner_loop_spec` (a pair's two groups), `outer_loop_spec` (sixteen
+  pairs), `tail_buffer_bytes`, and `deserialize_streamNat`, the whole routine including its
+  constant setup.
+* `Kopis/Avx2/SerGeneric.lean` — the AVX2-namespace twin of the generic decoder's loop specs,
+  and `generic_streamNat`.
+
+**A correction to §C of this plan.** "Both sides are in the *same* namespace, so this needs no
+serial proof" is almost right but not quite: it needs no serial *theorem*, but
+`RustKopisAvx2.ser.deserialize_generic` is a different Lean constant from the serial one, so it
+needs that theorem's **twin**. `SerGeneric.lean` is that twin — `DeserializeCm.lean`'s and
+`Serialize.lean`'s loop specs with `RustKopisSerial → RustKopisAvx2` and *nothing else changed*.
+It compiled first try, which is direct evidence for §E's premise that the 298 identical-bodied
+declarations transfer mechanically. When E automates the generation, this file should become one
+of its outputs rather than a hand copy.
+
+*Where to resume.* Phases D, E and F are untouched.
+
+**D** is more work than §D of this plan suggests, for a reason worth recording: the portable
+`sample::cbd` is *not* one generic routine. It has three hand-written specialised branches
+(`MU = 8`, `10`, `6`) plus a fallback, so "bit-identical to the portable sampler" is three
+correspondence proofs, not one. The AVX2 side, by contrast, is now cheap: it calls
+`ser::deserialize`, which Phase C characterises, so its output is
+
+```
+out[k] = popcount(streamNat buf (MU·k) (MU/2)) − popcount(streamNat buf (MU·k + MU/2) (MU/2))
+```
+
+wrapped to `u16` — and that is exactly `cbdX buf (MU/2) (MU·k) − cbdX buf (MU/2) (MU·k + MU/2)`,
+since `cbdX` (`GenSecretLoops.lean`) is defined as a sum of stream bits, i.e. a popcount. So the
+route is: characterise the AVX2 side through `deserialize_streamNat` (short), then port
+`cbd_spec`'s chain from `GenSecretLoops.lean` as in `SerGeneric.lean`. Note that `cbd_spec`'s
+postcondition is `ZMod (2^13)`-valued; a *function* equality needs the raw `u16` characterisation,
+so port the raw intermediate loop specs rather than `cbd_spec` itself. `popcount_small`'s
+validity bound (values `< 32`) follows from `MU/2 ≤ 5`, not from an assumption.

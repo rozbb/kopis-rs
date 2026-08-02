@@ -11,6 +11,7 @@
   This mirrors MLKEM's verified `decode` bit-pump (`Encoding/DecompressInner`).
 -/
 import ExtractedRustSerial
+import Kopis.Bits.Stream
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
@@ -41,102 +42,6 @@ modulus `deserialize 13` targets; each decoded coefficient is `< 2¹³`). -/
 def toRingElem13 (a : RingElem) : Spec.Kopis.Polynomial (2 ^ 13) :=
   Vector.ofFn fun (i : Fin 256) =>
     ((a.val[i.val]'(by have := a.property; grind)).val : ZMod (2 ^ 13))
-
-/-! ## Bit-stream helpers
-
-The decoder reads a little-endian bit stream: bit `m` is bit `m % 8` of byte
-`m / 8`.  `streamNat lo len` is the value of the window `[lo, lo+len)` of that
-stream, LSB-first. -/
-
-/-- Bit `m` of the little-endian byte stream (`0`/`1`). -/
-def streamBit (bytes : Slice U8) (m : ℕ) : ℕ :=
-  ((bytes.val[m / 8]!).val.testBit (m % 8)).toNat
-
-/-- Value of stream bits `[lo, lo+len)`, LSB-first. -/
-def streamNat (bytes : Slice U8) (lo len : ℕ) : ℕ :=
-  ∑ b ∈ Finset.range len, streamBit bytes (lo + b) * 2 ^ b
-
-@[simp] theorem streamNat_zero (bytes : Slice U8) (lo : ℕ) : streamNat bytes lo 0 = 0 := by
-  simp [streamNat]
-
-theorem streamNat_succ (bytes : Slice U8) (lo len : ℕ) :
-    streamNat bytes lo (len + 1) = streamNat bytes lo len + streamBit bytes (lo + len) * 2 ^ len := by
-  simp [streamNat, Finset.sum_range_succ]
-
-theorem streamBit_le_one (bytes : Slice U8) (m : ℕ) : streamBit bytes m ≤ 1 := by
-  unfold streamBit; cases (bytes.val[m / 8]!).val.testBit (m % 8) <;> simp
-
-theorem streamNat_lt (bytes : Slice U8) (lo len : ℕ) : streamNat bytes lo len < 2 ^ len := by
-  induction len with
-  | zero => simp
-  | succ n ih =>
-    rw [streamNat_succ, pow_succ]
-    have : streamBit bytes (lo + n) * 2 ^ n ≤ 2 ^ n := by
-      have := streamBit_le_one bytes (lo + n); nlinarith [Nat.one_le_two_pow (n := n)]
-    omega
-
-/-- Splitting a window: `[lo, lo+a+b)` = low `a` bits plus the next `b` bits shifted. -/
-theorem streamNat_split (bytes : Slice U8) (lo a b : ℕ) :
-    streamNat bytes lo (a + b)
-      = streamNat bytes lo a + 2 ^ a * streamNat bytes (lo + a) b := by
-  induction b with
-  | zero => simp
-  | succ n ih =>
-    rw [show a + (n + 1) = (a + n) + 1 from by ring, streamNat_succ, ih, streamNat_succ,
-        show lo + (a + n) = (lo + a) + n from by ring, pow_add]
-    ring
-
-/-- Disjoint OR is addition: OR-ing a value `< 2ᵏ` with something shifted up by `k`
-adds them (no bit overlap). -/
-theorem lor_add_of_lt {w b k : ℕ} (hw : w < 2 ^ k) :
-    w ||| (b <<< k) = w + b <<< k := by
-  rw [Nat.shiftLeft_eq]
-  apply Nat.eq_of_testBit_eq
-  intro j
-  have e1 : (b * 2 ^ k).testBit j = if j < k then false else b.testBit (j - k) := by
-    rw [show b * 2 ^ k = 2 ^ k * b + 0 from by ring,
-        Nat.testBit_two_pow_mul_add b (by positivity) j]; simp
-  have e2 : (w + b * 2 ^ k).testBit j = if j < k then w.testBit j else b.testBit (j - k) := by
-    rw [show w + b * 2 ^ k = 2 ^ k * b + w from by ring]
-    exact Nat.testBit_two_pow_mul_add b hw j
-  rw [Nat.testBit_lor, e1, e2]
-  by_cases hjk : j < k
-  · simp [hjk]
-  · have hwf : w.testBit j = false :=
-      Nat.testBit_lt_two_pow (lt_of_lt_of_le hw (Nat.pow_le_pow_right (by norm_num) (not_lt.mp hjk)))
-    simp [hjk, hwf]
-
-/-- Multiplication form of `lor_add_of_lt`: OR with a value that is a multiple of
-`2ᵏ` (and whose low part is `< 2ᵏ`) is addition. -/
-theorem lor_mul_of_lt {w b k : ℕ} (hw : w < 2 ^ k) :
-    w ||| (b * 2 ^ k) = w + b * 2 ^ k := by
-  rw [← Nat.shiftLeft_eq, lor_add_of_lt hw, Nat.shiftLeft_eq]
-
-/-- A natural mod `2ᵏ` is the LSB-first sum of its bottom `k` bits. -/
-theorem sum_testBit_eq_mod (n k : ℕ) :
-    ∑ i ∈ Finset.range k, (n.testBit i).toNat * 2 ^ i = n % 2 ^ k := by
-  induction k with
-  | zero => simp [Nat.mod_one]
-  | succ m ih =>
-    rw [Finset.sum_range_succ, ih, pow_succ, Nat.mod_mul]
-    have h : (n.testBit m).toNat = n / 2 ^ m % 2 := by
-      rw [Nat.testBit_eq_decide_div_mod_eq]
-      rcases Nat.mod_two_eq_zero_or_one (n / 2 ^ m) with h | h <;> simp [h]
-    rw [h]; ring
-
-/-- One byte equals its 8 stream bits (byte `bp` covers stream positions `[8·bp, 8·bp+8)`). -/
-theorem streamNat_byte (bytes : Slice U8) (bp : ℕ) :
-    streamNat bytes (8 * bp) 8 = (bytes.val[bp]!).val := by
-  have hb : (bytes.val[bp]!).val < 256 := by scalar_tac
-  unfold streamNat
-  rw [show (∑ c ∈ Finset.range 8, streamBit bytes (8 * bp + c) * 2 ^ c)
-        = ∑ c ∈ Finset.range 8, ((bytes.val[bp]!).val.testBit c).toNat * 2 ^ c from ?_]
-  · rw [sum_testBit_eq_mod, show (2:ℕ) ^ 8 = 256 from by norm_num, Nat.mod_eq_of_lt hb]
-  · apply Finset.sum_congr rfl
-    intro c hc
-    simp only [Finset.mem_range] at hc
-    unfold streamBit
-    rw [show (8 * bp + c) / 8 = bp from by omega, show (8 * bp + c) % 8 = c from by omega]
 
 /-! ## `deserialize` / `from_bytes` correspondence -/
 

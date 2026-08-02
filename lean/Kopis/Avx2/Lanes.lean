@@ -194,6 +194,30 @@ theorem laneOf_split {n : Nat} (w : Nat) (x : BitVec n) (i : Nat) :
     congr 1
     omega
 
+/-- A lane of a lane: the `i`th `w`-bit lane is lane `i % q` of the `(w·q)`-bit lane `i / q`.
+This is what lets a fact about a 128-bit half be read off byte by byte — the shape every
+`vbroadcasti128` argument arrives in. -/
+theorem laneOf_laneOf {n : ℕ} (w q : ℕ) (x : BitVec n) (i : ℕ) (hq : 0 < q) :
+    laneOf w x i = laneOf w (laneOf (w * q) x (i / q)) (i % q) := by
+  ext j hj
+  rw [getElem_laneOf _ _ _ _ hj, getElem_laneOf _ _ _ _ hj, getLsbD_laneOf]
+  have hmod : i % q < q := Nat.mod_lt _ hq
+  have hmul : w * (i % q + 1) ≤ w * q := Nat.mul_le_mul_left w (by omega)
+  rw [Nat.mul_succ] at hmul
+  have hlt : w * (i % q) + j < w * q := by omega
+  simp only [hlt, decide_true, Bool.true_and]
+  congr 1
+  have hdm : q * (i / q) + i % q = i := Nat.div_add_mod i q
+  calc w * i + j = w * (q * (i / q) + i % q) + j := by rw [hdm]
+    _ = w * q * (i / q) + (w * (i % q) + j) := by ring
+
+/-- Bitwise operations act lane by lane. -/
+theorem laneOf_and {n : ℕ} (w : ℕ) (x y : BitVec n) (i : ℕ) :
+    laneOf w (x &&& y) i = laneOf w x i &&& laneOf w y i := by
+  ext j hj
+  simp only [← BitVec.getLsbD_eq_getElem, BitVec.getLsbD_and, getLsbD_laneOf, hj, decide_true,
+    Bool.true_and]
+
 /-- The 16-bit lane `i` of a word, in terms of its bytes. -/
 theorem lane16_eq_bytes {n : Nat} (x : BitVec n) (i : Nat) :
     laneOf 16 x i = laneOf 8 x (2 * i + 1) ++ laneOf 8 x (2 * i) :=
