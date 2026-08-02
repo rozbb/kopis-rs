@@ -12,9 +12,8 @@ LAKE ?= lake
 # is ~1.75 GB; `lake` defaults its build parallelism to the core count (nproc).  On
 # a memory-constrained host (e.g. 4 cores / 4 GB RAM) that over-subscribes RAM and
 # the build swap-thrashes — a clean build takes ~15-20 min instead of ~4 min.
-# Capping to 2 keeps peak memory ~3.5 GB and avoids the thrash.  Raise it on hosts
-# with more RAM, e.g. `make prove-kopis LEAN_NUM_THREADS=8`.
-LEAN_NUM_THREADS ?= 2
+# Set this to 2 to keep peak memory ~3.5 GB and avoid the thrash.
+LEAN_NUM_THREADS ?= 8
 export LEAN_NUM_THREADS
 
 .DEFAULT_GOAL := help
@@ -24,12 +23,12 @@ export LEAN_NUM_THREADS
 # ---------------------------------------------------------------------------
 
 # Build (= kernel-verify) the Kopis proof library: the extracted ExtractedRust.lean
-# plus every Kopis/Properties/*.lean, then TopLevelTheorems.lean, which restates
-# the top-level results and re-checks the axiom footprint.  A green build IS the
-# machine-checked proof.
+# plus every Kopis/Properties/*.lean, then TopLevelTheorems.lean, which restates the
+# top-level results, and TrustBase.lean, which re-checks their axiom footprint against
+# the audited list.  A green build IS the machine-checked proof.
 .PHONY: prove-kopis
 prove-kopis:
-	$(LAKE) build Kopis TopLevelTheorems
+	$(LAKE) build Kopis TopLevelTheorems TrustBase
 
 # Build the AVX2 side: the second extraction (ExtractedRustAvx2.lean, from an
 # `--cfg kopis_backend="avx2"` build) plus Kopis/Avx2/*, whose Intrinsics.lean supplies the

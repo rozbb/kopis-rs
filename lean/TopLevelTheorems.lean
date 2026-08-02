@@ -67,8 +67,9 @@ something meaningful, so these four things are on you:
    one does.
 2. **§3 — the theorem statements.** That they really do cover the operations you
    care about, applied to arbitrary inputs.
-3. **§4 — the trust base.** The nine assumptions this development makes, and why
-   each is there. The build fails if this list ever changes.
+3. **The trust base — `TrustBase.lean`.** The nine assumptions this development
+   makes, and why each is there. The build fails if that list ever changes. §4
+   below is a summary and a pointer.
 4. **§5 — the gaps.** What is deliberately *not* covered.
 
 Two things outside this file remain trusted no matter how carefully you read it:
@@ -420,129 +421,22 @@ theorem kopis1024_keygen_then_decapsulate (seed : Array U8 32#usize) (ek : Array
                 (Properties.arrayToBytes ek) ⦄ :=
   Kopis.Properties.kopis1024_keygen_decap_spec seed ek
 
-/-! ## §4. The trust base
+/-! ## §4. The trust base — in `TrustBase.lean`
 
-Everything in §3 rests on exactly the assumptions listed below, and the `run_cmd`
-at the end of this section **fails the build if that list ever changes** — so this
-section cannot silently rot. Beyond Lean's own three axioms, they fall into four
-groups.
+The assumptions everything in §3 rests on, the reasoning for each, and the build-time check
+that enforces the list are in `TrustBase.lean`. Read it next; it is short.
 
-**(a) The `turboshake` crate (5 assumptions).** `turboshake` is an external
-crates.io dependency, so aeneas has no Lean model of its body and axiomatizes its
-stateful API. `hasher_default_spec`, `hasher_update_spec`, `hasher_finalize_spec`,
-`reader_read136_spec` and `reader_read168_spec` (in `Kopis/Properties/GenMatrix.lean`)
-say that this API implements RFC 9861 — i.e. that absorbing bytes and then reading
-`n` bytes yields `Spec.TurboSHAKE.turboSHAKE128/256`. This is the single largest
-assumption in the development, and discharging it would mean verifying the
-`turboshake` crate itself. Note it is a *functional* claim only: nothing about
-timing or memory behaviour.
+It is a separate file because the trust base is the one part of this audit that differs per
+backend — an AVX2 build additionally assumes the semantics of every SIMD instruction it uses —
+whereas the statements in §3 do not differ that way. Keeping the split means the statements are
+read once and the per-backend difference is visible in one place.
 
-**(b) The `subtle` crate (2 assumptions).** `conditional_select_array_u8_spec` and
-`ct_eq_slice_u8_spec` (in `Kopis/Properties/SubtleModel.lean`) give the functional
-meaning of `subtle`'s constant-time select and equality: select returns one of its
-two arguments according to the choice bit, and `ct_eq` is byte equality. These are
-what the implicit-rejection branch of decapsulation is proved against. Again
-functional only — that these operations are *actually* constant-time is a claim
-about compiled machine code and is out of scope for this development entirely.
-
-**(c) Opaque arithmetic intrinsics (2 assumptions).**
-`U8.count_ones_spec` and `U32.count_ones_spec` give the meaning of Rust's popcount
-intrinsics — `RustKopisSerial.core.num.U8.count_ones` and `RustKopisSerial.core.num.U32.count_ones`
-are intrinsics that aeneas leaves opaque, carrying no definition to unfold, so their
-meaning has to be assumed.
-
-The inverse NTT used to add a third entry here, `RustKopisSerial.core.num.I64.wrapping_neg`
-(Rust's `i64::wrapping_neg`, used to negate a twiddle factor), with an assumed
-`I64.wrapping_neg_spec` alongside it.  **Both are now gone.**  `src/arithmetic/ntt.rs`
-writes the negation as `0i64.wrapping_sub(ZETAS[k] as i64)` instead, which extracts to
-`IScalar.wrapping_sub` — a real `def` with real semantics (`@[simp]` value lemma
-`(wrapping_sub x y).val = Int.bmod (x.val - y.val) (2 ^ 64)`) rather than an axiom.
-Identical codegen, one fewer assumption.  See the header note in
-`Kopis/Properties/NttInverse.lean`; do not "simplify" that call back to
-`wrapping_neg`, which would silently re-add both entries to this list.
-
-**(d) Lean-side.** `propext`, `Classical.choice` and `Quot.sound` are the standard
-axioms of Lean's logic — every Mathlib development uses them, and they are
-consistent. `Aeneas.Std.core.fmt.Formatter` is an opaque type standing in for
-Rust's formatting machinery, which no proof reasons about. The `RustKopisSerial.*` entries
-are the opaque types and functions aeneas emits for the extern crates named in (a)
-and (b) — they carry no logical content of their own.
-
-One entry deserves singling out:
-`Spec.testBit_byte_of_bools._native.native_decide.ax` comes from a `native_decide`
-in `Spec/Defs.lean:380`, which discharges a small finite bit-manipulation fact by
-*compiled evaluation* rather than kernel reduction. That means trusting the Lean
-compiler and runtime for that one step, which is a strictly larger trust base than
-the kernel alone. It is a 2⁸-case check about byte bit-extraction, not a
-cryptographic claim, but it is a real (if small) hole and could be closed by
-replacing `native_decide` with `decide`.
-
-**`sorryAx` is NOT in the closure.** There are no `sorry`s left anywhere in the dependency
-closure of the theorems below — the NTT-multiplication hole `ntt_spec` is discharged
-(`Kopis/Properties/NttBridge.lean`: `ntt_mul_spec` / `ntt_mul_transpose_spec`, on top of the
-transform-network proofs in `NttForward`/`NttInverse`, the pointwise and inverse pipeline in
-`NttMul`, and the pure-mathematical CRT/convolution layer in `NttMath`).  The check below
-therefore treats `sorryAx` like any other unaudited assumption and *fails* the build if one
-ever reappears.  Everything in §3 is real proof. -/
-
-/-! The check itself. It recomputes the axiom footprint of every theorem in §3 and
-compares it against the audited list above. Any new assumption — including a
-`sorry` anywhere in the dependency closure — breaks the build here rather than
-passing unnoticed. -/
-
-open Lean in
-run_cmd do
-  let audited : List String :=
-    ["Aeneas.Std.core.fmt.Formatter",
-     "Classical.choice",
-     "Kopis.Properties.U32.count_ones_spec",
-     "Kopis.Properties.U8.count_ones_spec",
-     "Kopis.Properties.conditional_select_array_u8_spec",
-     "Kopis.Properties.ct_eq_slice_u8_spec",
-     "Kopis.Properties.hasher_default_spec",
-     "Kopis.Properties.hasher_finalize_spec",
-     "Kopis.Properties.hasher_update_spec",
-     "Kopis.Properties.reader_read136_spec",
-     "Kopis.Properties.reader_read168_spec",
-     "Quot.sound",
-     "_private.Spec.Defs.0.Spec.testBit_byte_of_bools._native.native_decide.ax_1_1",
-     "RustKopisSerial.Array.Insts.SubtleConditionallySelectable.conditional_select",
-     "RustKopisSerial.Slice.Insts.SubtleConstantTimeEq.ct_eq",
-     "RustKopisSerial.U8.Insts.SubtleConditionallySelectable.conditional_select",
-     "RustKopisSerial.U8.Insts.SubtleConstantTimeEq.ct_eq",
-     "RustKopisSerial.core.num.U32.count_ones",
-     "RustKopisSerial.core.num.U8.count_ones",
-     "RustKopisSerial.subtle.Choice",
-     "RustKopisSerial.turboshake.TurboShake",
-     "RustKopisSerial.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
-     "RustKopisSerial.turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof",
-     "RustKopisSerial.turboshake.TurboShake.Insts.DigestUpdate.update",
-     "RustKopisSerial.turboshake.TurboShakeReader",
-     "RustKopisSerial.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
-     "propext"]
-  let topLevel : List Name :=
-    [``kopis512_keygen, ``kopis768_keygen, ``kopis1024_keygen,
-     ``kopis512_keygen_then_encapsulate, ``kopis768_keygen_then_encapsulate,
-     ``kopis1024_keygen_then_encapsulate,
-     ``kopis512_keygen_then_decapsulate, ``kopis768_keygen_then_decapsulate,
-     ``kopis1024_keygen_then_decapsulate,
-     ``pk_serialize_matches_translation,
-     ``kopis512_from_bytes_then_encapsulate, ``kopis768_from_bytes_then_encapsulate,
-     ``kopis1024_from_bytes_then_encapsulate]
-  let mut found : Array String := #[]
-  for t in topLevel do
-    for a in (← Lean.collectAxioms t) do
-      let s := a.toString
-      if !found.contains s then found := found.push s
-  -- `sorryAx` is deliberately absent from the audited list: the development has no `sorry`s
-  -- left, so a `sorry` anywhere in the dependency closure now *fails* this check rather than
-  -- being tolerated.  Do not re-add an exemption for it.
-  let unexpected := found.filter (fun a => !audited.contains a)
-  let unused := audited.filter (fun a => !found.contains a)
-  unless unexpected.isEmpty && unused.isEmpty do
-    throwError "TRUST BASE CHANGED — §4 of this file is out of date.\n\
-      New assumptions not in the audited list: {unexpected.toList}\n\
-      Audited assumptions no longer used: {unused}"
+In summary, and beyond Lean's own three axioms: the `turboshake` crate's API implements RFC 9861
+(5 assumptions, the largest one here), `subtle`'s constant-time select and equality have their
+obvious functional meaning (2, functional only — nothing about actual timing), Rust's two
+popcount intrinsics mean popcount (2), and one `native_decide` in `Spec/Defs.lean:380` is
+discharged by compiled evaluation rather than by the kernel. No `sorry` is in the closure, and
+the check fails the build if one reappears. -/
 
 /-! ## §5. What is *not* proved
 
@@ -568,7 +462,7 @@ secret. That is a property of the *specification*, not of the Rust, and it is no
 proved anywhere in this development — it is only checked empirically, by
 `make test-kopis-spec`, on the bundled test vectors.
 
-**Side channels.** The `subtle` axioms in §4(b) fix only the *functional* meaning
+**Side channels.** The `subtle` assumptions (`TrustBase.lean`, group (b)) fix only the *functional* meaning
 of constant-time primitives. Nothing here rules out timing or cache leaks; those
 are properties of compiled machine code, which is outside what a source-level
 proof about Rust semantics can see.

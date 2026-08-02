@@ -9,7 +9,8 @@
 > back so that a `sorry` reappearing anywhere in the dependency closure *fails the build*.
 > **Do not re-add an exemption for `sorryAx`.**
 >
-> The remaining trust base is exactly the audited list in `TopLevelTheorems.lean` §4: Lean's
+> The remaining trust base is exactly the audited list in `TrustBase.lean` (§4 of
+> `TopLevelTheorems.lean` until 2026-08-02, when it moved): Lean's
 > three logical axioms, the aeneas-opaque extern types/functions (turboshake, subtle,
 > `count_ones`), and one `native_decide` in `Spec/Defs.lean:380`.
 >
