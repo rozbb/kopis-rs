@@ -26,7 +26,7 @@ import ExtractedRust
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
-open RustKopis
+open RustKopisSerial
 
 namespace Kopis.Properties
 

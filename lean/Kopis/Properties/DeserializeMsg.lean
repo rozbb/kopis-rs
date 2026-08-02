@@ -16,7 +16,7 @@
 import Kopis.Properties.SerializeTop
 
 open Aeneas Aeneas.Std Result
-open RustKopis
+open RustKopisSerial
 open Spec (𝔹 bytesToBits)
 open scoped BigOperators
 

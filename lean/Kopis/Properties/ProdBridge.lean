@@ -2,7 +2,7 @@ import Kopis.Properties.MatVecMul
 import Kopis.Properties.CoerceBridge
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.GenSecretTop
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 namespace Kopis.Properties
 

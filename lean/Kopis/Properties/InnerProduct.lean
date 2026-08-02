@@ -1,7 +1,7 @@
 import Kopis.Properties.CoerceBridge10
 import Kopis.Properties.MatrixSerialize
 import Kopis.Properties.GenSecretTop
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 namespace Kopis.Properties
 

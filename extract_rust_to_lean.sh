@@ -20,7 +20,7 @@ AENEAS=/home/dev/aeneas/bin/aeneas
 
 export RUSTFLAGS='--cfg kopis_backend="serial"'
 $CHARON cargo --preset=aeneas
-$AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopis
+$AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopisSerial
 mv Kopis.lean ./lean/ExtractedRust.lean
 rm kopis.llbc
 

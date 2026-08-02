@@ -8,7 +8,7 @@ import Kopis.Properties.SerializeTop
 import Kopis.Properties.ExpandDecap
 import Kopis.Properties.DeserializeVec
 import Kopis.Properties.DeserializeCm
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 open scoped Spec.Notations
 namespace Kopis.Properties

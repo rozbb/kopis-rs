@@ -15,7 +15,7 @@ set_option maxRecDepth 2048
 /- You can remove the following line by using the CLI option `-all-computable`: -/
 noncomputable section
 
-namespace RustKopis
+namespace RustKopisSerial
 
 /-- Trait implementation: [core::array::equality::{impl core::cmp::PartialEq<[U; N]> for [T; N]}]
     Source: '/rustc/library/core/src/array/equality.rs', lines 5:0-7:28
@@ -4681,4 +4681,4 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
   call := ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
 }
 
-end RustKopis
+end RustKopisSerial

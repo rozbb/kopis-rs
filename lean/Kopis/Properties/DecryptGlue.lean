@@ -1,5 +1,5 @@
 import Kopis.Properties.InnerProduct
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 namespace Kopis.Properties
 
 open arithmetic.ring_arith (RingElem)

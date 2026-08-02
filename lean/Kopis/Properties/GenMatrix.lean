@@ -1,7 +1,7 @@
 /-
   # Kopis/Properties/GenMatrix.lean — Correspondence proof for `gen_matrix_from_seed`.
 
-  Relates the Aeneas-extracted `RustKopis.sample.gen_matrix_from_seed` to the audited
+  Relates the Aeneas-extracted `RustKopisSerial.sample.gen_matrix_from_seed` to the audited
   spec `Spec.Kopis.GenMat`.  The procedure decomposes into three layers:
 
   * **(A) TurboSHAKE — trust boundary.**  The `turboshake` crate is an external
@@ -19,7 +19,7 @@ import Spec.Kopis.Spec
 import Kopis.Properties.Serialize
 
 open Aeneas Aeneas.Std Result
-open RustKopis
+open RustKopisSerial
 open arithmetic.ring_arith (RingElem)
 open Spec (𝔹)
 open scoped Spec.Notations

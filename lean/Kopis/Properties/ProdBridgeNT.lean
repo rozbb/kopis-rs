@@ -2,7 +2,7 @@ import Kopis.Properties.ProdBridge
 import Kopis.Properties.RoundBridge
 import Kopis.Properties.MatrixArith
 import Kopis.Properties.RoundTop
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 namespace Kopis.Properties
 

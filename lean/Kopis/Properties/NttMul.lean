@@ -19,7 +19,7 @@
 import Kopis.Properties.NttForward
 import Kopis.Properties.NttInverse
 
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 
 namespace Kopis.Properties

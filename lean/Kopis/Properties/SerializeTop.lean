@@ -1,7 +1,7 @@
 import Kopis.Properties.SerializeSpec2
 import Kopis.Properties.Serialize
 import Kopis.Properties.Serialize10
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 open scoped BigOperators
 namespace Kopis.Properties

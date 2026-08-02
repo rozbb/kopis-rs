@@ -15,7 +15,7 @@ import Kopis.Properties.MatrixSerialize
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
-open RustKopis
+open RustKopisSerial
 open Spec (𝔹 bytesToBits slice)
 open scoped BigOperators
 

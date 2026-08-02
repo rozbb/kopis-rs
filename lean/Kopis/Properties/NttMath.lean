@@ -44,7 +44,7 @@ import ExtractedRust
 import Spec.Kopis.Spec
 import Mathlib.Data.ZMod.Basic
 
-open Aeneas Aeneas.Std RustKopis
+open Aeneas Aeneas.Std RustKopisSerial
 open scoped BigOperators
 
 set_option maxRecDepth 40000

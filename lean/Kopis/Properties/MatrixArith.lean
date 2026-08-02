@@ -13,7 +13,7 @@
   `RingElem`-valued copy of the 1-D `IterMut` framing from `RingArith`.
 -/
 import Kopis.Properties.RingArith
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 namespace Kopis.Properties
 
 set_option maxHeartbeats 2000000

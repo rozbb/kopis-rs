@@ -1,6 +1,6 @@
 import Kopis.Properties.PkeSerialize
 import Kopis.Properties.GenSecretTop
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)

@@ -16,7 +16,7 @@
 -/
 import Kopis.Properties.Ntt
 
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 
 namespace Kopis.Properties
 

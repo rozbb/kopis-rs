@@ -1,5 +1,5 @@
 import Kopis.Properties.GenMatrix
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 open Spec.TurboSHAKE (turboSHAKE256)
 namespace Kopis.Properties

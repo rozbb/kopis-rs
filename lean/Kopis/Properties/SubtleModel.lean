@@ -1,5 +1,5 @@
 import Kopis.Properties.Serialize
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 namespace Kopis.Properties
 

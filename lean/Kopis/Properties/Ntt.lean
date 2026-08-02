@@ -56,7 +56,7 @@ import Kopis.Properties.GenMatrix
 import Kopis.Properties.DeserializeVec
 import Kopis.Properties.GenSecretTop
 
-open Aeneas Aeneas.Std Result RustKopis
+open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 
 namespace Kopis.Properties
