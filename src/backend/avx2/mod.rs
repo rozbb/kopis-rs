@@ -46,6 +46,8 @@
 
 mod cpu;
 mod intrinsics;
+#[cfg(test)]
+mod intrinsics_vectors;
 pub(crate) mod ntt;
 pub(crate) mod sample;
 pub(crate) mod ser;

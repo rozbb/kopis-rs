@@ -12,6 +12,11 @@
 )]
 #![doc = include_str!("../README.md")]
 
+// The differential-test generator for the AVX2 intrinsics model writes a file; `std` is
+// available to tests even though the crate itself is `no_std`.
+#[cfg(test)]
+extern crate std;
+
 mod arithmetic;
 mod backend;
 mod consts;

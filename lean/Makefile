@@ -109,6 +109,22 @@ prove-kopis-avx2: $(GENERATED_AUDIT)
 test-kopis-spec:
 	$(LAKE) exe kopisTests
 
+# Check the assumed AVX2 intrinsic semantics against real silicon.
+#
+# `Kopis/Avx2/Intrinsics.lean` is 45 axioms about what Intel instructions do; nothing in the
+# proof checks them, and a wrong one makes every AVX2 theorem worthless without any error.
+# `Kopis/Avx2/Model.lean` gives each a computable model and *proves* the axiom pins the result
+# down to exactly that model, so testing the model tests the axiom.  This target replays
+# ../tests/intrinsics_vectors.jsonl — recorded by executing the real instructions, see
+# ../src/backend/avx2/intrinsics_vectors.rs — through the models.
+#
+# Regenerate the vectors on an AVX2 host with
+#   KOPIS_REGEN_VECTORS=1 cargo test --lib intrinsics_vectors
+# and note that a plain `cargo test` there re-checks the committed file against that CPU.
+.PHONY: test-avx2-model
+test-avx2-model:
+	$(LAKE) exe avx2Tests
+
 # ---------------------------------------------------------------------------
 # Help
 # ---------------------------------------------------------------------------
@@ -121,6 +137,7 @@ help:
 	@echo "  make prove-kopis-avx2    the AVX2 extraction + its assumed intrinsic semantics"
 	@echo "  make generated           bring the generated audit copies up to date"
 	@echo "  make test-kopis-spec     run the Lean spec test vectors + KAT (lake exe kopisTests)"
+	@echo "  make test-avx2-model     check the assumed AVX2 intrinsic semantics against silicon"
 	@echo ""
 	@echo "  Parallelism is capped at LEAN_NUM_THREADS=$(LEAN_NUM_THREADS) to fit RAM on small hosts."
 	@echo "  On a machine with more memory, raise it: make prove-kopis LEAN_NUM_THREADS=8"

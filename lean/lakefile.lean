@@ -28,7 +28,8 @@ lean_lib «ExtractedRustSerial»
 lean_lib «ExtractedRustAvx2»
 
 lean_lib «KopisAvx2» where
-  roots := #[`Kopis.Avx2.Intrinsics]
+  roots := #[`Kopis.Avx2]
+  globs := #[.andSubmodules `Kopis.Avx2]
 
 /-! ## Specifications library
 
@@ -83,3 +84,13 @@ lean_lib «SpecTests» where
 
 lean_exe kopisTests where
   root := `SpecTests.Kopis.Run
+
+/-! ## The AVX2 intrinsic model, checked against silicon
+
+    `SpecTests/Avx2/Run.lean` replays `../tests/intrinsics_vectors.jsonl` — recorded by running
+    the real instructions on a real CPU (`src/backend/avx2/intrinsics_vectors.rs`) — through the
+    computable models in `Kopis/Avx2/Model.lean`, which are proved equal to the axioms in
+    `Kopis/Avx2/Intrinsics.lean`. It is the only thing in the tree that checks those axioms
+    against hardware. Run it with `lake exe avx2Tests` (= `make test-avx2-model`). -/
+lean_exe avx2Tests where
+  root := `SpecTests.Avx2.Run
