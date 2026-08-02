@@ -11,7 +11,7 @@
 `./extract_rust_to_lean.sh` now extracts **both** backends and completes with no errors:
 `lean/ExtractedRustSerial.lean` (serial, byte-identical to before) and `lean/ExtractedRustAvx2.lean`
 (AVX2, 6947 lines, namespace `RustKopisAvx2`). `make prove-kopis` is unaffected and green;
-`make prove-avx2` builds the new extraction plus the intrinsic semantics.
+`make prove-kopis-avx2` builds the new extraction plus the intrinsic semantics.
 
 What landed:
 

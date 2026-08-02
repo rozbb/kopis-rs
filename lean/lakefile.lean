@@ -24,7 +24,7 @@ lean_lib «ExtractedRustSerial»
 
     Neither is in the default target: the audited claim is still about the
     serial backend, and `make prove-kopis` should not pay for a second
-    extraction. Build this side with `make prove-avx2`. -/
+    extraction. Build this side with `make prove-kopis-avx2`. -/
 lean_lib «ExtractedRustAvx2»
 
 lean_lib «KopisAvx2» where
