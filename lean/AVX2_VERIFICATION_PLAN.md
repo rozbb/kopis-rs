@@ -9,7 +9,7 @@
 ## Status (2026-08-01)
 
 `./extract_rust_to_lean.sh` now extracts **both** backends and completes with no errors:
-`lean/ExtractedRust.lean` (serial, byte-identical to before) and `lean/ExtractedRustAvx2.lean`
+`lean/ExtractedRustSerial.lean` (serial, byte-identical to before) and `lean/ExtractedRustAvx2.lean`
 (AVX2, 6947 lines, namespace `RustKopisAvx2`). `make prove-kopis` is unaffected and green;
 `make prove-avx2` builds the new extraction plus the intrinsic semantics.
 
@@ -84,7 +84,7 @@ present the extractor an opaque interface, and supply that interface's semantics
 hand in Lean. This is libcrux's architecture (`libcrux/crates/utils/intrinsics/src/avx2_extract.rs`
 + `libcrux/fstar-helpers/fstar-bitvec/BitVec.Intrinsics.fsti`), adapted to aeneas/Lean.
 
-**Outcome:** the AVX2 backend joins `ExtractedRust.lean` and gets correspondence
+**Outcome:** the AVX2 backend joins `ExtractedRustSerial.lean` and gets correspondence
 proofs alongside the portable code, with a documented trusted base of hand-written
 intrinsic semantics.
 

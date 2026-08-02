@@ -26,7 +26,7 @@ worlds below. Every other name therefore carries a prefix saying what it is:
 
 | prefix | world | status |
 | ------ | ----- | ------ |
-| `RustKopisSerial.…` | the **extracted Rust** (`ExtractedRust.lean`, from `../src/*.rs`) | trusted |
+| `RustKopisSerial.…` | the **extracted Rust** (`ExtractedRustSerial.lean`, from `../src/*.rs`) | trusted |
 | `Spec.…` | the **audited specification** (`Spec/Kopis/Spec.lean`) | trusted |
 | `Properties.…` | the **translation layer** (`Kopis/Properties/`) | proved — see §2 |
 
@@ -45,7 +45,7 @@ extracted names cannot be mistaken for Lean-side ones. (Without it the extracted
 namespace would be `kopis`, one capital letter away from `Kopis`, this development.)
 
 The `Serial` half of the name is the backend: the script extracts the crate twice, once with
-`--cfg kopis_backend="serial"` into `RustKopisSerial` (`ExtractedRust.lean`, what everything
+`--cfg kopis_backend="serial"` into `RustKopisSerial` (`ExtractedRustSerial.lean`, what everything
 below is about) and once with `--cfg kopis_backend="avx2"` into `RustKopisAvx2`
 (`ExtractedRustAvx2.lean`). **Nothing in this file says anything about `RustKopisAvx2`.** That
 extraction exists, and `Kopis/Avx2/Intrinsics.lean` assumes semantics for the SIMD instructions
@@ -75,7 +75,7 @@ something meaningful, so these four things are on you:
 Two things outside this file remain trusted no matter how carefully you read it:
 the audited spec really does describe Kopis (check `Spec/Kopis/Spec.lean` against
 `kopis-spec.md`, and note that `make test-kopis-spec` runs it against the test
-vectors), and the charon/aeneas extraction really did produce `ExtractedRust.lean`
+vectors), and the charon/aeneas extraction really did produce `ExtractedRustSerial.lean`
 from `../src/*.rs`.
 -/
 
@@ -470,7 +470,7 @@ proof about Rust semantics can see.
 **Memory zeroization.** No claim that secret material is wiped after use.
 
 **The extraction and the spec themselves.** As noted at the top: that
-`ExtractedRust.lean` faithfully reflects `../src/*.rs` is a property of
+`ExtractedRustSerial.lean` faithfully reflects `../src/*.rs` is a property of
 charon/aeneas, and that `Spec/Kopis/Spec.lean` faithfully reflects `kopis-spec.md`
 is a matter for human review plus the KAT runner. -/
 

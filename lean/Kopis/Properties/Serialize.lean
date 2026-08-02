@@ -10,7 +10,7 @@
   `bits_per_elem` bits of the window as one coefficient and shifts them out.
   This mirrors MLKEM's verified `decode` bit-pump (`Encoding/DecompressInner`).
 -/
-import ExtractedRust
+import ExtractedRustSerial
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
@@ -422,7 +422,7 @@ private theorem streamNat_window (bytes : Slice U8) (B r : ℕ) (hr : r ≤ 7) :
   ROADMAP for the three sorries below (self-contained; see `deserialize_outer_spec`
   above for the analogous *generic*-decoder proof to mirror).
 
-  Useful extracted defs live in `ExtractedRust.lean`: `ser.deserialize_13`,
+  Useful extracted defs live in `ExtractedRustSerial.lean`: `ser.deserialize_13`,
   `ser.deserialize_13_loop`, `...closure...call`, `arithmetic.ring_arith.RingElem.deserialize`.
 
   Confirmed library lemma names:

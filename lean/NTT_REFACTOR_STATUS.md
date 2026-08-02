@@ -139,7 +139,7 @@ the only things needed from it are three numeric relations, each a `decide`d `Bo
 * CRT tree: `ζ_{2k}² = ζ_k`, `ζ_{2k+1}² = -ζ_k`
 * GS pairing: `ζ_{nb+b} · ζ_{2·nb-1-b} = -1`
 
-`zetas_val` bridges the table to `ExtractedRust` (needs `unseal arithmetic.ntt.ZETAS` — the
+`zetas_val` bridges the table to `ExtractedRustSerial` (needs `unseal arithmetic.ntt.ZETAS` — the
 extracted table is `@[irreducible]`).  On top sits ONE invariant, `State nb m c f a`, with two
 step lemmas `State_ct` / `State_gs`.  The factor of two per Gentleman-Sande layer is exactly what
 `INVNTT_SCALE` cancels.

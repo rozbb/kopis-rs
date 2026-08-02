@@ -14,7 +14,7 @@
   * **(B) `deserialize` / `from_bytes`** — proved elsewhere; imported here.
   * **(C) the nested matrix-assembly loop** — proved here.
 -/
-import ExtractedRust
+import ExtractedRustSerial
 import Spec.Kopis.Spec
 import Kopis.Properties.Serialize
 

@@ -1,6 +1,6 @@
 -- Kopis KEM: Aeneas-extracted Rust code + correspondence proofs.
 -- Build with `lake build Kopis`.
-import ExtractedRust
+import ExtractedRustSerial
 import Kopis.Properties.RingArith
 import Kopis.Properties.Serialize
 import Kopis.Properties.GenMatrix

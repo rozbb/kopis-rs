@@ -125,7 +125,7 @@ the XOF, which is untouched.
 
 # Formal Verification
 
-We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates `lean/ExtractedRust.lean`.
+We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates `lean/ExtractedRustSerial.lean`.
 
 The extraction covers the serial backend only — the script sets `--cfg kopis_backend="serial"`,
 which removes the AVX2 dispatch before the compiler sees the crate, so what is extracted is

@@ -40,7 +40,7 @@
   homomorphism out of the negacyclic ring, which is what makes the pointwise product of
   transforms compute the negacyclic product.  `cst_leaf_pow` supplies `c²⁵⁶ = -1` for every leaf.
 -/
-import ExtractedRust
+import ExtractedRustSerial
 import Spec.Kopis.Spec
 import Mathlib.Data.ZMod.Basic
 
@@ -147,7 +147,7 @@ theorem ZN_lt (k : ℕ) (hk : k < 256) : ZN[k]! < pN := by
     exact List.getElem_mem _
   exact of_decide_eq_true (h _ hmem)
 
--- **The single bridge to the extracted code.**  The `ZETAS` array of `ExtractedRust.lean`
+-- **The single bridge to the extracted code.**  The `ZETAS` array of `ExtractedRustSerial.lean`
 -- holds exactly `ZN`, entry for entry.  (`unseal` is needed because the extracted table is
 -- marked `irreducible`.)
 unseal arithmetic.ntt.ZETAS in

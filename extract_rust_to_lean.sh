@@ -14,14 +14,14 @@ AENEAS=/home/dev/aeneas/bin/aeneas
 # too: build.rs is what turns the cfg into the backend selection.
 
 # ---------------------------------------------------------------------------------------
-# The serial backend: the portable code, with every dispatch block cfg'd out. `ExtractedRust.lean`
+# The serial backend: the portable code, with every dispatch block cfg'd out. `ExtractedRustSerial.lean`
 # is what `lean/Kopis/Properties/*` and `TopLevelTheorems.lean` are proved about.
 # ---------------------------------------------------------------------------------------
 
 export RUSTFLAGS='--cfg kopis_backend="serial"'
 $CHARON cargo --preset=aeneas
 $AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopisSerial
-mv Kopis.lean ./lean/ExtractedRust.lean
+mv Kopis.lean ./lean/ExtractedRustSerial.lean
 rm kopis.llbc
 
 # ---------------------------------------------------------------------------------------

@@ -7,11 +7,11 @@ package «kopis»
 
 /-! ## Aeneas-extracted Rust code
 
-    `ExtractedRust.lean` is generated verbatim by `../extract_rust_to_lean.sh`
+    `ExtractedRustSerial.lean` is generated verbatim by `../extract_rust_to_lean.sh`
     (charon + aeneas, `-loops-to-rec`) from the `kopis-rs` crate. Never edit it
     by hand: re-run the extraction script instead. It is the *only* link
     between the Rust source and the proofs below. -/
-lean_lib «ExtractedRust»
+lean_lib «ExtractedRustSerial»
 
 /-! ## The AVX2 backend
 
@@ -43,7 +43,7 @@ lean_lib «Spec»
 /-! ## Kopis KEM correspondence proofs
 
     `Kopis` collects the correspondence proofs tying the extracted code
-    (`ExtractedRust`) to the audited `Spec.Kopis` specification. A green
+    (`ExtractedRustSerial`) to the audited `Spec.Kopis` specification. A green
     `lake build Kopis` (= `make prove-kopis`) IS the machine-checked proof:
     it must compile with no errors and no `sorry`s. -/
 @[default_target]

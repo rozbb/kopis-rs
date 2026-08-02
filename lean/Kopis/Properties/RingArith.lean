@@ -2,7 +2,7 @@
   # Kopis/Properties/RingArith.lean — Correspondence proofs for ring-element arithmetic.
 
   Bridges the Aeneas-extracted Rust ring element (`RingElem = [u16; 256]`,
-  `ExtractedRust`) to the audited spec ring element
+  `ExtractedRustSerial`) to the audited spec ring element
   (`Spec.Kopis.Polynomial (2^16)`, `Spec/Kopis/Spec.lean`).
 
   ## Abstraction relation
@@ -22,7 +22,7 @@
   This first result covers `RingElem::add`; `sub`, `mul`, and the shifts will
   follow the same skeleton.
 -/
-import ExtractedRust
+import ExtractedRustSerial
 import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
