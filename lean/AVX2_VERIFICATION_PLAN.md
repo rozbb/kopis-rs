@@ -513,3 +513,79 @@ rather than hand copies. E's remaining work: the restructure (E1), the generator
 dispatch theorems (E3) — of which the `deserialize` and `gen_secret_from_seed_loop` points are
 now discharged by `avx2_deserialize_eq` and `avx2_cbd_eq` — and wiring `TopLevelTheoremsAvx2`
 into the build with its own `TrustBase` row (E4).
+
+**2026-08-02 (still later).** Phase E is as done as it can be without the NTT, and phase F2's
+mathematics is done. No `sorry` anywhere; `make prove-kopis` green throughout.
+
+*Phase E — 46 of 59 twins green.* The generator (`scripts/gen_avx2_twins.py`) works as designed:
+declarative patches keyed on the serial proof text, failing loudly when an anchor stops matching.
+Dispatch points 1 (`RingElem::deserialize`, at widths 13, 10 and generic — reached from three
+different twins) and 2 (`gen_secret_from_seed_loop`) are discharged, by
+`Kopis/Avx2/SerDispatch.lean` and `Kopis/Avx2/CbdDispatch.lean`.
+
+Two mechanisms were worth adding. (i) A dispatch argument does **not** belong in the twin that
+needs it: taking the width-13 spec as a *hypothesis* in `SerDispatch.lean` took `Serialize.lean`
+from "over thirty minutes, cause unknown" to seconds, and the same shape then served two more
+call sites for free. (ii) `GenSecretTop.lean` needed a *post-transform*, not a patch: the AVX2
+guard makes `step*` split where the serial file has one goal, so the generated proof collapses
+the vector branch and then runs the unchanged serial argument under `all_goals`. Patches edit
+text; post-transforms restructure it. Both fail loudly.
+
+*The remaining 13 twins are all NTT, and they cannot be transferred at all.* This is the finding
+of the session, and it is worth stating precisely because it changes what phase F has to prove.
+`arithmetic::ntt::pointwise_mul_acc`'s portable branch computes `acc[i] += (lhs[i] as i64) *
+(rhs[i] as i64)` — a full 32×32→64 product. Its AVX2 branch reads the *same arrays* as 512 `i16`
+and 512 `i32` and computes `acc32[t] += lhs16[t] * rhs16[t]`, with no carry between the two
+halves of each `i64`. Those are different functions of the same bits: writing `a = a₁·2¹⁶ + a₀`,
+the scalar path keeps the cross terms `a₁b₀ + a₀b₁` and the vector path drops them.
+
+They are not meant to agree. The AVX2 build carries each coefficient as *two* 16-bit residues
+(mod `q₁ = 7681` and mod `q₂ = 10753`) packed into one `i32`, where the portable build carries a
+single residue mod `p = 50330113`; `NttElem::from_uniform` chooses the representation and
+`reduce_invntt_to_ring_elem` collapses it, and both dispatch on the same `avx2_available()`, so a
+run is internally consistent. But it means the twin specs — which are stated about `aZ`/`accZ`,
+the integer *value* of a lane — are false on the AVX2 branch, and no amount of generator work
+will transfer them. Plan §F4 anticipated exactly this ("the NTT-domain values are *different
+integers* from the serial ones — only the endpoints agree"); what is new is knowing that it bites
+at `pointwise_mul_acc`, not only at the transform, and that it therefore blocks all 13 twins
+downstream of `NttMul.lean` — which is to say the entire KEM top level.
+
+So phase F4 is not optional polish: it is the only route to `TopLevelTheoremsAvx2`. The four NTT
+dispatch points have to be discharged end-to-end, against `Spec.Kopis`, not stage by stage.
+
+*Phase F2 — the mathematics landed.* `Kopis/Avx2/Transpose.lean` proves `transpose16` is the
+16×16 transpose: vector `k` lane `m` of the result is vector `m` lane `k` of the input, hence
+coefficient `16m + k`, hence its own inverse. Three parts: the six interleaves read at 16-bit
+granularity (`vpunpckldq` is specified on 32-bit lanes, so a lane has to be read back as two
+16-bit ones), `inlane_transpose8`'s three levels, and the `vperm2i128` pass.
+`Kopis/Avx2/TransposeSpec.lean` connects the extracted `inlane_transpose8` to that model by
+unrolling — the loops have literal bounds, so there is no invariant to design, and numeral
+indices let the bookkeeping discharge by `omega`.
+
+*Where to resume.* Items 1 and 2 below landed in this session; 3 is what is left.
+
+1. ~~`transpose16`~~ — done, end to end. `transpose16_coeff` (the `i16` at `16m + k` moves to
+   `16k + m`) and `transpose16_involutive`. Both loops got invariants rather than unrolling, and
+   everything is stated at *block* granularity via `blockVec`, so a `store_i16` replaces one
+   16-lane block and leaves the other fifteen alone; composing the pointwise store spec sixteen
+   times instead leaves sixteen nested range conditions at every index. That block-granularity
+   trick is the one to reuse for the rest of the NTT.
+2. ~~`pointwise_mul_acc`~~ — done. `Kopis/Avx2/NttMulLane.lean` proves
+   `i32View r t = i32View acc t + prod32 lhs rhs t` for every `t < 512`: the first *true*
+   statement about an NTT dispatch point, and the concrete form of the representation gap above.
+3. ~~`barrett` lane spec~~ — done, so F1 is complete. The bound really is tight: bounding each
+   rounding step on its own puts the result about `q/2048` outside `±q/2`, and the term that
+   fills the gap is `q·(x·M mod 2¹⁶)/2²⁷`. Work from the exact identity, not from interval
+   arithmetic over the steps. Then:
+   * **F3, the growth bound.** Still the highest-value single theorem: `crt.rs:52-60` records
+     that the crude 0.75q-per-level budget *fails* for AVX2's four-level run, and that safety
+     rests on interval propagation with the actual ψ values. That argument exists only as prose.
+   * **F4, the CRT endpoint theorem.** `q₁q₂ = 82593793 > p = 50330113`, so the residue pair
+     determines the coefficient; `NttElem::from_uniform` builds the pair and
+     `reduce_invntt_to_ring_elem` collapses it. Everything between them — `split_and_transform`,
+     `ntt_block`, `invntt_block` — only has to be shown to compute *some* NTT of the pair, with
+     `transpose16` (done) explaining why the four innermost levels may run vertically.
+
+Do not try to make the 13 NTT twins compile. They are false as stated for this backend; the work
+is F, and when F lands the AVX2 top-level theorems should be proved directly rather than
+generated.

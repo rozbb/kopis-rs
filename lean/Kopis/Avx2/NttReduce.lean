@@ -119,4 +119,109 @@ theorem mont_mul_lane_spec (a z zq qv : Vec256) (Q : ℤ)
   · rw [hC]; exact hRbnd.1
   · rw [hC]; exact hRbnd.2
 
+/-! ## `barrett`
+
+`t ≈ round(x/q)` formed as `(hi(x·M) + 2^(SH−1)) >> SH`, then `r = x − t·q`.  The rounding addend
+is what makes the result *centered*, and the bound is tight: the crude interval argument leaves
+about `q/2048` of slack, which is exactly what the low bits of `x·M` can eat.  So the proof keeps
+`a = x·M mod 2¹⁶` and `b = (hi + 2¹⁰) mod 2¹¹` as real quantities instead of bounding each
+rounding step on its own — the identity `2²⁷·r = x·(2²⁷ − qM) + q·a + q·2¹⁶·(b − 2¹⁰)` is exact,
+and every bound comes from it.
+
+`hD` is the accuracy of the Barrett multiplier: `M = ⌊(2²⁷ + q/2)/q⌋` gives `|2²⁷ − qM| = 66` for
+`q₁ = 7681` and `1218` for `q₂ = 10753`, both well inside the `2047` assumed here. -/
+
+private theorem bmod_congr {a b : ℤ} {n : ℕ} (h : a ≡ b [ZMOD (n : ℤ)]) : a.bmod n = b.bmod n := by
+  simp only [Int.bmod]
+  rw [show a % (n : ℤ) = b % (n : ℤ) from h]
+
+theorem barrett_lane_spec (x m round q : Vec256) (Q M : ℤ)
+    (hQ : ∀ i < 16, (lane16 q i).toInt = Q) (hM : ∀ i < 16, (lane16 m i).toInt = M)
+    (hRnd : ∀ i < 16, (lane16 round i).toInt = 2 ^ 10)
+    (hQpos : 0 < Q) (hQlt : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
+    (hMpos : 0 < M) (hMlt : M < 2 ^ 15)
+    (hD : |2 ^ 27 - Q * M| ≤ 2047) :
+    backend.avx2.ntt.barrett x m round q
+      ⦃ (c : Vec256) => ∀ i < 16,
+          Q ∣ ((lane16 c i).toInt - (lane16 x i).toInt) ∧ 2 * |(lane16 c i).toInt| < Q ⦄ := by
+  unfold backend.avx2.ntt.barrett
+  obtain ⟨v, hv, hvb⟩ := mulhi_epi16_model x m
+  rw [hv, bind_tc_ok]
+  obtain ⟨t0, ht0, ht0b⟩ := add_epi16_model v round
+  rw [ht0, bind_tc_ok]
+  obtain ⟨t, ht, htb⟩ := srai_epi16_model 11#i32 t0 (by decide)
+  rw [ht, bind_tc_ok]
+  obtain ⟨w, hw, hwb⟩ := mullo_epi16_model t q
+  rw [hw, bind_tc_ok]
+  obtain ⟨c, hc, hcb⟩ := sub_epi16_model x w
+  rw [hc]
+  simp only [WP.spec_ok]
+  intro i hi
+  have hVv := mulhi_lane_toInt x m v hvb i hi
+  have hT0v := add_lane_toInt v round t0 ht0b i hi
+  have hTv := srai_lane_toInt _ t0 t htb i hi
+  have hWv := mullo_lane_toInt t q w hwb i hi
+  have hCv := sub_lane_toInt x w c hcb i hi
+  rw [hM i hi] at hVv
+  rw [hRnd i hi] at hT0v
+  rw [hQ i hi] at hWv
+  rw [Int.shiftRight_eq_div_pow] at hVv
+  norm_num at hVv
+  obtain ⟨hXlo, hXhi⟩ := toInt_bounds (lane16 x i)
+  set X := (lane16 x i).toInt with hX
+  set V := (lane16 v i).toInt with hVdef
+  -- `v` is the exact floor of `X·M / 2¹⁶`, so it fits and the rounding addend cannot overflow
+  have hXM : -(2 ^ 30 : ℤ) ≤ X * M ∧ X * M < 2 ^ 30 := by
+    constructor <;> nlinarith [hXlo, hXhi, hMpos, hMlt]
+  have hAlo : 0 ≤ X * M % 65536 := Int.emod_nonneg _ (by norm_num)
+  have hAhi : X * M % 65536 < 65536 := Int.emod_lt_of_pos _ (by norm_num)
+  have hVbnd : -(2 ^ 14 : ℤ) ≤ V ∧ V ≤ 2 ^ 14 := by rw [hVv]; omega
+  have hT0 : (lane16 t0 i).toInt = V + 2 ^ 10 := by
+    rw [hT0v]; exact bmod16_eq_self (by omega) (by omega)
+  rw [hT0, show ((11#i32).val.toNat) = 11 from rfl, Int.shiftRight_eq_div_pow] at hTv
+  norm_num at hTv
+  set T := (lane16 t i).toInt with hTdef
+  have hBlo : 0 ≤ (V + 1024) % 2048 := Int.emod_nonneg _ (by norm_num)
+  have hBhi : (V + 1024) % 2048 < 2048 := Int.emod_lt_of_pos _ (by norm_num)
+  set A := X * M % 65536 with hAdef
+  set B := (V + 1024) % 2048 - 1024 with hBdef
+  set R := X - T * Q with hR
+  -- the exact identity the bounds all come from
+  have e1 : 65536 * V = X * M - A := by rw [hVv, hAdef]; omega
+  have e2 : 2048 * T = V - B := by rw [hTv, hBdef]; omega
+  have hkey : 2 ^ 27 * R = X * (2 ^ 27 - Q * M) + Q * A + Q * 65536 * B := by
+    rw [hR]
+    have h1 : (2:ℤ) ^ 27 * (X - T * Q) = 2 ^ 27 * X - Q * (65536 * (2048 * T)) := by ring
+    rw [h1, e2]
+    have h2 : Q * (65536 * (V - B)) = Q * (65536 * V) - Q * 65536 * B := by ring
+    rw [h2, e1]
+    ring
+  have hXD : -(2 ^ 26 : ℤ) < X * (2 ^ 27 - Q * M) ∧ X * (2 ^ 27 - Q * M) < 2 ^ 26 := by
+    rw [abs_le] at hD
+    constructor <;> nlinarith [hXlo, hXhi, hD.1, hD.2]
+  have hQA : 0 ≤ Q * A ∧ Q * A ≤ Q * 65535 := by
+    constructor <;> nlinarith [hQpos, hAlo, hAhi]
+  have hQB : -(Q * 65536 * 1024) ≤ Q * 65536 * B ∧ Q * 65536 * B ≤ Q * 65536 * 1023 := by
+    constructor <;> nlinarith [hQpos, hBlo, hBhi]
+  -- hence `2R` is strictly inside `±Q`
+  have hup : (2 : ℤ) ^ 26 * (2 * R) < 2 ^ 26 * (1 + Q) := by
+    have : (2:ℤ) ^ 26 * (2 * R) = 2 ^ 27 * R := by ring
+    rw [this, hkey]; linarith [hXD.2, hQA.2, hQB.2]
+  have hdn : (2 : ℤ) ^ 26 * (-(1 + Q)) < 2 ^ 26 * (2 * R) := by
+    have : (2:ℤ) ^ 26 * (2 * R) = 2 ^ 27 * R := by ring
+    rw [this, hkey]; linarith [hXD.1, hQA.1, hQB.1]
+  have hup' : 2 * R < 1 + Q := lt_of_mul_lt_mul_left hup (by norm_num)
+  have hdn' : -(1 + Q) < 2 * R := lt_of_mul_lt_mul_left hdn (by norm_num)
+  have hRbnd : 2 * |R| < Q := by
+    rcases abs_cases R with ⟨h, _⟩ | ⟨h, _⟩ <;> rw [h] <;> omega
+  -- so the final wrapping subtraction is exact
+  have hCR : (lane16 c i).toInt = R := by
+    rw [hCv, hWv]
+    have hcong : (X - (T * Q).bmod (2 ^ 16)) ≡ (X - T * Q) [ZMOD (((2 ^ 16 : ℕ)) : ℤ)] :=
+      Int.ModEq.sub (Int.ModEq.refl X) Int.bmod_emod
+    calc (X - (T * Q).bmod (2 ^ 16)).bmod (2 ^ 16)
+        = (X - T * Q).bmod (2 ^ 16) := bmod_congr hcong
+      _ = R := by rw [← hR]; exact bmod16_eq_self (by omega) (by omega)
+  exact ⟨⟨-T, by rw [hCR, hR]; ring⟩, by rw [hCR]; exact hRbnd⟩
+
 end Kopis.Avx2
