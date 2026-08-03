@@ -1014,13 +1014,13 @@ bound is different at every step and there is no single invariant to state: it i
 the four bounds taken from `growth_q2`.  The `k` threading is why
 `ntt_block_loop0_loop0_bnd` also bounds the ζ index it returns. -/
 
-private theorem usize_add_lit {a b c : Usize} (hc : a.val + b.val ≤ Usize.max)
+theorem usize_add_lit {a b c : Usize} (hc : a.val + b.val ≤ Usize.max)
     (h : a.val + b.val = c.val) : (a + b : Result Usize) = ok c := by
   obtain ⟨z, hz, hzv⟩ := WP.spec_imp_exists (Std.Usize.add_spec (x := a) (y := b) hc)
   rw [hz, UScalar.eq_of_val_eq (show z.val = c.val by rw [hzv, h])]
 
 /-- Before a level runs nothing has grown, so any empty "already grown" predicate will do. -/
-private theorem initSplit {b : Array I16 256#usize} {A T : ℤ} {P : ℕ → Prop}
+theorem initSplit {b : Array I16 256#usize} {A T : ℤ} {P : ℕ → Prop}
     (hP : ∀ v, ¬ P v) (hb : BlockBnd b A) : Split b P A T :=
   ⟨fun v _ h => absurd h (hP v), fun v hv _ => (blockBnd_iff b A).mp hb v hv⟩
 

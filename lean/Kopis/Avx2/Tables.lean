@@ -127,14 +127,15 @@ theorem zetas_qinv_spec (zetas : Array I16 256#usize) (qinv : I16) :
 /-- **The ζ hypothesis of `ntt_block_bnd_q1`, discharged.** -/
 theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
-    |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) := by
+    |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
+    zi.val = (backend.crt.ZETAS_Q1.val[kk.val]!).val := by
   intro kk hkk
   obtain ⟨t, ht, htv⟩ := zetas_qinv_spec backend.crt.ZETAS_Q1 backend.crt.Q1_INV
   obtain ⟨zi, hzi, hziv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec backend.crt.ZETAS_Q1 kk (by simp [Array.length]; omega))
   obtain ⟨zqi, hzqi, hzqiv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec t kk (by simp [Array.length]; omega))
-  refine ⟨zi, zqi, ?_, ?_, ?_, ?_⟩
+  refine ⟨zi, zqi, ?_, ?_, ?_, ?_, ?_⟩
   · unfold backend.crt.zeta
     simp only [Bool.false_eq_true, reduceIte]
     exact hzi
@@ -161,18 +162,20 @@ theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
       _ = zi.val * (backend.crt.Q1_INV.val * 7681) + 2 ^ 16 * (c * 7681) - zi.val := by ring
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 7681) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 7681) := by ring
+  · rw [hziv, getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q1.property]; simpa using hkk)]
 
 /-- **The ζ hypothesis of `ntt_block_bnd_q2`, discharged.** -/
 theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
-    |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) := by
+    |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
+    zi.val = (backend.crt.ZETAS_Q2.val[kk.val]!).val := by
   intro kk hkk
   obtain ⟨t, ht, htv⟩ := zetas_qinv_spec backend.crt.ZETAS_Q2 backend.crt.Q2_INV
   obtain ⟨zi, hzi, hziv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec backend.crt.ZETAS_Q2 kk (by simp [Array.length]; omega))
   obtain ⟨zqi, hzqi, hzqiv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec t kk (by simp [Array.length]; omega))
-  refine ⟨zi, zqi, ?_, ?_, ?_, ?_⟩
+  refine ⟨zi, zqi, ?_, ?_, ?_, ?_, ?_⟩
   · unfold backend.crt.zeta
     simp only [if_true]
     exact hzi
@@ -199,6 +202,7 @@ theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
       _ = zi.val * (backend.crt.Q2_INV.val * 10753) + 2 ^ 16 * (c * 10753) - zi.val := by ring
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 10753) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 10753) := by ring
+  · rw [hziv, getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q2.property]; simpa using hkk)]
 
 /-! ## `lane_tbl` only copies ζ entries
 
@@ -231,6 +235,15 @@ def TblOk (Zb : ℤ) (qinv : I16) {N : Usize} (z zq : Array I16 N) : Prop :=
   ∀ i < N.val, |(z.val[i]!).val| ≤ Zb ∧
     (zq.val[i]!).val = ((z.val[i]!).val * qinv.val).bmod (2 ^ 16)
 
+/-- Which ζ each lane holds.  Phase F3 needs only `TblOk`; phase F4 must *name* the twiddle the
+code applies.  It rides along on the same walk: the entries are copied rather than computed, so
+the index arithmetic is shared and deriving it a second time is wasted work. -/
+def TblAt (zetas : Array I16 256#usize) (base h_stride m_stride : Isize) {N : Usize}
+    (z : Array I16 N) (upto : ℕ) : Prop :=
+  ∀ h < upto, ∀ m < 16, 16 * h + m < N.val →
+    (z.val[16 * h + m]!).val
+      = (zetas.val[(base.val + h * h_stride.val + m * m_stride.val).toNat]!).val
+
 set_option maxRecDepth 100000 in
 theorem lane_tbl_loop0_loop0_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I16)
     (base h_stride m_stride : Isize) (z zq : Array I16 N) (h m : Usize) (Zb : ℤ)
@@ -241,9 +254,13 @@ theorem lane_tbl_loop0_loop0_spec {N : Usize} (zetas : Array I16 256#usize) (qin
     (hh : h.val ≤ 8) (hm : m.val ≤ 16)
     (hidx : ∀ mm : ℕ, mm < 16 → base.val + h.val * h_stride.val + mm * m_stride.val < 256)
     (hN : 16 * h.val + 16 ≤ N.val)
-    (hinv : TblOk Zb qinv z zq) :
+    (hinv : TblOk Zb qinv z zq)
+    (hpre : ∀ mm < m.val, (z.val[16 * h.val + mm]!).val
+      = (zetas.val[(base.val + h.val * h_stride.val + mm * m_stride.val).toNat]!).val)
+    (hold : TblAt zetas base h_stride m_stride z h.val) :
     backend.avx2.ntt.lane_tbl_loop0_loop0 zetas qinv base h_stride m_stride false z zq h m
-      ⦃ (r : (Array I16 N) × (Array I16 N)) => TblOk Zb qinv r.1 r.2 ⦄ := by
+      ⦃ (r : (Array I16 N) × (Array I16 N)) =>
+          TblOk Zb qinv r.1 r.2 ∧ TblAt zetas base h_stride m_stride r.1 (h.val + 1) ⦄ := by
   unfold backend.avx2.ntt.lane_tbl_loop0_loop0
   by_cases hlt : m.val < 16
   · rw [if_pos (by scalar_tac)]
@@ -285,23 +302,70 @@ theorem lane_tbl_loop0_loop0_spec {N : Usize} (zetas : Array I16 256#usize) (qin
     rw [if_neg (by decide), bind_tc_ok]
     have hvz : |value.val| ≤ Zb := by rw [value_post]; exact hzet _ (List.getElem_mem _)
     step*
-    have hidxlt : i7.val < N.val := by omega
-    have hi9lt : i9.val < N.val := by omega
-    all_goals first
-      | omega
-      | (intro w hw
-         rw [a_post, a1_post, Std.Array.set_val_eq, Std.Array.set_val_eq,
-           getElem!_list_set _ _ _ _ (by rw [z.property]; simpa using hidxlt),
-           getElem!_list_set _ _ _ _ (by rw [zq.property]; simpa using hi9lt)]
-         by_cases hwe : w = i7.val
-         · rw [if_pos hwe, if_pos (show w = i9.val by omega), i8_post,
-             core.num.I16.wrapping_mul, IScalar.wrapping_mul_val_eq]
-           exact ⟨hvz, rfl⟩
-         · rw [if_neg hwe, if_neg (show ¬ w = i9.val by omega)]
-           exact hinv w hw)
+    all_goals (
+      have hidxlt : i7.val < N.val := by omega
+      have hi9lt : i9.val < N.val := by omega
+      -- naming the ζ this iteration copies
+      have hivW : i.val = h.val := by rw [i_post]; exact hcast_usize_isize_val h (by omega)
+      have hi3vW : i3.val = m.val := by rw [i3_post]; exact hcast_usize_isize_val m (by omega)
+      have hidxZ : idx.val = base.val + h.val * h_stride.val + m.val * m_stride.val := by
+        rw [idx_post, i2_post, i4_post, i1_post, hivW, hi3vW]
+      have hi5vW : ((i5 : Usize).val : ℤ) = idx.val := by
+        rw [i5_post]
+        refine hcast_isize_usize_val idx ⟨?_, ?_⟩
+        · rw [hidxZ]
+          rcases hhs with hs | hs <;> rcases hms with ms | ms | ms | ms <;>
+            simp only [hs, ms, mul_zero, mul_one] <;> omega
+        · rw [hidxZ]
+          have hI := hidx m.val hlt
+          omega
+      have hidxv : (i5 : Usize).val
+          = (base.val + h.val * h_stride.val + m.val * m_stride.val).toNat := by
+        rw [← hidxZ]; omega
+      have hlt5 : (i5 : Usize).val < zetas.val.length := by
+        have hI := hidx m.val hlt
+        have h256 : zetas.val.length = 256 := by simp
+        rw [h256, hidxv]
+        omega
+      have hvalv : value.val = (zetas.val[(i5 : Usize).val]!).val := by
+        rw [getElem!_pos zetas.val _ hlt5, value_post]
+      have hbnd : ∀ mm : ℕ, mm < 16 → 16 * h.val + mm < N.val := by intro mm hmm; omega
+      have hstore : ∀ w, w < N.val →
+          (a.val[w]!).val = if w = i7.val then value.val else (z.val[w]!).val := by
+        intro w hw
+        rw [a_post, Std.Array.set_val_eq,
+          getElem!_list_set _ _ _ _ (by rw [z.property]; simpa using hidxlt)]
+        split <;> rfl
+      all_goals first
+        | (intro mm hmm
+           rw [hstore (16 * h.val + mm) (hbnd mm (by omega))]
+           by_cases hme : mm = m.val
+           · rw [if_pos (by omega), hme, hvalv, hidxv]
+           · rw [if_neg (by omega)]
+             exact hpre mm (by omega))
+        | (intro h' hh' mm hmm hN'
+           try rw [← a_post]
+           rw [hstore (16 * h' + mm) (by omega), if_neg (by omega)]
+           exact hold h' (by omega) mm hmm (by omega))
+        | omega
+        | (intro w hw
+           try rw [a_post, a1_post]
+           rw [Std.Array.set_val_eq, Std.Array.set_val_eq,
+             getElem!_list_set _ _ _ _ (by rw [z.property]; simpa using hidxlt),
+             getElem!_list_set _ _ _ _ (by rw [zq.property]; simpa using hi9lt)]
+           by_cases hwe : w = i7.val
+           · rw [if_pos hwe, if_pos (show w = i9.val by omega), i8_post,
+               core.num.I16.wrapping_mul, IScalar.wrapping_mul_val_eq]
+             exact ⟨hvz, rfl⟩
+           · rw [if_neg hwe, if_neg (show ¬ w = i9.val by omega)]
+             exact hinv w hw))
   · rw [if_neg (by scalar_tac)]
     simp only [WP.spec_ok]
-    exact hinv
+    refine ⟨hinv, ?_⟩
+    intro h' hh' mm hmm hN'
+    rcases (show h' < h.val ∨ h' = h.val from by omega) with hlt' | rfl
+    · exact hold h' hlt' mm hmm hN'
+    · exact hpre mm (by omega)
 termination_by 16 - m.val
 decreasing_by scalar_decr_tac
 
@@ -315,17 +379,24 @@ theorem lane_tbl_loop0_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I1
     (hN : N.val ≤ 128) (hNdvd : 16 ∣ N.val) (hh : h.val ≤ 8)
     (hidx : ∀ hh mm : ℕ, hh < 8 → mm < 16 →
       base.val + hh * h_stride.val + mm * m_stride.val < 256)
-    (hinv : TblOk Zb qinv z zq) :
+    (hinv : TblOk Zb qinv z zq) (hold : TblAt zetas base h_stride m_stride z h.val) :
     backend.avx2.ntt.lane_tbl_loop0 zetas qinv base h_stride m_stride false z zq h
-      ⦃ (r : (Array I16 N) × (Array I16 N)) => TblOk Zb qinv r.1 r.2 ⦄ := by
+      ⦃ (r : (Array I16 N) × (Array I16 N)) =>
+          TblOk Zb qinv r.1 r.2 ∧ TblAt zetas base h_stride m_stride r.1 8 ⦄ := by
   unfold backend.avx2.ntt.lane_tbl_loop0
   step*
   · apply WP.spec_bind (lane_tbl_loop0_loop0_spec zetas qinv base h_stride m_stride z zq h 0#usize
       Zb hzet hbase hhs hms (by scalar_tac) (by simp)
-      (fun mm hmm => hidx h.val mm (by scalar_tac) hmm) (by scalar_tac) hinv)
+      (fun mm hmm => hidx h.val mm (by scalar_tac) hmm) (by scalar_tac) hinv
+      (by intro mm hmm; simp at hmm) hold)
     rintro ⟨z1, zq1⟩ hz1
-    simp only at hz1
+    obtain ⟨hz1a, hz1b⟩ := hz1
+    simp only at hz1a hz1b
     step*
+  · refine ⟨hinv, fun h' hh' mm hmm hN' => ?_⟩
+    rcases (show h' < h.val ∨ h.val ≤ h' from by omega) with hlt' | hge'
+    · exact hold h' hlt' mm hmm hN'
+    · exact absurd hN' (by scalar_tac)
 termination_by N.val - 16 * h.val
 decreasing_by scalar_decr_tac
 
@@ -339,17 +410,19 @@ theorem lane_tbl_spec (N : Usize) (zetas : Array I16 256#usize) (qinv : I16)
     (hidx : ∀ hh mm : ℕ, hh < 8 → mm < 16 →
       base.val + hh * h_stride.val + mm * m_stride.val < 256) :
     ∃ t, backend.avx2.ntt.lane_tbl N zetas qinv base h_stride m_stride false = ok t ∧
-      TblOk Zb qinv t.z t.zq := by
+      TblOk Zb qinv t.z t.zq ∧ TblAt zetas base h_stride m_stride t.z 8 := by
   apply WP.spec_imp_exists
   unfold backend.avx2.ntt.lane_tbl
   apply WP.spec_bind (lane_tbl_loop0_spec zetas qinv base h_stride m_stride _ _ 0#usize Zb
-    hzet hbase hhs hms hN hNdvd (by simp) hidx ?_)
+    hzet hbase hhs hms hN hNdvd (by simp) hidx ?_ (by intro h' hh' mm hmm hN'; simp at hh'))
   · rintro ⟨z1, zq1⟩ hz1
-    simp only at hz1
+    obtain ⟨hz1a, hz1b⟩ := hz1
+    simp only at hz1a hz1b
     show (ok ({ z := z1, zq := zq1 } : backend.avx2.ntt.Tbl N))
-      ⦃ (t : backend.avx2.ntt.Tbl N) => TblOk Zb qinv t.z t.zq ⦄
+      ⦃ (t : backend.avx2.ntt.Tbl N) =>
+          TblOk Zb qinv t.z t.zq ∧ TblAt zetas base h_stride m_stride t.z 8 ⦄
     simp only [WP.spec_ok]
-    exact hz1
+    exact ⟨hz1a, hz1b⟩
   · intro w hw
     refine ⟨?_, ?_⟩ <;>
       rw [Array.repeat_val, getElem!_pos _ w (by rw [List.length_replicate]; simpa using hw),
@@ -377,12 +450,16 @@ private theorem mont_pair {zv zqv Q : ℤ} {qinv : I16}
 
 /-- **`ld_tbl` hands back a usable ψ pair.** -/
 theorem ld_tbl_psiOk {N : Usize} (t : backend.avx2.ntt.Tbl N) (hh : Usize) (Zb Q : ℤ) (qinv : I16)
-    (hTbl : TblOk Zb qinv t.z t.zq) (hunit : (2 ^ 16 : ℤ) ∣ (qinv.val * Q - 1))
+    (zetas : Array I16 256#usize) (base h_stride m_stride : Isize)
+    (hTbl : TblOk Zb qinv t.z t.zq) (hAt : TblAt zetas base h_stride m_stride t.z 8)
+    (hhh : hh.val < 8) (hunit : (2 ^ 16 : ℤ) ∣ (qinv.val * Q - 1))
     (hlt : 16 * (hh.val + 1) ≤ N.val) :
-    ∃ z zq, backend.avx2.ntt.ld_tbl t hh = ok (z, zq) ∧ PsiOk z zq Q Zb := by
+    ∃ z zq, backend.avx2.ntt.ld_tbl t hh = ok (z, zq) ∧ PsiOk z zq Q Zb ∧
+      ∀ k < 16, (lane16 z k).toInt
+        = (zetas.val[(base.val + hh.val * h_stride.val + k * m_stride.val).toNat]!).val := by
   obtain ⟨v, hv, hvl⟩ := load_i16_spec t.z hh hlt
   obtain ⟨v1, hv1, hv1l⟩ := load_i16_spec t.zq hh hlt
-  refine ⟨v, v1, ?_, ?_, ?_⟩
+  refine ⟨v, v1, ?_, ⟨?_, ?_⟩, ?_⟩
   · unfold backend.avx2.ntt.ld_tbl
     rw [hv, bind_tc_ok, hv1, bind_tc_ok]
   · intro k hk
@@ -392,6 +469,9 @@ theorem ld_tbl_psiOk {N : Usize} (t : backend.avx2.ntt.Tbl N) (hh : Usize) (Zb Q
     rw [show (lane16 v1 k).toInt = (t.zq.val[16 * hh.val + k]!).val from by rw [hv1l k hk]; rfl,
       show (lane16 v k).toInt = (t.z.val[16 * hh.val + k]!).val from by rw [hvl k hk]; rfl]
     exact mont_pair (hTbl (16 * hh.val + k) (by omega)).2 hunit
+  · intro k hk
+    rw [show (lane16 v k).toInt = (t.z.val[16 * hh.val + k]!).val from by rw [hvl k hk]; rfl]
+    exact hAt hh.val hhh k hk (by omega)
 
 /-! ## The four forward tables, for each prime
 
@@ -401,160 +481,184 @@ what `hidx` records. -/
 /-- The `FWD8` table for `q1` is centred and Montgomery-paired. -/
 theorem fwd8_q1_ok : ∀ h : Usize, h.val < 1 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD8_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 7681 3840 := by
+      PsiOk z zq 7681 3840 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q1.val[((16#isize).val + h.val * (0#isize).val
+            + k * (1#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (16#isize).val = 16 := by scalar_tac
   have hhs : (0#isize).val = 0 := by scalar_tac
   have hms : (1#isize).val = 1 := by scalar_tac
   have hNv : ((16#usize) : Usize).val = 16 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 16#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 16#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
     16#isize 0#isize 1#isize 3840 (by norm_num) zetas_q1_centred
     ⟨by omega, by omega⟩ (Or.inl (by scalar_tac)) (Or.inl (by scalar_tac))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD8_Q1 = ok t from by
     unfold backend.avx2.ntt.FWD8_Q1; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV hTbl
+  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q1_val]; exact q1_inv_unit)
     (by omega)
 
 /-- The `FWD4` table for `q1` is centred and Montgomery-paired. -/
 theorem fwd4_q1_ok : ∀ h : Usize, h.val < 2 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD4_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 7681 3840 := by
+      PsiOk z zq 7681 3840 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q1.val[((32#isize).val + h.val * (1#isize).val
+            + k * (2#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (32#isize).val = 32 := by scalar_tac
   have hhs : (1#isize).val = 1 := by scalar_tac
   have hms : (2#isize).val = 2 := by scalar_tac
   have hNv : ((32#usize) : Usize).val = 32 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 32#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 32#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
     32#isize 1#isize 2#isize 3840 (by norm_num) zetas_q1_centred
     ⟨by omega, by omega⟩ (Or.inr (by scalar_tac)) (Or.inr (Or.inl (by scalar_tac)))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD4_Q1 = ok t from by
     unfold backend.avx2.ntt.FWD4_Q1; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV hTbl
+  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q1_val]; exact q1_inv_unit)
     (by omega)
 
 /-- The `FWD2` table for `q1` is centred and Montgomery-paired. -/
 theorem fwd2_q1_ok : ∀ h : Usize, h.val < 4 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD2_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 7681 3840 := by
+      PsiOk z zq 7681 3840 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q1.val[((64#isize).val + h.val * (1#isize).val
+            + k * (4#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (64#isize).val = 64 := by scalar_tac
   have hhs : (1#isize).val = 1 := by scalar_tac
   have hms : (4#isize).val = 4 := by scalar_tac
   have hNv : ((64#usize) : Usize).val = 64 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 64#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 64#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
     64#isize 1#isize 4#isize 3840 (by norm_num) zetas_q1_centred
     ⟨by omega, by omega⟩ (Or.inr (by scalar_tac)) (Or.inr (Or.inr (Or.inl (by scalar_tac))))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD2_Q1 = ok t from by
     unfold backend.avx2.ntt.FWD2_Q1; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV hTbl
+  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q1_val]; exact q1_inv_unit)
     (by omega)
 
 /-- The `FWD1` table for `q1` is centred and Montgomery-paired. -/
 theorem fwd1_q1_ok : ∀ h : Usize, h.val < 8 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD1_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 7681 3840 := by
+      PsiOk z zq 7681 3840 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q1.val[((128#isize).val + h.val * (1#isize).val
+            + k * (8#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (128#isize).val = 128 := by scalar_tac
   have hhs : (1#isize).val = 1 := by scalar_tac
   have hms : (8#isize).val = 8 := by scalar_tac
   have hNv : ((128#usize) : Usize).val = 128 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 128#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 128#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
     128#isize 1#isize 8#isize 3840 (by norm_num) zetas_q1_centred
     ⟨by omega, by omega⟩ (Or.inr (by scalar_tac)) (Or.inr (Or.inr (Or.inr (by scalar_tac))))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD1_Q1 = ok t from by
     unfold backend.avx2.ntt.FWD1_Q1; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV hTbl
+  exact ld_tbl_psiOk t h 3840 7681 backend.crt.Q1_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q1_val]; exact q1_inv_unit)
     (by omega)
 
 /-- The `FWD8` table for `q2` is centred and Montgomery-paired. -/
 theorem fwd8_q2_ok : ∀ h : Usize, h.val < 1 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD8_Q2; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 10753 5376 := by
+      PsiOk z zq 10753 5376 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q2.val[((16#isize).val + h.val * (0#isize).val
+            + k * (1#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (16#isize).val = 16 := by scalar_tac
   have hhs : (0#isize).val = 0 := by scalar_tac
   have hms : (1#isize).val = 1 := by scalar_tac
   have hNv : ((16#usize) : Usize).val = 16 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 16#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 16#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
     16#isize 0#isize 1#isize 5376 (by norm_num) zetas_q2_centred
     ⟨by omega, by omega⟩ (Or.inl (by scalar_tac)) (Or.inl (by scalar_tac))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD8_Q2 = ok t from by
     unfold backend.avx2.ntt.FWD8_Q2; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV hTbl
+  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q2_val]; exact q2_inv_unit)
     (by omega)
 
 /-- The `FWD4` table for `q2` is centred and Montgomery-paired. -/
 theorem fwd4_q2_ok : ∀ h : Usize, h.val < 2 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD4_Q2; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 10753 5376 := by
+      PsiOk z zq 10753 5376 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q2.val[((32#isize).val + h.val * (1#isize).val
+            + k * (2#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (32#isize).val = 32 := by scalar_tac
   have hhs : (1#isize).val = 1 := by scalar_tac
   have hms : (2#isize).val = 2 := by scalar_tac
   have hNv : ((32#usize) : Usize).val = 32 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 32#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 32#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
     32#isize 1#isize 2#isize 5376 (by norm_num) zetas_q2_centred
     ⟨by omega, by omega⟩ (Or.inr (by scalar_tac)) (Or.inr (Or.inl (by scalar_tac)))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD4_Q2 = ok t from by
     unfold backend.avx2.ntt.FWD4_Q2; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV hTbl
+  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q2_val]; exact q2_inv_unit)
     (by omega)
 
 /-- The `FWD2` table for `q2` is centred and Montgomery-paired. -/
 theorem fwd2_q2_ok : ∀ h : Usize, h.val < 4 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD2_Q2; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 10753 5376 := by
+      PsiOk z zq 10753 5376 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q2.val[((64#isize).val + h.val * (1#isize).val
+            + k * (4#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (64#isize).val = 64 := by scalar_tac
   have hhs : (1#isize).val = 1 := by scalar_tac
   have hms : (4#isize).val = 4 := by scalar_tac
   have hNv : ((64#usize) : Usize).val = 64 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 64#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 64#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
     64#isize 1#isize 4#isize 5376 (by norm_num) zetas_q2_centred
     ⟨by omega, by omega⟩ (Or.inr (by scalar_tac)) (Or.inr (Or.inr (Or.inl (by scalar_tac))))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD2_Q2 = ok t from by
     unfold backend.avx2.ntt.FWD2_Q2; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV hTbl
+  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q2_val]; exact q2_inv_unit)
     (by omega)
 
 /-- The `FWD1` table for `q2` is centred and Montgomery-paired. -/
 theorem fwd1_q2_ok : ∀ h : Usize, h.val < 8 → ∃ z zq,
     (do let t ← backend.avx2.ntt.FWD1_Q2; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
-      PsiOk z zq 10753 5376 := by
+      PsiOk z zq 10753 5376 ∧
+      (∀ k < 16, (lane16 z k).toInt
+        = (backend.crt.ZETAS_Q2.val[((128#isize).val + h.val * (1#isize).val
+            + k * (8#isize).val).toNat]!).val) := by
   intro h hh
   have hb : (128#isize).val = 128 := by scalar_tac
   have hhs : (1#isize).val = 1 := by scalar_tac
   have hms : (8#isize).val = 8 := by scalar_tac
   have hNv : ((128#usize) : Usize).val = 128 := by scalar_tac
-  obtain ⟨t, ht, hTbl⟩ := lane_tbl_spec 128#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+  obtain ⟨t, ht, hTbl, hAt⟩ := lane_tbl_spec 128#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
     128#isize 1#isize 8#isize 5376 (by norm_num) zetas_q2_centred
     ⟨by omega, by omega⟩ (Or.inr (by scalar_tac)) (Or.inr (Or.inr (Or.inr (by scalar_tac))))
     (by scalar_tac) (by omega)
     (by intro hh' mm h1 h2; rw [hb, hhs, hms]; omega)
   rw [show backend.avx2.ntt.FWD1_Q2 = ok t from by
     unfold backend.avx2.ntt.FWD1_Q2; exact ht, bind_tc_ok]
-  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV hTbl
+  exact ld_tbl_psiOk t h 5376 10753 backend.crt.Q2_INV _ _ _ _ hTbl hAt (by omega)
     (by rw [← q2_val]; exact q2_inv_unit)
     (by omega)
 
@@ -566,14 +670,26 @@ With the table hypotheses discharged, phase F3's conclusion stands on its own: t
 /-- **`ntt_block` for `q₁` keeps the block centred** — no hypotheses about the ψ tables. -/
 theorem ntt_block_centred_q1 (b : Array I16 256#usize) (hb : BlockBnd b 3840) :
     backend.avx2.ntt.ntt_block false b ⦃ (r : Array I16 256#usize) => BlockBnd r 3840 ⦄ :=
-  ntt_block_bnd_q1 b zeta_table_ok_q1 (fwd8_q1_ok 0#usize (by simp))
-    fwd4_q1_ok fwd2_q1_ok fwd1_q1_ok hb
+  ntt_block_bnd_q1 b
+    (fun kk hkk => by
+      obtain ⟨zi, zqi, h1, h2, h3, h4, -⟩ := zeta_table_ok_q1 kk hkk
+      exact ⟨zi, zqi, h1, h2, h3, h4⟩)
+    (by obtain ⟨z, zq, h1, h2, -⟩ := fwd8_q1_ok 0#usize (by simp); exact ⟨z, zq, h1, h2⟩)
+    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd4_q1_ok h hh; exact ⟨z, zq, h1, h2⟩)
+    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd2_q1_ok h hh; exact ⟨z, zq, h1, h2⟩)
+    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd1_q1_ok h hh; exact ⟨z, zq, h1, h2⟩) hb
 
 /-- **`ntt_block` for `q₂` keeps the block centred** — the binding prime, worst lane 31671 of
 32767 along the way. -/
 theorem ntt_block_centred_q2 (b : Array I16 256#usize) (hb : BlockBnd b 5376) :
     backend.avx2.ntt.ntt_block true b ⦃ (r : Array I16 256#usize) => BlockBnd r 5376 ⦄ :=
-  ntt_block_bnd_q2 b zeta_table_ok_q2 (fwd8_q2_ok 0#usize (by simp))
-    fwd4_q2_ok fwd2_q2_ok fwd1_q2_ok hb
+  ntt_block_bnd_q2 b
+    (fun kk hkk => by
+      obtain ⟨zi, zqi, h1, h2, h3, h4, -⟩ := zeta_table_ok_q2 kk hkk
+      exact ⟨zi, zqi, h1, h2, h3, h4⟩)
+    (by obtain ⟨z, zq, h1, h2, -⟩ := fwd8_q2_ok 0#usize (by simp); exact ⟨z, zq, h1, h2⟩)
+    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd4_q2_ok h hh; exact ⟨z, zq, h1, h2⟩)
+    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd2_q2_ok h hh; exact ⟨z, zq, h1, h2⟩)
+    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd1_q2_ok h hh; exact ⟨z, zq, h1, h2⟩) hb
 
 end Kopis.Avx2

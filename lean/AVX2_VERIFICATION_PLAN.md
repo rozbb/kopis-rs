@@ -662,7 +662,106 @@ class has one member in the centred range), `exactness_bound_fits`. Together: a 
 between the endpoints only has to *preserve the two residues* — which is the shape the rest of F4
 should take, and is much weaker than reproducing the portable intermediates.
 
-*What F4 still needs* is the bulk: that `split_and_transform`, `ntt_block`, `reduce_block` and
-`invntt_block` do preserve the residues, i.e. that the vectorised transform is an NTT mod each
-prime. That is functional correctness of the whole vector transform, with `transpose16` (done)
-explaining the reindexing, and it is the largest single piece left in the plan.
+*F4's algebra is complete; what is left is the code.* `Kopis/Avx2/NttAlgebra.lean` is
+`NttMath.lean`'s Cooley-Tukey / Gentleman-Sande development with the modulus abstracted away: a
+commutative ring, a twiddle table, and one hypothesis, `ζ k ² = cst ζ k`. From that alone come
+`State_ct` (one CT layer refines the CRT invariant), `State_gs` (one GS layer merges it back, up
+to the factor 2 the layer leaves behind), `cst_leaf_pow`, `Ev_nconv`, and `State_leaf_mul` — the
+statement that once the leaf state is reached, multiplying lanewise multiplies the polynomials.
+
+`Kopis/Avx2/NttZeta.lean` discharges the hypotheses for both AVX2 tables. The entries are in
+Montgomery form, so on the raw arrays the checks are `ZETAS[2j]² ≡ ZETAS[j]·R`,
+`ZETAS[2j+1]² ≡ −ZETAS[j]·R`, `ZETAS[1]² ≡ −R²` and `Z_a·Z_b ≡ −R²` for the GS pairing, with
+`R = 2¹⁶ mod q`: three `decide`s per prime over the literal arrays, everything else algebra that
+holds for any table passing them. The results are `State_ct_q1/q2`, `State_gs_q1/q2`,
+`State_leaf_mul_q1/q2`.
+
+`Kopis/Avx2/NttValue.lean` supplies the other half of the bridge: `ct_butterfly_val` says the
+AVX2 butterfly computes `(lo + ψ·hi, lo − ψ·hi)` mod `q` with `ψ` the *plain* twiddle — the
+stored entry times `2⁻¹⁶`, since `mont_mul` divides by the radix — which is exactly the shape
+`State_ct` asks for. Its hypotheses are `ct_butterfly_bnd`'s, and for the same reason: they make
+the wrapping `vpaddw`/`vpsubw` exact, so the integer identity survives the cast into `ZMod q`.
+
+`Kopis/Avx2/NttWalk.lean` sets up the coordinates the walk needs: `posZ` (by array position,
+which is the coefficient index before the transpose), `tposZ` (by coefficient index afterwards),
+and `transpose16_tpos` connecting them. That is what makes the vertical levels readable as
+ordinary Cooley-Tukey layers — array position `16j + m` is coefficient `16m + j`, so butterflying
+vectors `(j, j+8)` at every lane is exactly pairing offsets `j` and `j+8` inside each of the
+sixteen blocks, and the ψ the code takes from lane `m` of `FWD8` is `ζ(16+m)`, the twiddle block
+`m` wants.
+
+## F4's code walk: what landed this session
+
+1. **`lane_tbl`'s value payload** — done. `TblAt` rides along on the existing walk, and
+   `ld_tbl_psiOk` now hands back the ζ *index* each lane holds.
+2. **The four vertical levels** — done. `ntt_block_loop1/2/3/4_walk` (plus the two inner group
+   walks) each carry bounds *and* values: after them the coefficient view is exactly one
+   Cooley-Tukey layer applied to the input view, with the ψ index matching `State_ct`.
+3. **The horizontal group walk and its inner loop** — done,
+   `ntt_block_loop0_loop0_loop0_walk` and `ntt_block_loop0_loop0_walk`. Carrying the layer's ζ
+   index as `k + 1 = nb + start/(2·half)` put a division by the *variable* `half` in front of
+   `omega`; carrying the group index `b` explicitly instead (`start = b·(2·half)`) removes
+   division from the horizontal half entirely and makes the recursion `b ↦ b+1`, `k ↦ k+1`
+   linear. Do the same anywhere else a group index is needed.
+4. **`barrett_block_val`** — done. The re-centring passes change representatives, not classes, so
+   the growth schedule's two Barrett passes sit inside the transform without disturbing its
+   invariant.
+
+One genuine bug was found and fixed along the way: the innermost horizontal walk's invariant
+claimed the value at positions in *earlier* groups was still `a0`, when those have already been
+transformed. Its predicate now includes `c / 16 < start`. Check the analogous clause whenever a
+walk's "already processed" set spans more than the current group.
+
+Three traps, all of which cost real time and all of which recur:
+
+* **`have` with several goals open lands only in the first.** Facts a branch needs must be
+  established *inside* `all_goals`, or hoisted before the tactic that splits. This is what made
+  an earlier separate `lane_tbl` walk fail to match, repeatedly and confusingly.
+* **`step*` closes recursive calls with the theorem's own induction hypothesis**, and then leaves
+  its premises as goals — including metavariables for arguments that appear only in premises
+  (`a0`, `nb`, `kk`). When those matter, take the loop's increment step manually
+  (`Std.Usize.add_spec` + `WP.spec_imp_exists`) so the IH can be applied explicitly.
+* **`scalar_tac` blows `maxRecDepth`** on goals carrying a big `do` block; `omega` fails fast
+  instead, so prefer `omega` plus the one or two `Usize` facts it needs, hoisted as `have`s.
+
+## The forward direction is done
+
+`ntt_block_State_q2`: after `ntt_block`, the block holds the evaluation of its input at the 256
+leaf constants of `q₂`'s CRT tree — the shape `State_leaf_mul_q2` consumes. Nothing is assumed;
+the ψ tables' properties are `decide`d over the literal arrays.
+
+The chain is four horizontal layers (`ntt_block_loop0_walk_q2`, unrolled over `half = 8, 4, 2, 1`),
+a transpose into coefficient coordinates, four vertical layers, a transpose back, with both
+`barrett_block` passes transparent to the value view (`barrett_block_val`); then eight
+applications of `State_ct` from `State_root_intro` (`fwdAll_State`).
+
+The inverse side's atom is done too: `gs_butterfly_bnd` / `gs_butterfly_val` — the GS butterfly is
+`(lo, hi) ↦ (lo + hi, ψ·(lo − hi))`, and the inverse tables carry `State_gs`'s negation already,
+so no sign is inserted by hand. `gsLvl` / `gsLvl_hbut` mirror `ctLvl` / `ctLvl_hbut`.
+
+## What F4 still needs, and what it costs
+
+Everything left is the code walk, and it is *volume*, not difficulty. Measured against this
+session's rate — one loop walk is 100–150 lines and five to fifteen compile-fix cycles — the
+inventory is:
+
+1. **`invntt_block`'s loop walks** (~6 + assembly). Structurally the mirror of the forward ones,
+   and the templates transfer: `gsLvl` plays `ctLvl`'s part and `gs_butterfly_bnd/val` plays the
+   butterfly's. The growth schedule differs — the GS sum path doubles, so the usable bound is
+   1.52q and the Barrett passes sit after levels 2, 4 and 6 — so the bound arithmetic has to be
+   re-derived, but `State_gs`'s hypotheses are already discharged at both primes.
+2. **The final Montgomery scaling** by `INVNTT_SCALE`, then `reduce_invntt`'s Montgomery pass over
+   the `i64` accumulator and the Garner combine, at which point `crt_endpoint` closes it. Compose through `transpose16_tpos` and the two `barrett_block`
+   passes to `State ζ 256 1 c f a`, at both primes. The Barrett passes change representatives but
+   not residues, so they need a `barrett_block` *value* spec too — cheap, from `barrett_lane_spec`'s
+   congruence conjunct.
+4. **Inverse** (~6 walks + assembly). `invntt_block`'s loops against `State_gs`, plus the final
+   Montgomery scaling by `INVNTT_SCALE`.
+5. **Endpoints** (~2). `reduce_invntt`'s Montgomery pass over the `i64` accumulator, and the
+   Garner combine, at which point `crt_endpoint` closes it. `pointwise_mul_acc` is already done
+   (`pointwise_mul_acc_lane_spec`), and `State_leaf_mul_q1/q2` is what turns it into a product.
+
+That is roughly 3000 lines and, at this session's observed rate, tens of hours. There is no
+mathematical obstacle left in it — every lemma it needs is stated and proved — but it is not a
+session's work, and it should be attacked one walk at a time with the tree kept green between
+them.
