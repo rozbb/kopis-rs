@@ -881,11 +881,121 @@ Everything the combine needs is now proved, piece by piece:
 | pack back down | `SerLane.pack_permute_u16` |
 | the reconstruction is the coefficient | `Crt.garner_value` |
 
-**What remains in 3 is assembly, not mathematics**: `reduce_invntt_loop` is about thirty
-intrinsic steps that thread those together, and then `reduce_invntt` composes the two
-`reduce_block` calls with it.  The 32-bit lane arithmetic it runs on never wraps — `a₁ + q₁·t <
-q₁q₂ < 2³¹` — which is why `combine_lane` needs no bound hypotheses beyond the two residues being
-canonical.
+**Item 3 is now complete.**  `Reduce.reduce_invntt_walk` closes the whole inverse path: `i64`
+accumulator → Montgomery reduction → inverse transform → CRT reconstruction → coefficients, with
+the output the wrapping `u16` the caller wants.  The 32-bit lane arithmetic never wraps —
+`a₁ + q₁·t < q₁q₂ < 2³¹` — which is why `combine_lane` needs no bound hypotheses beyond the two
+residues being canonical.
+
+## Item 4: the shape of it
+
+Two findings that took real digging and that the next session should not have to repeat.
+
+### The `NttElem` layout
+
+`backend.avx2.ntt.from_ring_elem` runs `split_and_transform` twice and writes the results into one
+256-`i32` array through `store_i16_of_i32`, at vector indices `0..16` then `16..32`.  Read as 512
+`i16` (`NttMulLane.i16View`), that means:
+
+* positions `0 … 255` hold the **q₁** residues, coefficient by coefficient;
+* positions `256 … 511` hold the **q₂** residues.
+
+`pointwise_mul_acc` multiplies `i16` lane `t` of each operand into `i32` lane `t` of the
+accumulator (`NttMulLane.pointwise_mul_acc_lane_spec`), so the accumulator inherits the same
+split — which is exactly why `reduce_invntt` calls `reduce_block false acc 0` and
+`reduce_block true acc 32` (`8 · 32 = 256`).  That is the whole two-residue representation, and it
+lines up end to end.
+
+### The dispatch is hoistable, but the bodies are not equal
+
+`available_ok` is `∃ b, cpu.available = ok b` — it fixes *one* boolean for every call site, but
+says nothing about which.  So both branches must be proved, and the established pattern
+(`CbdDispatch.lean`) is `obtain ⟨b, hb⟩ := available_ok; rw [hb, bind_tc_ok]; cases b`.
+
+For CBD the AVX2 branch was then collapsed onto the portable one by proving the two bodies
+*equal* (`avx2_cbd_eq`).  **That trick does not transfer here.**  `from_uniform` already produces a
+different array on the two branches — two 16-bit residues versus one residue mod `p` — so no
+intermediate equality holds anywhere along the chain.  The branches only reconverge at
+`toRingElem`.
+
+### What that implies for the twin
+
+The dispatch has to be hoisted to whichever theorem spans *both* the accumulate loop and
+`reduce_invntt_to_ring_elem` — that is `ntt_mul_inner_spec`, not `pointwise_mul_acc_spec`.  Below
+that point:
+
+* the **serial branch** costs nothing: once the `if` reduces, the existing generated proof applies
+  verbatim;
+* the **AVX2 branch** needs `from_ring_elem`'s walk (two `split_and_transform` calls, each
+  `barrett` then `ntt_block`, both already proved as `ntt_block_centred_q{1,2}` and
+  `ntt_block_State_q{1,2}`), the pointwise product, and `Reduce.reduce_invntt_walk`, tied together
+  through an AVX2 `ElemOK` that carries a `State` at each prime instead of one mod `p`.
+
+`pointwise_mul_acc_spec` and `ntt_entry_spec` as currently stated should be *deleted* from the
+AVX2 twin rather than patched: they name the intermediate representation, and that is the one
+thing the two branches do not share.
+
+### Progress on 4
+
+**Both directions of the AVX2 NTT are now proved**, in `Kopis/Avx2/Reduce.lean`:
+
+* `from_ring_elem_walk` — the forward direction end to end. Barrett-reduce the `u16` coefficients,
+  `ntt_block` at each prime, written into the packed layout, with a `State` per prime. This is the
+  AVX2 counterpart of the serial `from_uniform_elem_spec` and the shape an AVX2 `ElemOK` needs.
+  It rests on `split_and_transform_q{1,2}` and `NttWalk.ntt_block_State_q{1,2}` (the `q₁`
+  instantiation of the forward transform was missing and is now there too).
+* `reduce_invntt_walk` — the inverse direction end to end (item 3).
+
+**The AVX2 NTT correctness core is now complete.**  Three theorems in `Kopis/Avx2/Reduce.lean`
+span the whole chain:
+
+* `from_ring_elem_NttOK` — the forward direction, packaged as `NttOK g ne`: both lane bounds and a
+  `State` per prime.
+* `pointwise_acc_int` — the multiply-accumulate as an integer identity (the `BitVec` version wraps;
+  with the operands and running accumulator inside `2³¹` it never fires).
+* `ntt_entry_avx` — the composite. `N` transformed pairs, their products accumulated, the inverse
+  path, out come the coefficients of the convolution as wrapping `u16`.
+
+The three Montgomery constants cancel exactly, which is `cancel_q1`/`cancel_q2`: `invntt_block`
+carries `256·σ = R` out and the reduction's `R⁻¹` undoes it, so what remains is the convolution
+itself.  That cancellation is the sharpest check that the whole chain lines up, and it holds at
+both primes.
+
+**What is left in 4 is wiring, not mathematics.**  Step 1 below is done; 2–4 are not.
+
+1. ~~Connect `NttOK` to `NttElem.from_uniform` / `from_secret`.~~ **Done** —
+   `from_uniform_NttOK` and `from_secret_NttOK`, both stated under `cpu.available = ok true`.
+   The `REDUCE = false` path `from_secret` needs is `split_and_transform_walk_nored`: the input is
+   already small, so the loop is a plain copy and the caller supplies the bound.
+2. ~~The accumulate loop on the AVX2 branch.~~ **Done** — `mul_inner_avx`, `NttMatrix.mul`'s
+   innermost loop with `pointwise_mul_acc` taking its AVX2 body, carrying the `i32View` sum and
+   the running `n·B²` bound.
+3. ~~Relate the AVX2 chain's conclusion to the serial one.~~ **Done** —
+   `reduce_invntt_to_ring_elem_avx` proves *exactly the statement*
+   `reduce_invntt_to_ring_elem_spec` proves.  That is the important structural fact: the
+   postcondition (`(r[n]).val ≡ H n mod 2¹⁶`) is about the coefficients of the answer, not about
+   how the accumulator stored them, so the two branches reconverge there and the twin's dispatch
+   becomes dischargeable.
+
+**What is genuinely left**, and it is now a small, well-defined edit rather than new proof work:
+
+* An AVX2 `ntt_entry_spec`: same conclusion as the serial one
+  (`toRingElem r = Σ toRingElem u * toRingElem v`), with `NttOK` in place of `ElemOK` and the
+  `i32View` accumulation in place of `hacc`.  Its proof is `reduce_invntt_to_ring_elem_avx`
+  followed by the *unchanged* tail of the serial `ntt_entry_spec` (everything from
+  `intro r hr` onward), because that tail only uses the shared postcondition.  Take
+  `H := convZ u v N`; the bound `|convZ| ≤ 25165056` is what the relaxed `garner_value` now
+  accepts.
+* Hoist the dispatch in the twin's `ntt_mul_mid_spec` — the one theorem spanning both the
+  accumulate loop and `reduce_invntt_to_ring_elem`.  `obtain ⟨b, hb⟩ := available_ok; cases b`;
+  serial branch takes the generated proof verbatim, AVX2 branch takes `mul_inner_avx` then the
+  AVX2 `ntt_entry_spec`.  This is a `PATCHES` entry in `scripts/gen_avx2_twins.py`, not a new
+  proof.
+* Then the other twelve twins follow: they consume only `ntt_mul_spec` /
+  `ntt_mul_transpose_spec`, whose statements do not change.
+
+Then item 5: the second `backends` row in `TrustBase.lean`.
+
 
 Then `reduce_invntt` assembles the two `reduce_block` calls with the combine, and item 4 (the AVX2
 `NttMul`/`NttBridge`) and item 5 (the `TrustBase` row) follow.

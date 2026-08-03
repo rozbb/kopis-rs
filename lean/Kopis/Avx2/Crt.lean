@@ -125,7 +125,7 @@ theorem garner_value {x r1 r2 a1 a2 t : ℤ}
     (ha1 : a1 ≡ r1 [ZMOD q1]) (ha1r : 0 ≤ a1 ∧ a1 < q1)
     (ha2 : a2 ≡ r2 [ZMOD q2]) (ha2r : 0 ≤ a2 ∧ a2 < q2)
     (ht : q1 * t ≡ a2 - a1 [ZMOD q2]) (htr : 0 ≤ t ∧ t < q2)
-    (hxb : |x| ≤ 25162752) :
+    (hxb : 2 * |x| < 82593793) :
     (if 41296896 < a1 + q1 * t then a1 + q1 * t - 82593793 else a1 + q1 * t) = x := by
   have hqq : q1 * q2 = 82593793 := by norm_num [q1, q2]
   -- `a₁ + q₁·t` lies in `[0, q₁q₂)`, so the conditional subtraction centres it
@@ -144,8 +144,8 @@ theorem garner_value {x r1 r2 a1 a2 t : ℤ}
     split
     · rw [abs_of_nonpos (by omega)]; omega
     · rw [abs_of_nonneg (by omega)]; omega
-  refine crt_endpoint (a1 := a1) (a2 := a2) (t := t) (h1.trans ha1.symm) (h2.trans ha2.symm) ht
-    ?_ (by omega) hyb
+  refine crt_unique (Int.ModEq.trans ?_ (garner_congr (h1.trans ha1.symm) (h2.trans ha2.symm) ht))
+    hyb (by rw [hqq]; exact hxb)
   -- `y` differs from `a₁ + q₁·t` by a multiple of `q₁q₂`
   rw [hy, hqq, Int.modEq_iff_dvd]
   split

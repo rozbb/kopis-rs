@@ -1610,4 +1610,291 @@ theorem ntt_block_State_q2 (b : Array I16 256#usize) (f : ℕ → ZMod 10753)
   apply WP.spec_mono (ntt_block_leaf_q2 b f hb hv)
   exact fun r hr => ⟨hr.1, hr.2, fwdAll_State zeta2 zeta2_sq f⟩
 
+theorem ntt_block_loop0_walk_q1 (b : Array I16 256#usize) (qv bm round : Vec256)
+    (Rinv : ZMod 7681) (ψ : ℕ → ZMod 7681) (f : ℕ → ZMod 7681)
+    (hR : ((2 ^ 16 : ℤ) : ZMod 7681) * Rinv = 1)
+    (hQ : ∀ i < 16, (lane16 qv i).toInt = 7681)
+    (hM : ∀ i < 16, (lane16 bm i).toInt = 17474)
+    (hRnd : ∀ i < 16, (lane16 round i).toInt = 2 ^ 10)
+    (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
+      backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+      |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
+      (((zi.val : ℤ) : ZMod 7681)) * Rinv = ψ kk.val)
+    (hb : BlockBnd b 3840) (hv : ∀ c < 256, posZ 7681 b c = f c) :
+    backend.avx2.ntt.ntt_block_loop0 false b qv bm round 0#usize 8#usize 0#usize
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 7906 ∧ ∀ c < 256, posZ 7681 r c = fwdH 7681 ψ f c ⦄ := by
+  obtain ⟨s1, s2, s3, s4, -, -⟩ := growth_q1
+  have hq0 : (0 : ℤ) < ((7681 : ℕ) : ℤ) := by norm_num
+  have hqlt : ((7681 : ℕ) : ℤ) ≤ 2 ^ 15 := by norm_num
+  have hQ' : ∀ i < 16, (lane16 qv i).toInt = ((7681 : ℕ) : ℤ) := by
+    intro i hi; rw [hQ i hi]; norm_num
+  have hbar : ∀ (bb : Array I16 256#usize),
+      backend.avx2.ntt.barrett_block bb bm round qv
+        ⦃ (r : Array I16 256#usize) =>
+            BlockBnd r 3840 ∧ ∀ c < 256, posZ 7681 r c = posZ 7681 bb c ⦄ := by
+    intro bb
+    exact spec_and
+      (WP.spec_mono (barrett_block_bnd bb bm round qv 7681 17474 hQ hM hRnd (by norm_num)
+        (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num))
+        (fun r hr => hr.mono (by norm_num)))
+      (barrett_block_val bb bm round qv 7681 17474 hQ' hM hRnd hq0 (by norm_num) (by decide)
+        (by norm_num) (by norm_num) (by norm_num))
+  -- level 0, `half = 8`
+  unfold backend.avx2.ntt.ntt_block_loop0
+  rw [if_pos (by scalar_tac)]
+  apply WP.spec_bind (ntt_block_loop0_loop0_walk false b qv 0#usize 8#usize 0#usize 7681 3840
+    3840 4066 Rinv ψ f 1 0 1 hq0 hqlt hR hQ' (by norm_num) s1.1 s1.2.1 s1.2.2 hzeta
+    (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+    (initSplit (by simp) hb) (by intro c hc; rw [hv c hc, if_neg (by simp)]))
+  rintro ⟨b1, k1⟩ ⟨hb1, hv1, hk1⟩
+  simp only at hb1 hv1 hk1
+  show (do let b2 ← (if (0#usize) = 2#usize then backend.avx2.ntt.barrett_block b1 bm round qv
+             else ok b1)
+           let half1 ← 8#usize / 2#usize
+           let level1 ← 0#usize + 1#usize
+           backend.avx2.ntt.ntt_block_loop0 false b2 qv bm round k1 half1 level1)
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 7906 ∧ ∀ c < 256, posZ 7681 r c = fwdH 7681 ψ f c ⦄
+  rw [if_neg (by decide), bind_tc_ok,
+    show (8#usize / 2#usize : Result Usize) = ok 4#usize from rfl, bind_tc_ok,
+    show (0#usize + 1#usize : Result Usize) = ok 1#usize from usize_add_lit (by scalar_tac) (by rfl),
+    bind_tc_ok]
+  have e8 : (16 : ℕ) * (8#usize).val = 128 := by scalar_tac
+  have e4 : (16 : ℕ) * (4#usize).val = 64 := by scalar_tac
+  have e2 : (16 : ℕ) * (2#usize).val = 32 := by scalar_tac
+  have e1 : (16 : ℕ) * (1#usize).val = 16 := by scalar_tac
+  rw [e8] at hv1
+  -- level 1, `half = 4`
+  unfold backend.avx2.ntt.ntt_block_loop0
+  rw [if_pos (by scalar_tac)]
+  apply WP.spec_bind (ntt_block_loop0_loop0_walk false b1 qv k1 4#usize 0#usize 7681 3840
+    7906 4304 Rinv ψ (ctLvl 7681 ψ 1 128 f) 2 0 2 hq0 hqlt hR hQ' (by norm_num) s2.1 s2.2.1
+    s2.2.2 hzeta (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by omega) (by omega)
+    (initSplit (by simp) hb1) (by intro c hc; rw [hv1 c hc, if_neg (by simp)]))
+  rintro ⟨b2, k2⟩ ⟨hb2, hv2, hk2⟩
+  simp only at hb2 hv2 hk2
+  rw [e4] at hv2
+  show (do let b3 ← (if (1#usize) = 2#usize then backend.avx2.ntt.barrett_block b2 bm round qv
+             else ok b2)
+           let half1 ← 4#usize / 2#usize
+           let level1 ← 1#usize + 1#usize
+           backend.avx2.ntt.ntt_block_loop0 false b3 qv bm round k2 half1 level1)
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 7906 ∧ ∀ c < 256, posZ 7681 r c = fwdH 7681 ψ f c ⦄
+  rw [if_neg (by decide), bind_tc_ok,
+    show (4#usize / 2#usize : Result Usize) = ok 2#usize from rfl, bind_tc_ok,
+    show (1#usize + 1#usize : Result Usize) = ok 2#usize from usize_add_lit (by scalar_tac) (by rfl),
+    bind_tc_ok]
+  -- level 2, `half = 2`, then the re-centring pass
+  unfold backend.avx2.ntt.ntt_block_loop0
+  rw [if_pos (by scalar_tac)]
+  apply WP.spec_bind (ntt_block_loop0_loop0_walk false b2 qv k2 2#usize 0#usize 7681 3840
+    12210 4556 Rinv ψ (ctLvl 7681 ψ 2 64 (ctLvl 7681 ψ 1 128 f)) 4 0 4 hq0 hqlt hR hQ'
+    (by norm_num) s3.1 s3.2.1 s3.2.2 hzeta (by norm_num) (by norm_num) (by norm_num)
+    (by norm_num) (by omega) (by omega)
+    (initSplit (by simp) hb2) (by intro c hc; rw [hv2 c hc, if_neg (by simp)]))
+  rintro ⟨b3, k3⟩ ⟨hb3, hv3, hk3⟩
+  simp only at hb3 hv3 hk3
+  rw [e2] at hv3
+  show (do let b4 ← (if (2#usize) = 2#usize then backend.avx2.ntt.barrett_block b3 bm round qv
+             else ok b3)
+           let half1 ← 2#usize / 2#usize
+           let level1 ← 2#usize + 1#usize
+           backend.avx2.ntt.ntt_block_loop0 false b4 qv bm round k3 half1 level1)
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 7906 ∧ ∀ c < 256, posZ 7681 r c = fwdH 7681 ψ f c ⦄
+  rw [if_pos rfl]
+  apply WP.spec_bind (hbar b3)
+  rintro b4 ⟨hb4, hv4⟩
+  rw [show (2#usize / 2#usize : Result Usize) = ok 1#usize from rfl, bind_tc_ok,
+    show (2#usize + 1#usize : Result Usize) = ok 3#usize from usize_add_lit (by scalar_tac) (by rfl),
+    bind_tc_ok]
+  -- level 3, `half = 1`, from a centred block again
+  unfold backend.avx2.ntt.ntt_block_loop0
+  rw [if_pos (by scalar_tac)]
+  apply WP.spec_bind (ntt_block_loop0_loop0_walk false b4 qv k3 1#usize 0#usize 7681 3840
+    3840 4066 Rinv ψ (ctLvl 7681 ψ 4 32 (ctLvl 7681 ψ 2 64 (ctLvl 7681 ψ 1 128 f))) 8 0 8
+    hq0 hqlt hR hQ' (by norm_num) s1.1 s1.2.1 s1.2.2 hzeta (by norm_num) (by norm_num)
+    (by norm_num) (by norm_num) (by omega) (by omega)
+    (initSplit (by simp) hb4)
+    (by intro c hc; rw [hv4 c hc, hv3 c hc, if_neg (by simp)]))
+  rintro ⟨b5, k5⟩ ⟨hb5, hv5, hk5⟩
+  simp only at hb5 hv5 hk5
+  rw [e1] at hv5
+  show (do let b6 ← (if (3#usize) = 2#usize then backend.avx2.ntt.barrett_block b5 bm round qv
+             else ok b5)
+           let half1 ← 1#usize / 2#usize
+           let level1 ← 3#usize + 1#usize
+           backend.avx2.ntt.ntt_block_loop0 false b6 qv bm round k5 half1 level1)
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 7906 ∧ ∀ c < 256, posZ 7681 r c = fwdH 7681 ψ f c ⦄
+  rw [if_neg (by decide), bind_tc_ok,
+    show (1#usize / 2#usize : Result Usize) = ok 0#usize from rfl, bind_tc_ok,
+    show (3#usize + 1#usize : Result Usize) = ok 4#usize from usize_add_lit (by scalar_tac) (by rfl),
+    bind_tc_ok]
+  -- `half = 0`: the loop is done
+  unfold backend.avx2.ntt.ntt_block_loop0
+  rw [if_neg (by scalar_tac)]
+  simp only [WP.spec_ok]
+  exact ⟨hb5, fun c hc => by rw [hv5 c hc, fwdH]⟩
+
+
+theorem ntt_block_walk_q1 (b : Array I16 256#usize) (Rinv : ZMod 7681)
+    (ψ f : ℕ → ZMod 7681)
+    (hR : ((2 ^ 16 : ℤ) : ZMod 7681) * Rinv = 1)
+    (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
+      backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+      |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
+      (((zi.val : ℤ) : ZMod 7681)) * Rinv = ψ kk.val)
+    (htbl8 : ∃ z zq,
+      (do let t ← backend.avx2.ntt.FWD8_Q1; backend.avx2.ntt.ld_tbl t 0#usize) = ok (z, zq) ∧
+        PsiOk z zq 7681 3840 ∧ ∀ k < 16, laneZ 7681 z k * Rinv = ψ (16 + k))
+    (htbl4 : ∀ h : Usize, h.val < 2 → ∃ z zq,
+      (do let t ← backend.avx2.ntt.FWD4_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
+        PsiOk z zq 7681 3840 ∧ ∀ k < 16, laneZ 7681 z k * Rinv = ψ (32 + h.val + 2 * k))
+    (htbl2 : ∀ h : Usize, h.val < 4 → ∃ z zq,
+      (do let t ← backend.avx2.ntt.FWD2_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
+        PsiOk z zq 7681 3840 ∧ ∀ k < 16, laneZ 7681 z k * Rinv = ψ (64 + h.val + 4 * k))
+    (htbl1 : ∀ h : Usize, h.val < 8 → ∃ z zq,
+      (do let t ← backend.avx2.ntt.FWD1_Q1; backend.avx2.ntt.ld_tbl t h) = ok (z, zq) ∧
+        PsiOk z zq 7681 3840 ∧ ∀ k < 16, laneZ 7681 z k * Rinv = ψ (128 + h.val + 8 * k))
+    (hb : BlockBnd b 3840) (hv : ∀ c < 256, posZ 7681 b c = f c) :
+    backend.avx2.ntt.ntt_block false b
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 3840 ∧ ∀ c < 256, posZ 7681 r c = fwdAll 7681 ψ f c ⦄ := by
+  obtain ⟨s1, s2, s3, s4, -, -⟩ := growth_q1
+  have hq0 : (0 : ℤ) < ((7681 : ℕ) : ℤ) := by norm_num
+  have hqlt : ((7681 : ℕ) : ℤ) ≤ 2 ^ 15 := by norm_num
+  unfold backend.avx2.ntt.ntt_block backend.crt.q backend.crt.barrett_m
+  simp only [Bool.false_eq_true, reduceIte, bind_tc_ok]
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q1
+  rw [hqv, bind_tc_ok]
+  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec backend.crt.Q1_BARRETT_M
+  rw [hbm, bind_tc_ok]
+  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
+    simp only [backend.crt.BARRETT_SH]; rfl
+  step*
+  have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
+  rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
+  obtain ⟨rnd, hrnd, hrndl⟩ := set1_epi16_spec 1024#i16
+  rw [hrnd, bind_tc_ok]
+  have hQ : ∀ j < 16, (lane16 qv j).toInt = 7681 := fun j hj => by
+    rw [hqvl j hj]; simp only [backend.crt.Q1]; decide
+  have hQ' : ∀ j < 16, (lane16 qv j).toInt = ((7681 : ℕ) : ℤ) := by
+    intro j hj; rw [hQ j hj]; norm_num
+  have hM : ∀ j < 16, (lane16 bm j).toInt = 17474 := fun j hj => by
+    rw [hbml j hj]; simp only [backend.crt.Q1_BARRETT_M]; decide
+  have hRnd : ∀ j < 16, (lane16 rnd j).toInt = 2 ^ 10 := fun j hj => by
+    rw [hrndl j hj]; decide
+  have hbar : ∀ (bb : Array I16 256#usize),
+      backend.avx2.ntt.barrett_block bb bm rnd qv
+        ⦃ (r : Array I16 256#usize) =>
+            BlockBnd r 3840 ∧ ∀ c < 256, posZ 7681 r c = posZ 7681 bb c ⦄ := by
+    intro bb
+    exact spec_and
+      (WP.spec_mono (barrett_block_bnd bb bm rnd qv 7681 17474 hQ hM hRnd (by norm_num)
+        (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num))
+        (fun r hr => hr.mono (by norm_num)))
+      (barrett_block_val bb bm rnd qv 7681 17474 hQ' hM hRnd hq0 (by norm_num) (by decide)
+        (by norm_num) (by norm_num) (by norm_num))
+  -- the horizontal half
+  apply WP.spec_bind (ntt_block_loop0_walk_q1 b qv bm rnd Rinv ψ f hR hQ hM hRnd hzeta hb hv)
+  rintro b1 ⟨hb1, hv1⟩
+  -- into coefficient coordinates
+  apply WP.spec_bind (spec_and (transpose16_bnd b1 hb1) (transpose16_tpos 7681 b1))
+  rintro b2 ⟨hb2, ht2⟩
+  have hv2 : ∀ c < 256, tposZ 7681 b2 c = fwdH 7681 ψ f c := fun c hc => by
+    rw [ht2 c hc, hv1 c hc]
+  -- three vertical levels
+  apply WP.spec_bind (ntt_block_loop1_walk false { start := 0#usize, «end» := 8#usize } b2 qv
+    7681 3840 7906 4304 Rinv ψ (fwdH 7681 ψ f) hq0 hqlt hR hQ' (by norm_num) s2.1 s2.2.1
+    s2.2.2 htbl8 rfl (initSplit (by simp) hb2)
+    (by intro c hc; rw [hv2 c hc, if_neg (by simp)]))
+  rintro b3 ⟨hb3, hv3⟩
+  apply WP.spec_bind (ntt_block_loop2_walk false { start := 0#usize, «end» := 2#usize } b3 qv
+    7681 3840 12210 4556 Rinv ψ (ctLvl 7681 ψ 16 8 (fwdH 7681 ψ f)) hq0 hqlt hR hQ'
+    (by norm_num) s3.1 s3.2.1 s3.2.2 htbl4 rfl (by decide) (initSplit (by simp) hb3)
+    (by intro c hc; rw [hv3 c hc, if_neg (by simp)]))
+  rintro b4 ⟨hb4, hv4⟩
+  apply WP.spec_bind (ntt_block_loop3_walk false { start := 0#usize, «end» := 4#usize } b4 qv
+    7681 3840 16766 4823 Rinv ψ (ctLvl 7681 ψ 32 4 (ctLvl 7681 ψ 16 8 (fwdH 7681 ψ f)))
+    hq0 hqlt hR hQ' (by norm_num) s4.1 s4.2.1 s4.2.2 htbl2 rfl (by decide)
+    (initSplit (by simp) hb4) (by intro c hc; rw [hv4 c hc, if_neg (by simp)]))
+  rintro b5 ⟨hb5, hv5⟩
+  -- re-centre, the last level, transpose back, re-centre
+  apply WP.spec_bind (hbar b5)
+  rintro b6 ⟨hb6, hv6⟩
+  apply WP.spec_bind (ntt_block_loop4_walk false { start := 0#usize, «end» := 8#usize } b6 qv
+    7681 3840 3840 4066 Rinv ψ
+    (ctLvl 7681 ψ 64 2 (ctLvl 7681 ψ 32 4 (ctLvl 7681 ψ 16 8 (fwdH 7681 ψ f))))
+    hq0 hqlt hR hQ' (by norm_num) s1.1 s1.2.1 s1.2.2 htbl1 rfl
+    (initSplit (by simp) (hb6.mono (by norm_num)))
+    (by intro c hc
+        rw [show tposZ 7681 b6 c = posZ 7681 b6 (16 * (c % 16) + c / 16) from rfl,
+          hv6 _ (by omega), show posZ 7681 b5 (16 * (c % 16) + c / 16)
+            = tposZ 7681 b5 c from rfl, hv5 c hc, if_neg (by simp)]))
+  rintro b7 ⟨hb7, hv7⟩
+  apply WP.spec_bind (spec_and (transpose16_bnd b7 hb7) (transpose16_pos 7681 b7))
+  rintro b8 ⟨hb8, ht8⟩
+  apply WP.spec_mono (hbar b8)
+  rintro r ⟨hbr, hvr⟩
+  refine ⟨hbr, fun c hc => ?_⟩
+  rw [hvr c hc, ht8 c hc, hv7 c hc, fwdAll]
+
+/-! ## The forward transform, unconditionally
+
+Instantiating the walk with the real `q₂` tables.  Nothing is assumed: the ψ tables' properties
+come from `Kopis/Avx2/Tables.lean` and `Kopis/Avx2/NttZeta.lean`, both of which are `decide`d
+over the literal arrays. -/
+
+theorem ntt_block_leaf_q1 (b : Array I16 256#usize) (f : ℕ → ZMod 7681)
+    (hb : BlockBnd b 3840) (hv : ∀ c < 256, posZ 7681 b c = f c) :
+    backend.avx2.ntt.ntt_block false b
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 3840 ∧ ∀ c < 256, posZ 7681 r c = fwdAll 7681 zeta1 f c ⦄ := by
+  refine ntt_block_walk_q1 b (900 : ZMod 7681) zeta1 f (by decide) ?_ ?_ ?_ ?_ ?_ hb hv
+  · intro kk hkk
+    obtain ⟨zi, zqi, h1, h2, h3, h4, h5⟩ := zeta_table_ok_q1 kk hkk
+    exact ⟨zi, zqi, h1, h2, h3, h4, by rw [h5]; rfl⟩
+  · obtain ⟨z, zq, h1, h2, h3⟩ := fwd8_q1_ok 0#usize (by simp)
+    refine ⟨z, zq, h1, h2, fun k hk => ?_⟩
+    rw [show laneZ 7681 z k = (((lane16 z k).toInt : ℤ) : ZMod 7681) from rfl, h3 k hk]
+    rw [show ((16#isize).val + (0#usize).val * (0#isize).val + k * (1#isize).val).toNat
+      = 16 + k from by scalar_tac]
+    rfl
+  · intro h hh
+    obtain ⟨z, zq, h1, h2, h3⟩ := fwd4_q1_ok h hh
+    refine ⟨z, zq, h1, h2, fun k hk => ?_⟩
+    rw [show laneZ 7681 z k = (((lane16 z k).toInt : ℤ) : ZMod 7681) from rfl, h3 k hk]
+    rw [show ((32#isize).val + h.val * (1#isize).val + k * (2#isize).val).toNat
+      = 32 + h.val + 2 * k from by scalar_tac]
+    rfl
+  · intro h hh
+    obtain ⟨z, zq, h1, h2, h3⟩ := fwd2_q1_ok h hh
+    refine ⟨z, zq, h1, h2, fun k hk => ?_⟩
+    rw [show laneZ 7681 z k = (((lane16 z k).toInt : ℤ) : ZMod 7681) from rfl, h3 k hk]
+    rw [show ((64#isize).val + h.val * (1#isize).val + k * (4#isize).val).toNat
+      = 64 + h.val + 4 * k from by scalar_tac]
+    rfl
+  · intro h hh
+    obtain ⟨z, zq, h1, h2, h3⟩ := fwd1_q1_ok h hh
+    refine ⟨z, zq, h1, h2, fun k hk => ?_⟩
+    rw [show laneZ 7681 z k = (((lane16 z k).toInt : ℤ) : ZMod 7681) from rfl, h3 k hk]
+    rw [show ((128#isize).val + h.val * (1#isize).val + k * (8#isize).val).toNat
+      = 128 + h.val + 8 * k from by scalar_tac]
+    rfl
+
+/-- **The forward transform reaches the leaf state.**  Composing the walk with the algebra: after
+`ntt_block`, the block holds the evaluation of its input at the 256 leaf constants of `q₂`'s CRT
+tree.  This is the shape `State_leaf_mul_q2` consumes. -/
+theorem ntt_block_State_q1 (b : Array I16 256#usize) (f : ℕ → ZMod 7681)
+    (hb : BlockBnd b 3840) (hv : ∀ c < 256, posZ 7681 b c = f c) :
+    backend.avx2.ntt.ntt_block false b
+      ⦃ (r : Array I16 256#usize) =>
+          BlockBnd r 3840 ∧ (∀ c < 256, posZ 7681 r c = fwdAll 7681 zeta1 f c) ∧
+          NttAlg.State zeta1 256 1 1 f (fwdAll 7681 zeta1 f) ⦄ := by
+  apply WP.spec_mono (ntt_block_leaf_q1 b f hb hv)
+  exact fun r hr => ⟨hr.1, hr.2, fwdAll_State zeta1 zeta1_sq f⟩
+
 end Kopis.Avx2
