@@ -765,3 +765,130 @@ That is roughly 3000 lines and, at this session's observed rate, tens of hours. 
 mathematical obstacle left in it — every lemma it needs is stated and proved — but it is not a
 session's work, and it should be attacked one walk at a time with the tree kept green between
 them.
+
+## Session log: making `make prove-kopis` fail honestly
+
+`prove-kopis-avx2` used to run `lake build KopisAvx2` only, so the target passed while nothing
+downstream was checked. It now runs `KopisAvx2 TopLevelTheoremsAvx2 TrustBase`; the
+`TopLevelTheoremsAvx2` lean_lib and the sed rules that repoint the generated twin at
+`Kopis.Avx2.Properties` are in (commit "Make prove-kopis actually build the AVX2 audit surface").
+
+With that in place the build's *entire* failure surface is two lines:
+
+    Kopis/Avx2/Properties/NttMul.lean:184  -- pointwise_mul_acc
+    Kopis/Avx2/Properties/NttMul.lean:344  -- reduce_invntt_to_ring_elem
+
+The other twelve NTT-dependent twins do not fail on their own; they are simply downstream of
+`NttMul`, so nothing has been reported about them yet.
+
+### Why those two cannot be patched
+
+Both are stated in terms of `aZ`/`accZ` — the integer *value* of an `i32` lane. On the serial
+backend that lane is a residue mod p = 50330113. On AVX2 it is two 16-bit residues, mod
+q1 = 7681 and q2 = 10753, packed into one `i32`. The statements are therefore false on the AVX2
+branch, not merely unproved, and no amount of generator patching moves them. `NttBridge`'s
+`ElemOK` and `ntt_entry_spec` inherit the same problem.
+
+So the twin for `NttMul.lean`, and the parts of `NttBridge.lean` it feeds, have to be *replaced*
+rather than patched: same top-level conclusion (`toRingElem r = Σ toRingElem u * toRingElem v`),
+a different intermediate representation, routed through the F4 machinery. That is the real shape
+of the remaining work, and it sits behind finishing F4.
+
+### Remaining work, in dependency order
+
+1. **Generalize `lane_tbl_spec`** (Tables.lean). It currently hardcodes `neg = false`,
+   `0 ≤ base ≤ 128`, `h_stride ∈ {0,1}`, `m_stride ∈ {1,2,4,8}`. The four INV tables need
+   `neg = true`, `base ∈ {255,127,63,31}`, `h_stride ∈ {-1,0}`, `m_stride ∈ {-8,-4,-2,-1}`.
+   `TblAt` gains a `neg` parameter; the two loop specs and `lane_tbl_spec` follow mechanically.
+   Then eight `inv{1,2,4,8}_q{1,2}_ok` lemmas mirroring `fwd1_q1_ok`.
+2. **`invntt_block`'s seven walks + assembly** (`invntt_block_loop0`, `loop1_loop0`, `loop1`,
+   `loop2_loop0`, `loop2`, `loop3`, `loop4_loop0_loop0`, `loop4_loop0`, `loop4`, `loop5`).
+   `ntt_block_loop4_walk` is the template; substitute `gsLvl` for `ctLvl` and
+   `gs_butterfly_bnd/val` for the CT pair. Note the growth shape differs: GS gives
+   `(2A, T)` from a common input bound `A`, not `(A+T, A+T)`, so `Split` needs a variant whose
+   processed bound is an explicit `B` rather than `A + T`.
+3. **`reduce_invntt`** — the Montgomery pass over the `i64` accumulator, then the Garner combine,
+   closing with `crt_endpoint`.
+4. **AVX2 `NttMul` + `NttBridge`**, written against the two-residue representation.
+5. **`TrustBase.lean`** — a second `backends` row for `RustKopisAvx2` with its own audited axiom
+   list (the 45 intrinsic axioms, `available_ok`, `rangeInclusive_contains_ok`,
+   `CbdGeneric.U{8,32}.count_ones_spec`).
+
+Nothing in that list is blocked on a missing idea. It is volume.
+
+### Progress against that list
+
+**1 and 2 are done.**
+
+`lane_tbl_spec` is generalized (`neg`, `base ≤ 255`, negative strides, a two-sided `hidx`), and
+`inv{1,2,4,8}_q{1,2}_ok` give all eight inverse tables. One Rust change was needed and is its own
+commit: `crt::zeta::<SECOND>(k).wrapping_neg()` became `0i16.wrapping_sub(crt::zeta::<SECOND>(k))`,
+because aeneas extracts `i16::wrapping_neg` as an **axiom with no definition** — proving the
+horizontal inverse levels against it would have meant assuming its meaning. `src/arithmetic/ntt.rs`
+already carried exactly this change for `i64::wrapping_neg`; identical codegen, one fewer
+assumption.
+
+The inverse transform is walked end to end, in `Kopis/Avx2/InvWalk.lean`:
+
+* the four vertical levels (`invntt_block_loop0..loop3`), the four horizontal ones
+  (`invntt_block_loop4*`), and the `INVNTT_SCALE` pass (`invntt_block_loop5`);
+* `invntt_block_walk`, generic in the prime, composing all of it plus the four `barrett_block`
+  passes and the two transposes;
+* `invAll_State` — `State_gs` eight times, leaf state back to root — and
+  `invntt_block_State_q{1,2}`, which instantiate the walk with the real tables.
+
+Two things worth recording. `Split`'s `A + T` shape does not fit Gentleman-Sande: GS takes a
+common input bound `A` to `2A` on the sum side and `T` on the product side, so `SplitB` carries an
+explicit processed bound. And the growth schedule only closes because of the re-centring passes —
+two consecutive GS levels take a centred block to `4·(q/2)`, and a third would overflow the lane,
+which is exactly where the code puts its `barrett_block` calls.
+
+Net effect of `invntt_block`: `256 · σ = 2^16`, so the block comes back multiplied by `R`. That is
+the Montgomery-domain convention the following reduction expects, not an error.
+
+**3 is half done.** `reduce_block` — the Montgomery pass over the `i64` accumulator, plus the
+inverse transform it tails into — is proved at both primes in `Kopis/Avx2/Reduce.lean`
+(`reduce_block_q1`, `reduce_block_q2`).  What that needed:
+
+* `mont_reduce32` in `NttReduce.lean`: the same cancellation as `mont_mul_lane_spec` but on a bare
+  `i32`, with the sharp `2¹⁶·|R| ≤ |X| + 2¹⁵·q` conjunct.
+* `pack_permute_lane` in `SerLane.lean`: the lane routing `vpack**dw` + `vpermq 0xD8` performs is
+  the same for both saturations, so `vpackssdw` and `vpackusdw` are two instances of it.
+* A correction worth recording. The block `reduce_block` hands to `invntt_block` is bounded by the
+  *reduction's output*, not by `(q−1)/2`, and two Gentleman-Sande levels from there is different
+  arithmetic than two levels from a centred block — so `invntt_block_walk` takes a separate entry
+  triple.  The crude `|R| < q` bound is not enough: it overflows the lane at the second level.
+  The sharp bound gives 7141 at `q₂` and 4741 at `q₁`, and the schedule then closes with 28564 of
+  32767 used at the worst point.
+
+**What is left in 3** is the Garner combine — `reduce_invntt`'s second half.  Its two ends are
+done:
+
+* `Crt.garner_value` — the reconstruction as integers.  Canonicalise both residues, solve for the
+  multiplier, form `a₁ + q₁·t`, centre it by subtracting `q₁q₂` above the midpoint, and that *is*
+  the coefficient.  This is what makes the truncation to 16 bits afterwards right.
+* `Reduce.canon_lane` — the `add(r, and(srai<15>(r), q))` canonicalisation, which the combine uses
+  three times.
+
+Everything the combine needs is now proved, piece by piece:
+
+| piece | lemma |
+|---|---|
+| canonicalise a centred residue | `Reduce.canon_lane` |
+| solve for the multiplier | `Crt.garner_mult`, on `crt_q1_inv_mont_ok` |
+| widen a 128-bit half to 32-bit lanes | `Reduce.widen_lo`, `Reduce.widen_hi` |
+| `a₁ + q₁·t`, centred, masked to 16 bits | `Reduce.combine_lane` |
+| pack back down | `SerLane.pack_permute_u16` |
+| the reconstruction is the coefficient | `Crt.garner_value` |
+
+**What remains in 3 is assembly, not mathematics**: `reduce_invntt_loop` is about thirty
+intrinsic steps that thread those together, and then `reduce_invntt` composes the two
+`reduce_block` calls with it.  The 32-bit lane arithmetic it runs on never wraps — `a₁ + q₁·t <
+q₁q₂ < 2³¹` — which is why `combine_lane` needs no bound hypotheses beyond the two residues being
+canonical.
+
+Then `reduce_invntt` assembles the two `reduce_block` calls with the combine, and item 4 (the AVX2
+`NttMul`/`NttBridge`) and item 5 (the `TrustBase` row) follow.
+
+*Superseded note (kept for the record):* the original text below listed item 3 as all new lane
+algebra.

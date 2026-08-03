@@ -190,8 +190,8 @@ theorem permQ_eq (q : ℕ) (hq : q < 4) :
     ((216#i32).bv >>> (2 * q) &&& 3#32).toNat = permQ q := by
   rcases show q = 0 ∨ q = 1 ∨ q = 2 ∨ q = 3 from by omega with rfl | rfl | rfl | rfl <;> rfl
 
-/-- `vpackusdw` saturates to `u16`, which is exact on a value that already fits in 13 bits. -/
-theorem satU_of_lt (x : BitVec 32) (h : x.toNat < 2 ^ 13) : (satU x).toNat = x.toNat := by
+/-- `vpackusdw` saturates to `u16`, which is exact on a value that already fits in 16 bits. -/
+theorem satU_of_lt (x : BitVec 32) (h : x.toNat < 2 ^ 16) : (satU x).toNat = x.toNat := by
   have hpos : (0:ℤ) ≤ x.toInt := by
     rw [BitVec.toInt_eq_toNat_cond]
     split <;> omega
@@ -202,13 +202,17 @@ theorem satU_of_lt (x : BitVec 32) (h : x.toNat < 2 ^ 13) : (satU x).toNat = x.t
   rw [if_neg (by omega), if_neg hsmall, BitVec.toNat_setWidth, Nat.mod_eq_of_lt (by omega)]
 
 open RustKopisAvx2.backend.avx2.intrinsics in
-theorem pack_permute_value (wide0 wide1 packed res : Vec256)
-    (hb0 : ∀ m < 8, (lane32 wide0 m).toNat < 2 ^ 13)
-    (hb1 : ∀ m < 8, (lane32 wide1 m).toNat < 2 ^ 13)
-    (hpack : bits packed = Model.packusEpi32 (bits wide0) (bits wide1))
+/-- **The lane routing `vpack**dw` + `vpermq 0xD8` performs**, independent of which saturation the
+pack applies: `wide0` lands in the low eight `i16` lanes and `wide1` in the high eight.  Both
+packing instructions share this shape, so both `vpackusdw` (below) and `vpackssdw` (the inverse
+NTT's reduction) are instances. -/
+theorem pack_permute_lane (sat : BitVec 32 → BitVec 16) (wide0 wide1 packed res : Vec256)
+    (hpack : bits packed = ofLanes16 fun i =>
+      if i % 8 < 4 then sat (laneOf 32 (bits wide0) (4 * (i / 8) + i % 8))
+      else sat (laneOf 32 (bits wide1) (4 * (i / 8) + (i % 8 - 4))))
     (hres : bits res = Model.permute4x64Epi64 (216#i32).bv (bits packed)) :
-    ∀ j < 16, (lane16 res j).toNat
-      = if j < 8 then (lane32 wide0 j).toNat else (lane32 wide1 (j - 8)).toNat := by
+    ∀ j < 16, lane16 res j
+      = if j < 8 then sat (lane32 wide0 j) else sat (lane32 wide1 (j - 8)) := by
   intro j hj
   -- the `vpermq` moves 64-bit lane `permQ (j / 4)` of `packed` to lane `j / 4`
   have h1 : laneOf 16 (bits res) j = laneOf 16 (laneOf 64 (bits res) (j / 4)) (j % 4) :=
@@ -225,18 +229,16 @@ theorem pack_permute_value (wide0 wide1 packed res : Vec256)
   have hstep : lane16 res j = lane16 packed (4 * permQ (j / 4) + j % 4) := by
     show laneOf 16 (bits res) j = laneOf 16 (bits packed) _
     rw [h1, h2, h3]
-  -- and `vpackusdw` puts `wide0` in the low half of each 128-bit half, `wide1` in the high half
   have hperm : permQ (j / 4) < 4 := by
     rcases show j / 4 = 0 ∨ j / 4 = 1 ∨ j / 4 = 2 ∨ j / 4 = 3 from by omega with
       h | h | h | h <;> rw [h] <;> simp [permQ]
   have hidx : 4 * permQ (j / 4) + j % 4 < 16 := by omega
   have hpk : lane16 packed (4 * permQ (j / 4) + j % 4)
       = (let i := 4 * permQ (j / 4) + j % 4
-         if i % 8 < 4 then satU (laneOf 32 (bits wide0) (4 * (i / 8) + i % 8))
-         else satU (laneOf 32 (bits wide1) (4 * (i / 8) + (i % 8 - 4)))) := by
+         if i % 8 < 4 then sat (laneOf 32 (bits wide0) (4 * (i / 8) + i % 8))
+         else sat (laneOf 32 (bits wide1) (4 * (i / 8) + (i % 8 - 4)))) := by
     show laneOf 16 (bits packed) _ = _
     rw [hpack]
-    simp only [Model.packusEpi32]
     exact laneOf_ofLanes16 _ hidx
   rw [hstep, hpk]
   -- sixteen concrete cases; in each, the two index computations agree
@@ -247,8 +249,36 @@ theorem pack_permute_value (wide0 wide1 packed res : Vec256)
       rfl <;>
     simp only [permQ] <;>
     norm_num <;>
-    first
-      | exact satU_of_lt _ (hb0 _ (by norm_num))
-      | exact satU_of_lt _ (hb1 _ (by norm_num))
+    rfl
+
+open RustKopisAvx2.backend.avx2.intrinsics in
+/-- The pack, on values that fit an unsigned 16-bit lane: `wide0` becomes the low eight `i16`
+lanes and `wide1` the high eight, with no saturation. -/
+theorem pack_permute_u16 (wide0 wide1 packed res : Vec256)
+    (hb0 : ∀ m < 8, (lane32 wide0 m).toNat < 2 ^ 16)
+    (hb1 : ∀ m < 8, (lane32 wide1 m).toNat < 2 ^ 16)
+    (hpack : bits packed = Model.packusEpi32 (bits wide0) (bits wide1))
+    (hres : bits res = Model.permute4x64Epi64 (216#i32).bv (bits packed)) :
+    ∀ j < 16, (lane16 res j).toNat
+      = if j < 8 then (lane32 wide0 j).toNat else (lane32 wide1 (j - 8)).toNat := by
+  intro j hj
+  rw [pack_permute_lane satU wide0 wide1 packed res (by rw [hpack]; rfl) hres j hj]
+  split
+  · exact satU_of_lt _ (hb0 j (by omega))
+  · exact satU_of_lt _ (hb1 (j - 8) (by omega))
+
+open RustKopisAvx2.backend.avx2.intrinsics in
+theorem pack_permute_value (wide0 wide1 packed res : Vec256)
+    (hb0 : ∀ m < 8, (lane32 wide0 m).toNat < 2 ^ 13)
+    (hb1 : ∀ m < 8, (lane32 wide1 m).toNat < 2 ^ 13)
+    (hpack : bits packed = Model.packusEpi32 (bits wide0) (bits wide1))
+    (hres : bits res = Model.permute4x64Epi64 (216#i32).bv (bits packed)) :
+    ∀ j < 16, (lane16 res j).toNat
+      = if j < 8 then (lane32 wide0 j).toNat else (lane32 wide1 (j - 8)).toNat := by
+  intro j hj
+  rw [pack_permute_lane satU wide0 wide1 packed res (by rw [hpack]; rfl) hres j hj]
+  split
+  · exact satU_of_lt _ (by have := hb0 j (by omega); omega)
+  · exact satU_of_lt _ (by have := hb1 (j - 8) (by omega); omega)
 
 end Kopis.Avx2

@@ -70,6 +70,13 @@ lean_lib «Kopis»
 @[default_target]
 lean_lib «TopLevelTheoremsSerial»
 
+/-! ## The audit surface, AVX2
+
+    The same restatement against the `RustKopisAvx2` extraction, generated from
+    `TopLevelTheoremsSerial.lean` by `make generated`. Not a default target: it is built by
+    `make prove-kopis-avx2` alongside `KopisAvx2`. -/
+lean_lib «TopLevelTheoremsAvx2»
+
 /-! ## The trust base
 
     `TrustBase.lean` is the other half of the audit surface: the assumptions the

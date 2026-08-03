@@ -23,8 +23,14 @@ would let a theorem about the portable code start depending on an AVX2 intrinsic
 still pass — exactly the drift this file exists to catch. Adding a backend means adding a
 `def`-pair below and one row to `backends`, not extending an existing list.
 
-As of 2026-08-02 there is one row: nothing has been proved about the AVX2 extraction yet, so it
-has no theorems whose footprint could be checked. See `AVX2_VERIFICATION_PLAN.md`.
+As of 2026-08-03 there is still one row, but the reason has changed. The AVX2 extraction now has
+proofs — 46 of the 59 twins in `TopLevelTheoremsAvx2.lean` are discharged — so a second row is
+what should be here. It is not, because the remaining 13 twins do not compile yet, and a row
+naming theorems that do not exist would not build. The list that row will need is known: the 45
+intrinsic axioms of `Kopis/Avx2/Intrinsics.lean`, `available_ok`, `rangeInclusive_contains_ok`,
+and `CbdGeneric.U{8,32}.count_ones_spec`. Until it lands, `make prove-kopis-avx2` fails and the
+AVX2 trust base is documented rather than enforced — do not read the green serial row as
+covering both backends. See `AVX2_VERIFICATION_PLAN.md`.
 -/
 
 open Lean

@@ -46,6 +46,16 @@ theorem toInt_extractLsb'_high (P : BitVec 32) :
   norm_num
   split <;> split <;> omega
 
+/-- The bottom half of a 32-bit word, read as a signed 16-bit number, is the whole word taken
+`bmod 2¹⁶` — which is exactly the wrapping the low half of a Montgomery reduction wants. -/
+theorem toInt_extractLsb'_low (P : BitVec 32) :
+    (BitVec.extractLsb' 0 16 P).toInt = P.toInt.bmod (2 ^ 16) := by
+  have h32 : P.toNat < 2 ^ 32 := P.isLt
+  rw [BitVec.toInt_extractLsb', BitVec.toInt_eq_toNat_bmod]
+  simp only [Int.bmod]
+  norm_num
+  split <;> split <;> omega
+
 /-- A 16-bit lane's signed range. -/
 theorem toInt_bounds (x : BitVec 16) : -32768 ≤ x.toInt ∧ x.toInt < 32768 := by
   have h1 := BitVec.le_toInt x
@@ -54,7 +64,7 @@ theorem toInt_bounds (x : BitVec 16) : -32768 ≤ x.toInt ∧ x.toInt < 32768 :=
   omega
 
 /-- `bmod` by `2³²` is the identity on the signed 32-bit range. -/
-private theorem bmod32_eq_self {z : ℤ} (h1 : -(2 ^ 31 : ℤ) ≤ z) (h2 : z < 2 ^ 31) :
+theorem bmod32_eq_self {z : ℤ} (h1 : -(2 ^ 31 : ℤ) ≤ z) (h2 : z < 2 ^ 31) :
     z.bmod (2 ^ 32) = z := by
   unfold Int.bmod
   norm_num

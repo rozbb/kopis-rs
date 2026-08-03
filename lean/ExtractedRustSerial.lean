@@ -3664,7 +3664,7 @@ def pke.PkePublicKey.serialize
   ok (index_mut_back s2)
 
 /-- [kopis::turboshake256_hash]:
-    Source: 'src/lib.rs', lines 36:0-46:1 -/
+    Source: 'src/lib.rs', lines 41:0-51:1 -/
 def turboshake256_hash
   (DS : Std.U8) (input0 : Slice Std.U8) (input1 : Slice Std.U8) :
   Result (Array Std.U8 32#usize)

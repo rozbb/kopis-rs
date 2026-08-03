@@ -36,13 +36,13 @@ theorem bmod16_eq_self {z : ℤ} (h1 : -(2 ^ 15 : ℤ) ≤ z) (h2 : z < 2 ^ 15) 
   split <;> omega
 
 /-- `bmod` changes a value by a multiple of the modulus. -/
-private theorem bmod_sub_dvd (x : ℤ) (n : ℕ) : (n : ℤ) ∣ (x.bmod n - x) := by
+theorem bmod_sub_dvd (x : ℤ) (n : ℕ) : (n : ℤ) ∣ (x.bmod n - x) := by
   have h : Int.ModEq (n : ℤ) (x.bmod n) x := Int.bmod_emod
   exact Int.ModEq.dvd h.symm
 
 /-- **The cancellation that makes Montgomery reduction work.**  When `2¹⁶` divides `X - Y`, the
 difference of the two high halves is the exact quotient — no rounding error survives. -/
-private theorem shift_sub_of_dvd {X Y : ℤ} (h : (2 ^ 16 : ℤ) ∣ (X - Y)) :
+theorem shift_sub_of_dvd {X Y : ℤ} (h : (2 ^ 16 : ℤ) ∣ (X - Y)) :
     (X >>> (16 : ℕ)) - (Y >>> (16 : ℕ)) = (X - Y) / 2 ^ 16 := by
   obtain ⟨k, hk⟩ := h
   have hX : X = Y + 2 ^ 16 * k := by omega
@@ -132,6 +132,64 @@ theorem mont_mul_lane_spec (a z zq qv : Vec256) (Q : ℤ)
         linarith [hRmul]]
       have hAZ' : -(A * Z) ≤ |A| * |Z| := by rw [← abs_mul]; exact neg_le_abs _
       linarith [hTQ.2]
+
+
+/-! ## Montgomery reduction of a general `i32`
+
+`mont_mul` reduces the *product* of two `i16`.  The inverse NTT's `reduce_block` reduces an `i32`
+that came out of the accumulator, so it has no product structure to lean on — but the cancellation
+is the same one, and so is the bound argument. -/
+
+/-- `bmod` by `2¹⁶` lands in the signed 16-bit range. -/
+theorem bmod16_bounds (x : ℤ) :
+    -(2 ^ 15 : ℤ) ≤ x.bmod (2 ^ 16) ∧ x.bmod (2 ^ 16) < 2 ^ 15 := by
+  have h1 : (0 : ℤ) ≤ x % ((2 : ℤ) ^ 16) := Int.emod_nonneg x (by norm_num)
+  have h2 : x % ((2 : ℤ) ^ 16) < 2 ^ 16 := Int.emod_lt_of_pos x (by norm_num)
+  unfold Int.bmod
+  norm_num
+  norm_num at h1 h2
+  split <;> omega
+
+/-- **Signed Montgomery reduction of an `i32`.**  `lo` is the low half taken signed, `hi` the
+arithmetic-shifted high half, and `T = lo·q⁻¹ (wrapping)`; then `hi − ⌊T·q / 2¹⁶⌋` is the exact
+quotient `(X − T·q)/2¹⁶`, which is `X·2⁻¹⁶ mod q` and smaller than `q`. -/
+theorem mont_reduce32 {X Q QINV : ℤ} (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hu : (2 ^ 16 : ℤ) ∣ (QINV * Q - 1)) (hX : |X| < 2 ^ 15 * Q) :
+    ∃ R : ℤ,
+      (X >>> (16 : ℕ)) - ((((X.bmod (2 ^ 16)) * QINV).bmod (2 ^ 16)) * Q) >>> (16 : ℕ) = R ∧
+      -Q < R ∧ R < Q ∧ Q ∣ (R * 2 ^ 16 - X) ∧
+      2 ^ 16 * |R| ≤ |X| + 2 ^ 15 * Q := by
+  set L := X.bmod (2 ^ 16) with hL
+  set T := (L * QINV).bmod (2 ^ 16) with hT
+  obtain ⟨k2, hk2⟩ := hu
+  -- `T·q ≡ L·q⁻¹·q ≡ L ≡ X (mod 2¹⁶)`
+  have hdvd : (2 ^ 16 : ℤ) ∣ (X - T * Q) := by
+    obtain ⟨k1, hk1⟩ : (2 ^ 16 : ℤ) ∣ (T - L * QINV) := by rw [hT]; exact bmod_sub_dvd _ _
+    obtain ⟨k0, hk0⟩ : (2 ^ 16 : ℤ) ∣ (L - X) := by rw [hL]; exact bmod_sub_dvd _ _
+    refine ⟨-k0 - L * k2 - k1 * Q, ?_⟩
+    have hTeq : T = L * QINV + 2 ^ 16 * k1 := by omega
+    have hQeq : QINV * Q = 1 + 2 ^ 16 * k2 := by omega
+    have hXeq : X = L - 2 ^ 16 * k0 := by omega
+    calc X - T * Q
+        = (L - 2 ^ 16 * k0) - (L * QINV + 2 ^ 16 * k1) * Q := by rw [← hTeq, ← hXeq]
+      _ = L - 2 ^ 16 * k0 - L * (QINV * Q) - 2 ^ 16 * (k1 * Q) := by ring
+      _ = L - 2 ^ 16 * k0 - L * (1 + 2 ^ 16 * k2) - 2 ^ 16 * (k1 * Q) := by rw [hQeq]
+      _ = 2 ^ 16 * (-k0 - L * k2 - k1 * Q) := by ring
+  have hTb := bmod16_bounds (L * QINV)
+  rw [← hT] at hTb
+  have hR : ((X - T * Q) / 2 ^ 16) * 2 ^ 16 = X - T * Q := Int.ediv_mul_cancel hdvd
+  have hXb := abs_lt.mp hX
+  refine ⟨(X - T * Q) / 2 ^ 16, shift_sub_of_dvd hdvd, ?_, ?_, ⟨-T, by rw [hR]; ring⟩, ?_⟩
+  · nlinarith [hR, hXb.1, hXb.2, hTb.1, hTb.2, hQpos]
+  · nlinarith [hR, hXb.1, hXb.2, hTb.1, hTb.2, hQpos]
+  · -- the *sharp* bound: `R·2¹⁶ = X − T·q` exactly, and `|T| ≤ 2¹⁵`
+    have hTQ : -(2 ^ 15 * Q) ≤ T * Q ∧ T * Q ≤ 2 ^ 15 * Q := by
+      constructor <;> nlinarith [hTb.1, hTb.2, hQpos]
+    rcases abs_cases ((X - T * Q) / 2 ^ 16) with ⟨hbv, _⟩ | ⟨hbv, _⟩ <;> rw [hbv]
+    · rw [show (2:ℤ) ^ 16 * ((X - T * Q) / 2 ^ 16) = X - T * Q from by linarith [hR]]
+      linarith [hTQ.1, le_abs_self X]
+    · rw [show (2:ℤ) ^ 16 * -((X - T * Q) / 2 ^ 16) = -(X - T * Q) from by linarith [hR]]
+      linarith [hTQ.2, neg_le_abs X]
 
 /-! ## `barrett`
 

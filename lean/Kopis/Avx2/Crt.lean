@@ -109,4 +109,79 @@ theorem crt_endpoint {a1 a2 t x y : ℤ}
   have := exactness_bound_fits
   omega
 
+/-! ## The Garner combine, as integers
+
+`reduce_invntt`'s second half reconstructs each coefficient from its two residues.  This is the
+arithmetic it performs, with the vectors stripped away: canonicalise both residues, solve for the
+multiplier `t`, form `a₁ + q₁·t`, and centre it by subtracting `q₁q₂` above the midpoint.
+
+The centring is what makes the truncation to 16 bits right afterwards: the true product lies in
+`(−q₁q₂/2, q₁q₂/2]`, so the centred value *is* the coefficient, and its low 16 bits are the
+wrapping `u16` the caller wants. -/
+
+/-- **Garner reconstruction is exact.**  `41296896 = ⌊q₁q₂/2⌋` is the code's `CRT_Q_HALF`. -/
+theorem garner_value {x r1 r2 a1 a2 t : ℤ}
+    (h1 : x ≡ r1 [ZMOD q1]) (h2 : x ≡ r2 [ZMOD q2])
+    (ha1 : a1 ≡ r1 [ZMOD q1]) (ha1r : 0 ≤ a1 ∧ a1 < q1)
+    (ha2 : a2 ≡ r2 [ZMOD q2]) (ha2r : 0 ≤ a2 ∧ a2 < q2)
+    (ht : q1 * t ≡ a2 - a1 [ZMOD q2]) (htr : 0 ≤ t ∧ t < q2)
+    (hxb : |x| ≤ 25162752) :
+    (if 41296896 < a1 + q1 * t then a1 + q1 * t - 82593793 else a1 + q1 * t) = x := by
+  have hqq : q1 * q2 = 82593793 := by norm_num [q1, q2]
+  -- `a₁ + q₁·t` lies in `[0, q₁q₂)`, so the conditional subtraction centres it
+  have hlo : 0 ≤ a1 + q1 * t := by
+    have : (0 : ℤ) ≤ q1 * t := mul_nonneg (by norm_num [q1]) htr.1
+    omega
+  have hhi : a1 + q1 * t < 82593793 := by
+    have hq1 : (0 : ℤ) < q1 := by norm_num [q1]
+    have : q1 * t ≤ q1 * (q2 - 1) := by
+      exact mul_le_mul_of_nonneg_left (by omega) (by omega)
+    have hq1q2 : q1 * (q2 - 1) = 82593793 - q1 := by norm_num [q1, q2]
+    omega
+  set y : ℤ := if 41296896 < a1 + q1 * t then a1 + q1 * t - 82593793 else a1 + q1 * t with hy
+  have hyb : 2 * |y| < q1 * q2 := by
+    rw [hqq, hy]
+    split
+    · rw [abs_of_nonpos (by omega)]; omega
+    · rw [abs_of_nonneg (by omega)]; omega
+  refine crt_endpoint (a1 := a1) (a2 := a2) (t := t) (h1.trans ha1.symm) (h2.trans ha2.symm) ht
+    ?_ (by omega) hyb
+  -- `y` differs from `a₁ + q₁·t` by a multiple of `q₁q₂`
+  rw [hy, hqq, Int.modEq_iff_dvd]
+  split
+  · exact ⟨1, by ring⟩
+  · exact ⟨0, by ring⟩
+
+/-! ## Solving for Garner's multiplier
+
+`t = mont_mul(a₂ − a₁, CRT_Q1_INV_MONT, …)` divides by `2¹⁶` on the way through, so the constant
+in the table is `q₁⁻¹·2¹⁶ mod q₂` and the `2¹⁶` cancels.  What comes out is `q₁·t ≡ a₂ − a₁`,
+which is exactly Garner's condition. -/
+
+/-- The one numeric fact behind `CRT_Q1_INV_MONT`: it is `q₁⁻¹` in Montgomery form. -/
+theorem crt_q1_inv_mont_ok : (10753 : ℤ) ∣ (7681 * 3563 - 2 ^ 16) := by decide
+
+/-- **Garner's condition, from the Montgomery multiply.**  `hmm` is what `mont_mul_lane_spec`
+hands back. -/
+theorem garner_mult {d t : ℤ} (hmm : (10753 : ℤ) ∣ (t * 2 ^ 16 - d * 3563)) :
+    (7681 : ℤ) * t ≡ d [ZMOD 10753] := by
+  obtain ⟨k, hk⟩ := hmm
+  obtain ⟨j, hj⟩ := crt_q1_inv_mont_ok
+  -- `2¹⁶·(q₁·t − d) = q₁·(t·2¹⁶ − d·3563) + d·(q₁·3563 − 2¹⁶)`, and `q₂` divides both terms
+  have hdvd : (10753 : ℤ) ∣ (2 ^ 16 * (7681 * t - d)) := by
+    refine ⟨7681 * k + d * j, ?_⟩
+    have e1 : t * 2 ^ 16 - d * 3563 = 10753 * k := hk
+    have e2 : (7681 : ℤ) * 3563 - 2 ^ 16 = 10753 * j := hj
+    calc (2 : ℤ) ^ 16 * (7681 * t - d)
+        = 7681 * (t * 2 ^ 16 - d * 3563) + d * (7681 * 3563 - 2 ^ 16) := by ring
+      _ = 7681 * (10753 * k) + d * (10753 * j) := by rw [e1, e2]
+      _ = 10753 * (7681 * k + d * j) := by ring
+  -- `q₂` is odd, so it can be cancelled from the `2¹⁶`
+  have hcop : IsCoprime (10753 : ℤ) (2 ^ 16) := by
+    rw [Int.isCoprime_iff_gcd_eq_one]
+    decide
+  have := (hcop.dvd_of_dvd_mul_left hdvd)
+  rw [Int.modEq_iff_dvd, show d - 7681 * t = -(7681 * t - d) from by ring]
+  exact dvd_neg.mpr this
+
 end Kopis.Avx2

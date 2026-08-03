@@ -27,13 +27,6 @@ def Array.Insts.CoreCmpPartialEqArray {T : Type} {U : Type} (N : Std.Usize)
   eq := core.array.equality.PartialEqArray.eq cmpPartialEqInst
 }
 
-/-- [core::num::{i16}::wrapping_neg]:
-    Source: '/rustc/library/core/src/num/int_macros.rs', lines 2363:8-2363:47
-    Name pattern: [core::num::{i16}::wrapping_neg]
-    Visibility: public -/
-@[rust_fun "core::num::{i16}::wrapping_neg"]
-axiom core.num.I16.wrapping_neg : Std.I16 → Result Std.I16
-
 /-- [core::num::{u32}::count_ones]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
     Name pattern: [core::num::{u32}::count_ones]
@@ -3559,7 +3552,7 @@ axiom backend.avx2.intrinsics.load_u16
   Array Std.U16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::split_and_transform]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 530:4-537:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 534:4-541:5 -/
 @[rust_loop]
 def backend.avx2.ntt.split_and_transform_loop
   (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -3582,7 +3575,7 @@ def backend.avx2.ntt.split_and_transform_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::split_and_transform]:
-    Source: 'src/backend/avx2/ntt.rs', lines 523:0-540:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 527:0-544:1 -/
 def backend.avx2.ntt.split_and_transform
   (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
   (b : Array Std.I16 256#usize) :
@@ -3608,7 +3601,7 @@ axiom backend.avx2.intrinsics.store_i16_of_i32
     (Array Std.I32 N)
 
 /-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 558:4-560:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 562:4-564:5 -/
 @[rust_loop]
 def backend.avx2.ntt.from_ring_elem_loop0
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.I32 256#usize)
@@ -3626,7 +3619,7 @@ def backend.avx2.ntt.from_ring_elem_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 563:4-565:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 567:4-569:5 -/
 @[rust_loop]
 def backend.avx2.ntt.from_ring_elem_loop1
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.I32 256#usize)
@@ -3645,7 +3638,7 @@ def backend.avx2.ntt.from_ring_elem_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::from_ring_elem]:
-    Source: 'src/backend/avx2/ntt.rs', lines 553:0-568:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 557:0-572:1 -/
 def backend.avx2.ntt.from_ring_elem
   (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
   Result (Array Std.I32 256#usize)
@@ -3661,7 +3654,7 @@ def backend.avx2.ntt.from_ring_elem
     { start := 0#usize, «end» := 16#usize } out1 b2
 
 /-- [kopis::backend::avx2::ntt::from_uniform]:
-    Source: 'src/backend/avx2/ntt.rs', lines 576:0-578:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 580:0-582:1 -/
 def backend.avx2.ntt.from_uniform
   (elem : Array Std.U16 256#usize) : Result (Array Std.I32 256#usize) := do
   backend.avx2.ntt.from_ring_elem true elem
@@ -3702,7 +3695,7 @@ def arithmetic.ntt.NttElem.from_uniform
     ok a2
 
 /-- [kopis::backend::avx2::ntt::from_secret]:
-    Source: 'src/backend/avx2/ntt.rs', lines 586:0-588:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 590:0-592:1 -/
 def backend.avx2.ntt.from_secret
   (elem : Array Std.U16 256#usize) : Result (Array Std.I32 256#usize) := do
   backend.avx2.ntt.from_ring_elem false elem
@@ -3834,7 +3827,7 @@ axiom backend.avx2.intrinsics.add_epi32
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 607:8-627:9 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 611:8-631:9 -/
 @[rust_loop]
 def backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -3872,7 +3865,7 @@ def backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 606:4-628:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 610:4-632:5 -/
 @[rust_loop]
 def backend.avx2.ntt.pointwise_mul_acc_loop0
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -3891,7 +3884,7 @@ def backend.avx2.ntt.pointwise_mul_acc_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::pointwise_mul_acc]:
-    Source: 'src/backend/avx2/ntt.rs', lines 601:0-629:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 605:0-633:1 -/
 @[reducible]
 def backend.avx2.ntt.pointwise_mul_acc
   (acc : Array Std.I64 256#usize) (lhs : Array Std.I32 256#usize)
@@ -4223,7 +4216,7 @@ def backend.avx2.ntt.invntt_block_loop3
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 8:
-    Source: 'src/backend/avx2/ntt.rs', lines 482:12-489:13 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 486:12-493:13 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop4_loop0_loop0
   (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
@@ -4246,7 +4239,7 @@ def backend.avx2.ntt.invntt_block_loop4_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 7:
-    Source: 'src/backend/avx2/ntt.rs', lines 475:8-491:9 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 475:8-495:9 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop4_loop0
   (SECOND : Bool) (b : Array Std.I16 256#usize)
@@ -4258,7 +4251,7 @@ def backend.avx2.ntt.invntt_block_loop4_loop0
   then
     let k1 ← k - 1#usize
     let i ← backend.crt.zeta SECOND k1
-    let neg_zeta ← core.num.I16.wrapping_neg i
+    let neg_zeta ← lift (core.num.I16.wrapping_sub 0#i16 i)
     let z ← backend.avx2.intrinsics.set1_epi16 neg_zeta
     let i1 ← backend.crt.qinv SECOND
     let i2 ← lift (core.num.I16.wrapping_mul neg_zeta i1)
@@ -4272,7 +4265,7 @@ def backend.avx2.ntt.invntt_block_loop4_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 6:
-    Source: 'src/backend/avx2/ntt.rs', lines 473:4-497:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 473:4-501:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop4
   (SECOND : Bool) (b : Array Std.I16 256#usize)
@@ -4294,7 +4287,7 @@ def backend.avx2.ntt.invntt_block_loop4
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 9:
-    Source: 'src/backend/avx2/ntt.rs', lines 502:4-504:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 506:4-508:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop5
   (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
@@ -4314,7 +4307,7 @@ def backend.avx2.ntt.invntt_block_loop5
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 428:0-505:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 428:0-509:1 -/
 def backend.avx2.ntt.invntt_block
   (SECOND : Bool) (b : Array Std.I16 256#usize) :
   Result (Array Std.I16 256#usize)
@@ -4372,7 +4365,7 @@ axiom backend.avx2.intrinsics.srai_epi32
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::reduce_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 644:4-659:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 648:4-663:5 -/
 @[rust_loop]
 def backend.avx2.ntt.reduce_block_loop
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I64 256#usize)
@@ -4410,7 +4403,7 @@ def backend.avx2.ntt.reduce_block_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::reduce_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 640:0-663:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 644:0-667:1 -/
 def backend.avx2.ntt.reduce_block
   (SECOND : Bool) (acc : Array Std.I64 256#usize) (base : Std.Usize)
   (b : Array Std.I16 256#usize) :
@@ -4463,7 +4456,7 @@ axiom backend.avx2.intrinsics.sub_epi32
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::reduce_invntt]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 697:16-731:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 701:16-735:5 -/
 @[rust_loop]
 def backend.avx2.ntt.reduce_invntt_loop
   (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
@@ -4523,7 +4516,7 @@ def backend.avx2.ntt.reduce_invntt_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::reduce_invntt]:
-    Source: 'src/backend/avx2/ntt.rs', lines 672:0-733:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 676:0-737:1 -/
 def backend.avx2.ntt.reduce_invntt
   (acc : Array Std.I64 256#usize) : Result (Array Std.U16 256#usize) := do
   let v1 := Array.repeat 256#usize 0#i16
@@ -5915,7 +5908,7 @@ def pke.PkePublicKey.serialize
   ok (index_mut_back s2)
 
 /-- [kopis::turboshake256_hash]:
-    Source: 'src/lib.rs', lines 36:0-46:1 -/
+    Source: 'src/lib.rs', lines 41:0-51:1 -/
 def turboshake256_hash
   (DS : Std.U8) (input0 : Slice Std.U8) (input1 : Slice Std.U8) :
   Result (Array Std.U8 32#usize)

@@ -21,6 +21,8 @@ import Kopis.Avx2.NttAlgebra
 import Kopis.Avx2.NttZeta
 import Kopis.Avx2.NttValue
 import Kopis.Avx2.NttWalk
+import Kopis.Avx2.InvWalk
+import Kopis.Avx2.Reduce
 import Kopis.Avx2.Crt
 import Kopis.Avx2.Transpose
 import Kopis.Avx2.TransposeSpec
