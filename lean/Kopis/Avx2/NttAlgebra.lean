@@ -15,7 +15,16 @@
   What is *not* here is anything about the code: `State_ct` says what one Cooley-Tukey layer does
   to the invariant, and it is the caller's job to show the layer's butterflies have that shape.
 -/
-import Mathlib.Tactic
+import Mathlib.Data.ZMod.Basic
+import Mathlib.Algebra.BigOperators.Ring.Finset
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.Zify
+import Mathlib.Tactic.Push
 
 namespace Kopis.Avx2.NttAlg
 

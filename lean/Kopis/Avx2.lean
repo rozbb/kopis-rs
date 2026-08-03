@@ -38,3 +38,4 @@ import Kopis.Avx2.Cbd
 import Kopis.Avx2.CbdGeneric
 import Kopis.Avx2.CbdEq
 import Kopis.Avx2.CbdDispatch
+import Kopis.Avx2.MulT

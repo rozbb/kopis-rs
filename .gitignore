@@ -6,3 +6,6 @@
 # regenerating is one command.
 /lean/Kopis/Avx2/Properties/
 /lean/Kopis/Avx2/Properties.lean
+
+# Python bytecode cache from lean/scripts/.
+/lean/scripts/__pycache__/

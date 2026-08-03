@@ -1002,3 +1002,79 @@ Then `reduce_invntt` assembles the two `reduce_block` calls with the combine, an
 
 *Superseded note (kept for the record):* the original text below listed item 3 as all new lane
 algebra.
+
+---
+
+**2026-08-03.** **`make prove-kopis` is green, on both backends.** All 59 twins compile,
+`TopLevelTheoremsAvx2` is in the build graph, and `TrustBase.lean` now has two rows — so the AVX2
+audit list is *enforced*, not merely documented. `sorryAx` is in neither backend's footprint.
+
+*What item 4's remainder actually took.* The plan's last entry said "hoist the dispatch in
+`ntt_mul_mid_spec`". That is the right idea in the wrong place, and the difference is worth
+recording, because it is the whole shape of the fix:
+
+* `nttFwdU A` / `nttFwdS s` are `Result.getD` of the *dispatching* constructors, so the two
+  branches diverge **before** `mul` is reached. `ElemOK`, which names the mod-`p` reading of a
+  transformed element, is therefore false on the vector branch too — not just
+  `pointwise_mul_acc_spec` and `reduce_invntt_to_ring_elem_spec`.
+* The repair is `UOK` / `SOK`: one conjunct per outcome of `cpu::available`, both proved, exactly
+  one ever used. The matrix loops carry them **opaquely** — they never unfold `ElemOK` — so those
+  ~250 lines transfer with a predicate rename and nothing else.
+* The one place the representation difference has to live is where the accumulator is named. So
+  `ntt_mul_inner_spec` and `ntt_entry_spec` are *bundled* into `ntt_inner_entry_spec`, whose
+  postcondition carries the reduction's triple as a **continuation**:
+  `p.1 = self ∧ p.2.1 = other ∧ reduce_invntt_to_ring_elem p.2.2 ⦃ … ⦄`. That lets
+  `mul_loop0_loop0` bind the loop and the reduction in sequence without ever mentioning what the
+  accumulator holds, and the three nested loops above it are untouched. Reuse this trick wherever
+  two backends agree only at the endpoints of a `do` block.
+* `entry_tail` is the serial `ntt_entry_spec`'s last third, lifted out: both branches end at
+  `∀ n < 256, (r[n]).val ≡ H n (mod 2¹⁶)` and share everything after it.
+
+*Two conditions had to be threaded, and only two.* The vector `from_uniform` reads the stored
+`u16`s as `i16`s, so the two backends' uniform readings agree only below `2¹⁵`; that bound rides
+*inside* `UOK`'s AVX2 conjunct, so the matrix loops stay free of magnitude hypotheses. The vector
+`from_secret` transforms without a leading Barrett reduction, so its input must already be centred
+— and that one *cannot* be hidden, because without it there is no proof the routine even returns.
+`SecretSmall` threads it through the secret matrix loops; `secretSmall_of_bounded` and
+`secretSmall_of_fit` discharge it from hypotheses every call site already carries
+(`fitsExactly Y sBound` with `Y ≥ 1` forces `sBound ≤ 11`).
+
+*Three findings that cost real time.*
+
+1. **The twin stack had a silent `sorry`, and the generator put it there.** `GenSecretTop.lean`'s
+   post-transform assumed its collapse `rw` fired; it never did (`rw` reads
+   `?k (index_mut_back a1)` higher-order and does not match), so `all_goals (try …)` swallowed the
+   failure and the serial argument then ran on a goal whose context it did not fit — and Lean's
+   recovery filled the gap with `sorryAx` while reporting **no error at all**. The linter warning
+   `declaration uses 'sorry'` was the only signal. Two lessons: never write `try` in a generated
+   transform (fail loudly instead — the fix rotates to the goal and rewrites unconditionally,
+   passing the continuation explicitly), and *the axiom-footprint gate is the thing that catches
+   this* — which is precisely why item 5 is not optional bookkeeping. Also: a **named** synthetic
+   hole (`?sec'`) cannot appear under `all_goals`, because the block is elaborated once per goal
+   and the second declaration collides; use `?_`.
+2. **`import Mathlib.Tactic` broke `‖`.** Two AVX2 files imported it; it brings Mathlib's norm
+   notation, and `f a ‖ g b` then parses as `f a ‖g b‖` — function application beats the infix.
+   The serial stack never imports it, which is why the clash only appeared once a twin reached the
+   AVX2 chain. Fixed at the root by narrowing those two imports (`Kopis/Avx2/NttAlgebra.lean`,
+   `Kopis/Avx2/Crt.lean`); parenthesising the use sites does *not* help, since the ambiguity is in
+   the application parser. Do not reintroduce `import Mathlib.Tactic` anywhere under `Kopis/`.
+3. **The generated audit copy needed one more `sed` rule.** `TopLevelTheoremsSerial.lean` refers to
+   its proof stack as `Properties.…`, relative to `namespace Kopis`; in the twin that has to reach
+   `Kopis.Avx2.Properties`. An `open Kopis.Avx2` line before the namespace does it (`open … in`
+   does not — it scopes to the `namespace` command alone and then the `end` fails).
+
+*Where the edits live.* Nothing is hand-edited in `Kopis/Avx2/Properties/`, which remains
+generated and uncommitted. `scripts/gen_avx2_twins.py` gained the `NttMul` dispatch patches, the
+two `from_secret_matrix_spec` call sites, and the `GenSecretTop` fix;
+`scripts/gen_avx2_bridge.py` is new and holds the 40 anchored edits that `NttBridge.lean` needs.
+Every anchor asserts its match count, so a change to a serial proof fails the generator rather
+than silently producing a stale twin. New hand-written Lean: `Kopis/Avx2/MulT.lean`
+(`mul_transpose`'s accumulate loop on the vector branch, plus `i32View_zero` and
+`NttOK_lane_bound`).
+
+*What is left.* Nothing on the critical path. Worth doing next, in rough order of value: replace
+the `native_decide` in `Spec/Defs.lean:380` (the one entry in both trust bases that rests on the
+compiler rather than the kernel); re-record `tests/intrinsics_vectors.jsonl` if the wrapper set
+ever changes; and consider whether `make prove-kopis-serial` should stop pulling the AVX2 stack in
+via `TrustBase` (it does now, because the two rows share a file — deliberate, but it makes the
+serial-only target slower than it looks).

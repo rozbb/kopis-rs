@@ -1,4 +1,5 @@
 import TopLevelTheoremsSerial
+import TopLevelTheoremsAvx2
 
 /-!
 # The trust base — what `kopis-rs`'s proofs assume
@@ -23,14 +24,11 @@ would let a theorem about the portable code start depending on an AVX2 intrinsic
 still pass — exactly the drift this file exists to catch. Adding a backend means adding a
 `def`-pair below and one row to `backends`, not extending an existing list.
 
-As of 2026-08-03 there is still one row, but the reason has changed. The AVX2 extraction now has
-proofs — 46 of the 59 twins in `TopLevelTheoremsAvx2.lean` are discharged — so a second row is
-what should be here. It is not, because the remaining 13 twins do not compile yet, and a row
-naming theorems that do not exist would not build. The list that row will need is known: the 45
-intrinsic axioms of `Kopis/Avx2/Intrinsics.lean`, `available_ok`, `rangeInclusive_contains_ok`,
-and `CbdGeneric.U{8,32}.count_ones_spec`. Until it lands, `make prove-kopis-avx2` fails and the
-AVX2 trust base is documented rather than enforced — do not read the green serial row as
-covering both backends. See `AVX2_VERIFICATION_PLAN.md`.
+As of 2026-08-03 there are two rows: every twin in `TopLevelTheoremsAvx2.lean` is discharged, so
+the AVX2 trust base is now *enforced* rather than documented. Note that this file therefore
+imports both audit surfaces, and so `make prove-kopis-serial` — which builds `TrustBase` — pulls
+the AVX2 extraction in with it. That is the price of checking the whole trust base in one place;
+run `lake build Kopis TopLevelTheoremsSerial` if you want the serial proofs alone.
 -/
 
 open Lean
@@ -148,6 +146,189 @@ def serialTheorems : List Name :=
    ``Kopis.TopLevelSerial.kopis768_from_bytes_then_encapsulate,
    ``Kopis.TopLevelSerial.kopis1024_from_bytes_then_encapsulate]
 
+
+/-! ## The AVX2 (`RustKopisAvx2`) backend
+
+The same theorems, about the `--cfg kopis_backend="avx2"` extraction. Its assumptions are the
+portable backend's, restated for the second extraction's opaque constants, **plus three groups
+that exist only here**.
+
+**(e) The SIMD instruction semantics (45 assumptions + 2 opaque types).** `Kopis/Avx2/Intrinsics.lean`
+gives one axiom per wrapper in `src/backend/avx2/intrinsics.rs`, over `bits : Vec256 → BitVec 256`.
+This is the largest addition and the file a reviewer must read. It is not proved, but it *is*
+tested: `Kopis/Avx2/Model.lean` derives a computable model from each axiom, and
+`make test-avx2-model` replays 47 858 vectors recorded from real silicon
+(`src/backend/avx2/intrinsics_vectors.rs`) through those models. A wrong axiom is therefore caught
+by `cargo test` on an AVX2 host, not silently believed.
+
+**(f) The two dispatch guards (2 assumptions).** `available_ok` says the CPUID probe returns —
+`∃ b, cpu.available = ok b` — and `rangeInclusive_contains_ok` the same for the width guard
+`(1..=13).contains(&bits)`, which charon does not lower. Neither says *which* answer is given, and
+neither needs to: every dispatch point is proved on both branches. That is the whole of feature
+detection's contribution to the trust base.
+
+**(g) Popcount, twice more.** `CbdGeneric.U{8,32}.count_ones_spec` are the same assumption as (c),
+for the copy of the portable sampler that `Kopis/Avx2/CbdGeneric.lean` carries; the extracted
+`RustKopisAvx2.core.num.U{8,32}.count_ones` are different opaque constants from the serial ones,
+so they are genuinely new for this backend.
+
+Everything else in the list below is the portable backend's list with `RustKopisSerial` renamed to
+`RustKopisAvx2` and `Kopis.Properties` to `Kopis.Avx2.Properties` — the same turboshake, subtle and
+Lean-side assumptions, reached through the generated twin proof stack. `sorryAx` is not in the
+list, and the exact-match check below fails the build if it ever appears. -/
+
+def avx2Audited : List String :=
+  ["Aeneas.Std.core.fmt.Formatter",
+   "Classical.choice",
+   "Kopis.Avx2.CbdGeneric.U32.count_ones_spec",
+   "Kopis.Avx2.CbdGeneric.U8.count_ones_spec",
+   "Kopis.Avx2.Properties.U32.count_ones_spec",
+   "Kopis.Avx2.Properties.U8.count_ones_spec",
+   "Kopis.Avx2.Properties.conditional_select_array_u8_spec",
+   "Kopis.Avx2.Properties.ct_eq_slice_u8_spec",
+   "Kopis.Avx2.Properties.hasher_default_spec",
+   "Kopis.Avx2.Properties.hasher_finalize_spec",
+   "Kopis.Avx2.Properties.hasher_update_spec",
+   "Kopis.Avx2.Properties.reader_read136_spec",
+   "Kopis.Avx2.Properties.reader_read168_spec",
+   "Kopis.Avx2.add_epi16_spec",
+   "Kopis.Avx2.add_epi32_spec",
+   "Kopis.Avx2.and_si256_spec",
+   "Kopis.Avx2.available_ok",
+   "Kopis.Avx2.bits",
+   "Kopis.Avx2.bits'",
+   "Kopis.Avx2.broadcastsi128_si256_spec",
+   "Kopis.Avx2.castsi256_si128_spec",
+   "Kopis.Avx2.cmpgt_epi32_spec",
+   "Kopis.Avx2.cvtepu16_epi32_spec",
+   "Kopis.Avx2.cvtsi32_si128_spec",
+   "Kopis.Avx2.extracti128_si256_spec",
+   "Kopis.Avx2.load_i16_of_i32_spec",
+   "Kopis.Avx2.load_i16_spec",
+   "Kopis.Avx2.load_i32_of_i64_spec",
+   "Kopis.Avx2.load_i32_spec",
+   "Kopis.Avx2.load_u16_spec",
+   "Kopis.Avx2.load_u8_spec",
+   "Kopis.Avx2.load_u8x16_spec",
+   "Kopis.Avx2.mulhi_epi16_spec",
+   "Kopis.Avx2.mullo_epi16_spec",
+   "Kopis.Avx2.mullo_epi32_spec",
+   "Kopis.Avx2.packs_epi32_spec",
+   "Kopis.Avx2.packus_epi32_spec",
+   "Kopis.Avx2.permute2x128_si256_spec",
+   "Kopis.Avx2.permute4x64_epi64_spec",
+   "Kopis.Avx2.rangeInclusive_contains_ok",
+   "Kopis.Avx2.set1_epi16_spec",
+   "Kopis.Avx2.set1_epi32_spec",
+   "Kopis.Avx2.setzero_si256_spec",
+   "Kopis.Avx2.shuffle_epi8_spec",
+   "Kopis.Avx2.slli_epi32_spec",
+   "Kopis.Avx2.srai_epi16_spec",
+   "Kopis.Avx2.srai_epi32_spec",
+   "Kopis.Avx2.srl_epi16_spec",
+   "Kopis.Avx2.srli_epi16_spec",
+   "Kopis.Avx2.srlv_epi32_spec",
+   "Kopis.Avx2.store_i16_of_i32_spec",
+   "Kopis.Avx2.store_i16_spec",
+   "Kopis.Avx2.store_i32_of_i64_spec",
+   "Kopis.Avx2.store_u16_spec",
+   "Kopis.Avx2.sub_epi16_spec",
+   "Kopis.Avx2.sub_epi32_spec",
+   "Kopis.Avx2.unpackhi_epi16_spec",
+   "Kopis.Avx2.unpackhi_epi32_spec",
+   "Kopis.Avx2.unpackhi_epi64_spec",
+   "Kopis.Avx2.unpacklo_epi16_spec",
+   "Kopis.Avx2.unpacklo_epi32_spec",
+   "Kopis.Avx2.unpacklo_epi64_spec",
+   "Quot.sound",
+   "RustKopisAvx2.Array.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisAvx2.Slice.Insts.SubtleConstantTimeEq.ct_eq",
+   "RustKopisAvx2.U8.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisAvx2.U8.Insts.SubtleConstantTimeEq.ct_eq",
+   "RustKopisAvx2.backend.avx2.cpu.available",
+   "RustKopisAvx2.backend.avx2.intrinsics.Vec128",
+   "RustKopisAvx2.backend.avx2.intrinsics.Vec256",
+   "RustKopisAvx2.backend.avx2.intrinsics.add_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.add_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.and_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.broadcastsi128_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.castsi256_si128",
+   "RustKopisAvx2.backend.avx2.intrinsics.cmpgt_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.cvtepu16_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.cvtsi32_si128",
+   "RustKopisAvx2.backend.avx2.intrinsics.extracti128_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_i16",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_i16_of_i32",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_i32",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_i32_of_i64",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_u16",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_u8",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_u8x16",
+   "RustKopisAvx2.backend.avx2.intrinsics.mulhi_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.mullo_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.mullo_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.packs_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.packus_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.permute2x128_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.permute4x64_epi64",
+   "RustKopisAvx2.backend.avx2.intrinsics.set1_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.set1_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.setzero_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.shuffle_epi8",
+   "RustKopisAvx2.backend.avx2.intrinsics.slli_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.srai_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.srai_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.srl_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.srli_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.srlv_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.store_i16",
+   "RustKopisAvx2.backend.avx2.intrinsics.store_i16_of_i32",
+   "RustKopisAvx2.backend.avx2.intrinsics.store_i32_of_i64",
+   "RustKopisAvx2.backend.avx2.intrinsics.store_u16",
+   "RustKopisAvx2.backend.avx2.intrinsics.sub_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.sub_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.unpackhi_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.unpackhi_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.unpackhi_epi64",
+   "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi16",
+   "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi32",
+   "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi64",
+   "RustKopisAvx2.core.num.U32.count_ones",
+   "RustKopisAvx2.core.num.U8.count_ones",
+   "RustKopisAvx2.core.ops.range.RangeInclusive.contains",
+   "RustKopisAvx2.subtle.Choice",
+   "RustKopisAvx2.turboshake.TurboShake",
+   "RustKopisAvx2.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
+   "RustKopisAvx2.turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof",
+   "RustKopisAvx2.turboshake.TurboShake.Insts.DigestUpdate.update",
+   "RustKopisAvx2.turboshake.TurboShakeReader",
+   "RustKopisAvx2.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
+   "_private.Kopis.Avx2.NttMulLane.0.Kopis.Avx2.join_prod._native.bv_decide.ax_1_5",
+   "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.and_low16._native.bv_decide.ax_1_5",
+   "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.sar_eq._native.bv_decide.ax_1_5",
+   "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.shl_sar_eq._native.bv_decide.ax_1_5",
+   "_private.Spec.Defs.0.Spec.testBit_byte_of_bools._native.native_decide.ax_1_1",
+   "propext"]
+
+/-- The AVX2 twins of `serialTheorems`; the coverage check enforces that this is every theorem in
+`Kopis.TopLevelAvx2`. -/
+def avx2Theorems : List Name :=
+  [``Kopis.TopLevelAvx2.triple_means_success,
+   ``Kopis.TopLevelAvx2.arrayToBytes_is_identity,
+   ``Kopis.TopLevelAvx2.kopis512_keygen,
+   ``Kopis.TopLevelAvx2.kopis768_keygen,
+   ``Kopis.TopLevelAvx2.kopis1024_keygen,
+   ``Kopis.TopLevelAvx2.kopis512_keygen_then_encapsulate,
+   ``Kopis.TopLevelAvx2.kopis768_keygen_then_encapsulate,
+   ``Kopis.TopLevelAvx2.kopis1024_keygen_then_encapsulate,
+   ``Kopis.TopLevelAvx2.kopis512_keygen_then_decapsulate,
+   ``Kopis.TopLevelAvx2.kopis768_keygen_then_decapsulate,
+   ``Kopis.TopLevelAvx2.kopis1024_keygen_then_decapsulate,
+   ``Kopis.TopLevelAvx2.pk_serialize_matches_translation,
+   ``Kopis.TopLevelAvx2.kopis512_from_bytes_then_encapsulate,
+   ``Kopis.TopLevelAvx2.kopis768_from_bytes_then_encapsulate,
+   ``Kopis.TopLevelAvx2.kopis1024_from_bytes_then_encapsulate]
+
 /-! ## The check
 
 One row per backend: a label, the namespace its theorems live in, its audited assumptions, and
@@ -170,7 +351,8 @@ Two things are checked, because the audited list and the theorem list can each r
 open Lean in
 run_cmd do
   let backends : List (String × Name × List String × List Name) :=
-    [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited, serialTheorems)]
+    [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited, serialTheorems),
+     ("RustKopisAvx2", `Kopis.TopLevelAvx2, avx2Audited, avx2Theorems)]
   let env ← getEnv
   for (label, ns, audited, theorems) in backends do
     -- Footprint.

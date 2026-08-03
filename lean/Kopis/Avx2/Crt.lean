@@ -16,8 +16,18 @@
   Two theorems: the Garner step the backend actually runs produces a representative of the right
   class, and a class has at most one member in the centred range.
 -/
-import Mathlib.Tactic
+import Mathlib.Data.ZMod.Basic
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.LinearCombination
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.NormNum
+import Mathlib.Tactic.NormNum.GCD
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.IntervalCases
+import Mathlib.Tactic.Zify
+import Mathlib.Tactic.Push
 import Mathlib.Data.Int.GCD
+import Mathlib.RingTheory.Int.Basic
 
 namespace Kopis.Avx2
 

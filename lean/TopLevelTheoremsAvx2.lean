@@ -89,6 +89,7 @@ from `../src/*.rs`.
 open Aeneas Aeneas.Std Result
 open Spec (𝔹)
 
+open Kopis.Avx2
 namespace Kopis.TopLevelAvx2
 
 set_option maxRecDepth 8000

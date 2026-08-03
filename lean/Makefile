@@ -47,7 +47,8 @@ TopLevelTheoremsAvx2.lean: TopLevelTheoremsSerial.lean Makefile
 	     -e 's/RustKopisSerial/RustKopisAvx2/g' \
 	     -e 's/TopLevelSerial/TopLevelAvx2/g' \
 	     -e 's/^import Kopis$$/import Kopis.Avx2.Properties/' \
-	     -e 's/Kopis\.Properties/Kopis.Avx2.Properties/g' $< >> $@.tmp
+	     -e 's/Kopis\.Properties/Kopis.Avx2.Properties/g' \
+	     -e 's/^namespace Kopis\.TopLevelAvx2$$/open Kopis.Avx2\nnamespace Kopis.TopLevelAvx2/' $< >> $@.tmp
 	@if cmp -s $@.tmp $@; then rm -f $@.tmp; else \
 	  mv $@.tmp $@; \
 	  echo "*** $@ was out of date and has been regenerated from $<."; \
@@ -67,11 +68,13 @@ generated: $(GENERATED_AUDIT)
 .PHONY: prove-kopis
 prove-kopis: prove-kopis-serial prove-kopis-avx2
 
-# The portable backend, and the only one anything is currently *proved* about:
-# the extracted ExtractedRustSerial.lean plus every Kopis/Properties/*.lean, then
+# The portable backend: the extracted ExtractedRustSerial.lean plus every
+# Kopis/Properties/*.lean, then
 # TopLevelTheoremsSerial.lean, which restates the top-level results, and
 # TrustBase.lean, which re-checks their axiom footprint against the audited list.
-# A green build IS the machine-checked proof.
+# A green build IS the machine-checked proof.  Note that TrustBase now holds both
+# backends' rows, so this target builds the AVX2 stack too; for the serial proofs
+# alone, run `lake build Kopis TopLevelTheoremsSerial`.
 .PHONY: prove-kopis-serial
 prove-kopis-serial:
 	$(LAKE) build Kopis TopLevelTheoremsSerial TrustBase
@@ -81,19 +84,18 @@ prove-kopis-serial:
 # *assumes* the semantics of the opaque SIMD wrappers — and the AVX2 proofs
 # themselves.  See ../lean/AVX2_VERIFICATION_PLAN.md.
 #
-# This target does not pass yet, and that is deliberate.  46 of the 59 twins in
-# `TopLevelTheoremsAvx2.lean` are proved; the remaining 13 are downstream of two
-# dispatch points in Kopis/Avx2/Properties/NttMul.lean that cannot be discharged by
-# the serial lemmas.  Those lemmas are stated over the integer value of an `i32`
-# lane, which on the serial backend is one residue mod 50330113 and on AVX2 is two
-# 16-bit residues (mod 7681 and 10753) packed together — so they are false here,
-# not merely unproved.  The replacement routes through Kopis/Avx2/NttWalk.lean; the
-# plan document lists what is left, in dependency order.
+# The generated twin proof stack (Kopis/Avx2/Properties/*.lean, written by
+# scripts/gen_avx2_twins.py) is **not** checked in and is not built by this target
+# directly — `TopLevelTheoremsAvx2` pulls it in.  Regenerate it with
+#   python3 scripts/gen_avx2_twins.py
+# after any change to Kopis/Properties/*.lean; the generator's patches are anchored
+# on exact serial text and fail loudly when the serial proof moves under them.
 #
-# Two consequences worth knowing about.  `TrustBase.lean` still has only the serial
-# row in `backends`, so the AVX2 audit list is not enforced yet.  And the generated
-# copy inherits `import Kopis`, the *serial* aggregator, which no backend-name
-# substitution reaches; the sed rule below rewrites that line specially.
+# Two notes on the generated audit copy.  It inherits `import Kopis`, the *serial*
+# aggregator, which no backend-name substitution reaches, and it refers to this
+# stack's own namespace as `Properties.…`; the two sed rules above rewrite those
+# specially.  `TrustBase.lean` now carries a second `backends` row for
+# RustKopisAvx2, so the AVX2 audit list is enforced, not merely documented.
 .PHONY: prove-kopis-avx2
 prove-kopis-avx2: $(GENERATED_AUDIT)
 	$(LAKE) build KopisAvx2 TopLevelTheoremsAvx2 TrustBase
@@ -136,7 +138,6 @@ help:
 	@echo "  make prove-kopis         every backend, regenerating the audit copies first"
 	@echo "  make prove-kopis-serial  the portable backend: the proofs and their trust base"
 	@echo "  make prove-kopis-avx2    the AVX2 backend: proofs, intrinsic axioms, trust base"
-	@echo "                           (does not pass yet — see AVX2_VERIFICATION_PLAN.md)"
 	@echo "  make generated           bring the generated audit copies up to date"
 	@echo "  make test-kopis-spec     run the Lean spec test vectors + KAT (lake exe kopisTests)"
 	@echo "  make test-avx2-model     check the assumed AVX2 intrinsic semantics against silicon"
