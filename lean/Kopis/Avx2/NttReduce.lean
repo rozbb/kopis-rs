@@ -27,8 +27,9 @@ set_option maxHeartbeats 1000000
 
 /-! ## Integer facts -/
 
-/-- `bmod` by `2¹⁶` is the identity on the signed 16-bit range. -/
-private theorem bmod16_eq_self {z : ℤ} (h1 : -(2 ^ 15 : ℤ) ≤ z) (h2 : z < 2 ^ 15) :
+/-- `bmod` by `2¹⁶` is the identity on the signed 16-bit range — the exactness condition every
+wrapping lane operation is discharged with. -/
+theorem bmod16_eq_self {z : ℤ} (h1 : -(2 ^ 15 : ℤ) ≤ z) (h2 : z < 2 ^ 15) :
     z.bmod (2 ^ 16) = z := by
   unfold Int.bmod
   norm_num
@@ -65,7 +66,9 @@ theorem mont_mul_lane_spec (a z zq qv : Vec256) (Q : ℤ)
     backend.avx2.ntt.mont_mul a z zq qv
       ⦃ (c : Vec256) => ∀ i < 16,
           (Q ∣ ((lane16 c i).toInt * 2 ^ 16 - (lane16 a i).toInt * (lane16 z i).toInt)) ∧
-          -Q < (lane16 c i).toInt ∧ (lane16 c i).toInt < Q ⦄ := by
+          -Q < (lane16 c i).toInt ∧ (lane16 c i).toInt < Q ∧
+          2 ^ 16 * |(lane16 c i).toInt|
+            ≤ |(lane16 a i).toInt| * |(lane16 z i).toInt| + 2 ^ 15 * Q ⦄ := by
   unfold backend.avx2.ntt.mont_mul
   obtain ⟨t, ht, htb⟩ := mullo_epi16_model a zq
   rw [ht, bind_tc_ok]
@@ -114,10 +117,21 @@ theorem mont_mul_lane_spec (a z zq qv : Vec256) (Q : ℤ)
   have hC : (lane16 c i).toInt = (A * Z - T * Q) / 2 ^ 16 := by
     rw [hCv, hsub]
     exact bmod16_eq_self (by omega) (by omega)
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
   · exact ⟨-T, by rw [hC, hRmul]; ring⟩
   · rw [hC]; exact hRbnd.1
   · rw [hC]; exact hRbnd.2
+  · -- the *sharp* bound: `c·2¹⁶ = a·z − T·q` exactly, and `|T| ≤ 2¹⁵`.  This, not `|c| < q`,
+    -- is what makes a four-level Cooley-Tukey run fit an `i16` lane — see `NttGrowth.lean`.
+    rw [hC]
+    rcases abs_cases ((A * Z - T * Q) / 2 ^ 16) with ⟨hb, _⟩ | ⟨hb, _⟩ <;> rw [hb]
+    · rw [show (2:ℤ) ^ 16 * ((A * Z - T * Q) / 2 ^ 16) = A * Z - T * Q from by linarith [hRmul]]
+      have hAZ' : A * Z ≤ |A| * |Z| := by rw [← abs_mul]; exact le_abs_self _
+      linarith [hTQ.1]
+    · rw [show (2:ℤ) ^ 16 * -((A * Z - T * Q) / 2 ^ 16) = -(A * Z - T * Q) from by
+        linarith [hRmul]]
+      have hAZ' : -(A * Z) ≤ |A| * |Z| := by rw [← abs_mul]; exact neg_le_abs _
+      linarith [hTQ.2]
 
 /-! ## `barrett`
 

@@ -589,3 +589,80 @@ indices let the bookkeeping discharge by `omega`.
 Do not try to make the 13 NTT twins compile. They are false as stated for this backend; the work
 is F, and when F lands the AVX2 top-level theorems should be proved directly rather than
 generated.
+
+**2026-08-02 (F3/F4 session).** F1 completed, F3's argument mechanised and composed onto the
+extracted code for three of its four critical levels, F4's endpoint theorem done. No `sorry`;
+`make prove-kopis` green.
+
+*F1 — complete.* `barrett_lane_spec` joins `mont_mul_lane_spec`. The centred bound `2|r| < q` is
+tight and the crude argument does not reach it: bounding each rounding step on its own leaves the
+result about `q/2048` outside `±q/2`, and the term that closes the gap is `q·(x·M mod 2¹⁶)/2²⁷`.
+Work from the exact identity `2²⁷r = x(2²⁷−qM) + q·a + q·2¹⁶(b−2¹⁰)`, not from interval
+arithmetic over the steps.
+
+*F3 — the argument, and most of the binding to code.* Two findings.
+
+(i) **The sharp Montgomery bound is the whole thing.** `mont_mul_lane_spec` originally gave
+`|c| < q`, which is what the crude budget uses; four `+q` steps from `q/2` reach `4.5q`. The sharp
+form `2¹⁶|c| ≤ |a||z| + 2¹⁵q` makes a level's growth *proportional to the bound already reached*,
+so levels compound instead of adding a constant. That single change is what makes the schedule
+fit — see `mont_mul_lane_spec`'s fourth conjunct.
+
+(ii) **The bound does not need the ψ values, only that the tables are centred.** With `|ψ| ≤ q/2`
+the recurrence `B ↦ B + ⌈(B·q/2 + 2¹⁵q)/2¹⁶⌉` from `B = (q−1)/2` gives, for `q₂ = 10753`,
+`5376 → 11194 → 17489 → 24301 → 31671` — inside 32767 with 1096 to spare. `crt.rs` says the
+argument rests on "the actual per-butterfly ψ values"; it does not have to. Centredness is a much
+more robust hypothesis than the table contents, and `crude_budget_overflows` confirms the
+comment's warning is exact: four flat `+0.75q₂` steps reach 37632 and overflow.
+
+Landed: `VecBnd`/`BlockBnd`/`BlockBndAt`/`Split`, value-level load/store, `ct_butterfly_bnd`,
+`barrett_block_bnd` (Barrett has no precondition, so re-centring needs no bound going in), the
+four vertical levels (`ntt_block_loop1/2/3/4`), the horizontal group loop
+(`ntt_block_loop0_loop0_loop0`), `growth_q1`/`growth_q2`, and `vertical_levels_bnd_q2`, which
+composes three of the four levels of the critical run against the extracted code.
+
+*F3 — done, for both primes.* `ntt_block_bnd_q1` and `ntt_block_bnd_q2`: the extracted
+`ntt_block` leaves every coefficient centred at `|a| ≤ (q−1)/2`, which is what its Rust doc claims
+and what the next stage assumes. The chain for `q₂`, the binding prime, is
+`3840/5376 → … → 31671 → 5376`, with the worst lane 31671 of 32767 reached inside the four-level
+run the crude budget cannot cover. `ntt_block_loop0` is unrolled rather than given an invariant,
+because the bound differs at every level and the Barrett resets it after level 2.
+
+*The ψ-table hypotheses are discharged* — `Kopis/Avx2/Tables.lean`, so
+`ntt_block_centred_q1` / `ntt_block_centred_q2` are unconditional. Nothing had to be evaluated:
+`zetas_qinv` and `lane_tbl` are `partial_fixpoint` loops, so the kernel cannot reduce them at
+all. Instead the file rests on two observations.
+
+* **Centredness is a property of `ZETAS_Q1`/`ZETAS_Q2` alone.** Every derived table is built by
+  *copying* their entries — `lane_tbl` reads `zetas[base + h·hs + m·ms]` and writes it through —
+  so the check is one `decide` per prime over a 256-entry literal array (about 1.5 s each with
+  `unseal` and `maxRecDepth 20000`; they are `irreducible`, so the `unseal` is required).
+* **The Montgomery pairing needs one numeric fact per prime**, `q⁻¹·q ≡ 1 (mod 2¹⁶)`, plus the
+  structural fact that every `zq` entry is `wrapping_mul` of the matching `z` entry by `q⁻¹`.
+  Then `zq·q ≡ z·q⁻¹·q ≡ z` whatever `z` is — `mont_pair`.
+
+The loop specifications that carry those two facts are `zetas_qinv_loop_spec` and
+`lane_tbl_loop0_loop0_spec`. The second one is where the ζ *index* has to be shown in range:
+`base + h·h_stride + m·m_stride < 256` for the four concrete stride tuples. Two notes for anyone
+extending it. The `hcast` steps leave `i_post : i = UScalar.hcast …` — an equation between
+*values*, not `.val`s — so `scalar_tac` cannot see `i.val = h.val`; `hcast_usize_isize_val` and
+`hcast_isize_usize_val` bridge that. And the stride products are nonlinear for `omega`, so the
+strides are hypothesised as literal disjunctions (`h_stride = 0 ∨ 1`, `m_stride ∈ {1,2,4,8}`) and
+`rcases`d before the arithmetic — after which everything is linear. Two tactical notes for whoever picks this up. `step*` uses the
+theorem's own induction hypothesis for the recursive call, so an explicit `apply` of the lemma
+being proved is *wrong* and produces a confusing "could not unify" against a goal that is already
+the invariant — see `ntt_block_loop0_loop0_loop0_bnd`, where the fix was to delete the `apply`.
+And `step*` names its intermediates inaccessibly when the extraction reuses a binder, so
+`by_cases` on the loop condition *before* `step*` keeps the goal single and the names usable.
+
+*F4 — the endpoint, which is the part that is not the transform.* `Kopis/Avx2/Crt.lean`:
+`garner_congr` (the backend's Garner step lands in the right class mod `q₁q₂`), `crt_unique` (a
+class has one member in the centred range), `exactness_bound_fits`. Together: a coefficient inside
+`crt.rs`'s exactness bound is determined by its two residues. So everything the vector code does
+between the endpoints only has to *preserve the two residues* — which is the shape the rest of F4
+should take, and is much weaker than reproducing the portable intermediates.
+
+*What F4 still needs* is the bulk: that `split_and_transform`, `ntt_block`, `reduce_block` and
+`invntt_block` do preserve the residues, i.e. that the vectorised transform is an NTT mod each
+prime. That is functional correctness of the whole vector transform, with `transpose16` (done)
+explaining the reindexing, and it is the largest single piece left in the plan.

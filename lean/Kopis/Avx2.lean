@@ -15,6 +15,9 @@ import Kopis.Avx2.Lanes
 import Kopis.Avx2.Model
 import Kopis.Avx2.LaneArith
 import Kopis.Avx2.NttReduce
+import Kopis.Avx2.NttGrowth
+import Kopis.Avx2.Tables
+import Kopis.Avx2.Crt
 import Kopis.Avx2.Transpose
 import Kopis.Avx2.TransposeSpec
 import Kopis.Avx2.NttMulLane
