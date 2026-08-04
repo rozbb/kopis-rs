@@ -7,7 +7,6 @@ use crate::{
     },
     sample::{gen_matrix_from_seed, gen_secret_from_seed},
     ser::deserialize_generic,
-    turboshake256_hash,
 };
 
 use turboshake::CTurboShake256;
@@ -102,18 +101,24 @@ impl<const L: usize> PkePublicKey<L> {
     }
 
     /// Returns the public key hash
+    ///
+    // `needless_range_loop`: explicit index loop kept for aeneas-extraction friendliness, as in
+    // `serialize` above. The parts cannot be passed to `turboshake256_hash` instead, because
+    // there are `L + 1` of them and a `&[&[u8]]` is a nested borrow, which aeneas rejects.
+    #[allow(clippy::needless_range_loop)]
     pub(crate) fn hash(&self) -> [u8; 32] {
         // pkh = TurboSHAKE256(pk, 32, DOMSEP_PKHASH)
-        let mut buf = [0u8; max_pke_pubkey_serialized_len()];
-        let pk_slice = &mut buf[..PkePublicKey::<L>::SERIALIZED_LEN];
-        self.serialize(pk_slice);
-        turboshake256_hash::<DOMSEP_PKHASH>(pk_slice, &[])
-    }
-}
+        let mut hasher = CTurboShake256::<DOMSEP_PKHASH>::default();
+        for i in 0..L {
+            hasher.update(&self.vec_bytes[i]);
+        }
+        hasher.update(&self.matrix_seed);
 
-/// The maximum length of a serialized public key, for all parameter choices
-pub(crate) const fn max_pke_pubkey_serialized_len() -> usize {
-    32 + MAX_L * MODULUS_P_BITS * RING_DEG / 8
+        let mut out = [0u8; 32];
+        let mut reader = hasher.finalize_xof();
+        reader.read(&mut out);
+        out
+    }
 }
 
 /// The maximum length of a ciphertext (PKE or KEM, since they're the same), for all parameter
