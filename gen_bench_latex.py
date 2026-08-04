@@ -34,7 +34,8 @@ OPS = (
 # Prettified row labels; anything unlisted falls back to the raw directory stem.
 DISPLAY_NAMES = {
     "kopis": r"\textsf{kopis}",
-    "libcrux": r"\textsf{libcrux}",
+    "libcrux_serial": r"\textsf{libcrux}",
+    "libcrux_avx2": r"\textsf{libcrux}",
     "awslc": r"\textsf{aws-lc-rs}",
     "graviola": r"\textsf{graviola}",
 }
@@ -170,7 +171,7 @@ def main():
                 row[column] = rf"\textbf{{{best}}}"
 
     for lib, cells in zip(libs, rows):
-        label = DISPLAY_NAMES.get(lib, lib.replace("_", r"\_"))
+        label = DISPLAY_NAMES.get(lib)
         print(" & ".join([label] + cells) + r" \\")
 
     if worst is not None:

@@ -39,11 +39,11 @@ macro_rules! bench_kopis_variant {
 }
 
 macro_rules! bench_libcrux_variant {
-    ($bench_name:ident, $mod_name:path) => {
+    ($bench_name:ident, $backend:ident, $mod_name:path) => {
         fn $bench_name(c: &mut Criterion) {
             use $mod_name as base_mod;
 
-            use base_mod::portable::unpacked::*;
+            use base_mod::$backend::unpacked::*;
 
             let kg_randomness = [0u8; 64];
             let encap_randomness = [0u8; 32];
@@ -113,9 +113,13 @@ bench_kopis_variant!(kopis512, Kopis512SecretKey);
 bench_kopis_variant!(kopis768, Kopis768SecretKey);
 bench_kopis_variant!(kopis1024, Kopis1024SecretKey);
 
-bench_libcrux_variant!(libcrux_mlkem512, libcrux_ml_kem::mlkem512);
-bench_libcrux_variant!(libcrux_mlkem768, libcrux_ml_kem::mlkem768);
-bench_libcrux_variant!(libcrux_mlkem1024, libcrux_ml_kem::mlkem1024);
+bench_libcrux_variant!(libcrux_serial_mlkem512, portable, libcrux_ml_kem::mlkem512);
+bench_libcrux_variant!(libcrux_serial_mlkem768, portable, libcrux_ml_kem::mlkem768);
+bench_libcrux_variant!(libcrux_serial_mlkem1024, portable, libcrux_ml_kem::mlkem1024);
+
+bench_libcrux_variant!(libcrux_avx2_mlkem512, avx2, libcrux_ml_kem::mlkem512);
+bench_libcrux_variant!(libcrux_avx2_mlkem768, avx2, libcrux_ml_kem::mlkem768);
+bench_libcrux_variant!(libcrux_avx2_mlkem1024, avx2, libcrux_ml_kem::mlkem1024);
 
 bench_awslc_variant!(awslc_mlkem512, ML_KEM_512);
 bench_awslc_variant!(awslc_mlkem768, ML_KEM_768);
@@ -170,15 +174,22 @@ criterion_group!(
 );
 criterion_group!(graviola_benches, graviola_mlkem768);
 criterion_group!(
-    libcrux_benches,
-    libcrux_mlkem512,
-    libcrux_mlkem768,
-    libcrux_mlkem1024
+    libcrux_serial_benches,
+    libcrux_serial_mlkem512,
+    libcrux_serial_mlkem768,
+    libcrux_serial_mlkem1024
+);
+criterion_group!(
+    libcrux_avx2_benches,
+    libcrux_avx2_mlkem512,
+    libcrux_avx2_mlkem768,
+    libcrux_avx2_mlkem1024
 );
 
 criterion_main!(
     kopis_benches,
-    libcrux_benches,
+    libcrux_serial_benches,
+    libcrux_avx2_benches,
     graviola_benches,
     awslc_benches
 );

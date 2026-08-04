@@ -17,22 +17,30 @@ shift
 # Alignment flags come from https://www.bazhenov.me/posts/2024-02-performance-roulette/
 RUST_PERF_FLAGS="-C llvm-args=-align-all-functions=6 -C llvm-args=-align-all-nofallthru-blocks=6"
 
-# Graviola's ML-KEM is AVX2-only, so it has no place in the serial or NEON runs. Criterion has no
-# exclusion flag — its only selector is the positional FILTER regex, and the `regex` crate has no
-# negative lookahead — so "everything but graviola" has to be spelled as an allowlist of the
-# benchmark-group prefixes we do want. Keep in sync with the group names in `benches/all.rs`.
-NO_GRAVIOLA_FILTER='^(kopis|libcrux|awslc)'
+# Criterion has no exclusion flag — its only selector is the positional FILTER regex, and the
+# `regex` crate has no negative lookahead — so "everything but X" has to be spelled as an allowlist
+# of the benchmark-group prefixes we do want. Keep these in sync with the group names in
+# `benches/all.rs`.
+#
+# libcrux registers a separate benchmark group per SIMD backend, so each run takes only the variant
+# that matches it: `libcrux_serial_*` (portable) on the serial and NEON runs, `libcrux_avx2_*` on
+# the AVX2 one. Graviola's ML-KEM is AVX2-only, so it has no place in the serial or NEON runs.
+SERIAL_FILTER='^(kopis|libcrux_serial|awslc)'
+AVX2_FILTER='^(kopis|libcrux_avx2|awslc|graviola)'
 
-# Sets BENCH_ARGS to the arguments to pass after `--`: the caller's, or the graviola-excluding
-# filter when the caller gave none. Criterion accepts only one positional filter, so a
+# Sets BENCH_ARGS to the arguments to pass after `--`: the caller's, or $1 — this run's allowlist
+# filter — when the caller gave none. Criterion accepts only one positional filter, so a
 # caller-supplied one would collide with ours; there theirs wins and the note says so.
 set_filtered_bench_args() {
+    local filter="$1"
+    shift
+
     if [[ $# -eq 0 ]]; then
-        BENCH_ARGS=("${NO_GRAVIOLA_FILTER}")
+        BENCH_ARGS=("${filter}")
     else
         BENCH_ARGS=("$@")
-        echo "note: extra bench args given, so the graviola benches are NOT filtered out." >&2
-        echo "      Pass '${NO_GRAVIOLA_FILTER}' as your filter to exclude them." >&2
+        echo "note: extra bench args given, so this run is NOT filtered to its backend's benches." >&2
+        echo "      Pass '${filter}' as your filter to restrict it." >&2
     fi
 }
 
@@ -43,7 +51,7 @@ case "${BACKEND}" in
         RUST_SERIAL_FLAGS='--cfg kopis_backend="serial" --cfg keccak_backend="soft"'
         C_SERIAL_FLAGS="-DMY_ASSEMBLER_IS_TOO_OLD_FOR_AVX"
 
-        set_filtered_bench_args "$@"
+        set_filtered_bench_args "${SERIAL_FILTER}" "$@"
 
         RUSTFLAGS="${RUST_SERIAL_FLAGS} ${RUST_PERF_FLAGS}" AWS_LC_SYS_CFLAGS="${C_SERIAL_FLAGS}" \
             cargo bench --bench all -- "${BENCH_ARGS[@]}"
@@ -60,12 +68,12 @@ case "${BACKEND}" in
         case "${ARCH}" in
             x86_64 | amd64)
                 SIMD="avx2"
-                # AVX2 is the one configuration graviola belongs in, so run everything.
-                BENCH_ARGS=("$@")
+                set_filtered_bench_args "${AVX2_FILTER}" "$@"
                 ;;
             aarch64 | arm64)
                 SIMD="neon"
-                set_filtered_bench_args "$@"
+                # No libcrux NEON group exists, so NEON takes the portable one, as serial does.
+                set_filtered_bench_args "${SERIAL_FILTER}" "$@"
                 ;;
             *)
                 echo "Unsupported CPU architecture for autodetect benches: ${ARCH}" >&2
@@ -73,7 +81,7 @@ case "${BACKEND}" in
                 ;;
         esac
 
-        RUSTFLAGS="${RUST_PERF_FLAGS}" cargo bench --bench all -- ${BENCH_ARGS[@]+"${BENCH_ARGS[@]}"}
+        RUSTFLAGS="${RUST_PERF_FLAGS}" cargo bench --bench all -- "${BENCH_ARGS[@]}"
         OUTDIR="target/criterion-${SIMD}"
         ;;
     *)
