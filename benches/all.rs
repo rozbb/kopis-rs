@@ -73,15 +73,55 @@ macro_rules! bench_libcrux_variant {
     };
 }
 
-bench_libcrux_variant!(libcruxmlkem512, libcrux_ml_kem::mlkem512);
-bench_libcrux_variant!(libcruxmlkem768, libcrux_ml_kem::mlkem768);
-bench_libcrux_variant!(libcruxmlkem1024, libcrux_ml_kem::mlkem1024);
+macro_rules! bench_awslc_variant {
+    ($bench_name:ident, $level:ident) => {
+        fn $bench_name(c: &mut Criterion) {
+            use aws_lc_rs::kem;
+
+            let kg_randomness = [0u8; 64];
+            let encap_randomness = [0u8; 32];
+
+            let sk = kem::DecapsulationKey::generate(&kem::$level).unwrap();
+            let pk = sk.encapsulation_key().unwrap();
+            let (ct, _) = pk.encapsulate().unwrap();
+
+            let input = (sk, pk, ct);
+            let mut group = c.benchmark_group(stringify!($bench_name));
+
+            group.bench_function("keygen-derand", |b| {
+                b.iter(|| {
+                    kem::DecapsulationKey::generate_deterministic(&kem::$level, &kg_randomness)
+                        .unwrap()
+                });
+            });
+
+            group.bench_with_input("encap-derand", &input, |b, (_, pk, _)| {
+                b.iter(|| pk.encapsulate_deterministic(&encap_randomness).unwrap());
+            });
+
+            group.bench_with_input("decap", &input, |b, (sk, _, ct)| {
+                b.iter(|| {
+                    let ct_shallow_copy = kem::Ciphertext::from(ct.as_ref());
+                    sk.decapsulate(ct_shallow_copy)
+                });
+            });
+        }
+    };
+}
 
 bench_kopis_variant!(kopis512, Kopis512SecretKey);
 bench_kopis_variant!(kopis768, Kopis768SecretKey);
 bench_kopis_variant!(kopis1024, Kopis1024SecretKey);
 
-fn graviolamlkem768(c: &mut Criterion) {
+bench_libcrux_variant!(libcrux_mlkem512, libcrux_ml_kem::mlkem512);
+bench_libcrux_variant!(libcrux_mlkem768, libcrux_ml_kem::mlkem768);
+bench_libcrux_variant!(libcrux_mlkem1024, libcrux_ml_kem::mlkem1024);
+
+bench_awslc_variant!(awslc_mlkem512, ML_KEM_512);
+bench_awslc_variant!(awslc_mlkem768, ML_KEM_768);
+bench_awslc_variant!(awslc_mlkem1024, ML_KEM_1024);
+
+fn graviola_mlkem768(c: &mut Criterion) {
     use graviola::key_agreement::mlkem768::*;
 
     let kg_randomness = [0u8; 64];
@@ -121,50 +161,24 @@ fn graviolamlkem768(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_aws_lc(c: &mut Criterion) {
-    use aws_lc_rs::kem;
-
-    let kg_randomness = [0u8; 64];
-    let encap_randomness = [0u8; 32];
-
-    let sk = kem::DecapsulationKey::generate(&kem::ML_KEM_768).unwrap();
-    let pk = sk.encapsulation_key().unwrap();
-    let (ct, _) = pk.encapsulate().unwrap();
-
-    let input = (sk, pk, ct);
-    let mut group = c.benchmark_group("aws-lc");
-
-    group.bench_function("aws-lc-rs-mlkem768/keygen-rand", |b| {
-        b.iter(|| {
-            kem::DecapsulationKey::generate_deterministic(&kem::ML_KEM_768, &kg_randomness).unwrap()
-        });
-    });
-
-    group.bench_with_input("aws-lc-rs-mlkem768/encap-rand", &input, |b, (_, pk, _)| {
-        b.iter(|| pk.encapsulate_deterministic(&encap_randomness).unwrap());
-    });
-
-    group.bench_with_input("aws-lc-rs-mlkem768/decap", &input, |b, (sk, _, ct)| {
-        b.iter(|| {
-            let ct_shallow_copy = kem::Ciphertext::from(ct.as_ref());
-            sk.decapsulate(ct_shallow_copy)
-        });
-    });
-}
-
 criterion_group!(kopis_benches, kopis512, kopis768, kopis1024);
-criterion_group!(aws_lc_benches, bench_aws_lc);
-criterion_group!(graviola_benches, graviolamlkem768);
+criterion_group!(
+    awslc_benches,
+    awslc_mlkem512,
+    awslc_mlkem768,
+    awslc_mlkem1024
+);
+criterion_group!(graviola_benches, graviola_mlkem768);
 criterion_group!(
     libcrux_benches,
-    libcruxmlkem512,
-    libcruxmlkem768,
-    libcruxmlkem1024
+    libcrux_mlkem512,
+    libcrux_mlkem768,
+    libcrux_mlkem1024
 );
 
 criterion_main!(
     kopis_benches,
     libcrux_benches,
     graviola_benches,
-    aws_lc_benches
+    awslc_benches
 );
