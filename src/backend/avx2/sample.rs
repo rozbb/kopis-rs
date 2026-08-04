@@ -12,7 +12,7 @@
 use crate::{arithmetic::RingElem, consts::RING_DEG};
 
 use super::intrinsics::{
-    Vec256, add_epi16, and_si256, cvtsi32_si128, load_u16, load_u8, set1_epi16, shuffle_epi8,
+    Vec256, add_epi16, and_si256, cvtsi32_si128, load_u8, load_u16, set1_epi16, shuffle_epi8,
     srl_epi16, srli_epi16, store_u16, sub_epi16,
 };
 use super::ser;

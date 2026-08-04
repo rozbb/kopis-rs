@@ -196,7 +196,11 @@ pub(crate) const fn barrett_m<const SECOND: bool>() -> i16 {
 
 /// 256⁻¹ · 2^32 mod q, the inverse transform's final scaling
 pub(crate) const fn invntt_scale<const SECOND: bool>() -> i16 {
-    if SECOND { INVNTT_SCALE_2 } else { INVNTT_SCALE_1 }
+    if SECOND {
+        INVNTT_SCALE_2
+    } else {
+        INVNTT_SCALE_1
+    }
 }
 
 /// ψ entry `k`, in bit-reversed order and Montgomery form
@@ -206,7 +210,11 @@ pub(crate) fn zeta<const SECOND: bool>(k: usize) -> i16 {
 
 /// The matching `ψ·q⁻¹ mod 2^16`, which produces the Montgomery quotient in one step
 pub(crate) fn zeta_q<const SECOND: bool>(k: usize) -> i16 {
-    if SECOND { ZETAS_Q2_QINV[k] } else { ZETAS_Q1_QINV[k] }
+    if SECOND {
+        ZETAS_Q2_QINV[k]
+    } else {
+        ZETAS_Q1_QINV[k]
+    }
 }
 
 #[cfg(test)]

@@ -382,7 +382,11 @@ fn ntt_block<const SECOND: bool>(b: &mut Block) {
     /// group `$h` of `$tbl`.
     macro_rules! vertical {
         ($fly:ident, $t1:expr, $t2:expr, $h:expr, $lo:expr, $hi:expr) => {{
-            let (z, zq) = if SECOND { ld_tbl($t2, $h) } else { ld_tbl($t1, $h) };
+            let (z, zq) = if SECOND {
+                ld_tbl($t2, $h)
+            } else {
+                ld_tbl($t1, $h)
+            };
             let mut lo = load_i16(b, $lo);
             let mut hi = load_i16(b, $hi);
             $fly(&mut lo, &mut hi, z, zq, q);
@@ -396,12 +400,26 @@ fn ntt_block<const SECOND: bool>(b: &mut Block) {
     }
     for h in 0..2 {
         for j in 0..4 {
-            vertical!(ct_butterfly, &FWD4_Q1, &FWD4_Q2, h, 8 * h + j, 8 * h + j + 4); // len = 4
+            vertical!(
+                ct_butterfly,
+                &FWD4_Q1,
+                &FWD4_Q2,
+                h,
+                8 * h + j,
+                8 * h + j + 4
+            ); // len = 4
         }
     }
     for h in 0..4 {
         for j in 0..2 {
-            vertical!(ct_butterfly, &FWD2_Q1, &FWD2_Q2, h, 4 * h + j, 4 * h + j + 2); // len = 2
+            vertical!(
+                ct_butterfly,
+                &FWD2_Q1,
+                &FWD2_Q2,
+                h,
+                4 * h + j,
+                4 * h + j + 2
+            ); // len = 2
         }
     }
     // Four levels of growth since the last Barrett (len = 16, 8, 4, 2); re-center before the
@@ -434,7 +452,11 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
 
     macro_rules! vertical {
         ($t1:expr, $t2:expr, $h:expr, $lo:expr, $hi:expr) => {{
-            let (z, zq) = if SECOND { ld_tbl($t2, $h) } else { ld_tbl($t1, $h) };
+            let (z, zq) = if SECOND {
+                ld_tbl($t2, $h)
+            } else {
+                ld_tbl($t1, $h)
+            };
             let mut lo = load_i16(b, $lo);
             let mut hi = load_i16(b, $hi);
             gs_butterfly(&mut lo, &mut hi, z, zq, q);

@@ -1,10 +1,10 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use kopis::kopis768::{Kopis768PublicKey, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN};
+use criterion::{Criterion, criterion_group, criterion_main};
+use kopis::kopis768::{KOPIS768_CIPHERTEXT_LEN, Kopis768PublicKey, Kopis768SecretKey};
 use rand::{CryptoRng, Rng};
 use sha3::{Digest, Sha3_512};
 use shake::{
-    digest::{ExtendableOutput, Update, XofReader},
     Shake256,
+    digest::{ExtendableOutput, Update, XofReader},
 };
 use subtle::ConstantTimeEq;
 
