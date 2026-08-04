@@ -84,7 +84,7 @@ private theorem u16_eq_of_smallSigned {x y : U16} {b : ℕ} (hb : b ≤ 8)
 
 /-! ## The AVX2 coefficient is small-signed, and has the right residue -/
 
-private theorem cbdU16_lt (buf : Slice U8) (half p : ℕ) (hhalf : half ≤ 5) :
+private theorem cbdU16_lt (buf : Slice U8) (half p : ℕ) (_hhalf : half ≤ 5) :
     cbdU16 buf half p < 2 ^ 16 := by
   unfold cbdU16
   exact Nat.mod_lt _ (by positivity)

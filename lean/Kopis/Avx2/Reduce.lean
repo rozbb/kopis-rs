@@ -582,7 +582,7 @@ private theorem toNat_eq_toInt16 (x : BitVec 16) (h : 0 ≤ x.toInt) :
 
 /-- **One vector of the Garner combine.**  Sixteen coefficients, from their two centred residues
 to the wrapping `u16` the caller wants. -/
-theorem combine_vec (r1 r2 q1v q2v qim qimq q1w crtq crtqh low16 : Vec256)
+theorem combine_vec (r1 r2 q1v q2v qim _qimq q1w crtq crtqh low16 : Vec256)
     (mk1 an1 ca1 mk2 an2 ca2 dv tv mk3 an3 ct1 : Vec256)
     (w10 w12 v13 xv ovv v14 v15 fstv : Vec256)
     (w17 w19 v20 xv1 ovv1 v21 v22 sndv v23 packed : Vec256) (Xv : ℕ → ℤ)
@@ -1315,7 +1315,7 @@ product.  With the operands and the running accumulator inside `2³¹` the wrap 
 lifts to an integer identity, which is what the leaf-state algebra needs. -/
 
 theorem pointwise_acc_int (acc : Array I64 256#usize) (lhs rhs : Array I32 256#usize)
-    (Bl Br Ba : ℤ) (h0 : 0 ≤ Bl) (h1 : 0 ≤ Br)
+    (Bl Br Ba : ℤ) (h0 : 0 ≤ Bl) (_h1 : 0 ≤ Br)
     (hl : ∀ t < 512, |(i16View lhs t).toInt| ≤ Bl)
     (hr : ∀ t < 512, |(i16View rhs t).toInt| ≤ Br)
     (ha : ∀ t < 512, |(i32View acc t).toInt| ≤ Ba)
@@ -1369,7 +1369,7 @@ theorem acc_State_q1 (N : ℕ) (acc : Array I64 256#usize) (nu nv : ℕ → Arra
       = 900 * ∑ jj ∈ Finset.range N, (((i16View (nu jj) (n * 1 + r)).toInt : ℤ) : ZMod 7681)
           * (((i16View (nv jj) (n * 1 + r)).toInt : ℤ) : ZMod 7681) from by
     rw [accZ32, hacc _ (by omega), Int.cast_sum, Finset.sum_mul, Finset.mul_sum]
-    exact Finset.sum_congr rfl fun jj _ => by push_cast; ring]
+    exact Finset.sum_congr rfl fun jj _ => by push_cast; ring_nf]
   exact hx
 
 theorem acc_State_q2 (N : ℕ) (acc : Array I64 256#usize) (nu nv : ℕ → Array I32 256#usize)

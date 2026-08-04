@@ -133,7 +133,7 @@ wrapping `u16` the caller wants. -/
 theorem garner_value {x r1 r2 a1 a2 t : ℤ}
     (h1 : x ≡ r1 [ZMOD q1]) (h2 : x ≡ r2 [ZMOD q2])
     (ha1 : a1 ≡ r1 [ZMOD q1]) (ha1r : 0 ≤ a1 ∧ a1 < q1)
-    (ha2 : a2 ≡ r2 [ZMOD q2]) (ha2r : 0 ≤ a2 ∧ a2 < q2)
+    (ha2 : a2 ≡ r2 [ZMOD q2]) (_ha2r : 0 ≤ a2 ∧ a2 < q2)
     (ht : q1 * t ≡ a2 - a1 [ZMOD q2]) (htr : 0 ≤ t ∧ t < q2)
     (hxb : 2 * |x| < 82593793) :
     (if 41296896 < a1 + q1 * t then a1 + q1 * t - 82593793 else a1 + q1 * t) = x := by

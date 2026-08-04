@@ -46,17 +46,17 @@ private theorem mul_getElem!_list_set {α : Type _} [Inhabited α] (l : List α)
 
 theorem accZ_set (a : Array I64 256#usize) (i : Usize) (v : I64) (hi : i.val < 256) (c : ℕ) :
     accZ (a.set i v) c = if c = i.val then (v.val : ℤ) else accZ a c := by
-  have hlen : a.val.length = 256 := by simpa using a.property
+  have hlen : a.val.length = 256 := by simp
   unfold accZ
   rw [Array.set_val_eq, mul_getElem!_list_set a.val i.val v c (by rw [hlen]; exact hi)]
   split <;> rfl
 
 theorem accZ_getElem (a : Array I64 256#usize) (i : Usize) (hi : i.val < 256) :
-    ((a.val[i.val]'(by rw [show a.val.length = 256 by simpa using a.property]; exact hi)).val : ℤ)
+    ((a.val[i.val]'(by rw [show a.val.length = 256 by simp]; exact hi)).val : ℤ)
       = accZ a i.val := by
   unfold accZ
   rw [getElem!_pos a.val i.val
-    (by rw [show a.val.length = 256 by simpa using a.property]; exact hi)]
+    (by rw [show a.val.length = 256 by simp]; exact hi)]
 
 /-! ## `pointwise_mul_acc`: exact `i64` multiply-accumulate
 
@@ -334,7 +334,6 @@ theorem reduce_invntt_to_ring_elem_spec (acc : Array I64 256#usize) (h : ℕ →
           ∀ n, n < 256 → ((r.val[n]!).val : ℤ) % 65536 = H n % 65536 ⦄ := by
   have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
   unfold arithmetic.ntt.reduce_invntt_to_ring_elem
-  simp only [bind_tc_ok]
   let* ⟨v1, hv1a, hv1b⟩ ← reduce_loop0_spec { start := 0#usize, «end» := consts.RING_DEG } acc
     (Array.repeat 256#usize 0#i32) hRD hacc
   -- the Montgomery pass leaves `Rinv` times the accumulator's residue

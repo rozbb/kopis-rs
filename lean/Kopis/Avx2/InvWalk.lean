@@ -1050,7 +1050,7 @@ theorem invntt_block_loop4_loop0_walk (SECOND : Bool) (b : Array I16 256#usize) 
     simp only [core.num.I16.wrapping_sub, lift, bind_tc_ok]
     obtain ⟨z, hz, hzl⟩ := set1_epi16_spec (IScalar.wrapping_sub 0#i16 zi)
     rw [hz, bind_tc_ok, hqi, bind_tc_ok]
-    simp only [core.num.I16.wrapping_mul, lift, bind_tc_ok]
+    simp only [core.num.I16.wrapping_mul]
     obtain ⟨zq, hzq, hzql⟩ :=
       set1_epi16_spec (IScalar.wrapping_mul (IScalar.wrapping_sub 0#i16 zi) qi)
     rw [hzq, bind_tc_ok]

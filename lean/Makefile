@@ -34,10 +34,17 @@ export LEAN_NUM_THREADS
 # make in the loop, and so a reviewer sees them at the commit they review.  Make
 # keeps them current: the rule below regenerates when the source is newer, and
 # fails if that changed anything, because a checked-in generated file that every
-# build silently repairs is a file nobody ever verifies.  The `cmp` matters for
-# more than the message — rewriting the copy unconditionally would touch its
-# mtime and force lake to re-elaborate it and everything downstream on every
-# single build.
+# build silently repairs is a file nobody ever verifies.  That failure is the
+# whole point of the `cmp`.
+#
+# (An earlier version of this comment claimed the `cmp` was also load-bearing for
+# build times — that rewriting the copy unconditionally would bump its mtime and
+# force lake to re-elaborate it and everything downstream.  That is not true of
+# this lake: a bumped mtime on an unchanged file costs a *rehash*, and the stored
+# trace then matches, so the module is replayed rather than re-elaborated.
+# Measured 2026-08-03: `touch`ing all 60 twin modules plus this file and
+# rebuilding takes 1.5 s.  Keep the `cmp` for the failure; do not re-add the
+# performance claim.)
 
 GENERATED_AUDIT := TopLevelTheoremsAvx2.lean
 
@@ -57,7 +64,39 @@ TopLevelTheoremsAvx2.lean: TopLevelTheoremsSerial.lean Makefile
 	fi
 
 .PHONY: generated
-generated: $(GENERATED_AUDIT)
+generated: $(GENERATED_AUDIT) twins
+
+# ---------------------------------------------------------------------------
+# The generated twin proof stack
+# ---------------------------------------------------------------------------
+#
+# `Kopis/Avx2/Properties/*.lean` is `Kopis/Properties/*.lean` with the extracted
+# constants and the stack's own namespace renamed, plus the anchored patches for
+# the six runtime-dispatch points (scripts/gen_avx2_twins.py, and
+# scripts/gen_avx2_bridge.py for NttBridge, which needs 40 of them).  17 800
+# lines, derived in full from the 17 100 lines of the serial stack.
+#
+# Unlike the audit copy above it is **not** checked in, and so the rule is
+# different in two ways.  It regenerates silently instead of failing, because
+# there is no committed copy for a reviewer to have reviewed — the thing under
+# review is the serial proof and the patch list, both of which are.  And it is
+# `.PHONY` rather than file-tracked: the twins depend on every serial module,
+# both generator scripts and the patch anchors inside them, so any dependency
+# list would be a second source of truth that could drift.  Running it always is
+# correct by construction, and costs ~50 ms.
+#
+# The generator writes a file only when its content changes (`write_if_changed`).
+# That is *not* needed to keep the build fast — see the note on the audit-copy
+# rule above; lake replays an unchanged module whatever its mtime says.  It is
+# there so that the generator's own output ("3 written, 57 unchanged") reports
+# what a serial edit actually propagated to, which is the first thing you want to
+# know when a patch anchor moves.
+#
+# Both proof targets depend on this, not just the AVX2 one: `TrustBase.lean`
+# carries a row per backend, so it imports both audit surfaces.
+.PHONY: twins
+twins:
+	@python3 scripts/gen_avx2_twins.py
 
 # ---------------------------------------------------------------------------
 # Proofs
@@ -73,10 +112,11 @@ prove-kopis: prove-kopis-serial prove-kopis-avx2
 # TopLevelTheoremsSerial.lean, which restates the top-level results, and
 # TrustBase.lean, which re-checks their axiom footprint against the audited list.
 # A green build IS the machine-checked proof.  Note that TrustBase now holds both
-# backends' rows, so this target builds the AVX2 stack too; for the serial proofs
-# alone, run `lake build Kopis TopLevelTheoremsSerial`.
+# backends' rows, so this target builds the AVX2 stack too — hence the generated
+# prerequisites; for the serial proofs alone, run
+# `lake build Kopis TopLevelTheoremsSerial`.
 .PHONY: prove-kopis-serial
-prove-kopis-serial:
+prove-kopis-serial: $(GENERATED_AUDIT) twins
 	$(LAKE) build Kopis TopLevelTheoremsSerial TrustBase
 
 # The AVX2 backend.  This builds the second extraction (ExtractedRustAvx2.lean,
@@ -84,12 +124,11 @@ prove-kopis-serial:
 # *assumes* the semantics of the opaque SIMD wrappers — and the AVX2 proofs
 # themselves.  See ../lean/AVX2_VERIFICATION_PLAN.md.
 #
-# The generated twin proof stack (Kopis/Avx2/Properties/*.lean, written by
-# scripts/gen_avx2_twins.py) is **not** checked in and is not built by this target
-# directly — `TopLevelTheoremsAvx2` pulls it in.  Regenerate it with
-#   python3 scripts/gen_avx2_twins.py
-# after any change to Kopis/Properties/*.lean; the generator's patches are anchored
-# on exact serial text and fail loudly when the serial proof moves under them.
+# The generated twin proof stack is brought up to date by the `twins` prerequisite
+# above; `TopLevelTheoremsAvx2` then pulls it into the build.  Note that this means
+# a bare `lake build` does *not* work from a fresh clone — the twins are not checked
+# in, so go through `make`.  The generator's patches are anchored on exact serial
+# text and fail loudly when a serial proof moves under them.
 #
 # Two notes on the generated audit copy.  It inherits `import Kopis`, the *serial*
 # aggregator, which no backend-name substitution reaches, and it refers to this
@@ -97,7 +136,7 @@ prove-kopis-serial:
 # specially.  `TrustBase.lean` now carries a second `backends` row for
 # RustKopisAvx2, so the AVX2 audit list is enforced, not merely documented.
 .PHONY: prove-kopis-avx2
-prove-kopis-avx2: $(GENERATED_AUDIT)
+prove-kopis-avx2: $(GENERATED_AUDIT) twins
 	$(LAKE) build KopisAvx2 TopLevelTheoremsAvx2 TrustBase
 
 # ---------------------------------------------------------------------------
@@ -135,10 +174,11 @@ test-avx2-model:
 .PHONY: help
 help:
 	@echo "Kopis targets (run from kopis-rs/lean):"
-	@echo "  make prove-kopis         every backend, regenerating the audit copies first"
+	@echo "  make prove-kopis         every backend, regenerating what is generated first"
 	@echo "  make prove-kopis-serial  the portable backend: the proofs and their trust base"
 	@echo "  make prove-kopis-avx2    the AVX2 backend: proofs, intrinsic axioms, trust base"
-	@echo "  make generated           bring the generated audit copies up to date"
+	@echo "  make generated           bring every generated file up to date"
+	@echo "  make twins               regenerate the AVX2 twin proof stack only"
 	@echo "  make test-kopis-spec     run the Lean spec test vectors + KAT (lake exe kopisTests)"
 	@echo "  make test-avx2-model     check the assumed AVX2 intrinsic semantics against silicon"
 	@echo ""

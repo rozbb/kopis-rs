@@ -47,7 +47,7 @@ rep("""  unfold arithmetic.ntt.NttElem.from_uniform
   have hRD :""",
     """  unfold arithmetic.ntt.NttElem.from_uniform
   rw [hb, bind_tc_ok]
-  simp only [Bool.false_eq_true, if_false, bind_tc_ok]
+  simp only [Bool.false_eq_true, if_false]
   have hRD :""")
 rep("theorem from_secret_elem_spec (elem : arithmetic.ring_arith.RingElem) :",
     "theorem from_secret_elem_spec (hb : backend.avx2.cpu.available = ok false)\n"
@@ -56,7 +56,7 @@ rep("""  unfold arithmetic.ntt.NttElem.from_secret
   have hRD :""",
     """  unfold arithmetic.ntt.NttElem.from_secret
   rw [hb, bind_tc_ok]
-  simp only [Bool.false_eq_true, if_false, bind_tc_ok]
+  simp only [Bool.false_eq_true, if_false]
   have hRD :""")
 
 # --- 2. the denotations are noncomputable here (the intrinsics are axioms) -

@@ -237,7 +237,7 @@ theorem testBit_streamNat (bytes : Slice U8) (lo len i : ℕ) (hi : i < len) :
   have hb : streamBit bytes (lo + i) ≤ 1 := streamBit_le_one _ _
   rw [htail, hone, Nat.testBit_zero]
   rcases Nat.eq_zero_or_pos (streamBit bytes (lo + i)) with h0 | h1
-  · simp [h0, Nat.add_mul_mod_self_left]
+  · simp [h0]
   · have : streamBit bytes (lo + i) = 1 := by omega
     simp [this, Nat.add_mul_mod_self_left]
 

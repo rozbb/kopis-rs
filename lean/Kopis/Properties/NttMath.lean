@@ -695,6 +695,6 @@ theorem abs_nconvR_le {F G : ℕ → ℤ} {bF bG : ℤ} {n : ℕ} (hn : n < 256)
         |F i * (if i ≤ n then G (n - i) else -(G (n + 256 - i)))| :=
         Finset.abs_sum_le_sum_abs _ _
     _ ≤ ∑ _i ∈ Finset.range 256, bF * bG := Finset.sum_le_sum hterm
-    _ = 256 * bF * bG := by rw [Finset.sum_const, Finset.card_range]; push_cast; ring
+    _ = 256 * bF * bG := by rw [Finset.sum_const, Finset.card_range]; ring
 
 end Kopis.Properties.NttMath

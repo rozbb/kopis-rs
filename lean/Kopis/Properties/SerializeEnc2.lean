@@ -35,7 +35,7 @@ theorem natByteDecomp (x f : ℕ) :
       rw [h1, pow_succ]
       have hdm : x >>> (8 * f) = (x >>> (8 * f)) % 256 + (x >>> (8 * f)) / 2 ^ 8 * 256 := by omega
       conv_lhs => rw [hdm]
-      ring
+      ring_nf
     rw [show (∑ t ∈ Finset.range f, ((x >>> (8 * t)) % 256) * 256 ^ t)
           + ((x >>> (8 * f)) % 256) * 256 ^ f + (x >>> (8 * (f + 1))) * 256 ^ (f + 1)
         = (∑ t ∈ Finset.range f, ((x >>> (8 * t)) % 256) * 256 ^ t)

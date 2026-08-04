@@ -341,8 +341,7 @@ theorem ntt_block_loop1_bnd (SECOND : Bool) (iter : core.ops.range.Range Usize)
       · intro k hk
         rw [hb2o v hv h1 h2 k hk]
         exact hgrown v hv (by omega) k hk
-    · intro v hv hP
-      intro k hk
+    · intro v hv hP k hk
       rw [hb2o v hv (by omega) (by omega) k hk]
       exact hplain v hv (by omega) k hk
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec

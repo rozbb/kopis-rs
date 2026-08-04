@@ -153,7 +153,7 @@ theorem bmod16_bounds (x : ℤ) :
 /-- **Signed Montgomery reduction of an `i32`.**  `lo` is the low half taken signed, `hi` the
 arithmetic-shifted high half, and `T = lo·q⁻¹ (wrapping)`; then `hi − ⌊T·q / 2¹⁶⌋` is the exact
 quotient `(X − T·q)/2¹⁶`, which is `X·2⁻¹⁶ mod q` and smaller than `q`. -/
-theorem mont_reduce32 {X Q QINV : ℤ} (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+theorem mont_reduce32 {X Q QINV : ℤ} (hQpos : 0 < Q) (_hQlt : Q ≤ 2 ^ 15)
     (hu : (2 ^ 16 : ℤ) ∣ (QINV * Q - 1)) (hX : |X| < 2 ^ 15 * Q) :
     ∃ R : ℤ,
       (X >>> (16 : ℕ)) - ((((X.bmod (2 ^ 16)) * QINV).bmod (2 ^ 16)) * Q) >>> (16 : ℕ) = R ∧

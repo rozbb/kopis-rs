@@ -331,7 +331,6 @@ theorem invntt_mid_spec {nb lenv b0 : ℕ}
   termination_by 256 - start.val
   decreasing_by
     -- `scalar_decr_tac` is avoided: its `simp` normalises the `ZN` list literal in context
-    simp_wf
     omega
 
 
@@ -570,7 +569,7 @@ theorem invntt_outer_spec : ∀ (d e : ℕ) (a : Array I32 256#usize) (k len : U
       let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
       let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
       have hs_len : s.length = 256 := by
-        rw [Slice.length, hs_val]; simpa using a1.property
+        rw [Slice.length, hs_val]; simp
       have hit_len : it0.slice.length = 256 := by rw [h_it_slice]; exact hs_len
       have horig : ∀ x, x < 256 → ((it0.slice.val[x]!).val : ℤ) = aZ a1 x := by
         intro x _
@@ -801,7 +800,7 @@ theorem invntt_full_spec (a : Array I32 256#usize) (f : ℕ → Zp) (cc : Zp)
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   have hs_len : s.length = 256 := by
-    rw [Slice.length, hs_val]; simpa using a1.property
+    rw [Slice.length, hs_val]; simp
   have hit_len : it0.slice.length = 256 := by rw [h_it_slice]; exact hs_len
   have horig : ∀ x, x < 256 → ((it0.slice.val[x]!).val : ℤ) = aZ a1 x := by
     intro x _

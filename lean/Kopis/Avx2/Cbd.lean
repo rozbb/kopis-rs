@@ -66,7 +66,7 @@ exactly while every lane is below 32. -/
 open RustKopisAvx2.backend.avx2.intrinsics in
 theorem popcount_small_spec (v lut : Vec256)
     (hlut : ∀ i < 32, (lane8 lut i).toNat = nibblePop i)
-    (hv : ∀ m < 16, (lane16 v m).toNat < 32) :
+    (_hv : ∀ m < 16, (lane16 v m).toNat < 32) :
     backend.avx2.sample.popcount_small v lut
       ⦃ (c : Vec256) => ∀ m < 16,
           (lane16 c m).toNat
@@ -387,7 +387,7 @@ theorem cbd_streamNat (buf : Slice U8) (mu half : ℕ) (hmu : mu = 2 * half) (hh
     rw [hi1v]; exact Nat.one_le_two_pow)
   have hi2v : i2.val = 2 ^ half - 1 := by rw [hi2, hi1v]
   have hi16max : IScalar.max IScalarTy.I16 = 32767 := by
-    simp [IScalarTy.numBits, Std.I16.max_eq]
+    simp [Std.I16.max_eq]
   let* ⟨ i3, hi3 ⟩ ← UScalar.hcast_inBounds_spec .I16 i2 (by rw [hi2v, hi16max]; omega)
   obtain ⟨half_mask, hhm, hhml⟩ := set1_epi16_spec i3
   rw [hhm, bind_tc_ok]

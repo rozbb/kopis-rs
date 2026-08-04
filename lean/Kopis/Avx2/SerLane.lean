@@ -248,8 +248,7 @@ theorem pack_permute_lane (sat : BitVec 32 → BitVec 16) (wide0 wide1 packed re
     rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
       rfl <;>
     simp only [permQ] <;>
-    norm_num <;>
-    rfl
+    norm_num
 
 open RustKopisAvx2.backend.avx2.intrinsics in
 /-- The pack, on values that fit an unsigned 16-bit lane: `wide0` becomes the low eight `i16`

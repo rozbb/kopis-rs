@@ -11,7 +11,10 @@ package «kopis»
     (charon + aeneas, `-loops-to-rec`) from the `kopis-rs` crate. Never edit it
     by hand: re-run the extraction script instead. It is the *only* link
     between the Rust source and the proofs below. -/
-lean_lib «ExtractedRustSerial»
+lean_lib «ExtractedRustSerial» where
+  -- charon/aeneas output, never hand-edited: its generated names carry `__`, which the mathlib
+  -- style linter objects to.  Silencing it here is the only place the objection can be answered.
+  leanOptions := #[⟨`linter.style.nameCheck, false⟩]
 
 /-! ## The AVX2 backend
 
@@ -25,7 +28,10 @@ lean_lib «ExtractedRustSerial»
     Neither is in the default target: the audited claim is still about the
     serial backend, and `make prove-kopis` should not pay for a second
     extraction. Build this side with `make prove-kopis-avx2`. -/
-lean_lib «ExtractedRustAvx2»
+lean_lib «ExtractedRustAvx2» where
+  -- charon/aeneas output, never hand-edited: its generated names carry `__`, which the mathlib
+  -- style linter objects to.  Silencing it here is the only place the objection can be answered.
+  leanOptions := #[⟨`linter.style.nameCheck, false⟩]
 
 lean_lib «KopisAvx2» where
   roots := #[`Kopis.Avx2]

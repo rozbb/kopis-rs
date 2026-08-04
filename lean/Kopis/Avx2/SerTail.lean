@@ -87,7 +87,7 @@ theorem tail_load_in_bounds (w group : ℕ) (hw : 1 ≤ w) (hg32 : group < 32) :
 
 /-- The scratch buffer's copy is `⌊15/w⌋·w` bytes — at most fifteen, which is why 32 bytes of
 scratch are enough and why the `copy_from_slice` bound cannot overrun. -/
-theorem copy_len_le (w : ℕ) (hw : 1 ≤ w) : 32 * w - tailStart w ≤ 15 := by
+theorem copy_len_le (w : ℕ) (_hw : 1 ≤ w) : 32 * w - tailStart w ≤ 15 := by
   unfold tailStart headGroups tailGroups
   have hdm : w * (15 / w) + 15 % w = 15 := Nat.div_add_mod 15 w
   have hdvle : 15 / w ≤ 15 := Nat.div_le_self 15 w

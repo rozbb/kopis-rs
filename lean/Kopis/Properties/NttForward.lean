@@ -54,7 +54,7 @@ private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j 
 
 theorem aZ_set (a : Array I32 256#usize) (i : Usize) (v : I32) (hi : i.val < 256) (c : ℕ) :
     aZ (a.set i v) c = if c = i.val then (v.val : ℤ) else aZ a c := by
-  have hlen : a.val.length = 256 := by simpa using a.property
+  have hlen : a.val.length = 256 := by simp
   unfold aZ
   rw [Array.set_val_eq, getElem!_list_set a.val i.val v c (by rw [hlen]; exact hi)]
   split <;> rfl
@@ -67,10 +67,10 @@ theorem aP_set (a : Array I32 256#usize) (i : Usize) (v : I32) (hi : i.val < 256
 
 /-- The value read by `Array.index_usize` is `aZ`. -/
 theorem aZ_getElem (a : Array I32 256#usize) (i : Usize) (hi : i.val < 256) :
-    ((a.val[i.val]'(by rw [show a.val.length = 256 by simpa using a.property]; exact hi)).val : ℤ)
+    ((a.val[i.val]'(by rw [show a.val.length = 256 by simp]; exact hi)).val : ℤ)
       = aZ a i.val := by
   unfold aZ
-  rw [getElem!_pos a.val i.val (by rw [show a.val.length = 256 by simpa using a.property]; exact hi)]
+  rw [getElem!_pos a.val i.val (by rw [show a.val.length = 256 by simp]; exact hi)]
 
 /-! ## From an integer congruence mod `p` to an equation in `ℤ/p` -/
 
@@ -647,7 +647,7 @@ theorem ntt_full_spec (a : Array I32 256#usize) (f : ℕ → Zp) (B : ℤ)
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   have hs_len : s.length = 256 := by
     rw [Slice.length, hs_val]
-    simpa using a1.property
+    simp
   have hit_len : it0.slice.length = 256 := by rw [h_it_slice]; exact hs_len
   have hsB : ∀ j, j < 256 → |((it0.slice.val[j]!).val : ℤ)| ≤ B + 8 * pNtt := by
     intro j hj

@@ -112,7 +112,7 @@ theorem gs_butterfly_bnd (lo hi z zq qv : Vec256) (Q Zb A T : ℤ)
     (hQ : ∀ i < 16, (lane16 qv i).toInt = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
     (hzq : ∀ i < 16, (2 ^ 16 : ℤ) ∣ ((lane16 zq i).toInt * Q - (lane16 z i).toInt))
     (hlo : VecBnd lo A) (hhi : VecBnd hi A) (hz : VecBnd z Zb)
-    (hA0 : 0 ≤ A) (hZ0 : 0 ≤ Zb)
+    (hA0 : 0 ≤ A) (_hZ0 : 0 ≤ Zb)
     (hsum : 2 * A ≤ 2 ^ 15 - 1)
     (hAZ : 2 * A * Zb < 2 ^ 15 * Q) (hT : 2 * A * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * T) :
     backend.avx2.ntt.gs_butterfly lo hi z zq qv
@@ -154,13 +154,13 @@ theorem gs_butterfly_bnd (lo hi z zq qv : Vec256) (Q Zb A T : ℤ)
     have : (2:ℤ) ^ 16 * |(lane16 c i).toInt| ≤ 2 ^ 16 * T := by linarith
     exact le_of_mul_le_mul_left this (by norm_num)
 
-theorem gs_butterfly_val (lo hi z zq qv : Vec256) (q : ℕ) (Zb A T : ℤ) (Rinv : ZMod q)
+theorem gs_butterfly_val (lo hi z zq qv : Vec256) (q : ℕ) (Zb A _T : ℤ) (Rinv : ZMod q)
     (hq0 : 0 < (q : ℤ)) (hqlt : (q : ℤ) ≤ 2 ^ 15)
     (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
     (hQ : ∀ i < 16, (lane16 qv i).toInt = (q : ℤ))
     (hzq : ∀ i < 16, (2 ^ 16 : ℤ) ∣ ((lane16 zq i).toInt * (q : ℤ) - (lane16 z i).toInt))
     (hlo : VecBnd lo A) (hhi : VecBnd hi A) (hz : VecBnd z Zb)
-    (hA0 : 0 ≤ A) (hZ0 : 0 ≤ Zb)
+    (hA0 : 0 ≤ A) (_hZ0 : 0 ≤ Zb)
     (hsum : 2 * A ≤ 2 ^ 15 - 1)
     (hAZ : 2 * A * Zb < 2 ^ 15 * (q : ℤ)) :
     backend.avx2.ntt.gs_butterfly lo hi z zq qv
