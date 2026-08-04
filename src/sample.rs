@@ -101,6 +101,14 @@ pub(crate) fn cbd<const MU: usize>(buf: &[u8], out: &mut RingElem) {
 pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
     seed: &[u8; 32],
 ) -> Matrix<L, 1> {
+    // ℓ ≤ 4 for every parameter set, so the whole vector is one four-lane XOF batch.
+    #[cfg(kopis_avx2)]
+    #[allow(unsafe_code)]
+    if crate::backend::avx2_available() {
+        // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2.
+        return unsafe { crate::backend::avx2::sample::gen_secret_from_seed::<L, MU>(seed) };
+    }
+
     let mut secret = Matrix::default();
     // Buffer to hold XOF bytes. Can't do const math here, so we make it the max size
     // and cut it down
@@ -118,16 +126,11 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
         // Only the widths whose coefficients straddle byte boundaries are worth diverting.
         // When MU is a multiple of 8 the loop below is a flat pass over bytes that the
         // compiler already vectorizes, and beating it needs no help; when it is not, the
-        // AVX2 path's field extraction is a clear win. MU is a const generic, so this test
+        // NEON path's field extraction is a clear win. MU is a const generic, so this test
         // costs nothing at run time.
-        #[cfg(kopis_avx2)]
-        #[allow(unsafe_code)]
-        if !MU.is_multiple_of(8) && crate::backend::avx2_available() {
-            // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2.
-            secret.0[i][0] = unsafe { crate::backend::avx2::sample::cbd::<MU>(buf) };
-            continue;
-        }
-
+        //
+        // There is no AVX2 arm here: on that backend the four-lane batch above has already
+        // returned, so this loop only ever runs on CPUs without AVX2.
         #[cfg(kopis_neon)]
         #[allow(unsafe_code)]
         if !MU.is_multiple_of(8) && crate::backend::neon_available() {
@@ -146,6 +149,14 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
 ///
 /// For each element (i,j), we compute TurboSHAKE128(seed || i || j, 256*13/8, DOMSEP_GENMAT).
 pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L, L> {
+    // The ℓ² entries are independent XOF calls, so they batch four to a vector.
+    #[cfg(kopis_avx2)]
+    #[allow(unsafe_code)]
+    if crate::backend::avx2_available() {
+        // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2.
+        return unsafe { crate::backend::avx2::sample::gen_matrix_from_seed::<L>(seed) };
+    }
+
     // Our output is a matrix of ring elements
     let mut mat = Matrix::default();
     // For each ring element we need to sample the same number of bytes

@@ -14,16 +14,16 @@
 //! the Lean proof does not cover it. [`super::crt`] makes the full argument; the NEON backend
 //! does the same thing with the same constants.
 //!
-//! Hashing is deliberately absent. TurboSHAKE stays behind the `turboshake` crate for both
-//! backends, so there is no Keccak permutation here to keep in step with it — no matter how
-//! attractive a four-way one looks, since Kopis samples its matrix in ℓ² independent XOF calls.
-//! What this module does with XOF output, once the `turboshake` crate has produced it, is
-//! another matter: see [`sample`].
+//! [`keccak`] is a four-way TurboSHAKE: four independent sponges, one per 64-bit lane, which is
+//! the shape Kopis samples in (ℓ² independent XOF calls for the matrix, ℓ more for the secret).
+//! It stands apart from the rest of the backend in two ways — it names `core::arch` intrinsics
+//! directly rather than going through [`intrinsics`], and it is therefore not extractable. See
+//! the note under *Extraction* below.
 //!
 //! # Safety
 //!
-//! All of this module's `unsafe` is confined to [`intrinsics`] and [`cpu`], and it is there for
-//! exactly two reasons:
+//! Apart from [`keccak`], all of this module's `unsafe` is confined to [`intrinsics`] and
+//! [`cpu`], and it is there for exactly two reasons:
 //!
 //! * SIMD intrinsics, which require the `avx2` target feature. Every function that uses them
 //!   carries `#[target_feature(enable = "avx2")]`, so the compiler emits the instructions
@@ -43,11 +43,19 @@
 //! [`intrinsics`] exists so that this backend can be extracted to Lean: it is the one module
 //! charon is told to keep opaque, and the Lean side supplies its semantics by hand. See its
 //! module docs and `lean/AVX2_VERIFICATION_PLAN.md`.
+//!
+//! [`keccak`] breaks that arrangement. It names intrinsics outside [`intrinsics`], so charon has
+//! nothing to lower for it and it must be marked opaque in its own right — which puts the whole
+//! four-way permutation in the trusted base rather than the verified one, backed only by its
+//! `matches_scalar` test against the `turboshake` crate. Porting it to [`intrinsics`] would need
+//! wrappers (and matching Lean axioms) for the 64-bit shifts, `or`, `andnot` and `xor` that
+//! Keccak needs and the NTT does not.
 
 mod cpu;
 mod intrinsics;
 #[cfg(test)]
 mod intrinsics_vectors;
+pub(crate) mod keccak;
 pub(crate) mod ntt;
 pub(crate) mod sample;
 pub(crate) mod ser;

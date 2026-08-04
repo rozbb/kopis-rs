@@ -93,9 +93,16 @@ precisely to be the oracle for `crt_matches_single`), **the proofs do not curren
 ring multiplication in any build**. Re-establishing that coverage means porting the proof to the
 two-prime transform; there is no longer a build configuration that gets it for free.
 
-Hashing is not among those paths. Every TurboSHAKE invocation, in both backends, goes through
-the [`turboshake`](https://crates.io/crates/turboshake) crate; this crate contains no Keccak
-implementation of its own and no vectorized substitute for one.
+Hashing is a path again on AVX2. `src/backend/avx2/keccak.rs` runs four independent TurboSHAKE
+sponges side by side, one per 64-bit lane, which is the shape Kopis samples in: the public
+matrix is ℓ² independent XOF calls differing only in a two-byte index, and the secret is ℓ
+more. Serial and NEON builds, and every other TurboSHAKE call in the crate, still go through the
+[`turboshake`](https://crates.io/crates/turboshake) crate. The four-way version is checked
+against it byte for byte by `keccak::test::matches_scalar`.
+
+This module is opaque to the extraction — it names `core::arch` intrinsics directly instead of
+going through `intrinsics`, so the AVX2 row of the proofs assumes it rather than translating it.
+See the *Formal Verification* section.
 
 By default there is nothing to configure: on x86 targets both backends are compiled and the
 AVX2 one is selected at first use by a CPUID check, so the binary still runs on machines
@@ -131,9 +138,6 @@ On a 12th-generation Intel Core (`cargo bench`, microseconds, lower is better):
 | kopis1024 encap     |  21.1  |  6.3  |   3.4× |
 | kopis1024 decap     |  31.1  | 10.4  |   3.0× |
 
-Key generation gains least because it is the operation that spends the most of its time inside
-the XOF, which is untouched.
-
 # Formal Verification
 
 We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates `lean/ExtractedRustSerial.lean`.
@@ -142,6 +146,13 @@ The extraction covers the serial backend only — the script sets `--cfg kopis_b
 which removes the AVX2 dispatch before the compiler sees the crate, so what is extracted is
 exactly the portable code. The AVX2 backend is held to the same behaviour by tests that compare
 it against the serial code operation by operation, rather than by the proofs.
+
+Where the AVX2 backend *is* extracted, `extract_rust_to_lean.sh` keeps three of its modules
+opaque, which aeneas turns into axioms: `intrinsics` (the instruction set), `cpu` (the CPUID
+probe), and now `backend::avx2::keccak` (the four-way TurboSHAKE). The third is a real widening
+of the trust base rather than a bookkeeping one — `xof4` is the XOF that feeds both samplers,
+and opaque means nothing is proved about the bytes it returns. It is held only by
+`keccak::test::matches_scalar`, which checks it against the `turboshake` crate.
 
 That extracted code is then proved to match an audited Lean specification of Kopis. The proofs live in [`lean/`](lean/); see [`lean/README.md`](lean/README.md) for the layout. To check them:
 
