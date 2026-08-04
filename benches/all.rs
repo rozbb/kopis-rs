@@ -121,7 +121,39 @@ fn graviolamlkem768(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_aws_lc(c: &mut Criterion) {
+    use aws_lc_rs::kem;
+
+    let kg_randomness = [0u8; 64];
+    let encap_randomness = [0u8; 32];
+
+    let sk = kem::DecapsulationKey::generate(&kem::ML_KEM_768).unwrap();
+    let pk = sk.encapsulation_key().unwrap();
+    let (ct, _) = pk.encapsulate().unwrap();
+
+    let input = (sk, pk, ct);
+    let mut group = c.benchmark_group("aws-lc");
+
+    group.bench_function("aws-lc-rs-mlkem768/keygen-rand", |b| {
+        b.iter(|| {
+            kem::DecapsulationKey::generate_deterministic(&kem::ML_KEM_768, &kg_randomness).unwrap()
+        });
+    });
+
+    group.bench_with_input("aws-lc-rs-mlkem768/encap-rand", &input, |b, (_, pk, _)| {
+        b.iter(|| pk.encapsulate_deterministic(&encap_randomness).unwrap());
+    });
+
+    group.bench_with_input("aws-lc-rs-mlkem768/decap", &input, |b, (sk, _, ct)| {
+        b.iter(|| {
+            let ct_shallow_copy = kem::Ciphertext::from(ct.as_ref());
+            sk.decapsulate(ct_shallow_copy)
+        });
+    });
+}
+
 criterion_group!(kopis_benches, kopis512, kopis768, kopis1024);
+criterion_group!(aws_lc_benches, bench_aws_lc);
 criterion_group!(graviola_benches, graviolamlkem768);
 criterion_group!(
     libcrux_benches,
@@ -130,4 +162,9 @@ criterion_group!(
     libcruxmlkem1024
 );
 
-criterion_main!(kopis_benches, libcrux_benches, graviola_benches);
+criterion_main!(
+    kopis_benches,
+    libcrux_benches,
+    graviola_benches,
+    aws_lc_benches
+);
