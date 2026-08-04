@@ -15,7 +15,7 @@ BACKEND="$1"
 shift
 
 # Alignment flags come from https://www.bazhenov.me/posts/2024-02-performance-roulette/
-RUST_PERF_FLAGS="-C llvm-args=-align-all-functions=6 -C llvm-args=-align-all-nofallthru-blocks=6 -C target-cpu=native"
+RUST_PERF_FLAGS="-C llvm-args=-align-all-functions=6 -C llvm-args=-align-all-nofallthru-blocks=6"
 
 # Graviola's ML-KEM is AVX2-only, so it has no place in the serial or NEON runs. Criterion has no
 # exclusion flag — its only selector is the positional FILTER regex, and the `regex` crate has no
