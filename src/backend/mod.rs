@@ -17,10 +17,10 @@
 //! crate-level `deny(unsafe_code)`, which becomes `forbid` outright in a serial build. See
 //! [`avx2`] for the safety argument the calls rely on.
 
-/// The instruction-set-independent half of the two-prime NTT both vector backends use: the
-/// moduli, the ψ tables and the correctness argument. Their intrinsics and per-lane tables,
-/// whose shape depends on the vector width, stay in each backend.
-#[cfg(any(kopis_avx2, kopis_neon))]
+/// The instruction-set-independent half of the two-prime NTT every backend uses: the moduli,
+/// the ψ tables and the correctness argument. The portable transform in
+/// [`crate::arithmetic::ntt_crt`] reads them directly; each vector backend adds its own
+/// intrinsics and per-lane tables, whose shape depends on the vector width.
 pub(crate) mod crt;
 
 #[cfg(kopis_avx2)]

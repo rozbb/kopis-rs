@@ -1,6 +1,6 @@
 //! NEON negacyclic NTT over two 16-bit primes, combined by the CRT.
 //!
-//! The scheme, its constants and its correctness argument are shared with the AVX2 backend and
+//! The scheme, its constants and its correctness argument are shared with the other backends and
 //! live in [`crate::backend::crt`]; this file is the AArch64 half — the intrinsics and the
 //! per-lane ψ tables, whose grouping depends on how many coefficients fit a vector.
 //!
@@ -14,7 +14,7 @@
 //! `mul.8h` cover eight lanes and [`mont_mul`] is three multiplies plus a halving subtract for
 //! eight coefficients — about one instruction per coefficient once both primes are counted.
 //! Pulling the other way, an `i16` lane holds only 3.05·q₂ against the 42.7·p an `i32` lane
-//! holds for the portable prime, so reductions go from two Barrett passes per transform to six.
+//! holds for the 26-bit prime, so reductions go from two Barrett passes per transform to six.
 //!
 //! # Layout
 //!
@@ -597,11 +597,11 @@ unsafe fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
 /// Requires NEON.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
-    let mut out = [0i32; RING_DEG];
-    let base = out.as_mut_ptr().cast::<i16>();
-    // SAFETY: `out` is 256 `i32` = 512 `i16`, so the q₂ block starts at `i16` offset 256 and
-    // both blocks are 256 `i16` long.
+unsafe fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
+    let mut out = [0i16; 2 * RING_DEG];
+    let base = out.as_mut_ptr();
+    // SAFETY: `out` is 512 `i16`, so the q₂ block starts at `i16` offset 256 and both blocks
+    // are 256 `i16` long.
     unsafe {
         split_and_transform::<false, REDUCE>(elem, base);
         split_and_transform::<true, REDUCE>(elem, base.add(RING_DEG));
@@ -615,7 +615,7 @@ unsafe fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i32; RI
 ///
 /// Requires NEON.
 #[target_feature(enable = "neon")]
-pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
+pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
     // SAFETY: the caller guarantees NEON.
     unsafe { from_ring_elem::<true>(elem) }
 }
@@ -626,15 +626,15 @@ pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
 ///
 /// Requires NEON.
 #[target_feature(enable = "neon")]
-pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
+pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
     // SAFETY: the caller guarantees NEON.
     unsafe { from_ring_elem::<false>(elem) }
 }
 
 /// Adds the pointwise product `lhs ∘ rhs` into an unreduced accumulator, per prime.
 ///
-/// The accumulator's 256 `i64` are reinterpreted as two blocks of 256 `i32`, matching the two
-/// residue blocks of the operands. Products of centered values are below (q/2 + 1)² and callers
+/// The accumulator's 512 `i32` are two blocks of 256, matching the two residue blocks of the
+/// operands. Products of centered values are below (q/2 + 1)² and callers
 /// accumulate at most 4 (= `MAX_L`) of them, so each lane stays under 1.2·10⁸ — well inside an
 /// `i32`, and inside the 2^15·q input range of the Montgomery reduction that consumes it.
 ///
@@ -643,17 +643,17 @@ pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
 /// Requires NEON.
 #[target_feature(enable = "neon")]
 pub(crate) fn pointwise_mul_acc(
-    acc: &mut [i64; RING_DEG],
-    lhs: &[i32; RING_DEG],
-    rhs: &[i32; RING_DEG],
+    acc: &mut [i32; 2 * RING_DEG],
+    lhs: &[i16; 2 * RING_DEG],
+    rhs: &[i16; 2 * RING_DEG],
 ) {
-    let acc_base = acc.as_mut_ptr().cast::<i32>();
-    let lhs_base = lhs.as_ptr().cast::<i16>();
-    let rhs_base = rhs.as_ptr().cast::<i16>();
+    let acc_base = acc.as_mut_ptr();
+    let lhs_base = lhs.as_ptr();
+    let rhs_base = rhs.as_ptr();
 
     for block in 0..2 {
-        // SAFETY: 256 `i64` are 512 `i32` and 256 `i32` are 512 `i16`, so both blocks are in
-        // range for their respective buffers, as is every `i < VECS` within a block.
+        // SAFETY: the accumulator is 512 `i32` and each operand 512 `i16`, so both blocks are
+        // in range for their respective buffers, as is every `i < VECS` within a block.
         unsafe {
             let acc_ptr = acc_base.add(RING_DEG * block);
             let l_ptr = lhs_base.add(RING_DEG * block);
@@ -714,11 +714,11 @@ unsafe fn reduce_block<const SECOND: bool>(acc_ptr: *const i32, ptr: *mut i16) {
 ///
 /// Requires NEON.
 #[target_feature(enable = "neon")]
-pub(crate) fn reduce_invntt(acc: &[i64; RING_DEG]) -> [u16; RING_DEG] {
-    let acc_base = acc.as_ptr().cast::<i32>();
+pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
+    let acc_base = acc.as_ptr();
     let mut v = [0i16; 2 * RING_DEG];
 
-    // SAFETY: 256 `i64` are 512 `i32`, so both accumulator blocks are in range, as are both
+    // SAFETY: the accumulator is 512 `i32`, so both of its blocks are in range, as are both
     // halves of the 512-`i16` scratch buffer.
     unsafe {
         reduce_block::<false>(acc_base, v.as_mut_ptr());

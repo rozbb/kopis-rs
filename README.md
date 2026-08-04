@@ -65,22 +65,33 @@ We have implemented benchmarks for key generation, encapsulation, and decapsulat
 # Backends
 
 The crate ships two implementations of its arithmetic. The **serial** backend is portable
-`no_std` Rust with no `unsafe` anywhere; it is the reference, and the one the Lean proofs are
-about. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
+`no_std` Rust with no `unsafe` anywhere; it is the reference. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
 bit-packing, and the binomial sampler; the **neon** backend does the same on AArch64. The
 bit-packing and the sampler compute bit-identical results, checked against the serial code by
 tests (the sampler directly in its own module; the bit-packing through the shared
 deserialization tests, which dispatch to the vector backend on hardware that has it).
 
-The NTT is the exception, on both. Neither vector unit's 32-bit multiply is as cheap as its
-16-bit one, so both transform over two 16-bit primes and recombine by the CRT instead of using
-the portable code's single 26-bit prime — worth about 9% on encapsulation. They compute the
-same ring products, and are tested end to end against the serial pipeline, against schoolbook
-multiplication, and by the KATs, but their intermediate values are different integers, so the
-Lean correspondence proof does not extend to them. The scheme, its constants and its
-correctness argument are shared between the two backends in `src/backend/crt.rs`. If you want
-the proofs to cover the binary you are running, build with
-`RUSTFLAGS='--cfg kopis_backend="serial"'`.
+The NTT is the exception, and it is now the exception everywhere. All three implementations —
+serial included — transform over two 16-bit primes and recombine by the CRT rather than using a
+single 26-bit prime. On the vector backends the reason is that neither vector unit's 32-bit
+multiply is as cheap as its 16-bit one. On the serial backend the reason is the same one seen
+from the other side: "portable" does not mean "scalar", because LLVM auto-vectorizes the
+butterfly loops, and baseline SSE2 has no 64-bit multiply for the single-prime product to use —
+it has to emulate it, while the 16-bit butterfly is one `pmullw` and one `pmulhw` over eight
+lanes. Switching the serial backend to two primes made its forward transform 1.68× faster and
+its inverse 2.40× faster, which is 20–45% off every serial KEM operation. The scheme, its
+constants and its correctness argument live in `src/backend/crt.rs`; the portable
+implementation is `src/arithmetic/ntt_crt.rs`.
+
+These transforms compute the same ring products as the single-prime one, and are tested against
+it directly (`crt_matches_single`, `avx2_matches_serial`, `neon_matches_serial`), against
+schoolbook multiplication over all three parameter sets, and by the KATs. But their intermediate
+values are different integers, so the Lean correspondence proof — which is about the
+single-prime transform in `src/arithmetic/ntt.rs` — does not extend to them. Since that
+transform no longer ships in any configuration (it is retained as a `#[cfg(test)]` reference,
+precisely to be the oracle for `crt_matches_single`), **the proofs do not currently cover the
+ring multiplication in any build**. Re-establishing that coverage means porting the proof to the
+two-prime transform; there is no longer a build configuration that gets it for free.
 
 Hashing is not among those paths. Every TurboSHAKE invocation, in both backends, goes through
 the [`turboshake`](https://crates.io/crates/turboshake) crate; this crate contains no Keccak
@@ -93,7 +104,7 @@ without AVX2. On every other target only the serial backend exists.
 The choice can be forced with the `kopis_backend` cfg:
 
 ```sh
-# portable only: no unsafe, no runtime dispatch, and what gets extracted to Lean
+# portable only: no unsafe, no runtime dispatch
 RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
 
 # AVX2 unconditionally, with no runtime check and no fallback

@@ -574,8 +574,6 @@ fn build() -> String {
     load_test!(load_i32, i32, 32, 8);
     load_test!(load_u8, u8, 128, 32);
     // The two-blocks-in-one-buffer views: `[i32; 32]` read as 64 `i16`, `[i64; 16]` as 32 `i32`.
-    load_test!(load_i16_of_i32, i32, 32, 8);
-    load_test!(load_i32_of_i64, i64, 16, 4);
 
     // `load_u8x16` is byte-indexed rather than vector-indexed, so it gets its own loop.
     for _ in 0..N_MEMORY {
@@ -624,8 +622,7 @@ fn build() -> String {
 
     store_test!(store_i16, i16, 64, 16);
     store_test!(store_u16, u16, 64, 16);
-    store_test!(store_i16_of_i32, i32, 32, 8);
-    store_test!(store_i32_of_i64, i64, 16, 4);
+    store_test!(store_i32, i32, 32, 8);
 
     o
 }

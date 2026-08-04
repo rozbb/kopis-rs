@@ -1,29 +1,35 @@
-//! The two-prime NTT scheme shared by the vector backends.
+//! The two-prime NTT scheme every backend uses.
 //!
-//! Both [`crate::backend::avx2::ntt`] and [`crate::backend::neon::ntt`] compute the same ring
-//! products as [`crate::arithmetic::ntt`], but instead of one 26-bit prime in `i32` lanes they
-//! run the transform twice in `i16` lanes, over q₁ = 7681 and q₂ = 10753, and reconstruct the
-//! exact integer product from the two residues. This is the arrangement Chung, Hwang,
-//! Kannwischer, Seiler, Shih and Yang use for Saber on AVX2 (TCHES 2021, §4.2).
+//! Rather than one 26-bit prime in `i32` lanes, the transform runs twice in `i16` lanes, over
+//! q₁ = 7681 and q₂ = 10753, and the exact integer product is reconstructed from the two
+//! residues. This is the arrangement Chung, Hwang, Kannwischer, Seiler, Shih and Yang use for
+//! Saber on AVX2 (TCHES 2021, §4.2). [`crate::arithmetic::ntt_crt`] is the portable
+//! implementation; [`crate::backend::avx2::ntt`] and [`crate::backend::neon::ntt`] are the
+//! vector ones.
 //!
 //! Everything here is the part of that scheme which does not depend on the instruction set: the
 //! moduli, the Montgomery and Barrett constants, the ψ tables, and the correctness argument.
-//! Each backend supplies its own intrinsics and its own *per-lane* ψ tables, whose shape
-//! depends on how many coefficients fit a vector — 16 for AVX2, 8 for NEON — and so cannot be
-//! shared.
+//! The portable transform reads them directly. Each vector backend additionally supplies its own
+//! intrinsics and its own *per-lane* ψ tables, whose shape depends on how many coefficients fit
+//! a vector — 16 for AVX2, 8 for NEON — and so cannot be shared.
 //!
 //! # Why two primes
 //!
-//! Neither vector ISA has a 32-bit high-multiply as cheap as its 16-bit one. AVX2 has
-//! `vpmulhw` over 16 lanes but nothing equivalent for 32 bits, so a single-prime Montgomery
-//! multiply has to be built from `vpmuldq` (four even lanes) plus a `vpshufd` to reach the odd
-//! ones. AArch64 has `sqdmulh` at both widths, but the single-prime code reached for widening
-//! `vmull_s32`, which covers two lanes per instruction against `vmulhq_s16`'s eight. Either
-//! way, two 16-bit transforms cost fewer multiplies per coefficient than one 32-bit transform.
+//! No ISA here has a 32-bit high-multiply as cheap as its 16-bit one. AVX2 has `vpmulhw` over
+//! 16 lanes but nothing equivalent for 32 bits, so a single-prime Montgomery multiply has to be
+//! built from `vpmuldq` (four even lanes) plus a `vpshufd` to reach the odd ones. AArch64 has
+//! `sqdmulh` at both widths, but the single-prime code reached for widening `vmull_s32`, which
+//! covers two lanes per instruction against `vmulhq_s16`'s eight. Baseline SSE2, which is what
+//! the portable code is compiled to on x86-64, has no 64-bit multiply at all and has to emulate
+//! the single-prime product outright. Either way, two 16-bit transforms cost fewer multiplies
+//! per coefficient than one 32-bit transform.
 //!
-//! The trade is specific to vector units. On a scalar core a 32×32→64 multiply costs the same
-//! as a 16×16→32 one, so doubling the transforms just doubles the work; the same is true on
-//! Cortex-M4. The portable code keeps the single prime — see [`crate::arithmetic::ntt`].
+//! What this trade needs is not a vector *unit* but a vector *lane*: it pays wherever 16-bit
+//! SIMD is what the multiply lands on, which on the portable path means wherever LLVM
+//! auto-vectorizes. On a genuinely scalar core a 32×32→64 multiply costs the same as a
+//! 16×16→32 one, so doubling the transforms would just double the work; see
+//! [`crate::arithmetic::ntt_crt`] for the measurements and for what a scalar target would want
+//! instead.
 //!
 //! # Correctness
 //!

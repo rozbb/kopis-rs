@@ -2,6 +2,7 @@
 
 mod matrix_arith;
 pub(crate) mod ntt;
+pub(crate) mod ntt_crt;
 mod ring_arith;
 
 // Export all the underlying types

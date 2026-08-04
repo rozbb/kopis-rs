@@ -29,10 +29,10 @@
 //! * `neon` does the same for AArch64 NEON: it asserts NEON is available for the target and
 //!   compiles the NEON backend unconditionally, or fails the build if it is not.
 //!
-//! The choice is not purely about speed. Both vector backends' NTTs transform over two 16-bit
-//! primes rather than the portable code's one 26-bit prime, so they are not bit-identical to
-//! the code the Lean proofs are about and those proofs do not cover them; `serial` is. See
-//! `src/backend/crt.rs` for why they make that trade and what backs them instead.
+//! Every backend, the portable one included, transforms over the same two 16-bit primes
+//! combined by the CRT: see `src/backend/crt.rs` for the scheme and `src/arithmetic/ntt_crt.rs`
+//! for the portable implementation. So this choice is only about which instruction set does the
+//! work, not about which arithmetic gets used.
 //!
 //! "Available" is decided at build time, because that is the only time a compile-time panic
 //! can happen. For AVX2 it means: the target is x86/x86-64, and either `avx2` is in the

@@ -14,12 +14,14 @@
 //! coefficients, against three multiplies for 16 here. Two transforms at 4× the per-multiply
 //! density is a net win.
 //!
-//! That reasoning is specific to this instruction set, which is why it is not what the other
-//! backends do. On a scalar core the doubled work buys nothing, since a 32×32→64 multiply costs
-//! the same as a 16×16→32 one; on NEON `sqdmulh.4s` supplies the 32-bit high product AVX2 is
-//! missing, so halving the lane width doubles the lanes and the transforms in equal measure and
-//! cancels; and on Cortex-M4 it is a straight regression. The portable, NEON and M4 paths all
-//! keep the single prime — see [`crate::arithmetic::ntt`] for that arithmetic.
+//! Every other path arrives at the same answer by its own route, so all of them are two-prime
+//! now — see [`crate::backend::crt`] for the shared scheme. NEON has `sqdmulh` at both widths,
+//! so the lane-width argument above cancels there, but the single-prime code reached for
+//! widening `vmull_s32` (two lanes) against `vmulhq_s16`'s eight, which does not. The portable
+//! code compiles to baseline SSE2 on x86-64, which has no 64-bit multiply at all and must
+//! emulate the single-prime product; see [`crate::arithmetic::ntt_crt`]. What would *not* want
+//! two primes is a genuinely scalar target, where a 32×32→64 multiply costs the same as a
+//! 16×16→32 one and the doubled work buys nothing.
 //!
 //! Measured on kopis768, with this and the single-prime transform compiled into one binary and
 //! selected at runtime (the only way to compare them fairly — built separately, code moves
@@ -36,26 +38,33 @@
 //!
 //! # What this costs, and it is not nothing
 //!
-//! Every other accelerated routine in this crate — the bit-packing, the binomial sampler, the
-//! whole NEON backend — is a lane-parallel restatement of portable code that produces
-//! *bit-identical* values, and is tested against it stage by stage. That is what lets the Lean
-//! correspondence proof, which is about the portable code, keep covering the shipped binary.
+//! The bit-packing and the binomial sampler are lane-parallel restatements of portable code
+//! that produce *bit-identical* values, and are tested against it stage by stage. That is what
+//! lets the Lean correspondence proof, which is about the portable code, keep covering the
+//! shipped binary.
 //!
-//! This module breaks that. Its NTT-domain values are different integers entirely; only the
-//! endpoints agree. So `avx2_matches_serial` in [`crate::arithmetic::ntt`] checks the pipeline
-//! end to end rather than stage by stage, and **the Lean proof does not extend to AVX2 builds
-//! of the ring multiplication**. What is verified is that the algorithm is right — the exact
-//! same negacyclic transform, over moduli whose product covers the product bound — not that
-//! this implementation of it is. On x86 that guarantee now rests on tests: the end-to-end
-//! check against the portable pipeline, the schoolbook and extremal-coefficient tests, and the
-//! KATs. Builds with `--cfg kopis_backend="serial"`, and all AArch64 builds, are unaffected.
+//! The two-prime NTT breaks that, here and everywhere else it is used. Its NTT-domain values
+//! are different integers entirely; only the endpoints agree, so `avx2_matches_serial` in
+//! [`crate::arithmetic::ntt`] checks the pipeline end to end rather than stage by stage.
+//!
+//! Note the scope carefully: the Lean proof is about the *single-prime* transform in
+//! [`crate::arithmetic::ntt`], and since the portable path moved to two primes as well (see
+//! [`crate::arithmetic::ntt_crt`]) that transform no longer ships in any configuration. So
+//! **the Lean proof does not currently cover the ring multiplication in any build**, not just
+//! AVX2 ones. What is verified is that the algorithm is right — the same negacyclic transform,
+//! over moduli whose product covers the product bound — not that these implementations of it
+//! are. That guarantee now rests entirely on tests: `crt_matches_single` against the retained
+//! single-prime reference, `avx2_matches_serial` and `neon_matches_serial` for the vector
+//! backends, the schoolbook and extremal-coefficient tests over all three parameter sets, and
+//! the KATs. Re-establishing the proof means porting it to the two-prime transform.
 //!
 //! # Layout
 //!
-//! [`crate::arithmetic::ntt::NttElem`] is `[i32; 256]`, which is exactly 512 `i16`. This
-//! backend reinterprets that buffer as two 256-coefficient blocks: residues mod q₁ in the
-//! first, mod q₂ in the second. The `i64` pointwise accumulator is reinterpreted the same way,
-//! as two blocks of 256 `i32`. So no type outside this file changes, and since neither
+//! [`crate::arithmetic::ntt::NttElem`] is `[i16; 512]`: two 256-coefficient blocks, residues
+//! mod q₁ in the first and mod q₂ in the second. The pointwise accumulator is `[i32; 512]`,
+//! split the same way. Those are the types the portable two-prime transform in
+//! [`crate::arithmetic::ntt_crt`] uses too, so this backend and the portable path agree on the
+//! representation outright rather than by reinterpretation. Since neither
 //! `NttElem` nor `NttMatrix` is ever serialized (a public key stores `matrix_seed` and
 //! re-derives its NTT form — see `crate::pke::PkePublicKey`) the representation never escapes
 //! the process that computed it.
@@ -102,11 +111,10 @@ use crate::backend::crt::{
 
 use super::intrinsics::{
     Vec256, add_epi16, add_epi32, and_si256, castsi256_si128, cmpgt_epi32, cvtepu16_epi32,
-    extracti128_si256, load_i16, load_i16_of_i32, load_i32_of_i64, load_u16, mulhi_epi16,
-    mullo_epi16, mullo_epi32, packs_epi32, packus_epi32, permute2x128_si256, permute4x64_epi64,
-    set1_epi16, set1_epi32, slli_epi32, srai_epi16, srai_epi32, store_i16, store_i16_of_i32,
-    store_i32_of_i64, store_u16, sub_epi16, sub_epi32, unpackhi_epi16, unpackhi_epi32,
-    unpackhi_epi64, unpacklo_epi16, unpacklo_epi32, unpacklo_epi64,
+    extracti128_si256, load_i16, load_i32, load_u16, mulhi_epi16, mullo_epi16, mullo_epi32,
+    packs_epi32, packus_epi32, permute2x128_si256, permute4x64_epi64, set1_epi16, set1_epi32,
+    slli_epi32, srai_epi16, srai_epi32, store_i16, store_i32, store_u16, sub_epi16, sub_epi32,
+    unpackhi_epi16, unpackhi_epi32, unpackhi_epi64, unpacklo_epi16, unpacklo_epi32, unpacklo_epi64,
 };
 
 /// One prime's 256 centered residues, as 16 vectors of 16 `i16`.
@@ -567,27 +575,27 @@ fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
 
 /// Splits a ring element into both residue blocks and transforms each
 ///
-/// The two blocks are written into the halves of one `[i32; 256]`, which is what
-/// [`crate::arithmetic::ntt::NttElem`] is: 256 `i32` are 512 `i16`, so the q₁ block occupies
-/// `i16` vectors 0..16 and the q₂ block vectors 16..32.
+/// The two blocks are written into the halves of one `[i16; 512]`, which is what
+/// [`crate::arithmetic::ntt::NttElem`] is: the q₁ block occupies `i16` vectors 0..16 and the q₂
+/// block vectors 16..32.
 ///
 /// # Safety
 ///
 /// Requires AVX2.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
-    let mut out = [0i32; RING_DEG];
+fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
+    let mut out = [0i16; 2 * RING_DEG];
     let mut b = [0i16; RING_DEG];
 
     split_and_transform::<false, REDUCE>(elem, &mut b);
     for i in 0..16 {
-        store_i16_of_i32(&mut out, i, load_i16(&b, i));
+        store_i16(&mut out, i, load_i16(&b, i));
     }
 
     split_and_transform::<true, REDUCE>(elem, &mut b);
     for i in 0..16 {
-        store_i16_of_i32(&mut out, 16 + i, load_i16(&b, i));
+        store_i16(&mut out, 16 + i, load_i16(&b, i));
     }
 
     out
@@ -599,7 +607,7 @@ fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i32; RING_DEG]
 ///
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
-pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
+pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
     from_ring_elem::<true>(elem)
 }
 
@@ -609,14 +617,14 @@ pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
 ///
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
-pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
+pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
     from_ring_elem::<false>(elem)
 }
 
 /// Adds the pointwise product `lhs ∘ rhs` into an unreduced accumulator, per prime.
 ///
-/// The accumulator's 256 `i64` are read as two blocks of 256 `i32`, matching the two residue
-/// blocks of the operands. Products of centered values are below (q/2 + 1)² and callers
+/// The accumulator's 512 `i32` are two blocks of 256, matching the two residue blocks of the
+/// operands. Products of centered values are below (q/2 + 1)² and callers
 /// accumulate at most 4 (= `MAX_L`) of them, so each lane stays under 1.2·10⁸ — well inside an
 /// `i32`, and inside the 2^15·q input range of the Montgomery reduction that consumes it.
 ///
@@ -625,17 +633,17 @@ pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i32; RING_DEG] {
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
 pub(crate) fn pointwise_mul_acc(
-    acc: &mut [i64; RING_DEG],
-    lhs: &[i32; RING_DEG],
-    rhs: &[i32; RING_DEG],
+    acc: &mut [i32; 2 * RING_DEG],
+    lhs: &[i16; 2 * RING_DEG],
+    rhs: &[i16; 2 * RING_DEG],
 ) {
     for block in 0..2 {
         for i in 0..16 {
             // Vector `16 * block + i` of the operands read as 512 `i16`, and the two `i32`
             // vectors `32 * block + 2i` and `+ 1` of the accumulator read as 512 `i32`, are the
             // same 16 coefficients of the same prime.
-            let l = load_i16_of_i32(lhs, 16 * block + i);
-            let r = load_i16_of_i32(rhs, 16 * block + i);
+            let l = load_i16(lhs, 16 * block + i);
+            let r = load_i16(rhs, 16 * block + i);
             // The 32-bit products, as low and high halves re-joined by `vpunpck`: the low
             // unpack gives the products of lanes 0..4 and 8..12, the high one the rest.
             let lo = mullo_epi16(l, r);
@@ -648,8 +656,8 @@ pub(crate) fn pointwise_mul_acc(
 
             let a0 = 32 * block + 2 * i;
             let a1 = a0 + 1;
-            store_i32_of_i64(acc, a0, add_epi32(load_i32_of_i64(acc, a0), first));
-            store_i32_of_i64(acc, a1, add_epi32(load_i32_of_i64(acc, a1), second));
+            store_i32(acc, a0, add_epi32(load_i32(acc, a0), first));
+            store_i32(acc, a1, add_epi32(load_i32(acc, a1), second));
         }
     }
 }
@@ -663,13 +671,13 @@ pub(crate) fn pointwise_mul_acc(
 /// Requires AVX2.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn reduce_block<const SECOND: bool>(acc: &[i64; RING_DEG], base: usize, b: &mut Block) {
+fn reduce_block<const SECOND: bool>(acc: &[i32; 2 * RING_DEG], base: usize, b: &mut Block) {
     let q = set1_epi16(crt::q::<SECOND>());
     let qinv = set1_epi16(crt::qinv::<SECOND>());
 
     for i in 0..16 {
-        let a0 = load_i32_of_i64(acc, base + 2 * i);
-        let a1 = load_i32_of_i64(acc, base + 2 * i + 1);
+        let a0 = load_i32(acc, base + 2 * i);
+        let a1 = load_i32(acc, base + 2 * i + 1);
         // Signed Montgomery reduction of an `i32` with R = 2^16. Both the sign-extended low
         // halves and the arithmetic-shifted high halves are already in `i16` range, so
         // `vpackssdw` is exact; the qword permute repairs its lane interleaving. As in
@@ -695,11 +703,11 @@ fn reduce_block<const SECOND: bool>(acc: &[i64; RING_DEG], base: usize, b: &mut 
 ///
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
-pub(crate) fn reduce_invntt(acc: &[i64; RING_DEG]) -> [u16; RING_DEG] {
+pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
     let mut v1 = [0i16; RING_DEG];
     let mut v2 = [0i16; RING_DEG];
 
-    // 256 `i64` are 512 `i32`, so the q₂ accumulator block starts at `i32` vector 32.
+    // The accumulator is 512 `i32`, so the q₂ block starts at `i32` vector 32.
     reduce_block::<false>(acc, 0, &mut v1);
     reduce_block::<true>(acc, 32, &mut v2);
 

@@ -318,11 +318,10 @@ pub(crate) fn broadcastsi128_si256(a: Vec128) -> Vec256 {
 // ---------------------------------------------------------------------------------------
 // Memory
 //
-// One accessor per (element type, container element type) pair the backend needs, each indexed
-// in whole vectors rather than elements, and each bounds-checked. The `*_of_*` ones are where
-// the two-blocks-in-one-buffer layout of `crate::arithmetic::ntt::NttElem` and of the pointwise
-// accumulator lives: an `[i32; 256]` read as 512 `i16`, an `[i64; 256]` read as 512 `i32`. That
-// reinterpretation is little-endian and is stated as such in the Lean model.
+// One accessor per element type the backend needs, each indexed in whole vectors rather than
+// elements, and each bounds-checked. `NttElem` and the pointwise accumulator are `[i16; 512]`
+// and `[i32; 512]` outright — the two residue blocks are the two halves — so these are plain
+// typed loads and stores, with no reinterpretation to state.
 // ---------------------------------------------------------------------------------------
 
 /// Loads the 16 `i16` at `src[16 * i ..]`
@@ -370,6 +369,15 @@ pub(crate) fn load_i32<const N: usize>(src: &[i32; N], i: usize) -> Vec256 {
     Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(8 * i).cast()) })
 }
 
+/// Stores 8 `i32` at `dst[8 * i ..]`
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn store_i32<const N: usize>(dst: &mut [i32; N], i: usize, v: Vec256) {
+    assert!(8 * (i + 1) <= N);
+    // SAFETY: the assert puts all 8 elements in bounds; the store is unaligned.
+    unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(8 * i).cast(), v.0) }
+}
+
 /// Loads the 32 `u8` at `src[32 * i ..]`
 #[inline]
 #[target_feature(enable = "avx2")]
@@ -389,42 +397,4 @@ pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
     assert!(offset + 16 <= src.len());
     // SAFETY: the assert puts all 16 bytes in bounds; the load is unaligned.
     Vec128(unsafe { _mm_loadu_si128(src.as_ptr().add(offset).cast()) })
-}
-
-/// Loads the 16 `i16` at `i16` index `16 * i` of `src` read as `2 * N` little-endian `i16`
-#[inline]
-#[target_feature(enable = "avx2")]
-pub(crate) fn load_i16_of_i32<const N: usize>(src: &[i32; N], i: usize) -> Vec256 {
-    assert!(16 * (i + 1) <= 2 * N);
-    // SAFETY: `src` is `2 * N` `i16` wide and the assert puts all 16 in bounds. `i16` has weaker
-    // alignment than `i32`, and the load is unaligned in any case.
-    Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().cast::<i16>().add(16 * i).cast()) })
-}
-
-/// Stores 16 `i16` at `i16` index `16 * i` of `dst` read as `2 * N` little-endian `i16`
-#[inline]
-#[target_feature(enable = "avx2")]
-pub(crate) fn store_i16_of_i32<const N: usize>(dst: &mut [i32; N], i: usize, v: Vec256) {
-    assert!(16 * (i + 1) <= 2 * N);
-    // SAFETY: as in `load_i16_of_i32`.
-    unsafe { _mm256_storeu_si256(dst.as_mut_ptr().cast::<i16>().add(16 * i).cast(), v.0) }
-}
-
-/// Loads the 8 `i32` at `i32` index `8 * i` of `src` read as `2 * N` little-endian `i32`
-#[inline]
-#[target_feature(enable = "avx2")]
-pub(crate) fn load_i32_of_i64<const N: usize>(src: &[i64; N], i: usize) -> Vec256 {
-    assert!(8 * (i + 1) <= 2 * N);
-    // SAFETY: `src` is `2 * N` `i32` wide and the assert puts all 8 in bounds. `i32` has weaker
-    // alignment than `i64`, and the load is unaligned in any case.
-    Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().cast::<i32>().add(8 * i).cast()) })
-}
-
-/// Stores 8 `i32` at `i32` index `8 * i` of `dst` read as `2 * N` little-endian `i32`
-#[inline]
-#[target_feature(enable = "avx2")]
-pub(crate) fn store_i32_of_i64<const N: usize>(dst: &mut [i64; N], i: usize, v: Vec256) {
-    assert!(8 * (i + 1) <= 2 * N);
-    // SAFETY: as in `load_i32_of_i64`.
-    unsafe { _mm256_storeu_si256(dst.as_mut_ptr().cast::<i32>().add(8 * i).cast(), v.0) }
 }
