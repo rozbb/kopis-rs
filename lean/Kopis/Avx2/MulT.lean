@@ -27,7 +27,7 @@ families; after `n` terms the accumulator is inside `n·B²`. -/
 theorem mulT_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true)
     (iter : core.ops.range.Range Usize)
     (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix X Z)
-    (j k : Usize) (acc : Array I64 256#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
+    (j k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hj : j.val < Y.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ X.val) (hend : iter.«end».val = X.val) (hX : X.val ≤ 4)
     (hself : ∀ ii t, ii < X.val → t < 512 →
@@ -37,7 +37,7 @@ theorem mulT_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok tru
     (hacc : ∀ t < 512, |(i32View acc t).toInt| ≤ (iter.start.val : ℤ) * (B * B)) :
     arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0 iter self other j k acc
       ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix X Z) ×
-             (Array I64 256#usize)) =>
+             (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
           (∀ t < 512, (i32View p.2.2 t).toInt = (i32View acc t).toInt
             + ∑ ii ∈ Finset.Ico iter.start.val X.val,
@@ -102,17 +102,16 @@ decreasing_by scalar_decr_tac
 
 /-- The `i32` view of a zero-filled accumulator. -/
 theorem i32View_zero (t : ℕ) (ht : t < 512) :
-    (i32View (Array.repeat 256#usize (0#i64)) t).toInt = 0 := by
+    (i32View (Array.repeat 512#usize (0#i32)) t).toInt = 0 := by
   unfold i32View
-  rw [Array.repeat_val, getElem!_pos _ (t / 2)
-      (by rw [List.length_replicate]; show t / 2 < 256; omega),
+  rw [Array.repeat_val, getElem!_pos _ t
+      (by rw [List.length_replicate]; show t < 512; omega),
     List.getElem_replicate]
-  show (BitVec.extractLsb' (32 * (t % 2)) 32 (0#64)).toInt = 0
-  simp
+  rfl
 
 /-- Both halves of an `NttOK` block are inside 5376, which is the common operand bound the
 accumulate loop wants. -/
-theorem NttOK_lane_bound {g : ℕ → ℤ} {ne : Array I32 256#usize} (h : NttOK g ne)
+theorem NttOK_lane_bound {g : ℕ → ℤ} {ne : Array I16 512#usize} (h : NttOK g ne)
     (t : ℕ) (ht : t < 512) : |(i16View ne t).toInt| ≤ 5376 := by
   obtain ⟨h1, h2, _, _⟩ := h
   by_cases hlow : t < 256

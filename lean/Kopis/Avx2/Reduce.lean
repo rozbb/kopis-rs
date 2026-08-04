@@ -54,7 +54,7 @@ theorem satS_signExtend (y : BitVec 16) : satS (y.signExtend 32) = y := by
 /-! ## The reduction, lane by lane -/
 
 /-- The `i32` accumulator entry, as a residue. -/
-noncomputable def accZ32 (q : ℕ) (a : Array I64 256#usize) (t : ℕ) : ZMod q :=
+noncomputable def accZ32 (q : ℕ) (a : Array I32 512#usize) (t : ℕ) : ZMod q :=
   (((i32View a t).toInt : ℤ) : ZMod q)
 
 /-- **One vector of `reduce_block`.**  `a0` and `a1` supply the sixteen `i32` at
@@ -142,7 +142,7 @@ theorem reduce_vec (a0 a1 v1 v3 v4 lo v5 v6 v7 hi t v8 v9 qv qinvv : Vec256)
 Output position `c` of the block comes from `i32` position `8·base + c` of the accumulator, so
 the postcondition is stated position-wise rather than vector-wise. -/
 
-theorem reduce_block_loop_walk (iter : core.ops.range.Range Usize) (acc : Array I64 256#usize)
+theorem reduce_block_loop_walk (iter : core.ops.range.Range Usize) (acc : Array I32 512#usize)
     (base : Usize) (b : Array I16 256#usize) (qv qinvv : Vec256) (q : ℕ) (QINV : ℤ)
     (hq0 : 0 < (q : ℤ)) (hqlt : (q : ℤ) ≤ 2 ^ 15)
     (hu : (2 ^ 16 : ℤ) ∣ (QINV * (q : ℤ) - 1))
@@ -242,7 +242,7 @@ Sets up the two broadcast constants, runs the loop, and hands the result straigh
 coefficients, at one prime. -/
 
 /-- Turning the loop's divisibility into the residue identity `b = X·R⁻¹`. -/
-theorem reduce_posZ {q : ℕ} {b : Array I16 256#usize} {acc : Array I64 256#usize} {base : ℕ}
+theorem reduce_posZ {q : ℕ} {b : Array I16 256#usize} {acc : Array I32 512#usize} {base : ℕ}
     (Rinv : ZMod q) (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
     (h : ∀ c < 256, (q : ℤ) ∣ ((b.val[c]!).val * 2 ^ 16 - (i32View acc (base + c)).toInt)) :
     ∀ c < 256, posZ q b c = accZ32 q acc (base + c) * Rinv := by
@@ -261,7 +261,7 @@ theorem reduce_posZ {q : ℕ} {b : Array I16 256#usize} {acc : Array I64 256#usi
     _ = accZ32 q acc (base + c) * Rinv := by rw [hmul]
 
 /-- **`reduce_block` at `q₂`.**  From the `i64` accumulator to the inverse transform's output. -/
-theorem reduce_block_q2 (acc : Array I64 256#usize) (b : Array I16 256#usize)
+theorem reduce_block_q2 (acc : Array I32 512#usize) (b : Array I16 256#usize)
     (hXb : ∀ t, 256 ≤ t → t < 512 → |(i32View acc t).toInt| ≤ 115605504)
     (cst : ZMod 10753) (f : ℕ → ZMod 10753)
     (hst : NttAlg.State zeta2 256 1 cst f
@@ -302,7 +302,7 @@ theorem reduce_block_q2 (acc : Array I64 256#usize) (b : Array I16 256#usize)
   exact invntt_block_State_q2 b1 cst f _ hst hbnd hval
 
 /-- **`reduce_block` at `q₁`.** -/
-theorem reduce_block_q1 (acc : Array I64 256#usize) (b : Array I16 256#usize)
+theorem reduce_block_q1 (acc : Array I32 512#usize) (b : Array I16 256#usize)
     (hXb : ∀ t < 256, |(i32View acc t).toInt| ≤ 58982400)
     (cst : ZMod 7681) (f : ℕ → ZMod 7681)
     (hst : NttAlg.State zeta1 256 1 cst f
@@ -894,7 +894,7 @@ theorem crt_q1_inv_mont_val : backend.crt.CRT_Q1_INV_MONT.val = 3563 := by decid
 Two `reduce_block` calls, one per prime, then the combine.  The output is the wrapping `u16` of
 each coefficient — the same convention the single-prime backend's `to_wrapping_u16` uses. -/
 
-theorem reduce_invntt_walk (acc : Array I64 256#usize) (X : ℕ → ℤ)
+theorem reduce_invntt_walk (acc : Array I32 512#usize) (X : ℕ → ℤ)
     (hXb : ∀ c < 256, 2 * |X c| < 82593793)
     (hacc1 : ∀ t < 256, |(i32View acc t).toInt| ≤ 58982400)
     (hacc2 : ∀ t, 256 ≤ t → t < 512 → |(i32View acc t).toInt| ≤ 115605504)
@@ -1135,41 +1135,25 @@ theorem split_and_transform_q2 (elem : Array U16 256#usize) (b : Array I16 256#u
 
 /-! ## `from_ring_elem`
 
-The two transformed blocks are written into one `i32` array, `q₁` first then `q₂`.  Read as 512
-`i16`, that puts the `q₁` residues at positions `0 … 255` and the `q₂` residues at `256 … 511` —
-which is the layout `pointwise_mul_acc` and `reduce_invntt` both assume. -/
+The two transformed blocks are written into one `[i16; 512]`, `q₁` first then `q₂`: the `q₁`
+residues at positions `0 … 255` and the `q₂` residues at `256 … 511` — which is the layout
+`pointwise_mul_acc` and `reduce_invntt` both assume. -/
 
-private theorem ext_lo16 (h l : BitVec 16) : BitVec.extractLsb' 0 16 (h ++ l) = l := by bv_decide
-private theorem ext_hi16 (h l : BitVec 16) : BitVec.extractLsb' 16 16 (h ++ l) = h := by bv_decide
-
-/-- A half-width store, in the `i16` view. -/
-theorem store_i16_view (a : Array I32 256#usize) (i : Usize) (v : Vec256) (hi : i.val < 32) :
-    ∃ a', store_i16_of_i32 a i v = ok a' ∧ ∀ t < 512,
+/-- A vector store, in the `i16` view. -/
+theorem store_i16_view (a : Array I16 512#usize) (i : Usize) (v : Vec256) (hi : i.val < 32) :
+    ∃ a', store_i16 a i v = ok a' ∧ ∀ t < 512,
       i16View a' t = if 16 * i.val ≤ t ∧ t < 16 * i.val + 16 then lane16 v (t - 16 * i.val)
         else i16View a t := by
-  obtain ⟨a', ha', h⟩ := store_i16_of_i32_spec a i v (by scalar_tac)
-  refine ⟨a', ha', fun t ht => ?_⟩
-  have hN : ((256#usize) : Usize).val = 256 := by scalar_tac
-  have hhalf : t / 2 < 256 := by omega
-  unfold i16View
-  rw [h (t / 2) (by omega)]
-  by_cases hin : 8 * i.val ≤ t / 2 ∧ t / 2 < 8 * i.val + 8
-  · rw [if_pos hin, if_pos (by omega)]
-    rcases Nat.even_or_odd t with he | ho
-    · obtain ⟨m, hm⟩ := he
-      rw [show t % 2 = 0 from by omega, show 2 * (t / 2) = t from by omega, ext_lo16]
-    · obtain ⟨m, hm⟩ := ho
-      rw [show t % 2 = 1 from by omega, show 2 * (t / 2) - 16 * i.val + 1 = t - 16 * i.val from by
-        omega, ext_hi16]
-  · rw [if_neg hin, if_neg (by omega)]
+  obtain ⟨a', ha', h⟩ := store_i16_spec a i v (by scalar_tac)
+  exact ⟨a', ha', fun t ht => by rw [i16View, h t (by scalar_tac), i16View]⟩
 
 /-- The first store loop: the `q₁` block into `i16` positions `0 … 255`. -/
 theorem from_ring_elem_loop0_walk (iter : core.ops.range.Range Usize)
-    (out : Array I32 256#usize) (b : Array I16 256#usize)
+    (out : Array I16 512#usize) (b : Array I16 256#usize)
     (hend : iter.«end».val = 16)
     (hpre : ∀ t < 512, t / 16 < iter.start.val → i16View out t = (b.val[t]!).bv) :
     backend.avx2.ntt.from_ring_elem_loop0 iter out b
-      ⦃ (r : Array I32 256#usize) => ∀ t < 256, i16View r t = (b.val[t]!).bv ⦄ := by
+      ⦃ (r : Array I16 512#usize) => ∀ t < 256, i16View r t = (b.val[t]!).bv ⦄ := by
   unfold backend.avx2.ntt.from_ring_elem_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -1196,13 +1180,13 @@ decreasing_by scalar_decr_tac
 /-- The second store loop: the `q₂` block into `i16` positions `256 … 511`, leaving the first
 half alone. -/
 theorem from_ring_elem_loop1_walk (iter : core.ops.range.Range Usize)
-    (out : Array I32 256#usize) (b : Array I16 256#usize) (b0 : Array I16 256#usize)
+    (out : Array I16 512#usize) (b : Array I16 256#usize) (b0 : Array I16 256#usize)
     (hend : iter.«end».val = 16)
     (hlow : ∀ t < 256, i16View out t = (b0.val[t]!).bv)
     (hpre : ∀ t, 256 ≤ t → t < 512 → (t - 256) / 16 < iter.start.val →
       i16View out t = (b.val[t - 256]!).bv) :
     backend.avx2.ntt.from_ring_elem_loop1 iter out b
-      ⦃ (r : Array I32 256#usize) =>
+      ⦃ (r : Array I16 512#usize) =>
           (∀ t < 256, i16View r t = (b0.val[t]!).bv) ∧
           (∀ t, 256 ≤ t → t < 512 → i16View r t = (b.val[t - 256]!).bv) ⦄ := by
   unfold backend.avx2.ntt.from_ring_elem_loop1
@@ -1238,7 +1222,7 @@ positions `0 … 255`, `q₂` at `256 … 511`, each in its prime's leaf state. 
 theorem from_ring_elem_walk (elem : Array U16 256#usize) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
     backend.avx2.ntt.from_ring_elem true elem
-      ⦃ (r : Array I32 256#usize) =>
+      ⦃ (r : Array I16 512#usize) =>
           (∀ c < 256, |(i16View r c).toInt| ≤ 3840 ∧
             (((i16View r c).toInt : ℤ) : ZMod 7681)
               = fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681)) c) ∧
@@ -1314,14 +1298,14 @@ theorem State_sum {q : ℕ} {ζ : ℕ → ZMod q} {N : ℕ} {F A : ℕ → ℕ �
 product.  With the operands and the running accumulator inside `2³¹` the wrap never fires, so it
 lifts to an integer identity, which is what the leaf-state algebra needs. -/
 
-theorem pointwise_acc_int (acc : Array I64 256#usize) (lhs rhs : Array I32 256#usize)
+theorem pointwise_acc_int (acc : Array I32 512#usize) (lhs rhs : Array I16 512#usize)
     (Bl Br Ba : ℤ) (h0 : 0 ≤ Bl) (_h1 : 0 ≤ Br)
     (hl : ∀ t < 512, |(i16View lhs t).toInt| ≤ Bl)
     (hr : ∀ t < 512, |(i16View rhs t).toInt| ≤ Br)
     (ha : ∀ t < 512, |(i32View acc t).toInt| ≤ Ba)
     (hfit : Ba + Bl * Br < 2 ^ 31) :
     backend.avx2.ntt.pointwise_mul_acc acc lhs rhs
-      ⦃ (r : Array I64 256#usize) => ∀ t < 512,
+      ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           (i32View r t).toInt = (i32View acc t).toInt
             + (i16View lhs t).toInt * (i16View rhs t).toInt ∧
           |(i32View r t).toInt| ≤ Ba + Bl * Br ⦄ := by
@@ -1344,7 +1328,7 @@ The last structural step before the entry point: `N` pointwise products, summed 
 loop, and scaled by `R⁻¹` because the reduction that follows divides by the Montgomery radix.
 That is exactly the `State` hypothesis `reduce_invntt_walk` asks for. -/
 
-theorem acc_State_q1 (N : ℕ) (acc : Array I64 256#usize) (nu nv : ℕ → Array I32 256#usize)
+theorem acc_State_q1 (N : ℕ) (acc : Array I32 512#usize) (nu nv : ℕ → Array I16 512#usize)
     (Fu Fv : ℕ → ℕ → ZMod 7681)
     (hu : ∀ jj < N, NttAlg.State zeta1 256 1 1 (Fu jj)
       (fun c => (((i16View (nu jj) c).toInt : ℤ) : ZMod 7681)))
@@ -1372,7 +1356,7 @@ theorem acc_State_q1 (N : ℕ) (acc : Array I64 256#usize) (nu nv : ℕ → Arra
     exact Finset.sum_congr rfl fun jj _ => by push_cast; ring_nf]
   exact hx
 
-theorem acc_State_q2 (N : ℕ) (acc : Array I64 256#usize) (nu nv : ℕ → Array I32 256#usize)
+theorem acc_State_q2 (N : ℕ) (acc : Array I32 512#usize) (nu nv : ℕ → Array I16 512#usize)
     (Fu Fv : ℕ → ℕ → ZMod 10753)
     (hu : ∀ jj < N, NttAlg.State zeta2 256 1 1 (Fu jj)
       (fun c => (((i16View (nu jj) (256 + c)).toInt : ℤ) : ZMod 10753)))
@@ -1408,7 +1392,7 @@ convolution, as wrapping `u16`.  The three constants cancel exactly — `invntt_
 `256·σ = R` out and the reduction's `R⁻¹` undoes it — which is the content of `hcancel` below. -/
 
 /-- What one `from_ring_elem` call establishes about its output. -/
-def NttOK (g : ℕ → ℤ) (ne : Array I32 256#usize) : Prop :=
+def NttOK (g : ℕ → ℤ) (ne : Array I16 512#usize) : Prop :=
   (∀ c < 256, |(i16View ne c).toInt| ≤ 3840) ∧
   (∀ c < 256, |(i16View ne (256 + c)).toInt| ≤ 5376) ∧
   NttAlg.State zeta1 256 1 1 (fun c => ((g c : ℤ) : ZMod 7681))
@@ -1418,7 +1402,7 @@ def NttOK (g : ℕ → ℤ) (ne : Array I32 256#usize) : Prop :=
 
 theorem from_ring_elem_NttOK (elem : Array U16 256#usize) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
-    backend.avx2.ntt.from_ring_elem true elem ⦃ (r : Array I32 256#usize) => NttOK g r ⦄ := by
+    backend.avx2.ntt.from_ring_elem true elem ⦃ (r : Array I16 512#usize) => NttOK g r ⦄ := by
   apply WP.spec_mono (from_ring_elem_walk elem g hg)
   rintro r ⟨h1, h2, hs1, hs2⟩
   refine ⟨fun c hc => (h1 c hc).1, fun c hc => (h2 c hc).1, ?_, ?_⟩
@@ -1445,7 +1429,7 @@ theorem cancel_q2 : (((2536 : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
 /-- **The AVX2 NTT entry point.**  `N` transformed pairs, their pointwise products accumulated,
 and the inverse path: out come the coefficients of the convolution. -/
 theorem ntt_entry_avx (N : ℕ) (hN : N ≤ 4)
-    (acc : Array I64 256#usize) (nu nv : ℕ → Array I32 256#usize) (gu gv : ℕ → ℕ → ℤ)
+    (acc : Array I32 512#usize) (nu nv : ℕ → Array I16 512#usize) (gu gv : ℕ → ℕ → ℤ)
     (hnu : ∀ jj < N, NttOK (gu jj) (nu jj)) (hnv : ∀ jj < N, NttOK (gv jj) (nv jj))
     (hacc : ∀ t < 512, (i32View acc t).toInt
       = ∑ jj ∈ Finset.range N, (i16View (nu jj) t).toInt * (i16View (nv jj) t).toInt)
@@ -1624,7 +1608,7 @@ theorem from_ring_elem_NttOK_nored (elem : Array U16 256#usize) (g : ℕ → ℤ
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hs1 : ∀ c < 256, 2 * |g c| < 7681) (hs2 : ∀ c < 256, 2 * |g c| < 10753) :
     backend.avx2.ntt.from_ring_elem false elem
-      ⦃ (r : Array I32 256#usize) => NttOK g r ⦄ := by
+      ⦃ (r : Array I16 512#usize) => NttOK g r ⦄ := by
   unfold backend.avx2.ntt.from_ring_elem
   apply WP.spec_bind (split_and_transform_q1_nored elem _ g hg hs1)
   rintro b1 ⟨hb1b, hb1v, hb1s⟩
@@ -1667,7 +1651,7 @@ theorem from_uniform_NttOK (hb : backend.avx2.cpu.available = ok true)
   unfold arithmetic.ntt.NttElem.from_uniform
   rw [hb, bind_tc_ok]
   simp only [if_true]
-  apply WP.spec_bind (show backend.avx2.ntt.from_uniform elem ⦃ (r : Array I32 256#usize) =>
+  apply WP.spec_bind (show backend.avx2.ntt.from_uniform elem ⦃ (r : Array I16 512#usize) =>
     NttOK g r ⦄ from by unfold backend.avx2.ntt.from_uniform; exact from_ring_elem_NttOK elem g hg)
   intro r hr
   simp only [WP.spec_ok]
@@ -1682,7 +1666,7 @@ theorem from_secret_NttOK (hb : backend.avx2.cpu.available = ok true)
   unfold arithmetic.ntt.NttElem.from_secret
   rw [hb, bind_tc_ok]
   simp only [if_true]
-  apply WP.spec_bind (show backend.avx2.ntt.from_secret elem ⦃ (r : Array I32 256#usize) =>
+  apply WP.spec_bind (show backend.avx2.ntt.from_secret elem ⦃ (r : Array I16 512#usize) =>
     NttOK g r ⦄ from by
       unfold backend.avx2.ntt.from_secret
       exact from_ring_elem_NttOK_nored elem g hg hs1 hs2)
@@ -1702,14 +1686,14 @@ private theorem sum_Ico_peel {M : Type*} [AddCommMonoid M] (f : ℕ → M) {a b 
 
 /-- `pointwise_mul_acc` on the AVX2 branch. -/
 theorem pointwise_mul_acc_avx (hb : backend.avx2.cpu.available = ok true)
-    (acc : Array I64 256#usize) (lhs rhs : Array I32 256#usize) (Bl Br Ba : ℤ)
+    (acc : Array I32 512#usize) (lhs rhs : Array I16 512#usize) (Bl Br Ba : ℤ)
     (h0 : 0 ≤ Bl) (h1 : 0 ≤ Br)
     (hl : ∀ t < 512, |(i16View lhs t).toInt| ≤ Bl)
     (hr : ∀ t < 512, |(i16View rhs t).toInt| ≤ Br)
     (ha : ∀ t < 512, |(i32View acc t).toInt| ≤ Ba)
     (hfit : Ba + Bl * Br < 2 ^ 31) :
     arithmetic.ntt.pointwise_mul_acc acc lhs rhs
-      ⦃ (r : Array I64 256#usize) => ∀ t < 512,
+      ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           (i32View r t).toInt = (i32View acc t).toInt
             + (i16View lhs t).toInt * (i16View rhs t).toInt ∧
           |(i32View r t).toInt| ≤ Ba + Bl * Br ⦄ := by
@@ -1723,7 +1707,7 @@ terms the accumulator is inside `n·B²`. -/
 theorem mul_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true)
     (iter : core.ops.range.Range Usize)
     (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix Y Z)
-    (i k : Usize) (acc : Array I64 256#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
+    (i k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hi : i.val < X.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ Y.val) (hend : iter.«end».val = Y.val) (hY : Y.val ≤ 4)
     (hself : ∀ j t, j < Y.val → t < 512 →
@@ -1733,7 +1717,7 @@ theorem mul_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true
     (hacc : ∀ t < 512, |(i32View acc t).toInt| ≤ (iter.start.val : ℤ) * (B * B)) :
     arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0 iter self other i k acc
       ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix Y Z) ×
-             (Array I64 256#usize)) =>
+             (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
           (∀ t < 512, (i32View p.2.2 t).toInt = (i32View acc t).toInt
             + ∑ jj ∈ Finset.Ico iter.start.val Y.val,
@@ -1802,11 +1786,11 @@ serial one does.  That is the point at which the two branches reconverge. -/
 
 theorem reduce_invntt_to_ring_elem_avx (hb : backend.avx2.cpu.available = ok true)
     (N : ℕ) (hN : N ≤ 4)
-    (acc : Array I64 256#usize) (nu nv : ℕ → Array I32 256#usize) (gu gv : ℕ → ℕ → ℤ)
+    (acc : Array I32 512#usize) (nu nv : ℕ → Array I16 512#usize) (gu gv : ℕ → ℕ → ℤ)
     (hnu : ∀ jj < N, NttOK (gu jj) (nu jj)) (hnv : ∀ jj < N, NttOK (gv jj) (nv jj))
     (hacc : ∀ t < 512, (i32View acc t).toInt
       = ∑ jj ∈ Finset.range N, (i16View (nu jj) t).toInt * (i16View (nv jj) t).toInt)
-    (H : ℕ → ℤ) (hHb : ∀ n < 256, |H n| ≤ 25165056)
+    (H : ℕ → ℤ) (hHb : ∀ n < 256, 2 * |H n| < 82593793)
     (hH1 : ∀ c < 256, ((H c : ℤ) : ZMod 7681)
       = ∑ jj ∈ Finset.range N, NttAlg.nconv (fun n => ((gu jj n : ℤ) : ZMod 7681))
           (fun n => ((gv jj n : ℤ) : ZMod 7681)) c)
@@ -1819,8 +1803,7 @@ theorem reduce_invntt_to_ring_elem_avx (hb : backend.avx2.cpu.available = ok tru
   unfold arithmetic.ntt.reduce_invntt_to_ring_elem
   rw [hb, bind_tc_ok]
   simp only [if_true]
-  apply WP.spec_bind (ntt_entry_avx N hN acc nu nv gu gv hnu hnv hacc H
-    (fun c hc => by have := hHb c hc; omega) hH1 hH2)
+  apply WP.spec_bind (ntt_entry_avx N hN acc nu nv gu gv hnu hnv hacc H hHb hH1 hH2)
   intro r hr
   simp only [WP.spec_ok]
   intro n hn

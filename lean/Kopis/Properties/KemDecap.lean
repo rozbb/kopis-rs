@@ -75,7 +75,8 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
   let* ⟨randomness, hrand⟩ ← decrypt_spec T sk.pke_sk ciphertext p sk_seed ((MU.val / 2 : ℕ) : ℤ)
-    hℓ ht hT hfit hfitex S hskfwd hskbnd hlenct hsk
+    hℓ ht hT hfit hfitex S hskfwd hskbnd
+    (by rcases hMU with h | h | h <;> rw [h] <;> norm_num) hlenct hsk
   -- FO XOF: k / rprime windows from the 64-byte squeeze
   step*
   have habs : hasherAbsorbed hasher2 = randomness.val ++ sk.hash_pke_pk.val := by

@@ -7,11 +7,13 @@ import Kopis.Properties.GenMatrix
 import Kopis.Properties.MatrixArith
 import Kopis.Properties.MulTranspose
 import Kopis.Properties.Ntt
-import Kopis.Properties.NttReduce
-import Kopis.Properties.NttForward
-import Kopis.Properties.NttMul
+import Kopis.Properties.NttCrtZeta
+import Kopis.Properties.NttCrtLane
+import Kopis.Properties.NttCrtLevel
+import Kopis.Properties.NttCrtBlock
+import Kopis.Properties.NttCrtElem
+import Kopis.Properties.NttCrtMul
 import Kopis.Properties.NttBridge
-import Kopis.Properties.NttInverse
 import Kopis.Properties.GenSecretLoops
 import Kopis.Properties.GenSecretSpec
 import Kopis.Properties.GenSecretTop

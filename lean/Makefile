@@ -72,9 +72,9 @@ generated: $(GENERATED_AUDIT) twins
 #
 # `Kopis/Avx2/Properties/*.lean` is `Kopis/Properties/*.lean` with the extracted
 # constants and the stack's own namespace renamed, plus the anchored patches for
-# the six runtime-dispatch points (scripts/gen_avx2_twins.py, and
-# scripts/gen_avx2_bridge.py for NttBridge, which needs 40 of them).  17 800
-# lines, derived in full from the 17 100 lines of the serial stack.
+# the runtime-dispatch points (scripts/gen_avx2_twins.py, and
+# scripts/gen_avx2_bridge.py for the four `cpu::available` sites in the NTT).
+# Derived in full from the serial stack.
 #
 # Unlike the audit copy above it is **not** checked in, and so the rule is
 # different in two ways.  It regenerates silently instead of failing, because
@@ -153,7 +153,7 @@ test-kopis-spec:
 
 # Check the assumed AVX2 intrinsic semantics against real silicon.
 #
-# `Kopis/Avx2/Intrinsics.lean` is 45 axioms about what Intel instructions do; nothing in the
+# `Kopis/Avx2/Intrinsics.lean` is 42 axioms about what Intel instructions do; nothing in the
 # proof checks them, and a wrong one makes every AVX2 theorem worthless without any error.
 # `Kopis/Avx2/Model.lean` gives each a computable model and *proves* the axiom pins the result
 # down to exactly that model, so testing the model tests the axiom.  This target replays

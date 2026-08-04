@@ -337,13 +337,11 @@ These are not instructions but the wrappers in `intrinsics.rs`, and their axioms
 bound the wrapper asserts. Each is indexed in whole vectors: `load_i16 a i` reads
 `a[16i .. 16i+16]`.
 
-The four `*_of_*` accessors are the ones to read carefully. They are where the crate's
-two-blocks-in-one-buffer layout lives: `crate::arithmetic::ntt::NttElem` is `[i32; 256]` that
-the AVX2 backend reads as 512 `i16`, and the pointwise accumulator is `[i64; 256]` read as 512
-`i32`. The axioms state that reinterpretation as *little-endian*: element `2j` of the narrow
-view is the low half of element `j` of the wide one, element `2j+1` the high half. On any
-big-endian target these would be wrong — the crate is little-endian-only in this backend, which
-is fine because AVX2 is. -/
+They are all plain typed accessors. An earlier revision also carried four `*_of_*` ones —
+`load_i16_of_i32` and friends — which read an `[i32; 256]` as 512 `i16` and an `[i64; 256]` as
+512 `i32`, and whose axioms had to state that reinterpretation as little-endian. Those buffers
+are now `[i16; 512]` and `[i32; 512]` outright (the two residue blocks are the two halves), so
+the reinterpretation is gone from the crate and with it from the trust base. -/
 
 /-- Loads the 16 `i16` at `src[16i ..]`. -/
 axiom load_i16_spec {N : Std.Usize} (src : Array Std.I16 N) (i : Std.Usize)
@@ -377,6 +375,14 @@ axiom load_i32_spec {N : Std.Usize} (src : Array Std.I32 N) (i : Std.Usize)
     (h : 8 * (i.val + 1) ≤ N.val) :
     ∃ c, load_i32 src i = ok c ∧ ∀ k < 8, lane32 c k = (src.val[8 * i.val + k]!).bv
 
+/-- Stores 8 `i32` at `dst[8i ..]`, leaving everything else alone. -/
+axiom store_i32_spec {N : Std.Usize} (dst : Array Std.I32 N) (i : Std.Usize) (v : Vec256)
+    (h : 8 * (i.val + 1) ≤ N.val) :
+    ∃ dst', store_i32 dst i v = ok dst' ∧ ∀ j < N.val,
+      (dst'.val[j]!).bv =
+        if 8 * i.val ≤ j ∧ j < 8 * i.val + 8 then lane32 v (j - 8 * i.val)
+        else (dst.val[j]!).bv
+
 /-- Loads the 32 bytes at `src[32i ..]`. -/
 axiom load_u8_spec {N : Std.Usize} (src : Array Std.U8 N) (i : Std.Usize)
     (h : 32 * (i.val + 1) ≤ N.val) :
@@ -388,42 +394,6 @@ axiom load_u8x16_spec (src : Aeneas.Std.Slice Std.U8) (offset : Std.Usize)
     (h : offset.val + 16 ≤ src.val.length) :
     ∃ c, load_u8x16 src offset = ok c ∧
       ∀ k < 16, lane8' c k = (src.val[offset.val + k]!).bv
-
-/-- Loads the 16 `i16` at `i16` index `16i` of `src` read as `2N` little-endian `i16`. -/
-axiom load_i16_of_i32_spec {N : Std.Usize} (src : Array Std.I32 N) (i : Std.Usize)
-    (h : 16 * (i.val + 1) ≤ 2 * N.val) :
-    ∃ c, load_i16_of_i32 src i = ok c ∧ ∀ k < 16,
-      lane16 c k =
-        BitVec.extractLsb' (16 * ((16 * i.val + k) % 2)) 16
-          (src.val[(16 * i.val + k) / 2]!).bv
-
-/-- Stores 16 `i16` at `i16` index `16i` of `dst` read as `2N` little-endian `i16`. The store
-covers whole `i32` elements — `i16` indices `16i .. 16i+16` are elements `8i .. 8i+8` — so no
-element is half-written. -/
-axiom store_i16_of_i32_spec {N : Std.Usize} (dst : Array Std.I32 N) (i : Std.Usize) (v : Vec256)
-    (h : 16 * (i.val + 1) ≤ 2 * N.val) :
-    ∃ dst', store_i16_of_i32 dst i v = ok dst' ∧ ∀ j < N.val,
-      (dst'.val[j]!).bv =
-        if 8 * i.val ≤ j ∧ j < 8 * i.val + 8 then
-          lane16 v (2 * j - 16 * i.val + 1) ++ lane16 v (2 * j - 16 * i.val)
-        else (dst.val[j]!).bv
-
-/-- Loads the 8 `i32` at `i32` index `8i` of `src` read as `2N` little-endian `i32`. -/
-axiom load_i32_of_i64_spec {N : Std.Usize} (src : Array Std.I64 N) (i : Std.Usize)
-    (h : 8 * (i.val + 1) ≤ 2 * N.val) :
-    ∃ c, load_i32_of_i64 src i = ok c ∧ ∀ k < 8,
-      lane32 c k =
-        BitVec.extractLsb' (32 * ((8 * i.val + k) % 2)) 32
-          (src.val[(8 * i.val + k) / 2]!).bv
-
-/-- Stores 8 `i32` at `i32` index `8i` of `dst` read as `2N` little-endian `i32`. -/
-axiom store_i32_of_i64_spec {N : Std.Usize} (dst : Array Std.I64 N) (i : Std.Usize) (v : Vec256)
-    (h : 8 * (i.val + 1) ≤ 2 * N.val) :
-    ∃ dst', store_i32_of_i64 dst i v = ok dst' ∧ ∀ j < N.val,
-      (dst'.val[j]!).bv =
-        if 4 * i.val ≤ j ∧ j < 4 * i.val + 4 then
-          lane32 v (2 * j - 8 * i.val + 1) ++ lane32 v (2 * j - 8 * i.val)
-        else (dst.val[j]!).bv
 
 end
 

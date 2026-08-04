@@ -131,7 +131,12 @@ fn gs_level<const LEN: usize, const SECOND: bool>(b: &mut Block, k: &mut usize) 
         *k -= 1;
         // The negation the Gentleman-Sande butterfly wants, taken here rather than baked into
         // a second table; it folds into the loop-invariant broadcast either way.
-        let z = crt::zeta::<SECOND>(*k).wrapping_neg();
+        //
+        // `0 - z` rather than `z.wrapping_neg()`: aeneas leaves `i16::wrapping_neg` opaque (it
+        // extracts to an axiom with no definition, so its meaning would have to be *assumed*),
+        // whereas `wrapping_sub` gets real semantics. Identical codegen, one fewer assumption in
+        // the Lean trust base. Same reasoning as `crate::arithmetic::ntt`; see the note there.
+        let z = 0i16.wrapping_sub(crt::zeta::<SECOND>(*k));
         let zq = z.wrapping_mul(qinv);
         for j in start..start + LEN {
             let lo = b[j];

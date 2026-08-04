@@ -4,7 +4,7 @@ import Lean.Data.Json
 /-!
 # The AVX2 intrinsic model, checked against silicon
 
-`Kopis/Avx2/Intrinsics.lean` *assumes* what 45 SIMD instructions do; `Kopis/Avx2/Model.lean`
+`Kopis/Avx2/Intrinsics.lean` *assumes* what 42 SIMD instructions do; `Kopis/Avx2/Model.lean`
 turns each assumption into a computable `BitVec` function and **proves** the two agree — so a
 model that matched hardware would leave the axiom in the same position, and a model that did not
 would convict it.  This runner is the second half: it replays
@@ -17,9 +17,8 @@ relative to the working directory, as in `SpecTests/Kopis/Run.lean`.
 
 Every value in the file is a hex string in **memory order** — least significant byte first — so
 a 256-bit register is 64 hex digits with the low lane leftmost.  Buffers for the memory
-accessors are dumped whole and re-chunked here into elements, which is what puts the
-little-endian reinterpretation claims of `load_i16_of_i32` and friends under test rather than
-merely under assumption.
+accessors are dumped whole and re-chunked here into elements, which is what puts their indexing
+claims under test rather than merely under assumption.
 
 A note on what a pass means: this is a differential test over ~1000 inputs per operation, so it
 is strong evidence and not a proof.  What it rules out is the failure mode that matters — an
@@ -158,25 +157,18 @@ def check (j : Json) : Except String Unit := do
       expect r (Model.loadW8 (← r.bytesField "buf") (← r.natField "idx")) (← o256 ())
   | "load_u8x16" =>
       expect r (Model.loadW8x16 (← r.bytesField "buf") (← r.natField "idx")) (← o128 ())
-  | "load_i16_of_i32" =>
-      expect r (Model.loadW16OfW32 (← r.wordsField "buf" 32) (← r.natField "idx")) (← o256 ())
-  | "load_i32_of_i64" =>
-      expect r (Model.loadW32OfW64 (← r.wordsField "buf" 64) (← r.natField "idx")) (← o256 ())
   | "store_i16" | "store_u16" =>
       expect r (Model.storeW16 (← r.wordsField "buf" 16) (← r.natField "idx")
                   (← r.hexField "v" 256)) (← r.wordsField "o" 16)
-  | "store_i16_of_i32" =>
-      expect r (Model.storeW16OfW32 (← r.wordsField "buf" 32) (← r.natField "idx")
+  | "store_i32" =>
+      expect r (Model.storeW32 (← r.wordsField "buf" 32) (← r.natField "idx")
                   (← r.hexField "v" 256)) (← r.wordsField "o" 32)
-  | "store_i32_of_i64" =>
-      expect r (Model.storeW32OfW64 (← r.wordsField "buf" 64) (← r.natField "idx")
-                  (← r.hexField "v" 256)) (← r.wordsField "o" 64)
   | _ => .error s!"unknown operation {op}"
 
 /-! ## Coverage
 
-The plan's acceptance bar is ≥ 1000 vectors per wrapper, and there are 45 of them.  A run that
-silently exercised 30 operations would otherwise look exactly like a run that exercised 45. -/
+The plan's acceptance bar is ≥ 1000 vectors per wrapper, and there are 42 of them.  A run that
+silently exercised 30 operations would otherwise look exactly like a run that exercised 42. -/
 
 /-- Every wrapper in `src/backend/avx2/intrinsics.rs`.  `setzero_si256` takes no argument and
 has one possible result, so it is exempt from the vector count. -/
@@ -189,8 +181,8 @@ def allOps : List String :=
    "unpacklo_epi64", "unpackhi_epi64", "permute2x128_si256", "permute4x64_epi64",
    "packs_epi32", "packus_epi32", "cvtepu16_epi32", "castsi256_si128", "extracti128_si256",
    "broadcastsi128_si256",
-   "load_i16", "store_i16", "load_u16", "store_u16", "load_i32", "load_u8", "load_u8x16",
-   "load_i16_of_i32", "store_i16_of_i32", "load_i32_of_i64", "store_i32_of_i64"]
+   "load_i16", "store_i16", "load_u16", "store_u16", "load_i32", "store_i32", "load_u8",
+   "load_u8x16"]
 
 def minVectors : Nat := 1000
 

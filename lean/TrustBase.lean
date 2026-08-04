@@ -153,7 +153,7 @@ The same theorems, about the `--cfg kopis_backend="avx2"` extraction. Its assump
 portable backend's, restated for the second extraction's opaque constants, **plus three groups
 that exist only here**.
 
-**(e) The SIMD instruction semantics (45 assumptions + 2 opaque types).** `Kopis/Avx2/Intrinsics.lean`
+**(e) The SIMD instruction semantics (42 assumptions + 2 opaque types).** `Kopis/Avx2/Intrinsics.lean`
 gives one axiom per wrapper in `src/backend/avx2/intrinsics.rs`, over `bits : Vec256 → BitVec 256`.
 This is the largest addition and the file a reviewer must read. It is not proved, but it *is*
 tested: `Kopis/Avx2/Model.lean` derives a computable model from each axiom, and
@@ -203,9 +203,7 @@ def avx2Audited : List String :=
    "Kopis.Avx2.cvtepu16_epi32_spec",
    "Kopis.Avx2.cvtsi32_si128_spec",
    "Kopis.Avx2.extracti128_si256_spec",
-   "Kopis.Avx2.load_i16_of_i32_spec",
    "Kopis.Avx2.load_i16_spec",
-   "Kopis.Avx2.load_i32_of_i64_spec",
    "Kopis.Avx2.load_i32_spec",
    "Kopis.Avx2.load_u16_spec",
    "Kopis.Avx2.load_u8_spec",
@@ -228,9 +226,8 @@ def avx2Audited : List String :=
    "Kopis.Avx2.srl_epi16_spec",
    "Kopis.Avx2.srli_epi16_spec",
    "Kopis.Avx2.srlv_epi32_spec",
-   "Kopis.Avx2.store_i16_of_i32_spec",
    "Kopis.Avx2.store_i16_spec",
-   "Kopis.Avx2.store_i32_of_i64_spec",
+   "Kopis.Avx2.store_i32_spec",
    "Kopis.Avx2.store_u16_spec",
    "Kopis.Avx2.sub_epi16_spec",
    "Kopis.Avx2.sub_epi32_spec",
@@ -258,9 +255,7 @@ def avx2Audited : List String :=
    "RustKopisAvx2.backend.avx2.intrinsics.cvtsi32_si128",
    "RustKopisAvx2.backend.avx2.intrinsics.extracti128_si256",
    "RustKopisAvx2.backend.avx2.intrinsics.load_i16",
-   "RustKopisAvx2.backend.avx2.intrinsics.load_i16_of_i32",
    "RustKopisAvx2.backend.avx2.intrinsics.load_i32",
-   "RustKopisAvx2.backend.avx2.intrinsics.load_i32_of_i64",
    "RustKopisAvx2.backend.avx2.intrinsics.load_u16",
    "RustKopisAvx2.backend.avx2.intrinsics.load_u8",
    "RustKopisAvx2.backend.avx2.intrinsics.load_u8x16",
@@ -282,8 +277,7 @@ def avx2Audited : List String :=
    "RustKopisAvx2.backend.avx2.intrinsics.srli_epi16",
    "RustKopisAvx2.backend.avx2.intrinsics.srlv_epi32",
    "RustKopisAvx2.backend.avx2.intrinsics.store_i16",
-   "RustKopisAvx2.backend.avx2.intrinsics.store_i16_of_i32",
-   "RustKopisAvx2.backend.avx2.intrinsics.store_i32_of_i64",
+   "RustKopisAvx2.backend.avx2.intrinsics.store_i32",
    "RustKopisAvx2.backend.avx2.intrinsics.store_u16",
    "RustKopisAvx2.backend.avx2.intrinsics.sub_epi16",
    "RustKopisAvx2.backend.avx2.intrinsics.sub_epi32",

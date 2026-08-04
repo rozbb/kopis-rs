@@ -1,22 +1,84 @@
 # NTT proof status
 
-> ## ▶ DONE (updated 2026-08-01, branch `avx2`)
+> ## ▶ THE SERIAL PROOF IS GREEN AGAIN (updated 2026-08-04)
 >
-> **`make prove-kopis` is GREEN with ZERO `sorry`s, and the audit gate now throws on `sorryAx`.**
+> **`lake build Kopis TopLevelTheoremsSerial` succeeds with zero `sorry`s.**  The portable
+> transform moved from one 26-bit prime to the two-prime CRT scheme (commit `67b78d8`), which
+> deleted rather than broke the old proof; it has been rebuilt.
 >
-> The NTT-multiplication hole (`ntt_spec`) is fully discharged.  `#print axioms` on every §3
-> theorem of `TopLevelTheoremsSerial.lean` no longer contains `sorryAx`, and the gate has been flipped
-> back so that a `sorry` reappearing anywhere in the dependency closure *fails the build*.
-> **Do not re-add an exemption for `sorryAx`.**
+> **`make prove-kopis` is still RED**, because it also builds the AVX2 twin stack and
+> `TrustBase.lean`.  See "Remaining" below — it is the twin *generator*, not the mathematics.
 >
-> The remaining trust base is exactly the audited list in `TrustBase.lean` (§4 of
-> `TopLevelTheoremsSerial.lean` until 2026-08-02, when it moved): Lean's
-> three logical axioms, the aeneas-opaque extern types/functions (turboshake, subtle,
-> `count_ones`), and one `native_decide` in `Spec/Defs.lean:380`.
+> ### The new portable stack
+>
+> | module | content |
+> |---|---|
+> | `Kopis/CrtArith.lean` | the integer cores of `mont_mul`, `barrett` and the `i32` Montgomery reduction — **shared** with the AVX2 proof, which had its own copy |
+> | `Kopis/CrtZeta.lean` | what the transform algebra asks of a ψ table, reduced to finite checks, for *any* table |
+> | `Kopis/CrtConv.lean` | the negacyclic convolution as a single sum over an arbitrary `CommRing` |
+> | `Kopis/Properties/NttCrtZeta.lean` | the two tables, at this extraction |
+> | `NttCrtLane.lean` | `mont_mul`, `barrett` |
+> | `NttCrtLevel.lean` | `ct_level`, `gs_level`, `barrett_block` — **one proof each**, generic in the const-generic `LEN`.  This is the big structural win over the AVX2 walk, which needs one per level |
+> | `NttCrtBlock.lean` | `ntt_block`, `invntt_block`, and the growth schedule |
+> | `NttCrtElem.lean` | `split_and_transform`, `from_ring_elem`, `NttOK`, both `NttElem` constructors |
+> | `NttCrtMul.lean` | `pointwise_mul_acc`, `reduce_block`, `reduce_invntt` with the Garner combine, and `crt_entry_spec` |
+> | `NttBridge.lean` | rewritten on `NttOK`: `UOK` for the uniform constructor, `SecretSmall` threaded for the secret one, and the six `mul` / `mul_transpose` loops |
+>
+> `NttMath`, `NttForward`, `NttInverse`, `NttMul` and `NttReduce{,Barrett,Mont,Wrap}` are deleted.
+>
+> ### Two things worth knowing
+>
+> * **`src/arithmetic/ntt_crt.rs` no longer uses `i16::wrapping_neg`.**  aeneas leaves that as an
+>   uninterpreted axiom, so its meaning would have to be *assumed*; it is `0i16.wrapping_sub(z)`
+>   now, exactly as `arithmetic/ntt.rs` and the AVX2 backend already spelled it, and the crate was
+>   re-extracted.  Identical codegen, one fewer assumption.  Do not let it back in.
+> * **The exactness margin moved to the CRT modulus.**  `Kopis/Properties/Ntt.lean`'s `fitsExactly`
+>   now names `q₁q₂ = 82593793` instead of the retired `p`.  Every parameter set still fits, with
+>   16 134 144 to spare instead of 2304.
+> * **The two constructors are conditional, and not in the same way.**  `from_uniform`'s bound is
+>   needed only to *identify the coefficient function* (the stored `u16` read through `i16` agrees
+>   with the unsigned reading below `2¹⁵`), so it sits in front of an implication inside the
+>   postcondition (`UOK`) and the matrix loops never see it.  `from_secret`'s is needed for the
+>   triple *itself* — it skips the Barrett pass, so without the bound there is nothing to hand
+>   `ntt_block` — so it has to be threaded, and `SecretSmall` threads it.
+>
+> ### Remaining
+>
+> **1. The AVX2 twin generator.**  `scripts/gen_avx2_twins.py` regenerates cleanly except for
+> `scripts/gen_avx2_bridge.py`, whose ~700 lines of anchors are all old single-prime text.  It
+> should now **shrink a long way**: its `UOK`/`SOK`/`SecretSmall` machinery existed only because
+> `ElemOK` was *false* on the vector branch, and with both backends on the same `[i16; 512]`
+> representation it no longer is.  What is left is four `cpu::available` case splits:
+>
+> | dispatch point | serial theorem to patch | AVX2 branch already proved by |
+> |---|---|---|
+> | `NttElem::from_uniform` | `NttCrtElem.from_uniform_NttOK_signed` | `Kopis.Avx2.from_uniform_NttOK` |
+> | `NttElem::from_secret` | `NttCrtElem.from_secret_NttOK` | `Kopis.Avx2.from_secret_NttOK` |
+> | `ntt::pointwise_mul_acc` | `NttBridge.ntt_mul_inner_spec` / `ntt_mulT_inner_spec` | `Kopis.Avx2.pointwise_mul_acc_avx` |
+> | `ntt::reduce_invntt_to_ring_elem` | `NttBridge.ntt_entry_spec` | `Kopis.Avx2.reduce_invntt_to_ring_elem_avx` |
+>
+> Each is `obtain ⟨b, hb⟩ := Kopis.Avx2.available_ok; rw [hb, bind_tc_ok]; cases b` with the
+> portable body on `false` and the theorem above on `true`.  Note the twin's `NttOK` and
+> `Kopis.Avx2.NttOK` are distinct constants with identical bodies, so they are `rfl`-equal.
+> `gen_avx2_twins.py` already routes `NttCrtElem.lean` and `NttCrtMul.lean` to new hooks
+> (`patch_elem` / `patch_mul`) which still have to be written.
+>
+> **2. `TrustBase.lean`**: the intrinsic axiom count is **42, not 45** — `load_i16_of_i32`,
+> `store_i16_of_i32`, `load_i32_of_i64` and `store_i32_of_i64` are gone (the buffers are
+> `[i16; 512]` and `[i32; 512]` outright, so there is no reinterpretation left to state) and
+> `store_i32` is new.  Fix the audited list plus the prose in `Makefile`,
+> `SpecTests/Avx2/Run.lean` and `AVX2_VERIFICATION_PLAN.md`, then re-check the footprint.
 >
 > ---
 >
-> ## Module map (bottom-up)
+> ## The single-prime notes below are retained for reference
+>
+> The module map is of the *deleted* stack.  It is kept because the new one is the same argument
+> at two smaller moduli, and the "Lessons worth keeping" at the end still apply verbatim — in
+> particular the `whnf` timeout one, which cost real time again during this rewrite (a hypothesis
+> bound *before* the variable it mentions, so `mat` was auto-bound as a second implicit).
+
+## Module map (bottom-up)
 >
 > | file | content |
 > |---|---|

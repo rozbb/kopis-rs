@@ -65,8 +65,12 @@ set_option maxHeartbeats 1000000
 
 /-! ## Constants and the exactness margin -/
 
-/-- The NTT modulus, as an integer. -/
-def pNtt : ℤ := 50330113
+/-- The CRT modulus the transform's exactness rests on: `q₁·q₂` with `q₁ = 7681`, `q₂ = 10753`
+(`CRT_Q` in `src/backend/crt.rs`).  Until 2026-08-04 this was the single 26-bit prime
+`p = 50330113`; the portable transform moved to the two-prime scheme the vector backends already
+used, and the exactness margin moved with it — the new modulus is 1.64× larger, so every
+parameter set that fitted still fits, with more room. -/
+def crtQ : ℤ := 82593793
 
 /-- The largest coefficient magnitude of a uniform operand: `2^13 - 1`. -/
 def uniformBound : ℤ := 8191
@@ -74,23 +78,24 @@ def uniformBound : ℤ := 8191
 /-- An accumulated product coefficient of an `X`-term row, where the uniform operand's
 coefficients are `< 2^13` and the secret operand's are bounded by `sBound`, cannot exceed
 `X · 256 · 8191 · sBound` in absolute value.  `fitsExactly` says that bound is strictly inside
-`(-p/2, p/2)`, which is what makes the mod-`p` computation determine the integer answer. -/
+`(-q₁q₂/2, q₁q₂/2)`, which is what makes the two-residue computation determine the integer
+answer. -/
 def fitsExactly (X : ℕ) (sBound : ℤ) : Prop :=
-  2 * ((X : ℤ) * 256 * uniformBound * sBound) < pNtt
+  2 * ((X : ℤ) * 256 * uniformBound * sBound) < crtQ
 
 /-- Kopis-512: `ℓ = 2`, `μ = 10`, so the secret coefficients are bounded by 5. -/
 theorem fitsExactly_kopis512 : fitsExactly 2 5 := by
-  unfold fitsExactly uniformBound pNtt; norm_num
+  unfold fitsExactly uniformBound crtQ; norm_num
 
 /-- Kopis-768: `ℓ = 3`, `μ = 8`, so the secret coefficients are bounded by 4.  This is one of
-the two worst cases, at 25 162 752 against a limit of 25 165 056. -/
+the two worst cases, at 25 162 752 against a limit of 41 296 896. -/
 theorem fitsExactly_kopis768 : fitsExactly 3 4 := by
-  unfold fitsExactly uniformBound pNtt; norm_num
+  unfold fitsExactly uniformBound crtQ; norm_num
 
 /-- Kopis-1024: `ℓ = 4`, `μ = 6`, so the secret coefficients are bounded by 3.  The other worst
 case, numerically identical to Kopis-768's. -/
 theorem fitsExactly_kopis1024 : fitsExactly 4 3 := by
-  unfold fitsExactly uniformBound pNtt; norm_num
+  unfold fitsExactly uniformBound crtQ; norm_num
 
 /-- Every shipped parameter set satisfies the joint exactness constraint with `sBound = μ/2`.
 This is what lets the downstream key-generation / encryption / decryption proofs discharge the
@@ -102,17 +107,18 @@ theorem fitsExactly_paramSet (p : Spec.Kopis.ParameterSet) :
   · exact fitsExactly_kopis768
   · exact fitsExactly_kopis1024
 
-/-- The margin really is as thin as claimed: at the worst shipped pairing the accumulated
-coefficient bound is 2304 below `⌊p/2⌋ = 25 165 056`.  Stated separately so that a future
-parameter change that silently breaks exactness shows up as a failed proof here. -/
-theorem margin_is_2304 :
-    pNtt / 2 - ((3 : ℤ) * 256 * uniformBound * 4) = 2304 := by
-  unfold uniformBound pNtt; norm_num
+/-- How much margin there actually is: at the worst shipped pairing the accumulated coefficient
+bound is 16 134 144 below `⌊q₁q₂/2⌋ = 41 296 896`.  Stated separately so that a future parameter
+change that silently breaks exactness shows up as a failed proof here.  Under the old single
+prime this margin was 2304 — the two-prime modulus is what turned it from thin into ample. -/
+theorem margin_is_16134144 :
+    crtQ / 2 - ((3 : ℤ) * 256 * uniformBound * 4) = 16134144 := by
+  unfold uniformBound crtQ; norm_num
 
 /-- The pairing that does *not* fit, recorded so the joint-constraint design is self-evident:
 the worst `ℓ` together with the worst `μ` overflows the modulus by a wide margin. -/
 theorem worst_ell_with_worst_mu_does_not_fit : ¬ fitsExactly 4 5 := by
-  unfold fitsExactly uniformBound pNtt; norm_num
+  unfold fitsExactly uniformBound crtQ; norm_num
 
 
 /-! ## Reading a `u16` coefficient as a signed value
@@ -214,97 +220,28 @@ theorem I64_wrapping_add_exact (x y : I64)
     (core.num.I64.wrapping_add x y).val = x.val + y.val := by
   rw [core.num.I64.wrapping_add, IScalar.wrapping_add_val_eq]
   exact bmod_i64_exact hlo hhi
-/-! ## Reduction-function value specs
-
-The four scalar reduction functions of `src/arithmetic/ntt.rs`, each proved against its
-value-level postcondition via the `*_exact` wrapping lemmas above plus the aeneas cast /
-shift / bitwise value semantics.  These are the documented foundation for the eventual
-transform-correctness proof. -/
-
-theorem to_canonical_spec (x : I32) (hlo : -pNtt < (x.val:ℤ)) (hhi : (x.val:ℤ) < pNtt) :
-    arithmetic.ntt.to_canonical x
-      ⦃ (t : I32) => (t.val:ℤ) % pNtt = (x.val:ℤ) % pNtt
-                      ∧ 0 ≤ (t.val:ℤ) ∧ (t.val:ℤ) < pNtt ⦄ := by
-  have hP : arithmetic.ntt.P.val = 50330113 := by simp only [arithmetic.ntt.P]; rfl
-  have hx31 : (x.val:ℤ) < 2147483648 := by unfold pNtt at hhi; omega
-  have hshift : (core.num.I32.wrapping_shr x 31#u32).val = x.val >>> (31:ℕ) := by
-    simp only [core.num.I32.wrapping_shr, IScalar.wrapping_shr, IScalar.val]
-    rw [show (31#u32).val % IScalarTy.I32.numBits = 31 from rfl, BitVec.toInt_sshiftRight]
-  unfold arithmetic.ntt.to_canonical
-  simp only [lift, bind_tc_ok, WP.spec_ok]
-  by_cases hsign : (x.val:ℤ) < 0
-  · have hi : (core.num.I32.wrapping_shr x 31#u32).val = -1 := by
-      rw [hshift, Int.shiftRight_eq_div_pow]; unfold pNtt at hlo; omega
-    have hand : ((core.num.I32.wrapping_shr x 31#u32) &&& arithmetic.ntt.P).val = 50330113 := by
-      have hbv : (core.num.I32.wrapping_shr x 31#u32).bv = BitVec.allOnes 32 := by
-        apply BitVec.eq_of_toInt_eq
-        show _ = (BitVec.allOnes 32).toInt
-        rw [show (BitVec.allOnes 32).toInt = (-1:ℤ) from rfl]; exact hi
-      simp only [IScalar.val, IScalar.bv_and, hbv, BitVec.allOnes_and]; exact hP
-    have hadd : (core.num.I32.wrapping_add x ((core.num.I32.wrapping_shr x 31#u32)
-        &&& arithmetic.ntt.P)).val = x.val + 50330113 := by
-      rw [I32_wrapping_add_exact x _ (by rw [hand]; unfold pNtt at hlo; omega)
-        (by rw [hand]; omega), hand]
-    rw [hadd]
-    refine ⟨?_, ?_, ?_⟩
-    · unfold pNtt; omega
-    · unfold pNtt at hlo; omega
-    · unfold pNtt at *; omega
-  · have hi : (core.num.I32.wrapping_shr x 31#u32).val = 0 := by
-      rw [hshift, Int.shiftRight_eq_div_pow]; omega
-    have hand : ((core.num.I32.wrapping_shr x 31#u32) &&& arithmetic.ntt.P).val = 0 := by
-      have hbv : (core.num.I32.wrapping_shr x 31#u32).bv = 0#32 := by
-        apply BitVec.eq_of_toInt_eq
-        show _ = (0#32).toInt
-        rw [show (0#32).toInt = (0:ℤ) from rfl]; exact hi
-      simp only [IScalar.val, IScalar.bv_and, hbv, BitVec.zero_and]; rfl
-    have hadd : (core.num.I32.wrapping_add x ((core.num.I32.wrapping_shr x 31#u32)
-        &&& arithmetic.ntt.P)).val = x.val := by
-      rw [I32_wrapping_add_exact x _ (by rw [hand]; omega) (by rw [hand]; omega), hand]; ring
-    rw [hadd]
-    exact ⟨rfl, by omega, hhi⟩
-
 /-! ## The shape of the transform proof
 
-Everything above is arithmetic bookkeeping.  The mathematical content of the NTT is developed
-in `NttMath` / `NttForward` / `NttInverse` / `NttMul` / `NttBridge`; the route it takes is the
-one sketched here.
+Everything above is arithmetic bookkeeping.  The mathematical content of the NTT is developed in
+`NttCrtZeta` / `NttCrtLane` / `NttCrtLevel` / `NttCrtBlock` / `NttCrtElem` / `NttBridge`; the
+route it takes is the one sketched here.
 
-**The proof route.**  Work level by level over the Cooley-Tukey network, using the CRT
-splitting
+**The proof route.**  Work level by level over the Cooley-Tukey network, using the CRT splitting
 
-    ℤ_p[X]/(X^{2m} - ζ²)  ≅  ℤ_p[X]/(X^m - ζ)  ×  ℤ_p[X]/(X^m + ζ),
+    ℤ_q[X]/(X^{2m} - ζ²)  ≅  ℤ_q[X]/(X^m - ζ)  ×  ℤ_q[X]/(X^m + ζ),
 
 whose forward direction is exactly one butterfly layer and whose inverse is exactly one
-Gentleman-Sande layer.  After eight levels `X²⁵⁶ + 1` has split into 256 linear factors
-`X - ψ^{2·brv(k)+1}` (`ψ = 49118445` is a primitive 512-th root of unity mod `p`, checked in
-Rust by `zetas_table_is_correct`), so the transformed array is the tuple of evaluations and
-pointwise multiplication is multiplication in the product ring.  The Montgomery factor
-introduced by each `mont_reduce` is cancelled by `INVNTT_SCALE = 256⁻¹ · 2^64 mod p` at the end
-of `invntt`, and the lazy-reduction schedule (one Barrett pass after level 4) is what keeps
-every intermediate inside `i32`.
+Gentleman-Sande layer.  After eight levels `X²⁵⁶ + 1` has split into 256 linear factors, so the
+transformed array is the tuple of evaluations and pointwise multiplication is multiplication in
+the product ring.  All of that happens *twice*, over `q₁ = 7681` and `q₂ = 10753`; the pair of
+residues determines the coefficient because the accumulated product is inside `±q₁q₂/2`, which is
+what `fitsExactly` above says.  The Montgomery factor each `mont_mul` introduces is cancelled by
+`INVNTT_SCALE` at the end of `invntt_block`, and the lazy-reduction schedule (Barrett after levels
+3 and 6 forward, after every second level inverse) is what keeps every intermediate inside an
+`i16`.
 
 Nothing here is assumed: the audit gate in `TopLevelTheoremsSerial.lean` throws on `sorryAx`, so a
 regression that reopened any of it would fail the build. -/
-
-/-! ### `mont_reduce`, for reference
-
-`mont_reduce_spec` itself is proved in `NttReduceMont.lean`; this is the argument it makes,
-recorded here next to the `*_exact` lemmas it is built from.
-
-`mont_reduce a` computes `t := (a mod 2^32) · p⁻¹`, reinterpreted as an `i32`, and returns
-`(a - t·p) >> 32`.  The argument has four steps:
-
-1. `p · P_INV ≡ 1 (mod 2^32)` (checked in Rust by `literal_constants_are_correct`), so
-   `t·p ≡ a (mod 2^32)` and hence `2^32 ∣ a - t·p`.
-2. Therefore the arithmetic shift by 32 is exact division, and `result · 2^32 = a - t·p`.
-3. `t·p ≡ 0 (mod p)`, so `result · 2^32 ≡ a (mod p)` — the Montgomery property.
-4. `|a| < 2^31·p` and `|t| ≤ 2^31` give `|a - t·p| < 2^32·p`, hence `|result| < p`; this also
-   keeps the `i64` operations in range for `I64_wrapping_sub_exact` / `I64_wrapping_mul_exact`,
-   and makes the final `i64 → i32` truncation exact.
-
-Step 1 is the only fiddly part: it has to be done through the `u32`/`i32` casts, where the
-value semantics are `Int.bmod`/`Int.emod` rather than plain arithmetic. -/
 
 /-! ### The bridge interface
 

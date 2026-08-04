@@ -1,0 +1,798 @@
+/-
+  # Kopis/Properties/NttCrtLevel.lean — one Cooley-Tukey / Gentleman-Sande level.
+
+  `ct_level` and `gs_level` in `src/arithmetic/ntt_crt.rs` are const-generic in the half-block
+  width `LEN` and in which prime they run over, and aeneas extracts them as *one* function each
+  with `LEN` and `SECOND` as ordinary parameters.  So there is one proof per direction here, not
+  eight: `ntt_block` and `invntt_block` then chain it.
+
+  Each level spec carries two invariants side by side, and both are needed at once:
+
+  * **the value invariant**, which is `Kopis/Avx2/NttAlgebra.lean`'s `State_ct` / `State_gs`
+    hypothesis verbatim — the butterfly relation at every index pair of every block;
+  * **the bound invariant**, which is what makes every `wrapping_add`/`wrapping_sub` in sight
+    *exact*, and so what lets the integer identity survive the cast into `ZMod q`.
+
+  The bound is carried as three quantities rather than one: `B` bounds the part of the block the
+  level has not reached yet, `Bt` bounds one Montgomery product, and `B + Bt` bounds everything.
+  A single global bound would not do, because the loop rewrites the block underneath itself.
+
+  `Bt` is a *parameter* satisfying `B·Zb + 2¹⁵·q ≤ 2¹⁶·Bt`, not `q` — that is the sharp
+  Montgomery bound, and the difference matters: a flat `+q` per level predicts overflow for the
+  three-level runs this schedule uses, and the compounding form does not.  See the growth
+  arithmetic in `Kopis/Properties/NttCrtBlock.lean`.
+-/
+import Kopis.Properties.NttCrtLane
+
+open Aeneas Aeneas.Std Result
+open RustKopisSerial
+
+namespace Kopis.Properties
+
+open Kopis.CrtArith Kopis.Avx2.NttAlg
+
+set_option maxHeartbeats 1000000
+
+/-! ## Reading a residue block -/
+
+/-- The integer value of lane `i`. -/
+def bZ (b : Array I16 256#usize) (i : ℕ) : ℤ := ((b.val[i]!).val : ℤ)
+
+/-- Lane `i` as a residue mod `q`. -/
+def bR (q : ℕ) (b : Array I16 256#usize) (i : ℕ) : ZMod q := ((bZ b i : ℤ) : ZMod q)
+
+theorem bR_congr {q : ℕ} {x y : Array I16 256#usize} {c : ℕ} (h : bZ x c = bZ y c) :
+    bR q x c = bR q y c := by unfold bR; rw [h]
+
+/-- `getElem!` after a `List.set` at an in-bounds index. -/
+theorem lvl_getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ) (v : α)
+    (k : ℕ) (hj : j < l.length) : (l.set j v)[k]! = if k = j then v else l[k]! := by
+  by_cases h : k = j
+  · subst h
+    rw [getElem!_pos _ k (by rw [List.length_set]; exact hj), List.getElem_set_self, if_pos rfl]
+  · by_cases hk : k < l.length
+    · rw [getElem!_pos _ k (by rw [List.length_set]; exact hk),
+        List.getElem_set_of_ne (Ne.symm h), ← getElem!_pos _ k hk, if_neg h]
+    · rw [getElem!_neg _ k (by rw [List.length_set]; exact hk), getElem!_neg _ k hk, if_neg h]
+
+theorem bZ_set (b : Array I16 256#usize) (i : Usize) (v : I16) (hi : i.val < 256) (c : ℕ) :
+    bZ (b.set i v) c = if c = i.val then (v.val : ℤ) else bZ b c := by
+  have hlen : b.val.length = 256 := by simp
+  unfold bZ
+  rw [Array.set_val_eq, lvl_getElem!_list_set b.val i.val v c (by rw [hlen]; exact hi)]
+  split <;> rfl
+
+/-- The pointwise effect of one butterfly's two writes. -/
+theorem bZ_two_writes (b : Array I16 256#usize) (i j : Usize) (v w : I16)
+    (hi : i.val < 256) (hj : j.val < 256) (c : ℕ) :
+    bZ ((b.set i v).set j w) c
+      = if c = j.val then (w.val : ℤ) else if c = i.val then (v.val : ℤ) else bZ b c := by
+  rw [bZ_set (b.set i v) j w hj c, bZ_set b i v hi c]
+
+/-- The value read by `Array.index_usize` is `bZ`. -/
+theorem bZ_getElem (b : Array I16 256#usize) (i : Usize) (hi : i.val < 256) :
+    ((b.val[i.val]'(by rw [show b.val.length = 256 by simp]; exact hi)).val : ℤ)
+      = bZ b i.val := by
+  unfold bZ
+  rw [getElem!_pos b.val i.val (by rw [show b.val.length = 256 by simp]; exact hi)]
+
+/-! ## From the Montgomery congruence to an equation in `ℤ/q`
+
+`mont_mul` returns `t` with `q ∣ t·2¹⁶ − a·z`, and the plain twiddle is `ζ = z·2⁻¹⁶`.  So `t`
+denotes `ζ·a`, and the Montgomery radix never appears again. -/
+
+theorem mont_val_ZMod {q : ℕ} {Q : ℤ} (hQq : (q : ℤ) = Q) {Rinv ζv : ZMod q}
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1) {Zv : ℤ}
+    (hzeta : ((Zv : ℤ) : ZMod q) * Rinv = ζv)
+    {t a : ℤ} (h : Q ∣ (t * 2 ^ 16 - a * Zv)) :
+    ((t : ℤ) : ZMod q) = ζv * ((a : ℤ) : ZMod q) := by
+  have hz : (((t * 2 ^ 16 - a * Zv : ℤ)) : ZMod q) = 0 := by
+    rw [ZMod.intCast_zmod_eq_zero_iff_dvd]
+    rw [← hQq] at h
+    exact_mod_cast h
+  push_cast at hz
+  have hc : ((t : ℤ) : ZMod q) * 2 ^ 16 = ((a : ℤ) : ZMod q) * ((Zv : ℤ) : ZMod q) := by
+    linear_combination hz
+  calc ((t : ℤ) : ZMod q)
+      = ((t : ℤ) : ZMod q) * ((2 ^ 16 : ZMod q) * Rinv) := by rw [hRinv, mul_one]
+    _ = (((t : ℤ) : ZMod q) * 2 ^ 16) * Rinv := by ring
+    _ = (((a : ℤ) : ZMod q) * ((Zv : ℤ) : ZMod q)) * Rinv := by rw [hc]
+    _ = ζv * ((a : ℤ) : ZMod q) := by rw [← hzeta]; ring
+
+/-! ## The Cooley-Tukey inner loop: one block's butterflies
+
+`ct_level_loop0_loop0 LEN iter b q z zq` runs `j` over `[iter.start, st + LEN)` performing
+`t := mont_mul(b[j+LEN], z, zq, q); b[j+LEN] := b[j] − t; b[j] := b[j] + t`.  The postcondition
+describes the result pointwise, which is precisely `State_ct`'s `hbut`. -/
+
+theorem ct_inner_spec {q : ℕ} {st lenv : ℕ} (iter : core.ops.range.Range Usize)
+    (b : Array I16 256#usize) (LEN : Usize) (qv z zq : I16)
+    (Q Zb B Bt : ℤ) (Rinv ζv : ZMod q)
+    (hlen : LEN.val = lenv) (hlpos : 0 < lenv)
+    (hend : iter.«end».val = st + lenv)
+    (hlo : st ≤ iter.start.val) (hhi : iter.start.val ≤ st + lenv)
+    (hblk : st + 2 * lenv ≤ 256)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
+    (hz : |z.val| ≤ Zb) (hZb : 0 ≤ Zb)
+    (hzq : (2 ^ 16 : ℤ) ∣ (zq.val * Q - z.val))
+    (hzeta : ((z.val : ℤ) : ZMod q) * Rinv = ζv)
+    (hB0 : 0 ≤ B) (hBt0 : 0 ≤ Bt)
+    (hmont : B * Zb < 2 ^ 15 * Q)
+    (hBt : B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt) (hfit : B + Bt ≤ 32767)
+    (hBu : ∀ c, iter.start.val ≤ c → c < st + lenv → |bZ b c| ≤ B)
+    (hBu2 : ∀ c, iter.start.val + lenv ≤ c → c < st + 2 * lenv → |bZ b c| ≤ B)
+    (hBg : ∀ c, c < 256 → |bZ b c| ≤ B + Bt) :
+    arithmetic.ntt_crt.ct_level_loop0_loop0 LEN iter b qv z zq
+      ⦃ (r : Array I16 256#usize) =>
+        (∀ j, iter.start.val ≤ j → j < st + lenv →
+            bR q r j = bR q b j + ζv * bR q b (j + lenv)
+            ∧ bR q r (j + lenv) = bR q b j - ζv * bR q b (j + lenv))
+        ∧ (∀ c, c < iter.start.val → bZ r c = bZ b c)
+        ∧ (∀ c, st + lenv ≤ c → c < iter.start.val + lenv → bZ r c = bZ b c)
+        ∧ (∀ c, st + 2 * lenv ≤ c → bZ r c = bZ b c)
+        ∧ (∀ c, c < 256 → |bZ r c| ≤ B + Bt) ⦄ := by
+  unfold arithmetic.ntt_crt.ct_level_loop0_loop0
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hj_lt : iter.start.val < st + lenv := by omega
+    have hjb : iter.start.val < 256 := by omega
+    have hjl : iter.start.val + lenv < 256 := by omega
+    step*
+    have hiv : i.val = iter.start.val + lenv := by rw [i_post, hlen]
+    have hi1v : (i1.val : ℤ) = bZ b (iter.start.val + lenv) := by
+      rw [i1_post, bZ_getElem b i (by omega), hiv]
+    have hi1B : |(i1.val : ℤ)| ≤ B := by
+      rw [hi1v]; exact hBu2 _ (by omega) (by omega)
+    -- the Montgomery multiply
+    have hprodb : |(i1.val : ℤ) * (z.val : ℤ)| < 2 ^ 15 * Q := by
+      calc |(i1.val : ℤ) * (z.val : ℤ)| = |(i1.val : ℤ)| * |(z.val : ℤ)| := abs_mul _ _
+        _ ≤ B * Zb := mul_le_mul hi1B hz (abs_nonneg _) (le_trans (abs_nonneg _) hi1B)
+        _ < 2 ^ 15 * Q := hmont
+    apply WP.spec_bind (mont_mul_spec i1 z zq qv Q hqv hQpos hQlt hzq hprodb)
+    intro t ht
+    obtain ⟨htmod, htlo, hthi, htsharp⟩ := ht
+    -- `|t| ≤ Bt`, from the sharp bound
+    have htB : |(t.val : ℤ)| ≤ Bt := by
+      have h1 : |(i1.val : ℤ)| * |(z.val : ℤ)| ≤ B * Zb :=
+        mul_le_mul hi1B hz (abs_nonneg _) (le_trans (abs_nonneg _) hi1B)
+      have h2 : (2 : ℤ) ^ 16 * |(t.val : ℤ)| ≤ 2 ^ 16 * Bt := by linarith
+      exact le_of_mul_le_mul_left h2 (by norm_num)
+    have htabs := abs_le.mp htB
+    step*
+    all_goals
+      have hb2 : ∀ c, bZ a c = if c = iter.start.val then (i5.val : ℤ)
+          else if c = iter.start.val + lenv then (i3.val : ℤ) else bZ b c := by
+        intro c
+        rw [a_post, b1_post, bZ_two_writes b i iter.start i3 i5 (by omega) (by omega) c, hiv]
+      have e_i2 : (i2.val : ℤ) = bZ b iter.start.val := by
+        rw [i2_post]; exact bZ_getElem b iter.start (by omega)
+      have hi2B : -B ≤ (i2.val : ℤ) ∧ (i2.val : ℤ) ≤ B := by
+        have h := hBu iter.start.val (le_refl _) hj_lt
+        rw [abs_le] at h
+        rw [e_i2]; exact h
+      have e_i3 : (i3.val : ℤ) = (i2.val : ℤ) - (t.val : ℤ) := by
+        rw [i3_post, core.num.I16.wrapping_sub, IScalar.wrapping_sub_val_eq,
+          show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
+        exact bmod16_eq_self (by norm_num; omega) (by norm_num; omega)
+      have e_i4 : (i4.val : ℤ) = (i2.val : ℤ) := by
+        rw [i4_post, bZ_getElem b1 iter.start (by omega), b1_post,
+          bZ_set b i i3 (by omega) iter.start.val, if_neg (by omega), e_i2]
+      have e_i5 : (i5.val : ℤ) = (i2.val : ℤ) + (t.val : ℤ) := by
+        rw [i5_post, core.num.I16.wrapping_add, IScalar.wrapping_add_val_eq, e_i4,
+          show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
+        exact bmod16_eq_self (by norm_num; omega) (by norm_num; omega)
+    case hBu =>
+      intro c hc1 hc2
+      rw [hb2 c, if_neg (by omega), if_neg (by omega)]
+      exact hBu c (by omega) hc2
+    case hBu2 =>
+      intro c hc1 hc2
+      rw [hb2 c, if_neg (by omega), if_neg (by omega)]
+      exact hBu2 c (by omega) hc2
+    case hBg =>
+      intro c hc
+      rw [hb2 c]
+      split_ifs
+      · rw [e_i5, abs_le]; constructor <;> omega
+      · rw [e_i3, abs_le]; constructor <;> omega
+      · exact hBg c hc
+    -- the postcondition: `step*` has already run the recursive call and named its results
+    refine ⟨?_, ?_, ?_, ?_, r_post5⟩
+    · intro j hj1 hj2
+      rcases eq_or_lt_of_le hj1 with hje | hjgt
+      · -- this butterfly
+        subst hje
+        have htz : ((t.val : ℤ) : ZMod q)
+            = ζv * ((bZ b (iter.start.val + lenv) : ℤ) : ZMod q) := by
+          refine mont_val_ZMod hQq hRinv hzeta ?_
+          rw [← hi1v]; exact htmod
+        have ha_lo : bZ r iter.start.val = bZ b iter.start.val + (t.val : ℤ) := by
+          rw [r_post2 _ (by omega), hb2, if_pos rfl, e_i5, e_i2]
+        have ha_hi : bZ r (iter.start.val + lenv) = bZ b iter.start.val - (t.val : ℤ) := by
+          rw [r_post3 _ (by omega) (by omega), hb2, if_neg (by omega), if_pos rfl, e_i3, e_i2]
+        refine ⟨?_, ?_⟩
+        · show ((bZ r iter.start.val : ℤ) : ZMod q)
+              = ((bZ b iter.start.val : ℤ) : ZMod q)
+                + ζv * ((bZ b (iter.start.val + lenv) : ℤ) : ZMod q)
+          rw [ha_lo]; push_cast; rw [htz]
+        · show ((bZ r (iter.start.val + lenv) : ℤ) : ZMod q)
+              = ((bZ b iter.start.val : ℤ) : ZMod q)
+                - ζv * ((bZ b (iter.start.val + lenv) : ℤ) : ZMod q)
+          rw [ha_hi]; push_cast; rw [htz]
+      · -- a later one: `a` still agrees with `b` there
+        have h := r_post1 j (by omega) hj2
+        rw [bR_congr (show bZ a j = bZ b j from by
+              rw [hb2 j, if_neg (by omega), if_neg (by omega)]),
+          bR_congr (show bZ a (j + lenv) = bZ b (j + lenv) from by
+              rw [hb2 (j + lenv), if_neg (by omega), if_neg (by omega)])] at h
+        exact h
+    · intro c hc
+      rw [r_post2 c (by omega), hb2 c, if_neg (by omega), if_neg (by omega)]
+    · intro c hc1 hc2
+      rw [r_post3 c (by omega) (by omega), hb2 c, if_neg (by omega), if_neg (by omega)]
+    · intro c hc
+      rw [r_post4 c (by omega), hb2 c, if_neg (by omega), if_neg (by omega)]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    refine ⟨?_, ?_, ?_, ?_, hBg⟩
+    · intro j hj1 hj2; omega
+    · intro c _; trivial
+    · intro c _ _; trivial
+    · intro c _; trivial
+
+/-! ## The Cooley-Tukey block loop: every block at one level
+
+`ct_level_loop0 LEN SECOND b k q start` walks `start` over the blocks of the level, running one
+butterfly block each.  At entry `start = b₀·2·LEN` and `k + 1 = nb + b₀`, where `nb` is the number
+of blocks; the `b`-th block's twiddle is table entry `nb + b`.  At `b₀ = 0` the postcondition is
+exactly `State_ct`'s `hbut`. -/
+
+/-- What each level asks of the ψ tables: centred entries, the Montgomery pairing, and the plain
+twiddle they denote.  `Kopis/Properties/NttCrtZeta.lean` discharges it for both primes. -/
+def ZetaOK {q : ℕ} (SECOND : Bool) (Q Zb : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q) : Prop :=
+  ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
+    backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+    |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val) ∧
+    ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val
+
+theorem ct_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
+    (b : Array I16 256#usize) (SECOND : Bool) (LEN k start : Usize) (qv : I16)
+    (Q Zb B Bt : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
+    (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
+    (hb0 : b0 ≤ nb) (hstart : start.val = b0 * (2 * lenv)) (hk : k.val + 1 = nb + b0)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
+    (hzeta : ZetaOK SECOND Q Zb Rinv ζ) (hZb : 0 ≤ Zb)
+    (hB0 : 0 ≤ B) (hBt0 : 0 ≤ Bt) (hmont : B * Zb < 2 ^ 15 * Q)
+    (hBt : B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt) (hfit : B + Bt ≤ 32767)
+    (hBu : ∀ c, start.val ≤ c → c < 256 → |bZ b c| ≤ B)
+    (hBg : ∀ c, c < 256 → |bZ b c| ≤ B + Bt) :
+    arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b k qv start
+      ⦃ (rk : Array I16 256#usize × Usize) =>
+        (∀ bb, b0 ≤ bb → bb < nb → ∀ r', r' < lenv →
+            bR q rk.1 (bb * (2 * lenv) + r')
+              = bR q b (bb * (2 * lenv) + r') + ζ (nb + bb) * bR q b (bb * (2 * lenv) + lenv + r')
+            ∧ bR q rk.1 (bb * (2 * lenv) + lenv + r')
+              = bR q b (bb * (2 * lenv) + r') - ζ (nb + bb) * bR q b (bb * (2 * lenv) + lenv + r'))
+        ∧ (∀ c, c < start.val → bZ rk.1 c = bZ b c)
+        ∧ (∀ c, c < 256 → |bZ rk.1 c| ≤ B + Bt)
+        ∧ rk.2.val = 2 * nb - 1 ⦄ := by
+  have hnb1 : 1 ≤ nb := by
+    rcases Nat.eq_zero_or_pos nb with h | h
+    · omega
+    · exact h
+  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+  unfold arithmetic.ntt_crt.ct_level_loop0
+  by_cases hlt : start < consts.RING_DEG
+  · have hltv : start.val < 256 := by rw [← hRD]; scalar_tac
+    have hb0lt : b0 < nb := by nlinarith
+    have hnb128 : nb ≤ 128 := by nlinarith
+    have hkb : nb + b0 < 256 := by omega
+    have hlenb : lenv ≤ 128 := by nlinarith
+    rw [if_pos hlt]
+    let* ⟨ k1, hk1 ⟩ ← Std.Usize.add_spec (show k.val + (1#usize).val ≤ Usize.max from by
+      scalar_tac)
+    have hk1v : k1.val = nb + b0 := by omega
+    obtain ⟨zi, zqi, hzi, hzqi, hziB, hzqiP, hziZ⟩ := hzeta k1 (by omega)
+    rw [hzi, bind_tc_ok, hzqi, bind_tc_ok]
+    let* ⟨ i, hi ⟩ ← Std.Usize.add_spec (show start.val + LEN.val ≤ Usize.max from by
+      scalar_tac)
+    have hiv : i.val = start.val + lenv := by rw [hi, hlen]
+    have hiS : ({ start := start, «end» := i } : core.ops.range.Range Usize).start.val
+        = start.val := rfl
+    have hiE : ({ start := start, «end» := i } : core.ops.range.Range Usize).«end».val
+        = i.val := rfl
+    have hblkv : start.val + 2 * lenv ≤ 256 := by nlinarith
+    rw [hk1v] at hziZ
+    apply WP.spec_bind (ct_inner_spec (st := start.val) (lenv := lenv)
+      { start := start, «end» := i } b LEN qv zi zqi Q Zb B Bt Rinv (ζ (nb + b0))
+      hlen hlpos (by rw [hiE, hiv]) (by rw [hiS]) (by rw [hiS]; omega) hblkv
+      hQq hqv hQpos hQlt hRinv hziB hZb hzqiP hziZ hB0 hBt0 hmont hBt hfit
+      (fun c hc1 hc2 => hBu c (by rw [hiS] at hc1; omega) (by omega))
+      (fun c hc1 hc2 => hBu c (by rw [hiS] at hc1; omega) (by omega))
+      hBg)
+    intro b1 hb1
+    obtain ⟨hA1, hU1, hU2, hU3, hBd1⟩ := hb1
+    rw [hiS] at hA1 hU1 hU2
+    let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (show (2#usize).val * LEN.val ≤ Usize.max from by
+      scalar_tac)
+    let* ⟨ start1, hs1 ⟩ ← Std.Usize.add_spec (show start.val + i1.val ≤ Usize.max from by
+      scalar_tac)
+    have hi1v : i1.val = 2 * lenv := by rw [hi1, hlen]
+    have hs1v : start1.val = (b0 + 1) * (2 * lenv) := by rw [hs1, hi1v, hstart]; ring
+    apply WP.spec_mono (ct_mid_spec (nb := nb) (lenv := lenv) (b0 := b0 + 1)
+      b1 SECOND LEN k1 start1 qv Q Zb B Bt Rinv ζ hlen hlpos hnb (by omega) hs1v (by omega)
+      hQq hqv hQpos hQlt hRinv hzeta hZb hB0 hBt0 hmont hBt hfit
+      (fun c hc1 hc2 => by rw [hU3 c (by omega)]; exact hBu c (by omega) hc2)
+      hBd1)
+    rintro rk ⟨hR1, hR2, hR3, hR4⟩
+    refine ⟨?_, ?_, hR3, hR4⟩
+    · intro bb hbb1 hbb2 r' hr'
+      rcases eq_or_lt_of_le hbb1 with hbe | hbgt
+      · subst hbe
+        have hx1 : bR q rk.1 (b0 * (2 * lenv) + r') = bR q b1 (b0 * (2 * lenv) + r') :=
+          bR_congr (hR2 _ (by omega))
+        have hx2 : bR q rk.1 (b0 * (2 * lenv) + lenv + r')
+            = bR q b1 (b0 * (2 * lenv) + lenv + r') := bR_congr (hR2 _ (by omega))
+        have hA := hA1 (start.val + r') (by omega) (by omega)
+        rw [show start.val + r' + lenv = b0 * (2 * lenv) + lenv + r' by omega, hstart] at hA
+        rw [hx1, hx2]
+        exact hA
+      · have h := hR1 bb (by omega) hbb2 r' hr'
+        rw [bR_congr (hU3 (bb * (2 * lenv) + r') (by nlinarith)),
+          bR_congr (hU3 (bb * (2 * lenv) + lenv + r') (by nlinarith))] at h
+        exact h
+    · intro c hc
+      rw [hR2 c (by omega), hU1 c (by omega)]
+  · have hgev : 256 ≤ start.val := by rw [← hRD]; scalar_tac
+    have hb0eq : b0 = nb := by nlinarith
+    rw [if_neg hlt]
+    simp only [WP.spec_ok]
+    refine ⟨?_, ?_, hBg, by omega⟩
+    · intro bb hbb1 hbb2; omega
+    · intro c _; trivial
+termination_by 256 - start.val
+decreasing_by scalar_decr_tac
+
+/-! ## `ct_level`
+
+The level as the caller sees it: it reads its modulus and runs the block loop from `start = 0`,
+so `b₀ = 0` and the postcondition is `State_ct`'s hypothesis for every block. -/
+
+theorem ct_level_spec {q : ℕ} {nb lenv : ℕ}
+    (b : Array I16 256#usize) (SECOND : Bool) (LEN k : Usize) (qv : I16)
+    (Q Zb B Bt : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
+    (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
+    (hk : k.val + 1 = nb)
+    (hqSel : backend.crt.q SECOND = ok qv)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
+    (hzeta : ZetaOK SECOND Q Zb Rinv ζ) (hZb : 0 ≤ Zb)
+    (hB0 : 0 ≤ B) (hBt0 : 0 ≤ Bt) (hmont : B * Zb < 2 ^ 15 * Q)
+    (hBt : B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt) (hfit : B + Bt ≤ 32767)
+    (hB : ∀ c, c < 256 → |bZ b c| ≤ B) :
+    arithmetic.ntt_crt.ct_level LEN SECOND b k
+      ⦃ (rk : Array I16 256#usize × Usize) =>
+        (∀ bb < nb, ∀ r' < lenv,
+            bR q rk.1 (bb * (2 * lenv) + r')
+              = bR q b (bb * (2 * lenv) + r') + ζ (nb + bb) * bR q b (bb * (2 * lenv) + lenv + r')
+            ∧ bR q rk.1 (bb * (2 * lenv) + lenv + r')
+              = bR q b (bb * (2 * lenv) + r') - ζ (nb + bb) * bR q b (bb * (2 * lenv) + lenv + r'))
+        ∧ (∀ c, c < 256 → |bZ rk.1 c| ≤ B + Bt)
+        ∧ rk.2.val = 2 * nb - 1 ⦄ := by
+  unfold arithmetic.ntt_crt.ct_level
+  rw [hqSel, bind_tc_ok]
+  apply WP.spec_mono (ct_mid_spec (nb := nb) (lenv := lenv) (b0 := 0) b SECOND LEN k 0#usize qv
+    Q Zb B Bt Rinv ζ hlen hlpos hnb (by omega) (by simp) (by omega) hQq hqv hQpos hQlt hRinv
+    hzeta hZb hB0 hBt0 hmont hBt hfit (fun c _ hc => hB c hc) (fun c hc => by
+      have := hB c hc; omega))
+  rintro rk ⟨hR1, _, hR3, hR4⟩
+  exact ⟨fun bb hbb r' hr' => hR1 bb (by omega) hbb r' hr', hR3, hR4⟩
+
+/-! ## `barrett_block`
+
+The re-centring pass between runs of levels.  It changes no residue and leaves every lane inside
+`±q/2`, which is what the next run's growth budget starts from. -/
+
+theorem barrett_block_loop_spec {q : ℕ} (iter : core.ops.range.Range Usize)
+    (b : Array I16 256#usize) (qv m : I16) (Q M : ℤ)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hm : m.val = M)
+    (hQpos : 0 < Q) (hQlt : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
+    (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)
+    (hend : iter.«end».val = 256) (hstart : iter.start.val ≤ 256)
+    (hpre : ∀ c, c < iter.start.val → 2 * |bZ b c| < Q) :
+    arithmetic.ntt_crt.barrett_block_loop iter b qv m
+      ⦃ (r : Array I16 256#usize) =>
+          (∀ c, c < 256 → bR q r c = bR q b c) ∧
+          (∀ c, c < 256 → 2 * |bZ r c| < Q) ⦄ := by
+  unfold arithmetic.ntt_crt.barrett_block_loop
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hib : iter.start.val < 256 := by omega
+    let* ⟨ i1, hi1 ⟩ ← Array.index_usize_spec b iter.start (by simp; omega)
+    apply WP.spec_bind (barrett_spec i1 m qv Q M hqv hm hQpos hQlt hQodd hMpos hMlt hD)
+    intro i2 hi2
+    obtain ⟨hi2mod, hi2bnd⟩ := hi2
+    have hi1v : (i1.val : ℤ) = bZ b iter.start.val := by
+      rw [hi1, ← bZ_getElem b iter.start hib]
+    let* ⟨ a, ha ⟩ ← Array.update_spec b iter.start i2 (by simp; omega)
+    have hav : ∀ c, bZ a c = if c = iter.start.val then (i2.val : ℤ) else bZ b c := by
+      intro c; rw [ha, bZ_set b iter.start i2 hib c]
+    apply WP.spec_mono (barrett_block_loop_spec iter1 a qv m Q M hQq hqv hm hQpos hQlt hQodd
+      hMpos hMlt hD (by rw [hend']; exact hend) (by omega)
+      (by
+        intro c hc
+        rw [hav c]
+        by_cases hce : c = iter.start.val
+        · rw [if_pos hce]; exact hi2bnd
+        · rw [if_neg hce]; exact hpre c (by omega)))
+    rintro r ⟨hR1, hR2⟩
+    refine ⟨?_, hR2⟩
+    intro c hc
+    rw [hR1 c hc, bR, bR, hav c]
+    by_cases hce : c = iter.start.val
+    · rw [if_pos hce, hce]
+      have : (i2.val : ℤ) - bZ b iter.start.val = (i2.val : ℤ) - (i1.val : ℤ) := by rw [hi1v]
+      have hd : ((q : ℤ)) ∣ ((i2.val : ℤ) - bZ b iter.start.val) := by
+        rw [hQq, this]; exact hi2mod
+      have := (ZMod.intCast_zmod_eq_zero_iff_dvd ((i2.val : ℤ) - bZ b iter.start.val) q).mpr
+        (by exact_mod_cast hd)
+      push_cast at this
+      linear_combination this
+    · rw [if_neg hce]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    exact ⟨fun c _ => trivial, fun c hc => hpre c (by omega)⟩
+termination_by 256 - iter.start.val
+decreasing_by scalar_decr_tac
+
+theorem barrett_block_spec {q : ℕ} (SECOND : Bool) (b : Array I16 256#usize) (qv m : I16)
+    (Q M : ℤ)
+    (hqSel : backend.crt.q SECOND = ok qv) (hmSel : backend.crt.barrett_m SECOND = ok m)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hm : m.val = M)
+    (hQpos : 0 < Q) (hQlt : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
+    (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047) :
+    arithmetic.ntt_crt.barrett_block SECOND b
+      ⦃ (r : Array I16 256#usize) =>
+          (∀ c, c < 256 → bR q r c = bR q b c) ∧
+          (∀ c, c < 256 → 2 * |bZ r c| < Q) ⦄ := by
+  unfold arithmetic.ntt_crt.barrett_block
+  rw [hqSel, bind_tc_ok, hmSel, bind_tc_ok]
+  exact barrett_block_loop_spec _ b qv m Q M hQq hqv hm hQpos hQlt hQodd hMpos hMlt hD
+    (by simp only [consts.RING_DEG]; rfl) (by simp) (by intro c hc; simp at hc)
+
+/-! ## The Gentleman-Sande direction
+
+`(lo, hi) ↦ (lo + hi, −ψ·(lo − hi))`.  Two things differ from Cooley-Tukey and drive everything
+here.  The sum path **doubles** — it does not stay inside the input bound the way Cooley-Tukey's
+does — so a level takes a common input bound `B` to `2B`, which is why the schedule re-centres
+every two levels.  And the sign: the code negates the table entry at the paired index `2nb−1−b`,
+which is exactly the `−ζ` that `State_gs` applies, so nothing has to insert it at the butterfly.
+
+The negation is written `0 − z` in the Rust rather than `z.wrapping_neg()`, and that is not a
+stylistic choice: aeneas leaves `i16::wrapping_neg` opaque, so its meaning would have to be
+*assumed*, whereas `wrapping_sub` carries real semantics.  See the note in
+`src/arithmetic/ntt_crt.rs`. -/
+
+/-- What each Gentleman-Sande level asks of the ψ table: centred entries and the plain twiddle
+they denote.  The Montgomery companion is *computed* here rather than read from a table, so it
+needs `q⁻¹·q ≡ 1` instead. -/
+def ZetaVal {q : ℕ} (SECOND : Bool) (Zb : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q) : Prop :=
+  ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
+    backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+    ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val
+
+/-- `zq ≡ z·q⁻¹` and `q⁻¹·q ≡ 1` give the Montgomery pairing `zq·q ≡ z (mod 2¹⁶)` that
+`mont_mul` needs, whatever `z` happens to be. -/
+theorem mont_pair_of_qinv {Q zv qiv zqv : ℤ}
+    (hq : (2 ^ 16 : ℤ) ∣ (qiv * Q - 1)) (hzq : (2 ^ 16 : ℤ) ∣ (zqv - zv * qiv)) :
+    (2 ^ 16 : ℤ) ∣ (zqv * Q - zv) := by
+  obtain ⟨c, hc⟩ := hzq
+  obtain ⟨d, hd⟩ := hq
+  refine ⟨zv * d + c * Q, ?_⟩
+  have e1 : zqv = zv * qiv + 2 ^ 16 * c := by omega
+  have e2 : qiv * Q = 1 + 2 ^ 16 * d := by omega
+  calc zqv * Q - zv
+      = (zv * qiv + 2 ^ 16 * c) * Q - zv := by rw [e1]
+    _ = zv * (qiv * Q) + 2 ^ 16 * (c * Q) - zv := by ring
+    _ = zv * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * Q) - zv := by rw [e2]
+    _ = 2 ^ 16 * (zv * d + c * Q) := by ring
+
+theorem gs_inner_spec {q : ℕ} {st lenv : ℕ} (iter : core.ops.range.Range Usize)
+    (b : Array I16 256#usize) (LEN : Usize) (qv z zq : I16)
+    (Q Zb B Bt B2 : ℤ) (Rinv ζv : ZMod q)
+    (hlen : LEN.val = lenv) (hlpos : 0 < lenv)
+    (hend : iter.«end».val = st + lenv)
+    (hlo : st ≤ iter.start.val) (hhi : iter.start.val ≤ st + lenv)
+    (hblk : st + 2 * lenv ≤ 256)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
+    (hz : |z.val| ≤ Zb) (hZb : 0 ≤ Zb)
+    (hzq : (2 ^ 16 : ℤ) ∣ (zq.val * Q - z.val))
+    (hzeta : ((z.val : ℤ) : ZMod q) * Rinv = ζv)
+    (hB0 : 0 ≤ B) (hBt0 : 0 ≤ Bt)
+    (hmont : 2 * B * Zb < 2 ^ 15 * Q)
+    (hBt : 2 * B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt)
+    (hdbl : 2 * B ≤ B2) (hBtB2 : Bt ≤ B2) (hfit : B2 ≤ 32767)
+    (hBu : ∀ c, iter.start.val ≤ c → c < st + lenv → |bZ b c| ≤ B)
+    (hBu2 : ∀ c, iter.start.val + lenv ≤ c → c < st + 2 * lenv → |bZ b c| ≤ B)
+    (hBg : ∀ c, c < 256 → |bZ b c| ≤ B2) :
+    arithmetic.ntt_crt.gs_level_loop0_loop0 LEN iter b qv z zq
+      ⦃ (r : Array I16 256#usize) =>
+        (∀ j, iter.start.val ≤ j → j < st + lenv →
+            bR q r j = bR q b j + bR q b (j + lenv)
+            ∧ bR q r (j + lenv) = ζv * (bR q b j - bR q b (j + lenv)))
+        ∧ (∀ c, c < iter.start.val → bZ r c = bZ b c)
+        ∧ (∀ c, st + lenv ≤ c → c < iter.start.val + lenv → bZ r c = bZ b c)
+        ∧ (∀ c, st + 2 * lenv ≤ c → bZ r c = bZ b c)
+        ∧ (∀ c, c < 256 → |bZ r c| ≤ B2) ⦄ := by
+  unfold arithmetic.ntt_crt.gs_level_loop0_loop0
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hj_lt : iter.start.val < st + lenv := by omega
+    have hjb : iter.start.val < 256 := by omega
+    have hjl : iter.start.val + lenv < 256 := by omega
+    step*
+    have hiv : i.val = iter.start.val + lenv := by rw [i_post, hlen]
+    have hlov : (lo.val : ℤ) = bZ b iter.start.val := by
+      rw [lo_post]; exact bZ_getElem b iter.start (by omega)
+    have hhiv : (hi.val : ℤ) = bZ b (iter.start.val + lenv) := by
+      rw [hi_post, bZ_getElem b i (by omega), hiv]
+    have hloB : -B ≤ (lo.val : ℤ) ∧ (lo.val : ℤ) ≤ B := by
+      have h := hBu iter.start.val (le_refl _) hj_lt
+      rw [abs_le] at h; rw [hlov]; exact h
+    have hhiB : -B ≤ (hi.val : ℤ) ∧ (hi.val : ℤ) ≤ B := by
+      have h := hBu2 (iter.start.val + lenv) (le_refl _) (by omega)
+      rw [abs_le] at h; rw [hhiv]; exact h
+    -- the sum path, exact because `2B ≤ B2 ≤ 32767`
+    have e_i1 : (i1.val : ℤ) = (lo.val : ℤ) + (hi.val : ℤ) := by
+      rw [i1_post, core.num.I16.wrapping_add, IScalar.wrapping_add_val_eq,
+        show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
+      exact bmod16_eq_self (by norm_num; omega) (by norm_num; omega)
+    have e_i2 : (i2.val : ℤ) = (lo.val : ℤ) - (hi.val : ℤ) := by
+      rw [i2_post, core.num.I16.wrapping_sub, IScalar.wrapping_sub_val_eq,
+        show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
+      exact bmod16_eq_self (by norm_num; omega) (by norm_num; omega)
+    have hi2B : |(i2.val : ℤ)| ≤ 2 * B := by rw [e_i2, abs_le]; omega
+    have hprodb : |(i2.val : ℤ) * (z.val : ℤ)| < 2 ^ 15 * Q := by
+      calc |(i2.val : ℤ) * (z.val : ℤ)| = |(i2.val : ℤ)| * |(z.val : ℤ)| := abs_mul _ _
+        _ ≤ 2 * B * Zb := mul_le_mul hi2B hz (abs_nonneg _) (by omega)
+        _ < 2 ^ 15 * Q := hmont
+    apply WP.spec_bind (mont_mul_spec i2 z zq qv Q hqv hQpos hQlt hzq hprodb)
+    intro i3 hi3
+    obtain ⟨h3mod, h3lo, h3hi, h3sharp⟩ := hi3
+    have h3B : |(i3.val : ℤ)| ≤ Bt := by
+      have h1 : |(i2.val : ℤ)| * |(z.val : ℤ)| ≤ 2 * B * Zb :=
+        mul_le_mul hi2B hz (abs_nonneg _) (by omega)
+      have h2 : (2 : ℤ) ^ 16 * |(i3.val : ℤ)| ≤ 2 ^ 16 * Bt := by linarith
+      exact le_of_mul_le_mul_left h2 (by norm_num)
+    have h3abs := abs_le.mp h3B
+    step*
+    all_goals
+      have hb2 : ∀ c, bZ a c = if c = iter.start.val + lenv then (i3.val : ℤ)
+          else if c = iter.start.val then (i1.val : ℤ) else bZ b c := by
+        intro c
+        rw [a_post, b1_post, bZ_two_writes b iter.start i i1 i3 (by omega) (by omega) c, hiv]
+    case hBu =>
+      intro c hc1 hc2
+      rw [hb2 c, if_neg (by omega), if_neg (by omega)]
+      exact hBu c (by omega) hc2
+    case hBu2 =>
+      intro c hc1 hc2
+      rw [hb2 c, if_neg (by omega), if_neg (by omega)]
+      exact hBu2 c (by omega) hc2
+    case hBg =>
+      intro c hc
+      rw [hb2 c]
+      split_ifs
+      · rw [abs_le]; omega
+      · rw [e_i1, abs_le]; omega
+      · exact hBg c hc
+    refine ⟨?_, ?_, ?_, ?_, r_post5⟩
+    · intro j hj1 hj2
+      rcases eq_or_lt_of_le hj1 with hje | hjgt
+      · subst hje
+        have htz : ((i3.val : ℤ) : ZMod q) = ζv * ((i2.val : ℤ) : ZMod q) :=
+          mont_val_ZMod hQq hRinv hzeta h3mod
+        have hi2z : ((i2.val : ℤ) : ZMod q)
+            = ((bZ b iter.start.val : ℤ) : ZMod q)
+              - ((bZ b (iter.start.val + lenv) : ℤ) : ZMod q) := by
+          rw [e_i2, hlov, hhiv]; push_cast; ring
+        have ha_lo : bZ r iter.start.val
+            = bZ b iter.start.val + bZ b (iter.start.val + lenv) := by
+          rw [r_post2 _ (by omega), hb2, if_neg (by omega), if_pos rfl, e_i1, hlov, hhiv]
+        have ha_hi : bZ r (iter.start.val + lenv) = (i3.val : ℤ) := by
+          rw [r_post3 _ (by omega) (by omega), hb2, if_pos rfl]
+        refine ⟨?_, ?_⟩
+        · show ((bZ r iter.start.val : ℤ) : ZMod q)
+              = ((bZ b iter.start.val : ℤ) : ZMod q)
+                + ((bZ b (iter.start.val + lenv) : ℤ) : ZMod q)
+          rw [ha_lo]; push_cast; ring
+        · show ((bZ r (iter.start.val + lenv) : ℤ) : ZMod q)
+              = ζv * (((bZ b iter.start.val : ℤ) : ZMod q)
+                - ((bZ b (iter.start.val + lenv) : ℤ) : ZMod q))
+          rw [ha_hi, htz, hi2z]
+      · have h := r_post1 j (by omega) hj2
+        rw [bR_congr (show bZ a j = bZ b j from by
+              rw [hb2 j, if_neg (by omega), if_neg (by omega)]),
+          bR_congr (show bZ a (j + lenv) = bZ b (j + lenv) from by
+              rw [hb2 (j + lenv), if_neg (by omega), if_neg (by omega)])] at h
+        exact h
+    · intro c hc
+      rw [r_post2 c (by omega), hb2 c, if_neg (by omega), if_neg (by omega)]
+    · intro c hc1 hc2
+      rw [r_post3 c (by omega) (by omega), hb2 c, if_neg (by omega), if_neg (by omega)]
+    · intro c hc
+      rw [r_post4 c (by omega), hb2 c, if_neg (by omega), if_neg (by omega)]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    refine ⟨?_, ?_, ?_, ?_, hBg⟩
+    · intro j hj1 hj2; omega
+    · intro c _; trivial
+    · intro c _ _; trivial
+    · intro c _; trivial
+
+/-! ## The Gentleman-Sande block loop and level
+
+`k` counts *down*: at entry it is `2·nb`, block `b` uses table entry `2nb − 1 − b`, and the level
+leaves `k = nb`, which is the next level's `2·nb'`.  That is why `invntt_block` can chain the
+eight levels without touching `k` in between. -/
+
+theorem gs_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
+    (b : Array I16 256#usize) (SECOND : Bool) (LEN k start : Usize) (qv qiv : I16)
+    (Q Zb B Bt B2 : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
+    (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
+    (hb0 : b0 ≤ nb) (hstart : start.val = b0 * (2 * lenv)) (hk : k.val = 2 * nb - b0)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
+    (hqiv : (2 ^ 16 : ℤ) ∣ (qiv.val * Q - 1))
+    (hzeta : ZetaVal SECOND Zb Rinv ζ) (hZb : 0 ≤ Zb) (hZb32 : Zb ≤ 32767)
+    (hB0 : 0 ≤ B) (hBt0 : 0 ≤ Bt) (hmont : 2 * B * Zb < 2 ^ 15 * Q)
+    (hBt : 2 * B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt)
+    (hdbl : 2 * B ≤ B2) (hBtB2 : Bt ≤ B2) (hfit : B2 ≤ 32767)
+    (hBu : ∀ c, start.val ≤ c → c < 256 → |bZ b c| ≤ B)
+    (hBg : ∀ c, c < 256 → |bZ b c| ≤ B2) :
+    arithmetic.ntt_crt.gs_level_loop0 LEN SECOND b k qv qiv start
+      ⦃ (rk : Array I16 256#usize × Usize) =>
+        (∀ bb, b0 ≤ bb → bb < nb → ∀ r', r' < lenv →
+            bR q rk.1 (bb * (2 * lenv) + r')
+              = bR q b (bb * (2 * lenv) + r') + bR q b (bb * (2 * lenv) + lenv + r')
+            ∧ bR q rk.1 (bb * (2 * lenv) + lenv + r')
+              = (-(ζ (2 * nb - 1 - bb)))
+                * (bR q b (bb * (2 * lenv) + r') - bR q b (bb * (2 * lenv) + lenv + r')))
+        ∧ (∀ c, c < start.val → bZ rk.1 c = bZ b c)
+        ∧ (∀ c, c < 256 → |bZ rk.1 c| ≤ B2)
+        ∧ rk.2.val = nb ⦄ := by
+  have hnb1 : 1 ≤ nb := Nat.pos_of_ne_zero (by rintro rfl; simp at hnb)
+  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
+  unfold arithmetic.ntt_crt.gs_level_loop0
+  by_cases hlt : start < consts.RING_DEG
+  · have hltv : start.val < 256 := by rw [← hRD]; scalar_tac
+    have hb0lt : b0 < nb := by nlinarith
+    have hnb128 : nb ≤ 128 := by nlinarith
+    have hlenb : lenv ≤ 128 := by nlinarith
+    rw [if_pos hlt]
+    have hkge : 1 ≤ k.val := by omega
+    let* ⟨ k1, hk1 ⟩ ← Std.Usize.sub_spec (show (1#usize).val ≤ k.val from by simpa using hkge)
+    have hk1v : k1.val = 2 * nb - 1 - b0 := by omega
+    obtain ⟨zi, hzi, hziB, hziZ⟩ := hzeta k1 (by omega)
+    rw [hzi, bind_tc_ok]
+    -- `z = 0 − ζ`, exact because the table is centred
+    have hzv : (core.num.I16.wrapping_sub 0#i16 zi).val = -(zi.val : ℤ) := by
+      rw [core.num.I16.wrapping_sub, IScalar.wrapping_sub_val_eq,
+        show (0#i16).val = 0 from rfl, show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl,
+        zero_sub]
+      have := abs_le.mp hziB
+      exact bmod16_eq_self (by norm_num; omega) (by norm_num; omega)
+    set z : I16 := core.num.I16.wrapping_sub 0#i16 zi with hzdef
+    set zq : I16 := core.num.I16.wrapping_mul z qiv with hzqdef
+    have hzqv : (zq.val : ℤ) = ((z.val : ℤ) * (qiv.val : ℤ)).bmod (2 ^ 16) := by
+      rw [hzqdef, core.num.I16.wrapping_mul, IScalar.wrapping_mul_val_eq]
+      rfl
+    have hzqP : (2 ^ 16 : ℤ) ∣ (zq.val * Q - z.val) := by
+      refine mont_pair_of_qinv hqiv ?_
+      rw [hzqv]
+      exact bmod_sub_dvd _ _
+    have hzB : |(z.val : ℤ)| ≤ Zb := by rw [hzv, abs_neg]; exact hziB
+    have hzZ : ((z.val : ℤ) : ZMod q) * Rinv = -(ζ (2 * nb - 1 - b0)) := by
+      rw [hzv, ← hk1v, ← hziZ]
+      push_cast
+      ring
+    simp only [lift, bind_tc_ok]
+    let* ⟨ i1, hi1 ⟩ ← Std.Usize.add_spec (show start.val + LEN.val ≤ Usize.max from by
+      scalar_tac)
+    have hiv : i1.val = start.val + lenv := by rw [hi1, hlen]
+    have hiS : ({ start := start, «end» := i1 } : core.ops.range.Range Usize).start.val
+        = start.val := rfl
+    have hiE : ({ start := start, «end» := i1 } : core.ops.range.Range Usize).«end».val
+        = i1.val := rfl
+    have hblkv : start.val + 2 * lenv ≤ 256 := by nlinarith
+    apply WP.spec_bind (gs_inner_spec (st := start.val) (lenv := lenv)
+      { start := start, «end» := i1 } b LEN qv z zq Q Zb B Bt B2 Rinv
+      (-(ζ (2 * nb - 1 - b0)))
+      hlen hlpos (by rw [hiE, hiv]) (by rw [hiS]) (by rw [hiS]; omega) hblkv
+      hQq hqv hQpos hQlt hRinv hzB hZb hzqP hzZ hB0 hBt0 hmont hBt hdbl hBtB2 hfit
+      (fun c hc1 hc2 => hBu c (by rw [hiS] at hc1; omega) (by omega))
+      (fun c hc1 hc2 => hBu c (by rw [hiS] at hc1; omega) (by omega))
+      hBg)
+    intro b1 hb1
+    obtain ⟨hA1, hU1, hU2, hU3, hBd1⟩ := hb1
+    rw [hiS] at hA1 hU1 hU2
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.mul_spec (show (2#usize).val * LEN.val ≤ Usize.max from by
+      scalar_tac)
+    let* ⟨ start1, hs1 ⟩ ← Std.Usize.add_spec (show start.val + i2.val ≤ Usize.max from by
+      scalar_tac)
+    have hi2v : i2.val = 2 * lenv := by rw [hi2, hlen]
+    have hs1v : start1.val = (b0 + 1) * (2 * lenv) := by rw [hs1, hi2v, hstart]; ring
+    apply WP.spec_mono (gs_mid_spec (nb := nb) (lenv := lenv) (b0 := b0 + 1)
+      b1 SECOND LEN k1 start1 qv qiv Q Zb B Bt B2 Rinv ζ hlen hlpos hnb (by omega) hs1v
+      (by omega) hQq hqv hQpos hQlt hRinv hqiv hzeta hZb hZb32 hB0 hBt0 hmont hBt hdbl hBtB2 hfit
+      (fun c hc1 hc2 => by rw [hU3 c (by omega)]; exact hBu c (by omega) hc2)
+      hBd1)
+    rintro rk ⟨hR1, hR2, hR3, hR4⟩
+    refine ⟨?_, ?_, hR3, hR4⟩
+    · intro bb hbb1 hbb2 r' hr'
+      rcases eq_or_lt_of_le hbb1 with hbe | hbgt
+      · subst hbe
+        have hx1 : bR q rk.1 (b0 * (2 * lenv) + r') = bR q b1 (b0 * (2 * lenv) + r') :=
+          bR_congr (hR2 _ (by omega))
+        have hx2 : bR q rk.1 (b0 * (2 * lenv) + lenv + r')
+            = bR q b1 (b0 * (2 * lenv) + lenv + r') := bR_congr (hR2 _ (by omega))
+        have hA := hA1 (start.val + r') (by omega) (by omega)
+        rw [show start.val + r' + lenv = b0 * (2 * lenv) + lenv + r' by omega, hstart] at hA
+        rw [hx1, hx2]
+        exact hA
+      · have h := hR1 bb (by omega) hbb2 r' hr'
+        rw [bR_congr (hU3 (bb * (2 * lenv) + r') (by nlinarith)),
+          bR_congr (hU3 (bb * (2 * lenv) + lenv + r') (by nlinarith))] at h
+        exact h
+    · intro c hc
+      rw [hR2 c (by omega), hU1 c (by omega)]
+  · have hgev : 256 ≤ start.val := by rw [← hRD]; scalar_tac
+    have hb0eq : b0 = nb := by nlinarith
+    rw [if_neg hlt]
+    simp only [WP.spec_ok]
+    refine ⟨?_, ?_, hBg, by omega⟩
+    · intro bb hbb1 hbb2; omega
+    · intro c _; trivial
+termination_by 256 - start.val
+decreasing_by scalar_decr_tac
+
+theorem gs_level_spec {q : ℕ} {nb lenv : ℕ}
+    (b : Array I16 256#usize) (SECOND : Bool) (LEN k : Usize) (qv qiv : I16)
+    (Q Zb B Bt B2 : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
+    (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
+    (hk : k.val = 2 * nb)
+    (hqSel : backend.crt.q SECOND = ok qv) (hqiSel : backend.crt.qinv SECOND = ok qiv)
+    (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
+    (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
+    (hqiv : (2 ^ 16 : ℤ) ∣ (qiv.val * Q - 1))
+    (hzeta : ZetaVal SECOND Zb Rinv ζ) (hZb : 0 ≤ Zb) (hZb32 : Zb ≤ 32767)
+    (hB0 : 0 ≤ B) (hBt0 : 0 ≤ Bt) (hmont : 2 * B * Zb < 2 ^ 15 * Q)
+    (hBt : 2 * B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt)
+    (hdbl : 2 * B ≤ B2) (hBtB2 : Bt ≤ B2) (hfit : B2 ≤ 32767)
+    (hB : ∀ c, c < 256 → |bZ b c| ≤ B) :
+    arithmetic.ntt_crt.gs_level LEN SECOND b k
+      ⦃ (rk : Array I16 256#usize × Usize) =>
+        (∀ bb < nb, ∀ r' < lenv,
+            bR q rk.1 (bb * (2 * lenv) + r')
+              = bR q b (bb * (2 * lenv) + r') + bR q b (bb * (2 * lenv) + lenv + r')
+            ∧ bR q rk.1 (bb * (2 * lenv) + lenv + r')
+              = (-(ζ (2 * nb - 1 - bb)))
+                * (bR q b (bb * (2 * lenv) + r') - bR q b (bb * (2 * lenv) + lenv + r')))
+        ∧ (∀ c, c < 256 → |bZ rk.1 c| ≤ B2)
+        ∧ rk.2.val = nb ⦄ := by
+  unfold arithmetic.ntt_crt.gs_level
+  rw [hqSel, bind_tc_ok, hqiSel, bind_tc_ok]
+  apply WP.spec_mono (gs_mid_spec (nb := nb) (lenv := lenv) (b0 := 0) b SECOND LEN k 0#usize qv qiv
+    Q Zb B Bt B2 Rinv ζ hlen hlpos hnb (by omega) (by simp) (by omega) hQq hqv hQpos hQlt hRinv
+    hqiv hzeta hZb hZb32 hB0 hBt0 hmont hBt hdbl hBtB2 hfit (fun c _ hc => hB c hc)
+    (fun c hc => le_trans (hB c hc) (by omega)))
+  rintro rk ⟨hR1, _, hR3, hR4⟩
+  exact ⟨fun bb hbb r' hr' => hR1 bb (by omega) hbb r' hr', hR3, hR4⟩
+
+end Kopis.Properties

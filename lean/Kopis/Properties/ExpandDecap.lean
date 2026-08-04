@@ -312,7 +312,10 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   let* ⟨vec_s, hvecs, hvecbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU)
     (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU)
   let* ⟨mat_a_ntt, hmata_ntt⟩ ← from_uniform_matrix_spec mat_a
-  let* ⟨vec_s_ntt, hvecs_ntt⟩ ← from_secret_matrix_spec vec_s
+  have hsb : ((MU.val / 2 : ℕ) : ℤ) ≤ 3840 := by
+    rcases hMU with h | h | h <;> rw [h] <;> norm_num
+  have hsm : SecretSmall vec_s := secretSmall_of_bounded hvecbnd hsb
+  let* ⟨vec_s_ntt, hvecs_ntt⟩ ← from_secret_matrix_spec vec_s hsm
   -- the NTT `mul_transpose` computes the schoolbook product `mat_aᵀ · vec_s`
   have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
@@ -320,7 +323,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   -- their forward images, so rewrite the spec (not the goal — rewriting the goal would perturb
   -- the program term and break the `let*` matching that follows).
   have hL4 : L.val ≤ 4 := by rw [← hℓ]; cases p <;> decide
-  have hmt := ntt_mul_transpose_spec mat_a vec_s ((MU.val / 2 : ℕ) : ℤ) hfitex hmatbnd hvecbnd hL4
+  have hmt := ntt_mul_transpose_spec mat_a vec_s ((MU.val / 2 : ℕ) : ℤ) hfitex hmatbnd hvecbnd hL4 hsb
   rw [← hmata_ntt, ← hvecs_ntt] at hmt
   let* ⟨prod, hprod0⟩ ← hmt
   have hprod : ∀ (j : ℕ), j < L.val → ∀ (k : ℕ), k < 1 →

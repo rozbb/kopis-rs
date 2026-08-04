@@ -26,18 +26,21 @@ namespace Kopis.Avx2
 
 set_option maxHeartbeats 2000000
 
-/-! ## Reading the arrays at half width -/
+/-! ## Reading the arrays
 
-/-- The `t`-th of the 512 `i16` a 256-`i32` array is read as. -/
-def i16View (a : Array I32 256#usize) (t : ℕ) : BitVec 16 :=
-  BitVec.extractLsb' (16 * (t % 2)) 16 (a.val[t / 2]!).bv
+Both operand and accumulator are flat now — `NttElem` is `[i16; 512]` and the accumulator
+`[i32; 512]`, the two residue blocks being the two halves — so these are plain element reads.
+They were a *reinterpretation* while the buffers were `[i32; 256]` and `[i64; 256]`, and the
+names are kept because the rest of the NTT proof reads the arrays through them. -/
 
-/-- The `t`-th of the 512 `i32` a 256-`i64` array is read as. -/
-def i32View (a : Array I64 256#usize) (t : ℕ) : BitVec 32 :=
-  BitVec.extractLsb' (32 * (t % 2)) 32 (a.val[t / 2]!).bv
+/-- Element `t` of an `NttElem`, as bits. -/
+def i16View (a : Array I16 512#usize) (t : ℕ) : BitVec 16 := (a.val[t]!).bv
+
+/-- Element `t` of the accumulator, as bits. -/
+def i32View (a : Array I32 512#usize) (t : ℕ) : BitVec 32 := (a.val[t]!).bv
 
 /-- The 32-bit signed product of the two `i16` lanes at position `t`. -/
-def prod32 (lhs rhs : Array I32 256#usize) (t : ℕ) : BitVec 32 :=
+def prod32 (lhs rhs : Array I16 512#usize) (t : ℕ) : BitVec 32 :=
   (i16View lhs t).signExtend 32 * (i16View rhs t).signExtend 32
 
 /-! ## Rejoining the halves of a 16×16 product
@@ -75,51 +78,41 @@ theorem prod_lane_second (l r : BitVec 256) (k : ℕ) (hk : k < 8) :
         Model.mulloEpi16, Model.mulhiEpi16, laneOf_ofLanes16]
       rw [join_prod]
 
-/-! ## The half-width loads and stores, at vector granularity -/
+/-! ## The loads and stores, at vector granularity -/
 
 /-- The eight `i32` at `i32`-index `8i`, as a 256-bit word. -/
-def accVec (a : Array I64 256#usize) (i : ℕ) : BitVec 256 := ofLanes32 fun k => i32View a (8 * i + k)
+def accVec (a : Array I32 512#usize) (i : ℕ) : BitVec 256 := ofLanes32 fun k => i32View a (8 * i + k)
 
-private theorem extract_lo (h l : BitVec 32) : BitVec.extractLsb' 0 32 (h ++ l) = l := by bv_decide
-private theorem extract_hi (h l : BitVec 32) : BitVec.extractLsb' 32 32 (h ++ l) = h := by bv_decide
+theorem load_i16_view (a : Array I16 512#usize) (i : Usize) (hi : i.val < 32) :
+    ∃ c, load_i16 a i = ok c ∧ ∀ k < 16, lane16 c k = i16View a (16 * i.val + k) :=
+  load_i16_spec a i (by scalar_tac)
 
-theorem load_i16_view (a : Array I32 256#usize) (i : Usize) (hi : i.val < 32) :
-    ∃ c, load_i16_of_i32 a i = ok c ∧ ∀ k < 16, lane16 c k = i16View a (16 * i.val + k) :=
-  load_i16_of_i32_spec a i (by scalar_tac)
-
-theorem load_i32_view (a : Array I64 256#usize) (i : Usize) (hi : i.val < 64) :
-    ∃ c, load_i32_of_i64 a i = ok c ∧ bits c = accVec a i.val := by
-  obtain ⟨c, hc, h⟩ := load_i32_of_i64_spec a i (by scalar_tac)
+theorem load_i32_view (a : Array I32 512#usize) (i : Usize) (hi : i.val < 64) :
+    ∃ c, load_i32 a i = ok c ∧ bits c = accVec a i.val := by
+  obtain ⟨c, hc, h⟩ := load_i32_spec a i (by scalar_tac)
   exact ⟨c, hc, eq_of_lane32_bv fun k hk => by
     rw [accVec, laneOf_ofLanes32 _ hk]; exact h k hk⟩
 
-theorem store_i32_view (a : Array I64 256#usize) (i : Usize) (v : Vec256) (hi : i.val < 64) :
-    ∃ a', store_i32_of_i64 a i v = ok a' ∧ ∀ t < 512,
+theorem store_i32_view (a : Array I32 512#usize) (i : Usize) (v : Vec256) (hi : i.val < 64) :
+    ∃ a', store_i32 a i v = ok a' ∧ ∀ t < 512,
       i32View a' t =
         if 8 * i.val ≤ t ∧ t < 8 * i.val + 8 then laneOf 32 (bits v) (t - 8 * i.val)
         else i32View a t := by
-  obtain ⟨d, hd, h⟩ := store_i32_of_i64_spec a i v (by scalar_tac)
+  obtain ⟨d, hd, h⟩ := store_i32_spec a i v (by scalar_tac)
   refine ⟨d, hd, fun t ht => ?_⟩
-  rw [i32View, h (t / 2) (by scalar_tac)]
+  rw [i32View, h t (by scalar_tac)]
   by_cases hin : 8 * i.val ≤ t ∧ t < 8 * i.val + 8
-  · rw [if_pos (by omega : 4 * i.val ≤ t / 2 ∧ t / 2 < 4 * i.val + 4), if_pos hin]
-    rcases (show t % 2 = 0 ∨ t % 2 = 1 from by omega) with h2 | h2
-    · rw [h2, Nat.mul_zero, extract_lo]
-      congr 1
-      omega
-    · rw [h2, Nat.mul_one, extract_hi]
-      congr 1
-      omega
-  · rw [if_neg (by omega : ¬(4 * i.val ≤ t / 2 ∧ t / 2 < 4 * i.val + 4)), if_neg hin, i32View]
+  · rw [if_pos hin, if_pos hin, lane32]
+  · rw [if_neg hin, if_neg hin, i32View]
 
 /-! ## The two loops -/
 
 /-- The inner loop: sixteen vectors of one block, each sixteen `i16` products. -/
 theorem pointwise_mul_acc_loop0_loop0_spec (iter : core.ops.range.Range Usize)
-    (acc : Array I64 256#usize) (lhs rhs : Array I32 256#usize) (block : Usize)
+    (acc : Array I32 512#usize) (lhs rhs : Array I16 512#usize) (block : Usize)
     (hblock : block.val < 2) (hend : iter.«end».val = 16) :
     backend.avx2.ntt.pointwise_mul_acc_loop0_loop0 iter acc lhs rhs block
-      ⦃ (r : Array I64 256#usize) => ∀ t < 512,
+      ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           i32View r t =
             if 256 * block.val + 16 * iter.start.val ≤ t ∧ t < 256 * block.val + 256
             then i32View acc t + prod32 lhs rhs t else i32View acc t ⦄ := by
@@ -223,9 +216,9 @@ decreasing_by scalar_decr_tac
 
 /-- The outer loop: the two blocks. -/
 theorem pointwise_mul_acc_loop0_spec (iter : core.ops.range.Range Usize)
-    (acc : Array I64 256#usize) (lhs rhs : Array I32 256#usize) (hend : iter.«end».val = 2) :
+    (acc : Array I32 512#usize) (lhs rhs : Array I16 512#usize) (hend : iter.«end».val = 2) :
     backend.avx2.ntt.pointwise_mul_acc_loop0 iter acc lhs rhs
-      ⦃ (r : Array I64 256#usize) => ∀ t < 512,
+      ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           i32View r t =
             if 256 * iter.start.val ≤ t then i32View acc t + prod32 lhs rhs t
             else i32View acc t ⦄ := by
@@ -259,9 +252,9 @@ decreasing_by scalar_decr_tac
 accumulator as 512 `i32`, it adds the lanewise product into every slot — independently, with no
 carry between the two halves of an `i64`.  That is *not* the portable branch's `i32 × i32 → i64`
 product; it is the two-prime CRT representation, where each `i32` holds one residue per prime. -/
-theorem pointwise_mul_acc_lane_spec (acc : Array I64 256#usize) (lhs rhs : Array I32 256#usize) :
+theorem pointwise_mul_acc_lane_spec (acc : Array I32 512#usize) (lhs rhs : Array I16 512#usize) :
     backend.avx2.ntt.pointwise_mul_acc acc lhs rhs
-      ⦃ (r : Array I64 256#usize) => ∀ t < 512,
+      ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           i32View r t = i32View acc t + prod32 lhs rhs t ⦄ := by
   have hz : ({ start := 0#usize, «end» := 2#usize } : core.ops.range.Range Usize).start.val = 0 :=
     rfl

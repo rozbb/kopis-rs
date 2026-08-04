@@ -1,187 +1,103 @@
 /-
-  # Kopis/Properties/NttBridge.lean — the forward NTT denotation and the multiplication bridge.
+  # Kopis/Properties/NttBridge.lean — the NTT multiplier, as a drop-in for the schoolbook one.
 
-  This is the module that connects the *extracted transform network* (`NttForward` /
-  `NttInverse`, which prove what `ntt` and `invntt` compute) to the *matrix-level* interface the
-  key-generation, encryption and decryption proofs consume.
+  `from_uniform_matrix` / `from_secret_matrix` map a coefficient matrix into the NTT domain and
+  `mul` / `mul_transpose` multiply there; this file says the round trip computes the schoolbook
+  product.  Everything about the *transform* is in `NttCrt{Zeta,Lane,Level,Block,Elem,Mul}.lean`;
+  what is here is the matrix bookkeeping and the convolution theorem for one output entry.
 
-  It sits above `NttForward` because it needs `ntt_full_spec`, and `NttForward` in turn needs the
-  reduction value specs in `Ntt.lean` — so the bridge cannot live in `Ntt.lean` itself.
-  `Ntt.lean` keeps the scalar groundwork (`fitsExactly`, `signedOfU16`, the reduction specs and
-  the raw-magnitude lemmas); this file keeps everything that mentions the transform.
+  ## The two constructors are conditional, and not in the same way
+
+  `from_uniform` reads each stored `u16` through an `i16`, so the signed and unsigned readings
+  agree only below `2¹⁵`.  That condition is needed to *identify the coefficient function*, not to
+  run the transform, so it sits in front of an implication inside the postcondition (`UOK`) and
+  the matrix loops never see it.
+
+  `from_secret` is different: it skips the leading Barrett pass, so its input must already be a
+  centred residue for both primes — and without that there is no bound to hand `ntt_block`, so the
+  walk does not run at all.  That one has to be threaded, and `SecretSmall` is what threads it.
+  Every call site already carries `SecretBounded`, so `secretSmall_of_bounded` discharges it.
 -/
 import Kopis.Properties.Ntt
-import Kopis.Properties.NttForward
-import Kopis.Properties.NttMul
+import Kopis.Properties.NttCrtMul
+import Kopis.CrtConv
+import Kopis.Bits.Stream
 
 open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 
 namespace Kopis.Properties
 
-open NttMath
+open Kopis.Avx2.NttAlg Kopis.CrtConv
 
 set_option maxHeartbeats 1000000
-set_option maxRecDepth 8000
+set_option maxRecDepth 200000
 
-/-! ### The coefficient-widening loops
+/-! ### One transformed element -/
 
-`NttElem::from_uniform` and `from_secret` each widen a `RingElem`'s 256 `u16` coefficients into
-an `[i32; 256]` and then run the forward transform.  They differ only in the widening: uniform
-zero-extends (`u16 → i32`), secret reinterprets the bits as signed first (`u16 → i16 → i32`).
-Both widenings land far inside `i32`, so `ntt_full_spec` applies with `B = 65536`. -/
+/-- The integer coefficient function of a *uniform* ring element: its stored `u16`s. -/
+def uZ (re : arithmetic.ring_arith.RingElem) (c : ℕ) : ℤ := ((re.val[c]!).val : ℕ)
 
-/-- `Int.bmod _ 2^16` on a `u16`-ranged integer is exactly the signed reading — this is why the
-`u16 → i16` reinterpretation and `signedOfU16` agree. -/
-theorem bmod_pow16_eq_signed {z : ℤ} (h0 : 0 ≤ z) (h1 : z < 65536) :
-    Int.bmod z (2 ^ 16) = if z < 32768 then z else z - 65536 := by
-  rw [Int.bmod_def]
-  norm_num
-  split <;> omega
+/-- The integer coefficient function of a *secret* ring element: its stored `u16`s read as
+`i16`s, which is what `from_secret` computes. -/
+def sZ (re : arithmetic.ring_arith.RingElem) (c : ℕ) : ℤ := signedOfU16 (re.val[c]!)
 
-/-- `Int.bmod` is the identity on `[-2^15, 2^15)` — the `i16` case. -/
-theorem bmod_i16_exact {z : ℤ} (hlo : -32768 ≤ z) (hhi : z < 32768) :
-    Int.bmod z (2 ^ 16) = z := by
-  rw [Int.bmod_def]
-  norm_num
-  omega
+/-- The coefficient function `from_uniform` transforms. -/
+def uP (re : arithmetic.ring_arith.RingElem) (c : ℕ) : ℤ := uZ re c
+/-- The coefficient function `from_secret` transforms. -/
+def sP (re : arithmetic.ring_arith.RingElem) (c : ℕ) : ℤ := sZ re c
 
-/-- Loop invariant of the uniform widening loop: indices at or past `iter.start` have been
-overwritten with the zero-extended `u16` coefficient; earlier ones are untouched. -/
-theorem from_uniform_loop_spec (iter : core.ops.range.Range Usize)
-    (elem : arithmetic.ring_arith.RingElem) (a : Array I32 256#usize)
-    (hend : iter.«end».val = 256) :
-    arithmetic.ntt.NttElem.from_uniform_loop iter elem a
-      ⦃ (r : Array I32 256#usize) =>
-          ∀ c, c < 256 →
-            aZ r c = if iter.start.val ≤ c then ((elem.val[c]!).val : ℤ) else aZ a c ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_uniform_loop
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only
-    have hi_lt : iter.start.val < 256 := by omega
-    have hei : iter.start.val < elem.val.length := by have := elem.property; scalar_tac
-    have hal : iter.start.val < a.length := by have := a.property; scalar_tac
-    have hend1 : iter1.«end».val = 256 := by rw [hend']; exact hend
-    step*
-    rename_i c
-    have hc : c < 256 := by assumption
-    have hi2v : (i2.val : ℤ) = ((i1.val : ℕ) : ℤ) := by
-      rw [i2_post, UScalar.hcast_val_eq, show IScalarTy.I32.numBits = 32 from rfl]
-      exact bmod_i32_exact (by have := i1.hBounds; scalar_tac)
-        (by have := i1.hBounds; scalar_tac)
-    rw [r_post1 c hc, hstart', a1_post, aZ_set a iter.start i2 hi_lt c, hi2v, i1_post]
-    by_cases hcase : iter.start.val + 1 ≤ c
-    · rw [if_pos hcase, if_pos (by omega : iter.start.val ≤ c)]
-    · rw [if_neg hcase]
-      by_cases hci : c = iter.start.val
-      · rw [if_pos hci, if_pos (by omega : iter.start.val ≤ c), hci,
-          ← getElem!_pos _ iter.start.val hei]
-      · rw [if_neg hci, if_neg (by omega : ¬ iter.start.val ≤ c)]
-  · let* ⟨o, iter1, hnone, _⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    intro c hc
-    rw [if_neg (by omega : ¬ iter.start.val ≤ c)]
-  termination_by iter.«end».val - iter.start.val
-  decreasing_by scalar_decr_tac
+theorem uP_eq (re : arithmetic.ring_arith.RingElem) (c : ℕ) : uP re c = uZ re c := rfl
+theorem sP_eq (re : arithmetic.ring_arith.RingElem) (c : ℕ) : sP re c = sZ re c := rfl
 
-/-- Loop invariant of the secret widening loop: same, but the `u16` is reinterpreted as signed
-(`u16 → i16`, a pure bit reinterpretation) before the exact `i16 → i32` widening. -/
-theorem from_secret_loop_spec (iter : core.ops.range.Range Usize)
-    (elem : arithmetic.ring_arith.RingElem) (a : Array I32 256#usize)
-    (hend : iter.«end».val = 256) :
-    arithmetic.ntt.NttElem.from_secret_loop iter elem a
-      ⦃ (r : Array I32 256#usize) =>
-          ∀ c, c < 256 →
-            aZ r c = if iter.start.val ≤ c then signedOfU16 (elem.val[c]!) else aZ a c ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_secret_loop
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only
-    have hi_lt : iter.start.val < 256 := by omega
-    have hei : iter.start.val < elem.val.length := by have := elem.property; scalar_tac
-    have hal : iter.start.val < a.length := by have := a.property; scalar_tac
-    have hend1 : iter1.«end».val = 256 := by rw [hend']; exact hend
-    step*
-    rename_i c
-    have hc : c < 256 := by assumption
-    have hb0 : (0:ℤ) ≤ ((i1.val : ℕ) : ℤ) := by positivity
-    have hb1 : ((i1.val : ℕ) : ℤ) < 65536 := by have := i1.hBounds; scalar_tac
-    -- `u16 → i16` is `Int.bmod _ 2^16`, i.e. exactly `signedOfU16`; the `i16 → i32` widening
-    -- that follows is exact because the value already fits in 16 bits.
-    have hi2v : (i2.val : ℤ) = signedOfU16 i1 := by
-      rw [i2_post, UScalar.hcast_val_eq, show IScalarTy.I16.numBits = 16 from rfl,
-        bmod_pow16_eq_signed hb0 hb1]
-      rfl
-    have hi3v : (i3.val : ℤ) = signedOfU16 i1 := by
-      rw [i3_post, IScalar.cast_val_eq,
-        show Min.min IScalarTy.I32.numBits IScalarTy.I16.numBits = 16 from rfl, hi2v]
-      refine bmod_i16_exact ?_ ?_ <;>
-        · unfold signedOfU16; split <;> omega
-    rw [r_post1 c hc, hstart', a1_post, aZ_set a iter.start i3 hi_lt c, hi3v, i1_post]
-    by_cases hcase : iter.start.val + 1 ≤ c
-    · rw [if_pos hcase, if_pos (by omega : iter.start.val ≤ c)]
-    · rw [if_neg hcase]
-      by_cases hci : c = iter.start.val
-      · rw [if_pos hci, if_pos (by omega : iter.start.val ≤ c), hci,
-          ← getElem!_pos _ iter.start.val hei]
-      · rw [if_neg hci, if_neg (by omega : ¬ iter.start.val ≤ c)]
-  · let* ⟨o, iter1, hnone, _⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    intro c hc
-    rw [if_neg (by omega : ¬ iter.start.val ≤ c)]
-  termination_by iter.«end».val - iter.start.val
-  decreasing_by scalar_decr_tac
+/-- What `from_uniform` establishes, once its input is known to be a uniform coefficient. -/
+def UOK (f : ℕ → ℤ) (ne : arithmetic.ntt.NttElem) : Prop :=
+  (∀ c, c < 256 → 0 ≤ f c ∧ f c < 8192) → NttOK f ne
 
-/-! ### The element-level forward transform
+/-- The input condition `from_secret` needs: already centred inside both primes. -/
+def SecretSmall {X Y : Usize} (s : Mat X Y) : Prop :=
+  ∀ a b c, a < X.val → b < Y.val → c < 256 →
+    |signedOfU16 (((s.val[a]!).val[b]!).val[c]!)| ≤ 3840
 
-`NttElem::from_uniform` / `from_secret` = widen, then run `ntt`.  `ntt_full_spec` needs only a
-coefficient bound `B ≤ 65536`, which both widenings satisfy comfortably (a zero-extended `u16` is
-`< 65536`; a `signedOfU16` reading is `≤ 32768` in absolute value), so each composes directly. -/
+theorem secretSmall_of_bounded {X Y : Usize} {s : Mat X Y} {b : ℤ}
+    (hs : SecretBounded s b) (hb : b ≤ 3840) : SecretSmall s := fun a bb c ha hbb hc => by
+  have := hs a bb c ha hbb hc; omega
 
-/-- **`NttElem::from_uniform` computes the CRT transform of the unsigned coefficients.** -/
-theorem from_uniform_elem_spec (elem : arithmetic.ring_arith.RingElem) :
+/-- A uniform matrix entry satisfies `UOK`'s antecedent. -/
+theorem uP_small {X Y : Usize} {A : Mat X Y} (hA : UniformBounded A) (a b : ℕ)
+    (ha : a < X.val) (hb : b < Y.val) :
+    ∀ c, c < 256 → 0 ≤ uP ((A.val[a]!).val[b]!) c ∧ uP ((A.val[a]!).val[b]!) c < 8192 := by
+  intro c hc
+  have := hA a b c ha hb hc
+  unfold uP uZ
+  exact ⟨Int.natCast_nonneg _, by omega⟩
+
+theorem from_uniform_elemOK (elem : arithmetic.ring_arith.RingElem) :
     arithmetic.ntt.NttElem.from_uniform elem
-      ⦃ (r : Array I32 256#usize) =>
-          State 256 1 1 (fun c => ((((elem.val[c]!).val : ℕ) : ℤ) : Zp)) (aP r)
-          ∧ (∀ c, c < 256 → -pNtt < aZ r c ∧ aZ r c < pNtt) ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_uniform
-  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
-  let* ⟨a1, ha1⟩ ← from_uniform_loop_spec { start := 0#usize, «end» := consts.RING_DEG } elem
-    (Array.repeat 256#usize 0#i32) hRD
-  have hz : ∀ c, c < 256 → aZ a1 c = (((elem.val[c]!).val : ℕ) : ℤ) := by
-    intro c hc
-    rw [ha1 c hc, if_pos (Nat.zero_le c)]
-  let* ⟨a2, hst, hbd⟩ ← ntt_full_spec a1 _ 65536
-    (fun c hc => by unfold aP; rw [hz c hc])
-    (by norm_num) (by norm_num)
-    (fun c hc => by
-      rw [hz c hc, abs_of_nonneg (by positivity)]
-      have := (elem.val[c]!).hBounds; scalar_tac)
-  exact ⟨hst, hbd⟩
+      ⦃ (r : arithmetic.ntt.NttElem) => UOK (uP elem) r ⦄ := by
+  apply WP.spec_mono (from_uniform_NttOK_signed elem)
+  intro r hr hb
+  refine NttOK_congr (fun c hc => ?_) hr
+  have := hb c hc
+  unfold uP uZ at this ⊢
+  exact signedOfU16_of_small (by omega)
 
-/-- **`NttElem::from_secret` computes the CRT transform of the signed coefficients.** -/
-theorem from_secret_elem_spec (elem : arithmetic.ring_arith.RingElem) :
+theorem from_secret_elemOK (elem : arithmetic.ring_arith.RingElem)
+    (hs : ∀ c, c < 256 → |sP elem c| ≤ 3840) :
     arithmetic.ntt.NttElem.from_secret elem
-      ⦃ (r : Array I32 256#usize) =>
-          State 256 1 1 (fun c => ((signedOfU16 (elem.val[c]!) : ℤ) : Zp)) (aP r)
-          ∧ (∀ c, c < 256 → -pNtt < aZ r c ∧ aZ r c < pNtt) ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_secret
-  have hRD : (consts.RING_DEG : Usize).val = 256 := by simp only [consts.RING_DEG]; rfl
-  let* ⟨a1, ha1⟩ ← from_secret_loop_spec { start := 0#usize, «end» := consts.RING_DEG } elem
-    (Array.repeat 256#usize 0#i32) hRD
-  have hz : ∀ c, c < 256 → aZ a1 c = signedOfU16 (elem.val[c]!) := by
-    intro c hc
-    rw [ha1 c hc, if_pos (Nat.zero_le c)]
-  let* ⟨a2, hst, hbd⟩ ← ntt_full_spec a1 _ 65536
-    (fun c hc => by unfold aP; rw [hz c hc])
-    (by norm_num) (by norm_num)
-    (fun c hc => by
-      rw [hz c hc, abs_le]
-      have hb := (elem.val[c]!).hBounds
-      unfold signedOfU16
-      constructor <;> split <;> scalar_tac)
-  exact ⟨hst, hbd⟩
+      ⦃ (r : arithmetic.ntt.NttElem) => NttOK (sP elem) r ⦄ :=
+  from_secret_NttOK elem hs
+
+/-- Both halves of an `NttOK` element are inside 5376, which is the operand bound the accumulate
+loop wants. -/
+theorem NttOK_lane_bound {g : ℕ → ℤ} {ne : arithmetic.ntt.NttElem} (h : NttOK g ne)
+    (t : ℕ) (ht : t < 512) : |eZ ne t| ≤ 5376 := by
+  obtain ⟨h1, h2, _, _⟩ := h
+  by_cases hlow : t < 256
+  · exact le_trans (h1 t hlow) (by norm_num)
+  · have := h2 (t - 256) (by omega)
+    rwa [show 256 + (t - 256) = t from by omega] at this
+
 
 /-! ### The NTT representation functions and the decomposed bridge
 
@@ -231,58 +147,6 @@ def nttFwdS {X Y : Usize} (s : Mat X Y) : arithmetic.ntt.NttMatrix X Y :=
   Result.getD (arithmetic.ntt.NttMatrix.from_secret_matrix s)
 
 
-/-! ### One transformed element
-
-`ElemOK f ne` bundles what `NttElem::from_uniform` / `from_secret` establish about a single
-transformed entry: `ne` holds the evaluations of the coefficient function `f` at the 256 leaf
-constants, each centred in `(-p, p)`.  Bundling keeps the matrix loop invariants readable, and
-`uP`/`sP` name the two coefficient functions (unsigned resp. signed reading of the stored
-`u16`s) that the two constructors transform. -/
-
-/-- The integer coefficient function of a *uniform* ring element: its stored `u16`s. -/
-def uZ (re : arithmetic.ring_arith.RingElem) (c : ℕ) : ℤ := ((re.val[c]!).val : ℕ)
-
-/-- The integer coefficient function of a *secret* ring element: its stored `u16`s read as
-`i16`s, which is what `from_secret`'s `as i16 as i32` computes. -/
-def sZ (re : arithmetic.ring_arith.RingElem) (c : ℕ) : ℤ := signedOfU16 (re.val[c]!)
-
-/-- The `ℤ/p` coefficient function of a uniform ring element. -/
-def uP (re : arithmetic.ring_arith.RingElem) (c : ℕ) : Zp := ((((re.val[c]!).val : ℕ) : ℤ) : Zp)
-
-/-- The `ℤ/p` coefficient function of a secret ring element. -/
-def sP (re : arithmetic.ring_arith.RingElem) (c : ℕ) : Zp :=
-  ((signedOfU16 (re.val[c]!) : ℤ) : Zp)
-
-theorem uP_eq (re : arithmetic.ring_arith.RingElem) (c : ℕ) : uP re c = ((uZ re c : ℤ) : Zp) := rfl
-
-theorem sP_eq (re : arithmetic.ring_arith.RingElem) (c : ℕ) : sP re c = ((sZ re c : ℤ) : Zp) := rfl
-
-/-- What one call of `from_uniform` / `from_secret` establishes about its output. -/
-def ElemOK (f : ℕ → Zp) (ne : arithmetic.ntt.NttElem) : Prop :=
-  State 256 1 1 f (aP ne) ∧ ∀ c, c < 256 → -pNtt < aZ ne c ∧ aZ ne c < pNtt
-
-theorem from_uniform_elemOK (elem : arithmetic.ring_arith.RingElem) :
-    arithmetic.ntt.NttElem.from_uniform elem
-      ⦃ (r : arithmetic.ntt.NttElem) => ElemOK (uP elem) r ⦄ :=
-  from_uniform_elem_spec elem
-
-theorem from_secret_elemOK (elem : arithmetic.ring_arith.RingElem) :
-    arithmetic.ntt.NttElem.from_secret elem
-      ⦃ (r : arithmetic.ntt.NttElem) => ElemOK (sP elem) r ⦄ :=
-  from_secret_elem_spec elem
-
-/-- The leaf reading of `ElemOK`: entry `c` is the evaluation of `f` at the `c`-th leaf. -/
-theorem ElemOK_leaf {f : ℕ → Zp} {ne : arithmetic.ntt.NttElem} (h : ElemOK f ne)
-    (c : ℕ) (hc : c < 256) :
-    aP ne c = ∑ i ∈ Finset.range 256, f i * cst (256 + c) ^ i := by
-  have := State_leaf h.1 c hc
-  rw [this, one_mul]
-
-theorem ElemOK_bound {f : ℕ → Zp} {ne : arithmetic.ntt.NttElem} (h : ElemOK f ne)
-    (c : ℕ) (hc : c < 256) : |aZ ne c| ≤ pNtt := by
-  obtain ⟨hlo, hhi⟩ := h.2 c hc
-  rw [abs_le]; omega
-
 /-! ### The matrix loops
 
 `from_uniform_matrix` / `from_secret_matrix` are entrywise maps of the element transform over an
@@ -325,7 +189,7 @@ theorem from_uniform_matrix_inner_spec {X Y : Usize}
       ⦃ (p : (Mat X Y) × (arithmetic.ntt.NttMatrix X Y)) =>
           p.1 = mat
           ∧ (∀ b, iter.start.val ≤ b → b < Y.val →
-              ElemOK (uP ((mat.val[i.val]!).val[b]!)) ((p.2.val[i.val]!).val[b]!))
+              UOK (uP ((mat.val[i.val]!).val[b]!)) ((p.2.val[i.val]!).val[b]!))
           ∧ (∀ a b, (a ≠ i.val ∨ b < iter.start.val) →
               (p.2.val[a]!).val[b]! = (ret.val[a]!).val[b]!) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0_loop0
@@ -386,7 +250,7 @@ theorem from_uniform_matrix_outer_spec {X Y : Usize}
     arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0 iter mat ret
       ⦃ (r : arithmetic.ntt.NttMatrix X Y) =>
           (∀ a b, iter.start.val ≤ a → a < X.val → b < Y.val →
-              ElemOK (uP ((mat.val[a]!).val[b]!)) ((r.val[a]!).val[b]!))
+              UOK (uP ((mat.val[a]!).val[b]!)) ((r.val[a]!).val[b]!))
           ∧ (∀ (a b : ℕ), a < iter.start.val →
               (r.val[a]!).val[b]! = (ret.val[a]!).val[b]!) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.from_uniform_matrix_loop0
@@ -420,7 +284,7 @@ theorem from_uniform_matrix_full {X Y : Usize} (A : Mat X Y) :
     arithmetic.ntt.NttMatrix.from_uniform_matrix A
       ⦃ (r : arithmetic.ntt.NttMatrix X Y) =>
           ∀ a b, a < X.val → b < Y.val →
-            ElemOK (uP ((A.val[a]!).val[b]!)) ((r.val[a]!).val[b]!) ⦄ := by
+            UOK (uP ((A.val[a]!).val[b]!)) ((r.val[a]!).val[b]!) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.from_uniform_matrix
     arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default
     arithmetic.ntt.NttElem.Insts.CoreDefaultDefault.default
@@ -431,14 +295,14 @@ theorem from_uniform_matrix_full {X Y : Usize} (A : Mat X Y) :
 
 /-- The inner matrix loop, secret variant. -/
 theorem from_secret_matrix_inner_spec {X Y : Usize}
-    (iter : core.ops.range.Range Usize) (mat : Mat X Y)
+    (iter : core.ops.range.Range Usize) (mat : Mat X Y) (hsm : SecretSmall mat)
     (ret : arithmetic.ntt.NttMatrix X Y) (i : Usize) (hi : i.val < X.val)
     (hend : iter.«end».val = Y.val) :
     arithmetic.ntt.NttMatrix.from_secret_matrix_loop0_loop0 iter mat ret i
       ⦃ (p : (Mat X Y) × (arithmetic.ntt.NttMatrix X Y)) =>
           p.1 = mat
           ∧ (∀ b, iter.start.val ≤ b → b < Y.val →
-              ElemOK (sP ((mat.val[i.val]!).val[b]!)) ((p.2.val[i.val]!).val[b]!))
+              NttOK (sP ((mat.val[i.val]!).val[b]!)) ((p.2.val[i.val]!).val[b]!))
           ∧ (∀ a b, (a ≠ i.val ∨ b < iter.start.val) →
               (p.2.val[a]!).val[b]! = (ret.val[a]!).val[b]!) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.from_secret_matrix_loop0_loop0
@@ -453,7 +317,11 @@ theorem from_secret_matrix_inner_spec {X Y : Usize}
     let* ⟨re, hre⟩ ← Array.index_usize_spec a iter.start haj
     have hre' : re = (mat.val[i.val]!).val[iter.start.val]! := by
       rw [hre, ha', getElem!_pos (mat.val[i.val]!).val iter.start.val (by rw [← ha']; exact haj)]
-    let* ⟨ne, hne⟩ ← from_secret_elemOK re
+    have hsmall_re : ∀ c, c < 256 → |sP re c| ≤ 3840 := by
+      intro c hc
+      rw [hre']
+      exact hsm i.val iter.start.val c hi hj_lt hc
+    let* ⟨ne, hne⟩ ← from_secret_elemOK re hsmall_re
     have hri : i.val < ret.length := by have := ret.property; scalar_tac
     let* ⟨a1, index_mut_back, ha1, hback⟩ ← Array.index_mut_usize_spec ret i hri
     have ha1' : a1 = ret.val[i.val]! := by
@@ -465,7 +333,7 @@ theorem from_secret_matrix_inner_spec {X Y : Usize}
       intro x y
       rw [hback, ha2]
       exact arr2_writeback ret i iter.start a1 ne hi hj_lt ha1' x y
-    apply WP.spec_mono (from_secret_matrix_inner_spec iter1 mat (index_mut_back a2) i hi
+    apply WP.spec_mono (from_secret_matrix_inner_spec iter1 mat hsm (index_mut_back a2) i hi
       (by rw [hend']; exact hend))
     rintro ⟨p1, p2⟩ ⟨hp1, hp2, hp3⟩
     simp only at hp1 hp2 hp3
@@ -494,12 +362,12 @@ theorem from_secret_matrix_inner_spec {X Y : Usize}
 
 /-- The outer matrix loop, secret variant. -/
 theorem from_secret_matrix_outer_spec {X Y : Usize}
-    (iter : core.ops.range.Range Usize) (mat : Mat X Y)
+    (iter : core.ops.range.Range Usize) (mat : Mat X Y) (hsm : SecretSmall mat)
     (ret : arithmetic.ntt.NttMatrix X Y) (hend : iter.«end».val = X.val) :
     arithmetic.ntt.NttMatrix.from_secret_matrix_loop0 iter mat ret
       ⦃ (r : arithmetic.ntt.NttMatrix X Y) =>
           (∀ a b, iter.start.val ≤ a → a < X.val → b < Y.val →
-              ElemOK (sP ((mat.val[a]!).val[b]!)) ((r.val[a]!).val[b]!))
+              NttOK (sP ((mat.val[a]!).val[b]!)) ((r.val[a]!).val[b]!))
           ∧ (∀ (a b : ℕ), a < iter.start.val →
               (r.val[a]!).val[b]! = (ret.val[a]!).val[b]!) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.from_secret_matrix_loop0
@@ -508,9 +376,9 @@ theorem from_secret_matrix_outer_spec {X Y : Usize}
     rw [ho]; simp only
     have hi_lt : iter.start.val < X.val := by omega
     let* ⟨mat1, ret1, hm1, hf1, hu1⟩ ←
-      from_secret_matrix_inner_spec { start := 0#usize, «end» := Y } mat ret iter.start hi_lt rfl
+      from_secret_matrix_inner_spec { start := 0#usize, «end» := Y } mat hsm ret iter.start hi_lt rfl
     subst hm1
-    apply WP.spec_mono (from_secret_matrix_outer_spec iter1 mat1 ret1
+    apply WP.spec_mono (from_secret_matrix_outer_spec iter1 mat1 hsm ret1
       (by rw [hend']; exact hend))
     rintro r ⟨hr1, hr2⟩
     rw [hstart'] at hr1 hr2
@@ -529,16 +397,16 @@ theorem from_secret_matrix_outer_spec {X Y : Usize}
   decreasing_by scalar_decr_tac
 
 /-- **`from_secret_matrix` transforms every entry.** -/
-theorem from_secret_matrix_full {X Y : Usize} (s : Mat X Y) :
+theorem from_secret_matrix_full {X Y : Usize} (s : Mat X Y) (hsm : SecretSmall s) :
     arithmetic.ntt.NttMatrix.from_secret_matrix s
       ⦃ (r : arithmetic.ntt.NttMatrix X Y) =>
           ∀ a b, a < X.val → b < Y.val →
-            ElemOK (sP ((s.val[a]!).val[b]!)) ((r.val[a]!).val[b]!) ⦄ := by
+            NttOK (sP ((s.val[a]!).val[b]!)) ((r.val[a]!).val[b]!) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.from_secret_matrix
     arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default
     arithmetic.ntt.NttElem.Insts.CoreDefaultDefault.default
   simp only [bind_tc_ok]
-  apply WP.spec_mono (from_secret_matrix_outer_spec { start := 0#usize, «end» := X } s _ rfl)
+  apply WP.spec_mono (from_secret_matrix_outer_spec { start := 0#usize, «end» := X } s hsm _ rfl)
   rintro r ⟨hr1, _⟩
   exact fun a b ha hb => hr1 a b (Nat.zero_le a) ha hb
 
@@ -562,9 +430,9 @@ theorem from_uniform_matrix_ok {X Y : Usize} (A : Mat X Y) :
     arithmetic.ntt.NttMatrix.from_uniform_matrix A ⦃ fun _ => True ⦄ :=
   WP.spec_mono (from_uniform_matrix_full A) (fun _ _ => trivial)
 
-theorem from_secret_matrix_ok {X Y : Usize} (s : Mat X Y) :
+theorem from_secret_matrix_ok {X Y : Usize} (s : Mat X Y) (hsm : SecretSmall s) :
     arithmetic.ntt.NttMatrix.from_secret_matrix s ⦃ fun _ => True ⦄ :=
-  WP.spec_mono (from_secret_matrix_full s) (fun _ _ => trivial)
+  WP.spec_mono (from_secret_matrix_full s hsm) (fun _ _ => trivial)
 
 /-- A `⦃ fun _ => True ⦄` triple is exactly success, so the `Result.getD` value is the result. -/
 theorem spec_eq_getD {α : Type} [Inhabited α] {m : Result α} (h : m ⦃ fun _ => True ⦄) :
@@ -581,20 +449,21 @@ theorem from_uniform_matrix_spec {X Y : Usize} (A : Mat X Y) :
   spec_eq_getD (from_uniform_matrix_ok A)
 
 /-- **`from_secret_matrix s` succeeds, with value `nttFwdS s`.** -/
-theorem from_secret_matrix_spec {X Y : Usize} (s : Mat X Y) :
+theorem from_secret_matrix_spec {X Y : Usize} (s : Mat X Y) (hsm : SecretSmall s) :
     arithmetic.ntt.NttMatrix.from_secret_matrix s
       ⦃ (r : arithmetic.ntt.NttMatrix X Y) => r = nttFwdS s ⦄ :=
-  spec_eq_getD (from_secret_matrix_ok s)
+  spec_eq_getD (from_secret_matrix_ok s hsm)
 
 /-- **Every entry of `nttFwdU A` is the forward transform of the matching coefficient entry.** -/
 theorem nttFwdU_entry {X Y : Usize} (A : Mat X Y) (a b : ℕ) (ha : a < X.val) (hb : b < Y.val) :
-    ElemOK (uP ((A.val[a]!).val[b]!)) (((nttFwdU A).val[a]!).val[b]!) :=
+    UOK (uP ((A.val[a]!).val[b]!)) (((nttFwdU A).val[a]!).val[b]!) :=
   getD_of_spec (from_uniform_matrix_full A) a b ha hb
 
 /-- **Every entry of `nttFwdS s` is the forward transform of the matching coefficient entry.** -/
-theorem nttFwdS_entry {X Y : Usize} (s : Mat X Y) (a b : ℕ) (ha : a < X.val) (hb : b < Y.val) :
-    ElemOK (sP ((s.val[a]!).val[b]!)) (((nttFwdS s).val[a]!).val[b]!) :=
-  getD_of_spec (from_secret_matrix_full s) a b ha hb
+theorem nttFwdS_entry {X Y : Usize} (s : Mat X Y) (hsm : SecretSmall s)
+    (a b : ℕ) (ha : a < X.val) (hb : b < Y.val) :
+    NttOK (sP ((s.val[a]!).val[b]!)) (((nttFwdS s).val[a]!).val[b]!) :=
+  getD_of_spec (from_secret_matrix_full s hsm) a b ha hb
 
 /-! ## The convolution theorem
 
@@ -644,8 +513,8 @@ theorem toRingElem_get! (re : arithmetic.ring_arith.RingElem) (n : ℕ) (hn : n 
 
 /-- The audited negacyclic product coefficient is the single-sum convolution. -/
 theorem convCoeff_eq_nconvR {m : ℕ} (a b : Spec.Kopis.Polynomial m) (n : ℕ) (hn : n < 256) :
-    convCoeff a b n = NttMath.nconvR (fun i => a[i]!) (fun j => b[j]!) n := by
-  unfold convCoeff NttMath.nconvR
+    convCoeff a b n = Kopis.CrtConv.nconvR (fun i => a[i]!) (fun j => b[j]!) n := by
+  unfold convCoeff Kopis.CrtConv.nconvR
   refine Finset.sum_congr rfl (fun i hi => ?_)
   have hi' : i < 256 := Finset.mem_range.mp hi
   by_cases hle : i ≤ n
@@ -681,135 +550,94 @@ theorem uZ_cast (re : arithmetic.ring_arith.RingElem) (c : ℕ) :
 /-! ### One entry of the product
 
 Both `mul` and `mul_transpose` reduce to the same statement about a single output ring element:
-an `i64` accumulator holding `Σ_j (forward transform of uⱼ) ∘ (forward transform of vⱼ)` is
-turned by `reduce_invntt_to_ring_elem` into `Σ_j uⱼ · vⱼ` in `ℤ[X]/(X²⁵⁶+1)`.  Stating it over
-two arbitrary families `u`, `v` — rather than over a row of `A` and a column of `s` — is what
-lets one proof serve both multipliers. -/
+an `i32` accumulator holding `Σ_j (transform of uⱼ) ∘ (transform of vⱼ)` is turned by
+`reduce_invntt_to_ring_elem` into `Σ_j uⱼ · vⱼ` in `ℤ[X]/(X²⁵⁶+1)`.  Stating it over two
+arbitrary families is what lets one proof serve both multipliers. -/
 
-/-- The `ℤ/p` coefficient function of the answer. -/
-def convP (u v : ℕ → arithmetic.ring_arith.RingElem) (N n : ℕ) : Zp :=
-  ∑ jj ∈ Finset.range N, NttMath.nconvR (uP (u jj)) (sP (v jj)) n
-
-/-- Its integer lift — the *exact* answer, which `fitsExactly` keeps inside `(-p/2, p/2)`. -/
+/-- The exact integer answer, which `fitsExactly` keeps inside `(-q₁q₂/2, q₁q₂/2)`. -/
 def convZ (u v : ℕ → arithmetic.ring_arith.RingElem) (N n : ℕ) : ℤ :=
-  ∑ jj ∈ Finset.range N, NttMath.nconvR (uZ (u jj)) (sZ (v jj)) n
+  ∑ jj ∈ Finset.range N, nconvR (uZ (u jj)) (sZ (v jj)) n
 
-set_option maxRecDepth 8000 in
-/-- **The convolution theorem, for one entry.**  If the `i64` accumulator holds the sum over `jj`
-of the pointwise products of the transforms of `u jj` and `v jj`, then
-`reduce_invntt_to_ring_elem` returns exactly `Σ_jj u jj · v jj` in `ℤ[X]/(X²⁵⁶+1)` with
-`ZMod (2¹⁶)` coefficients — the schoolbook answer. -/
+/-- **The convolution theorem, for one entry.** -/
 theorem ntt_entry_spec (N : ℕ) (sBound : ℤ)
     (u v : ℕ → arithmetic.ring_arith.RingElem)
     (nu nv : ℕ → arithmetic.ntt.NttElem)
-    (hu : ∀ jj, jj < N → ElemOK (uP (u jj)) (nu jj))
-    (hv : ∀ jj, jj < N → ElemOK (sP (v jj)) (nv jj))
+    (hu : ∀ jj, jj < N → NttOK (uP (u jj)) (nu jj))
+    (hv : ∀ jj, jj < N → NttOK (sP (v jj)) (nv jj))
     (hfit : fitsExactly N sBound)
     (hub : ∀ jj c, jj < N → c < 256 → ((u jj).val[c]!).val < 2 ^ 13)
     (hvb : ∀ jj c, jj < N → c < 256 → |signedOfU16 ((v jj).val[c]!)| ≤ sBound)
     (hN : N ≤ 4)
-    (acc : Array I64 256#usize)
-    (hacc : ∀ c, c < 256 → accZ acc c
-        = ∑ jj ∈ Finset.range N, aZ (nu jj) c * aZ (nv jj) c) :
+    (acc : Array I32 512#usize)
+    (hacc : ∀ t, t < 512 → accZ acc t
+        = ∑ jj ∈ Finset.range N, eZ (nu jj) t * eZ (nv jj) t) :
     arithmetic.ntt.reduce_invntt_to_ring_elem acc
       ⦃ (r : arithmetic.ring_arith.RingElem) =>
           toRingElem r = ∑ jj ∈ Finset.range N, toRingElem (u jj) * toRingElem (v jj) ⦄ := by
-  have hp0 : (0:ℤ) < pNtt := by unfold pNtt; norm_num
-  have hNz : ((N : ℤ)) ≤ 4 := by exact_mod_cast hN
-  have hNn : (0:ℤ) ≤ (N : ℤ) := Int.natCast_nonneg _
-  -- ## the accumulator is inside `mont_reduce`'s input range
-  have haccb : ∀ c, c < 256 → |accZ acc c| ≤ 2 ^ 31 * pNtt - 1 := by
-    intro c hc
-    rw [hacc c hc]
-    have hterm : ∀ jj ∈ Finset.range N, |aZ (nu jj) c * aZ (nv jj) c| ≤ pNtt * pNtt := by
-      intro jj hjj
-      have hjj' : jj < N := Finset.mem_range.mp hjj
-      rw [abs_mul]
-      exact mul_le_mul (ElemOK_bound (hu jj hjj') c hc) (ElemOK_bound (hv jj hjj') c hc)
-        (abs_nonneg _) (le_of_lt hp0)
-    refine le_trans (Finset.abs_sum_le_sum_abs _ _) ?_
-    refine le_trans (Finset.sum_le_sum hterm) ?_
-    rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul,
-      show pNtt * pNtt = 2533120274592769 from by unfold pNtt; norm_num,
-      show (2:ℤ) ^ 31 * pNtt - 1 = 108083094669492223 from by unfold pNtt; norm_num]
-    linarith
-  -- ## the exactness bound: the integer answer is inside `(-p/2, p/2)`
-  have hHb : ∀ n, n < 256 → |convZ u v N n| ≤ 25165056 := by
+  -- the exactness bound
+  have hHb : ∀ n, n < 256 → 2 * |convZ u v N n| < 82593793 := by
     intro n hn
     unfold convZ
     have hterm : ∀ jj ∈ Finset.range N,
-        |NttMath.nconvR (uZ (u jj)) (sZ (v jj)) n| ≤ 256 * 8191 * sBound := by
+        |nconvR (uZ (u jj)) (sZ (v jj)) n| ≤ 256 * 8191 * sBound := by
       intro jj hjj
       have hjj' : jj < N := Finset.mem_range.mp hjj
-      refine NttMath.abs_nconvR_le hn (fun c hc => ?_) (fun c hc => hvb jj c hjj' hc)
-      have h13 : (2:ℕ) ^ 13 = 8192 := by norm_num
+      refine abs_nconvR_le hn (fun c hc => ?_) (fun c hc => hvb jj c hjj' hc)
       have hb := hub jj c hjj' hc
       unfold uZ
       rw [abs_of_nonneg (Int.natCast_nonneg _)]
+      have h13 : (2:ℕ) ^ 13 = 8192 := by norm_num
       omega
-    refine le_trans (Finset.abs_sum_le_sum_abs _ _) ?_
-    refine le_trans (Finset.sum_le_sum hterm) ?_
-    rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
-    unfold fitsExactly uniformBound pNtt at hfit
-    have h1 : 2 * ((N : ℤ) * 256 * 8191 * sBound) + 1 ≤ 50330113 := hfit
-    linarith
-  -- ## the integer answer reduces to the `ℤ/p` one
-  have hHz : ∀ n, n < 256 → ((convZ u v N n : ℤ) : Zp) = convP u v N n := by
-    intro n hn
-    unfold convZ convP
+    have hsum : |∑ jj ∈ Finset.range N, nconvR (uZ (u jj)) (sZ (v jj)) n|
+        ≤ (N : ℤ) * (256 * 8191 * sBound) := by
+      refine le_trans (Finset.abs_sum_le_sum_abs _ _) ?_
+      refine le_trans (Finset.sum_le_sum hterm) ?_
+      rw [Finset.sum_const, Finset.card_range, nsmul_eq_mul]
+    unfold fitsExactly uniformBound crtQ at hfit
+    have : 2 * ((N : ℤ) * 256 * 8191 * sBound) < 82593793 := hfit
+    have h2 : 2 * |∑ jj ∈ Finset.range N, nconvR (uZ (u jj)) (sZ (v jj)) n|
+        ≤ 2 * ((N : ℤ) * (256 * 8191 * sBound)) := by linarith
+    nlinarith [h2]
+  -- and the two residue readings
+  unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+  refine WP.spec_bind (crt_entry_spec N hN acc nu nv (fun jj => uP (u jj)) (fun jj => sP (v jj))
+    hu hv hacc (convZ u v N) hHb ?_ ?_) ?_
+  · intro c hc
+    unfold convZ
     rw [Int.cast_sum]
     refine Finset.sum_congr rfl (fun jj _ => ?_)
-    rw [NttMath.nconvR_intCast]
+    rw [nconvR_intCast]
+    rw [← nconv_eq_nconvR _ _ c hc]
     rfl
-  -- ## the accumulator evaluates the convolution at every leaf
-  have hst : ∀ c, c < 256 → ((accZ acc c : ℤ) : Zp)
-      = ∑ n ∈ Finset.range 256, convP u v N n * cst (256 + c) ^ n := by
-    intro c hc
-    have hleaf : ∀ jj, jj < N →
-        ((aZ (nu jj) c : ℤ) : Zp) * ((aZ (nv jj) c : ℤ) : Zp)
-          = ∑ n ∈ Finset.range 256,
-              NttMath.nconvR (uP (u jj)) (sP (v jj)) n * cst (256 + c) ^ n := by
-      intro jj hjj
-      rw [← aP_def, ← aP_def, ElemOK_leaf (hu jj hjj) c hc, ElemOK_leaf (hv jj hjj) c hc,
-        Ev_nconv _ _ (cst_leaf_pow c hc)]
-      exact Finset.sum_congr rfl
-        (fun n hn => by rw [nconv_eq_nconvR _ _ n (Finset.mem_range.mp hn)])
-    calc ((accZ acc c : ℤ) : Zp)
-        = ∑ jj ∈ Finset.range N, ((aZ (nu jj) c : ℤ) : Zp) * ((aZ (nv jj) c : ℤ) : Zp) := by
-          rw [hacc c hc, Int.cast_sum]
-          exact Finset.sum_congr rfl (fun jj _ => Int.cast_mul _ _)
-      _ = ∑ jj ∈ Finset.range N, ∑ n ∈ Finset.range 256,
-            NttMath.nconvR (uP (u jj)) (sP (v jj)) n * cst (256 + c) ^ n :=
-          Finset.sum_congr rfl (fun jj hjj => hleaf jj (Finset.mem_range.mp hjj))
-      _ = ∑ n ∈ Finset.range 256, ∑ jj ∈ Finset.range N,
-            NttMath.nconvR (uP (u jj)) (sP (v jj)) n * cst (256 + c) ^ n := Finset.sum_comm
-      _ = ∑ n ∈ Finset.range 256, convP u v N n * cst (256 + c) ^ n := by
-          refine Finset.sum_congr rfl (fun n _ => ?_)
-          unfold convP
-          rw [Finset.sum_mul]
-  -- ## run the pipeline and match the specification's coefficients
-  apply WP.spec_mono (reduce_invntt_to_ring_elem_spec acc (convP u v N) (convZ u v N)
-    haccb hst hHz hHb)
-  intro r hr
-  apply Vector.ext
-  intro n hn
-  have h216 : ((2 ^ 16 : ℕ) : ℤ) = 65536 := by norm_num
-  have hleft : (toRingElem r)[n]'hn = ((convZ u v N n : ℤ) : ZMod (2 ^ 16)) := by
-    rw [toRingElem_get r n hn]
-    have hcast := (ZMod.intCast_eq_intCast_iff' (((r.val[n]!).val : ℕ) : ℤ)
-      (convZ u v N n) (2 ^ 16)).mpr (by rw [h216]; exact hr n hn)
-    rw [← hcast]
-    simp
-  rw [hleft, poly_sum_get _ _ n hn]
-  unfold convZ
-  rw [Int.cast_sum]
-  refine Finset.sum_congr rfl (fun jj hjj => ?_)
-  rw [NttMath.nconvR_intCast,
-    show ((toRingElem (u jj)) * (toRingElem (v jj)))[n]'hn
-        = convCoeff (toRingElem (u jj)) (toRingElem (v jj)) n from mul_get _ _ n hn,
-    convCoeff_eq_nconvR _ _ n hn]
-  exact NttMath.nconvR_congr hn (fun c hc => by rw [uZ_cast, toRingElem_get! _ c hc])
-    (fun c hc => by rw [sZ_cast, toRingElem_get! _ c hc])
+  · intro c hc
+    unfold convZ
+    rw [Int.cast_sum]
+    refine Finset.sum_congr rfl (fun jj _ => ?_)
+    rw [nconvR_intCast]
+    rw [← nconv_eq_nconvR _ _ c hc]
+    rfl
+  · intro r hr
+    simp only [WP.spec_ok]
+    apply Vector.ext
+    intro n hn
+    have h216 : ((2 ^ 16 : ℕ) : ℤ) = 65536 := by norm_num
+    have hleft : (toRingElem r)[n]'hn = ((convZ u v N n : ℤ) : ZMod (2 ^ 16)) := by
+      rw [toRingElem_get r n hn]
+      have hcast := (ZMod.intCast_eq_intCast_iff' (((r.val[n]!).val : ℕ) : ℤ)
+        (convZ u v N n) (2 ^ 16)).mpr
+        (by rw [h216, hr n hn]; exact Int.emod_emod_of_dvd _ (dvd_refl _))
+      rw [← hcast]
+      simp
+    rw [hleft, poly_sum_get _ _ n hn]
+    unfold convZ
+    rw [Int.cast_sum]
+    refine Finset.sum_congr rfl (fun jj hjj => ?_)
+    rw [nconvR_intCast,
+      show ((toRingElem (u jj)) * (toRingElem (v jj)))[n]'hn
+          = convCoeff (toRingElem (u jj)) (toRingElem (v jj)) n from mul_get _ _ n hn,
+      convCoeff_eq_nconvR _ _ n hn]
+    exact nconvR_congr hn (fun c hc => by rw [uZ_cast, toRingElem_get! _ c hc])
+      (fun c hc => by rw [sZ_cast, toRingElem_get! _ c hc])
 
 /-! ### The three nested loops of `mul` -/
 
@@ -819,23 +647,25 @@ private theorem br_sum_Ico_peel {M : Type*} [AddCommMonoid M] (f : ℕ → M) {a
     Finset.add_sum_erase _ f (Finset.mem_Ico.mpr ⟨le_refl a, h⟩)]
 
 /-- The innermost loop of `mul`: accumulate the pointwise products over the inner index. -/
-theorem ntt_mul_inner_spec {X Y Z : Usize}
-    (iter : core.ops.range.Range Usize)
+theorem ntt_mul_inner_spec {X Y Z : Usize} (iter : core.ops.range.Range Usize)
     (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix Y Z)
-    (i k : Usize) (acc : Array I64 256#usize)
+    (i k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hi : i.val < X.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ Y.val) (hend : iter.«end».val = Y.val) (hY : Y.val ≤ 4)
-    (hself : ∀ j c, j < Y.val → c < 256 → |aZ ((self.val[i.val]!).val[j]!) c| ≤ pNtt)
-    (hother : ∀ j c, j < Y.val → c < 256 → |aZ ((other.val[j]!).val[k.val]!) c| ≤ pNtt)
-    (hacc : ∀ c, c < 256 → |accZ acc c| ≤ (iter.start.val : ℤ) * (pNtt * pNtt)) :
+    (hself : ∀ j t, j < Y.val → t < 512 →
+      |(eZ ((self.val[i.val]!).val[j]!) t)| ≤ B)
+    (hother : ∀ j t, j < Y.val → t < 512 →
+      |(eZ ((other.val[j]!).val[k.val]!) t)| ≤ B)
+    (hacc : ∀ t < 512, |(accZ acc t)| ≤ (iter.start.val : ℤ) * (B * B)) :
     arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0 iter self other i k acc
       ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix Y Z) ×
-             (Array I64 256#usize)) =>
+             (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
-          (∀ c, c < 256 → accZ p.2.2 c = accZ acc c
+          (∀ t < 512, (accZ p.2.2 t) = (accZ acc t)
             + ∑ jj ∈ Finset.Ico iter.start.val Y.val,
-                aZ ((self.val[i.val]!).val[jj]!) c * aZ ((other.val[jj]!).val[k.val]!) c) ⦄ := by
-  have hpp : pNtt * pNtt = 2533120274592769 := by unfold pNtt; norm_num
+                (eZ ((self.val[i.val]!).val[jj]!) t)
+                  * (eZ ((other.val[jj]!).val[k.val]!) t)) ∧
+          (∀ t < 512, |(accZ p.2.2 t)| ≤ (Y.val : ℤ) * (B * B)) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -855,42 +685,45 @@ theorem ntt_mul_inner_spec {X Y Z : Usize}
     have ha1k : k.val < a1.val.length := by have := a1.property; scalar_tac
     let* ⟨ne1, hne1⟩ ← Array.index_usize_spec a1 k ha1k
     have hne1' : ne1 = (other.val[iter.start.val]!).val[k.val]! := by
-      rw [hne1, ha1', getElem!_pos (other.val[iter.start.val]!).val k.val (by rw [← ha1']; exact ha1k)]
-    -- the pointwise multiply-accumulate
-    have hstz : (0:ℤ) ≤ (iter.start.val : ℤ) := Int.natCast_nonneg _
-    have hstle : ((iter.start.val : ℤ)) ≤ 4 := by exact_mod_cast (by omega : iter.start.val ≤ 4)
-    let* ⟨acc1, hacc1v, hacc1b⟩ ← pointwise_mul_acc_spec acc ne ne1
-      ((iter.start.val : ℤ) * (pNtt * pNtt))
-      (by rw [hne']; exact fun c hc => hself iter.start.val c hj_lt hc)
-      (by rw [hne1']; exact fun c hc => hother iter.start.val c hj_lt hc)
-      (mul_nonneg hstz (by unfold pNtt; norm_num))
-      (by
-        rw [hpp] at *
-        linarith) hacc
-    apply WP.spec_mono (ntt_mul_inner_spec iter1 self other i k acc1 hi hk
+      rw [hne1, ha1',
+        getElem!_pos (other.val[iter.start.val]!).val k.val (by rw [← ha1']; exact ha1k)]
+    have hstz : (0 : ℤ) ≤ (iter.start.val : ℤ) := Int.natCast_nonneg _
+    have hstle : ((iter.start.val : ℤ)) ≤ 3 := by
+      exact_mod_cast (by omega : iter.start.val ≤ 3)
+    have hBB : (0 : ℤ) ≤ B * B := mul_nonneg h0 h0
+    apply WP.spec_bind (pointwise_mul_acc_spec acc ne ne1 B B
+      ((iter.start.val : ℤ) * (B * B)) h0 h0 (mul_nonneg hstz hBB)
+      (by rw [hne']; exact fun t ht => hself iter.start.val t hj_lt ht)
+      (by rw [hne1']; exact fun t ht => hother iter.start.val t hj_lt ht) hacc
+      (by nlinarith))
+    intro acc1 hacc1
+    apply WP.spec_mono (ntt_mul_inner_spec iter1 self other i k acc1 B h0 hB hi hk
       (by omega) (by rw [hend']; exact hend) hY hself hother
-      (fun c hc => by
-        refine le_trans (hacc1b c hc) ?_
+      (fun t ht => by
+        refine le_trans (hacc1.2 t ht) ?_
         rw [hstart']
         push_cast
         linarith))
-    rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3⟩
-    simp only at hp1 hp2 hp3
-    refine ⟨hp1, hp2, ?_⟩
-    intro c hc
-    rw [hp3 c hc, hacc1v c hc, hstart', hne', hne1',
-      br_sum_Ico_peel _ hj_lt]
+    rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3, hp4⟩
+    simp only at hp1 hp2 hp3 hp4
+    refine ⟨hp1, hp2, ?_, hp4⟩
+    intro t ht
+    rw [hp3 t ht, (hacc1.1 t ht), hstart', hne', hne1', br_sum_Ico_peel _ hj_lt]
     ring
   · let* ⟨o, iter1, hnone, _⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]; simp only [WP.spec_ok]
-    refine ⟨trivial, trivial, fun c hc => ?_⟩
-    rw [Finset.Ico_eq_empty (by omega), Finset.sum_empty, add_zero]
-  termination_by iter.«end».val - iter.start.val
-  decreasing_by scalar_decr_tac
+    refine ⟨trivial, trivial, fun t ht => ?_, fun t ht => ?_⟩
+    · rw [Finset.Ico_eq_empty (by omega), Finset.sum_empty, add_zero]
+    · refine le_trans (hacc t ht) ?_
+      have : ((iter.start.val : ℤ)) ≤ (Y.val : ℤ) := by exact_mod_cast (by omega : iter.start.val ≤ Y.val)
+      nlinarith [mul_nonneg h0 h0]
+termination_by iter.«end».val - iter.start.val
+decreasing_by scalar_decr_tac
 
 /-- The middle loop of `mul`: one output ring element per column `k`. -/
 theorem ntt_mul_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
     (hfit : fitsExactly Y.val sBound) (hA : UniformBounded A) (hs : SecretBounded s sBound)
+    (hsb : sBound ≤ 3840)
     (hY : Y.val ≤ 4)
     (iter : core.ops.range.Range Usize) (result : Mat X Z) (i : Usize) (hi : i.val < X.val)
     (hend : iter.«end».val = Z.val) :
@@ -908,36 +741,38 @@ theorem ntt_mul_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound : �
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hk_lt : iter.start.val < Z.val := by omega
-    have hzero : ∀ c, c < 256 → accZ (Array.repeat 256#usize (0#i64)) c = 0 := by
-      intro c hc
+    have hzero : ∀ t, t < 512 → accZ arithmetic.ntt.ACC_ZERO t = 0 := by
+      intro t ht
       unfold accZ
-      rw [Array.repeat_val, getElem!_pos _ c (by rw [List.length_replicate]; exact hc),
+      rw [show arithmetic.ntt.ACC_ZERO = Array.repeat 512#usize (0#i32) from by
+          simp only [arithmetic.ntt.ACC_ZERO],
+        Array.repeat_val, getElem!_pos _ t (by rw [List.length_replicate]; exact ht),
         List.getElem_replicate]
       rfl
-    have hselfb : ∀ j c, j < Y.val → c < 256 →
-        |aZ (((nttFwdU A).val[i.val]!).val[j]!) c| ≤ pNtt :=
-      fun j c hj hc => ElemOK_bound (nttFwdU_entry A i.val j hi hj) c hc
-    have hotherb : ∀ j c, j < Y.val → c < 256 →
-        |aZ (((nttFwdS s).val[j]!).val[iter.start.val]!) c| ≤ pNtt :=
-      fun j c hj hc => ElemOK_bound (nttFwdS_entry s j iter.start.val hj hk_lt) c hc
-    let* ⟨self1, other1, acc1, hs1, ho1, hacc1⟩ ←
+    have hUe : ∀ j, j < Y.val → NttOK (uP (A.val[i.val]!).val[j]!) (((nttFwdU A).val[i.val]!).val[j]!) :=
+      fun j hj => nttFwdU_entry A i.val j hi hj (uP_small hA i.val j hi hj)
+    have hSe : ∀ j, j < Y.val → NttOK (sP (s.val[j]!).val[iter.start.val]!) (((nttFwdS s).val[j]!).val[iter.start.val]!) :=
+      fun j hj => nttFwdS_entry s (secretSmall_of_bounded hs hsb) j iter.start.val hj hk_lt
+    have hselfb : ∀ j t, j < Y.val → t < 512 → |eZ (((nttFwdU A).val[i.val]!).val[j]!) t| ≤ 5376 :=
+      fun j t hj ht => NttOK_lane_bound (hUe j hj) t ht
+    have hotherb : ∀ j t, j < Y.val → t < 512 → |eZ (((nttFwdS s).val[j]!).val[iter.start.val]!) t| ≤ 5376 :=
+      fun j t hj ht => NttOK_lane_bound (hSe j hj) t ht
+    let* ⟨self1, other1, acc1, hs1, ho1, hacc1, _⟩ ←
       ntt_mul_inner_spec { start := 0#usize, «end» := Y } (nttFwdU A) (nttFwdS s) i iter.start
-        (Array.repeat 256#usize (0#i64)) hi hk_lt (by simp) rfl hY hselfb hotherb
-        (fun c hc => by rw [hzero c hc]; simp)
+        arithmetic.ntt.ACC_ZERO 5376 (by norm_num) (by norm_num) hi hk_lt (by simp) rfl hY
+        hselfb hotherb (fun t ht => by rw [hzero t ht]; simp)
     subst hs1; subst ho1
-    have hacc1' : ∀ c, c < 256 → accZ acc1 c
+    have hacc1' : ∀ t, t < 512 → accZ acc1 t
         = ∑ jj ∈ Finset.range Y.val,
-            aZ (((nttFwdU A).val[i.val]!).val[jj]!) c
-              * aZ (((nttFwdS s).val[jj]!).val[iter.start.val]!) c := by
-      intro c hc
-      rw [hacc1 c hc, hzero c hc, zero_add, ← Finset.range_eq_Ico]
+            eZ (((nttFwdU A).val[i.val]!).val[jj]!) t
+              * eZ (((nttFwdS s).val[jj]!).val[iter.start.val]!) t := by
+      intro t ht
+      rw [hacc1 t ht, hzero t ht, zero_add, ← Finset.range_eq_Ico]
     let* ⟨re, hre⟩ ← ntt_entry_spec Y.val sBound
       (fun jj => (A.val[i.val]!).val[jj]!) (fun jj => (s.val[jj]!).val[iter.start.val]!)
       (fun jj => ((nttFwdU A).val[i.val]!).val[jj]!)
       (fun jj => ((nttFwdS s).val[jj]!).val[iter.start.val]!)
-      (fun jj hjj => nttFwdU_entry A i.val jj hi hjj)
-      (fun jj hjj => nttFwdS_entry s jj iter.start.val hjj hk_lt)
-      hfit (fun jj c hjj hc => hA i.val jj c hi hjj hc)
+      hUe hSe hfit (fun jj c hjj hc => hA i.val jj c hi hjj hc)
       (fun jj c hjj hc => hs jj iter.start.val c hjj hk_lt hc) hY acc1 hacc1'
     have hri : i.val < result.length := by have := result.property; scalar_tac
     let* ⟨a, index_mut_back, ha, hback⟩ ← Array.index_mut_usize_spec result i hri
@@ -950,7 +785,7 @@ theorem ntt_mul_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound : �
       intro x y
       rw [hback, ha1]
       exact arr2_writeback result i iter.start a re hi hk_lt ha' x y
-    apply WP.spec_mono (ntt_mul_mid_spec A s sBound hfit hA hs hY iter1 (index_mut_back a1) i hi
+    apply WP.spec_mono (ntt_mul_mid_spec A s sBound hfit hA hs hsb hY iter1 (index_mut_back a1) i hi
       (by rw [hend']; exact hend))
     rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3⟩
     simp only at hp1 hp2 hp3
@@ -983,6 +818,7 @@ theorem ntt_mul_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound : �
 /-- The outer loop of `mul`: one row of the product per `i`. -/
 theorem ntt_mul_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
     (hfit : fitsExactly Y.val sBound) (hA : UniformBounded A) (hs : SecretBounded s sBound)
+    (hsb : sBound ≤ 3840)
     (hY : Y.val ≤ 4)
     (iter : core.ops.range.Range Usize) (result : Mat X Z) (hend : iter.«end».val = X.val) :
     arithmetic.ntt.NttMatrix.mul_loop0 iter (nttFwdU A) (nttFwdS s) result
@@ -999,7 +835,7 @@ theorem ntt_mul_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound :
     rw [ho]; simp only
     have hi_lt : iter.start.val < X.val := by omega
     let* ⟨self1, other1, ret1, hs1, ho1, hmid⟩ ←
-      ntt_mul_mid_spec A s sBound hfit hA hs hY { start := 0#usize, «end» := Z } result
+      ntt_mul_mid_spec A s sBound hfit hA hs hsb hY { start := 0#usize, «end» := Z } result
         iter.start hi_lt rfl
     subst hs1; subst ho1
     have hmid' : ∀ ii kk, ii < X.val → kk < Z.val →
@@ -1013,7 +849,7 @@ theorem ntt_mul_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound :
       by_cases h : ii = iter.start.val
       · rw [if_pos h, if_pos (show ii = iter.start.val ∧ _ ≤ kk from ⟨h, Nat.zero_le kk⟩)]
       · rw [if_neg h, if_neg (fun hc : ii = iter.start.val ∧ _ => h hc.1)]
-    apply WP.spec_mono (ntt_mul_outer_spec A s sBound hfit hA hs hY iter1 ret1
+    apply WP.spec_mono (ntt_mul_outer_spec A s sBound hfit hA hs hsb hY iter1 ret1
       (by rw [hend']; exact hend))
     intro r hr ii kk hii hkk
     rw [hr ii kk hii hkk, hstart', hmid' ii kk hii hkk]
@@ -1038,7 +874,8 @@ same postcondition as `matrix_mul_spec` — given the joint magnitude constraint
 theorem ntt_mul_spec {X Y Z : Usize}
     (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
     (hfit : fitsExactly Y.val sBound)
-    (hA : UniformBounded A) (hs : SecretBounded s sBound) (hY : Y.val ≤ 4) :
+    (hA : UniformBounded A) (hs : SecretBounded s sBound) (hY : Y.val ≤ 4)
+    (hsb : sBound ≤ 3840) :
     arithmetic.ntt.NttMatrix.mul (nttFwdU A) (nttFwdS s)
       ⦃ (r : Mat X Z) =>
           ∀ (i : Nat) (_hi : i < X.val) (k : Nat) (_hk : k < Z.val),
@@ -1054,7 +891,7 @@ theorem ntt_mul_spec {X Y Z : Usize}
     simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
       arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   rw [hdef, bind_tc_ok]
-  apply WP.spec_mono (ntt_mul_outer_spec A s sBound hfit hA hs hY
+  apply WP.spec_mono (ntt_mul_outer_spec A s sBound hfit hA hs hsb hY
     { start := 0#usize, «end» := X } _ rfl)
   intro r hr i hi k hk
   rw [hr i k hi hk,
@@ -1067,23 +904,25 @@ Structurally identical to `mul`'s, with the outer index of `self` playing the ro
 one: entry `(j,k)` of `Aᵀ·s` accumulates over `ii`, reading `A[ii][j]` against `s[ii][k]`. -/
 
 /-- The innermost loop of `mul_transpose`. -/
-theorem ntt_mulT_inner_spec {X Y Z : Usize}
-    (iter : core.ops.range.Range Usize)
+theorem ntt_mulT_inner_spec {X Y Z : Usize} (iter : core.ops.range.Range Usize)
     (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix X Z)
-    (j k : Usize) (acc : Array I64 256#usize)
+    (j k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hj : j.val < Y.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ X.val) (hend : iter.«end».val = X.val) (hX : X.val ≤ 4)
-    (hself : ∀ ii c, ii < X.val → c < 256 → |aZ ((self.val[ii]!).val[j.val]!) c| ≤ pNtt)
-    (hother : ∀ ii c, ii < X.val → c < 256 → |aZ ((other.val[ii]!).val[k.val]!) c| ≤ pNtt)
-    (hacc : ∀ c, c < 256 → |accZ acc c| ≤ (iter.start.val : ℤ) * (pNtt * pNtt)) :
+    (hself : ∀ ii t, ii < X.val → t < 512 →
+      |(eZ ((self.val[ii]!).val[j.val]!) t)| ≤ B)
+    (hother : ∀ ii t, ii < X.val → t < 512 →
+      |(eZ ((other.val[ii]!).val[k.val]!) t)| ≤ B)
+    (hacc : ∀ t < 512, |(accZ acc t)| ≤ (iter.start.val : ℤ) * (B * B)) :
     arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0 iter self other j k acc
       ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix X Z) ×
-             (Array I64 256#usize)) =>
+             (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
-          (∀ c, c < 256 → accZ p.2.2 c = accZ acc c
+          (∀ t < 512, (accZ p.2.2 t) = (accZ acc t)
             + ∑ ii ∈ Finset.Ico iter.start.val X.val,
-                aZ ((self.val[ii]!).val[j.val]!) c * aZ ((other.val[ii]!).val[k.val]!) c) ⦄ := by
-  have hpp : pNtt * pNtt = 2533120274592769 := by unfold pNtt; norm_num
+                (eZ ((self.val[ii]!).val[j.val]!) t)
+                  * (eZ ((other.val[ii]!).val[k.val]!) t)) ∧
+          (∀ t < 512, |(accZ p.2.2 t)| ≤ (X.val : ℤ) * (B * B)) ⦄ := by
   unfold arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -1106,39 +945,44 @@ theorem ntt_mulT_inner_spec {X Y Z : Usize}
     have hne1' : ne1 = (other.val[iter.start.val]!).val[k.val]! := by
       rw [hne1, ha1',
         getElem!_pos (other.val[iter.start.val]!).val k.val (by rw [← ha1']; exact ha1k)]
-    have hstz : (0:ℤ) ≤ (iter.start.val : ℤ) := Int.natCast_nonneg _
-    have hstle : ((iter.start.val : ℤ)) ≤ 4 := by exact_mod_cast (by omega : iter.start.val ≤ 4)
-    let* ⟨acc1, hacc1v, hacc1b⟩ ← pointwise_mul_acc_spec acc ne ne1
-      ((iter.start.val : ℤ) * (pNtt * pNtt))
-      (by rw [hne']; exact fun c hc => hself iter.start.val c hi_lt hc)
-      (by rw [hne1']; exact fun c hc => hother iter.start.val c hi_lt hc)
-      (mul_nonneg hstz (by unfold pNtt; norm_num))
-      (by
-        rw [hpp] at *
-        linarith) hacc
-    apply WP.spec_mono (ntt_mulT_inner_spec iter1 self other j k acc1 hj hk
+    have hstz : (0 : ℤ) ≤ (iter.start.val : ℤ) := Int.natCast_nonneg _
+    have hstle : ((iter.start.val : ℤ)) ≤ 3 := by
+      exact_mod_cast (by omega : iter.start.val ≤ 3)
+    have hBB : (0 : ℤ) ≤ B * B := mul_nonneg h0 h0
+    apply WP.spec_bind (pointwise_mul_acc_spec acc ne ne1 B B
+      ((iter.start.val : ℤ) * (B * B)) h0 h0 (mul_nonneg hstz hBB)
+      (by rw [hne']; exact fun t ht => hself iter.start.val t hi_lt ht)
+      (by rw [hne1']; exact fun t ht => hother iter.start.val t hi_lt ht) hacc
+      (by nlinarith))
+    intro acc1 hacc1
+    apply WP.spec_mono (ntt_mulT_inner_spec iter1 self other j k acc1 B h0 hB hj hk
       (by omega) (by rw [hend']; exact hend) hX hself hother
-      (fun c hc => by
-        refine le_trans (hacc1b c hc) ?_
+      (fun t ht => by
+        refine le_trans (hacc1.2 t ht) ?_
         rw [hstart']
         push_cast
         linarith))
-    rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3⟩
-    simp only at hp1 hp2 hp3
-    refine ⟨hp1, hp2, ?_⟩
-    intro c hc
-    rw [hp3 c hc, hacc1v c hc, hstart', hne', hne1', br_sum_Ico_peel _ hi_lt]
+    rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3, hp4⟩
+    simp only at hp1 hp2 hp3 hp4
+    refine ⟨hp1, hp2, ?_, hp4⟩
+    intro t ht
+    rw [hp3 t ht, (hacc1.1 t ht), hstart', hne', hne1', br_sum_Ico_peel _ hi_lt]
     ring
   · let* ⟨o, iter1, hnone, _⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]; simp only [WP.spec_ok]
-    refine ⟨trivial, trivial, fun c hc => ?_⟩
-    rw [Finset.Ico_eq_empty (by omega), Finset.sum_empty, add_zero]
-  termination_by iter.«end».val - iter.start.val
-  decreasing_by scalar_decr_tac
+    refine ⟨trivial, trivial, fun t ht => ?_, fun t ht => ?_⟩
+    · rw [Finset.Ico_eq_empty (by omega), Finset.sum_empty, add_zero]
+    · refine le_trans (hacc t ht) ?_
+      have : ((iter.start.val : ℤ)) ≤ (X.val : ℤ) := by
+        exact_mod_cast (by omega : iter.start.val ≤ X.val)
+      nlinarith [mul_nonneg h0 h0]
+termination_by iter.«end».val - iter.start.val
+decreasing_by scalar_decr_tac
 
 /-- The middle loop of `mul_transpose`. -/
 theorem ntt_mulT_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
     (hfit : fitsExactly X.val sBound) (hA : UniformBounded A) (hs : SecretBounded s sBound)
+    (hsb : sBound ≤ 3840)
     (hX : X.val ≤ 4)
     (iter : core.ops.range.Range Usize) (result : Mat Y Z) (j : Usize) (hj : j.val < Y.val)
     (hend : iter.«end».val = Z.val) :
@@ -1156,36 +1000,38 @@ theorem ntt_mulT_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound : 
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hk_lt : iter.start.val < Z.val := by omega
-    have hzero : ∀ c, c < 256 → accZ (Array.repeat 256#usize (0#i64)) c = 0 := by
-      intro c hc
+    have hzero : ∀ t, t < 512 → accZ arithmetic.ntt.ACC_ZERO t = 0 := by
+      intro t ht
       unfold accZ
-      rw [Array.repeat_val, getElem!_pos _ c (by rw [List.length_replicate]; exact hc),
+      rw [show arithmetic.ntt.ACC_ZERO = Array.repeat 512#usize (0#i32) from by
+          simp only [arithmetic.ntt.ACC_ZERO],
+        Array.repeat_val, getElem!_pos _ t (by rw [List.length_replicate]; exact ht),
         List.getElem_replicate]
       rfl
-    have hselfb : ∀ ii c, ii < X.val → c < 256 →
-        |aZ (((nttFwdU A).val[ii]!).val[j.val]!) c| ≤ pNtt :=
-      fun ii c hii hc => ElemOK_bound (nttFwdU_entry A ii j.val hii hj) c hc
-    have hotherb : ∀ ii c, ii < X.val → c < 256 →
-        |aZ (((nttFwdS s).val[ii]!).val[iter.start.val]!) c| ≤ pNtt :=
-      fun ii c hii hc => ElemOK_bound (nttFwdS_entry s ii iter.start.val hii hk_lt) c hc
-    let* ⟨self1, other1, acc1, hs1, ho1, hacc1⟩ ←
+    have hUe : ∀ ii, ii < X.val → NttOK (uP (A.val[ii]!).val[j.val]!) (((nttFwdU A).val[ii]!).val[j.val]!) :=
+      fun ii hii => nttFwdU_entry A ii j.val hii hj (uP_small hA ii j.val hii hj)
+    have hSe : ∀ ii, ii < X.val → NttOK (sP (s.val[ii]!).val[iter.start.val]!) (((nttFwdS s).val[ii]!).val[iter.start.val]!) :=
+      fun ii hii => nttFwdS_entry s (secretSmall_of_bounded hs hsb) ii iter.start.val hii hk_lt
+    have hselfb : ∀ ii t, ii < X.val → t < 512 → |eZ (((nttFwdU A).val[ii]!).val[j.val]!) t| ≤ 5376 :=
+      fun ii t hii ht => NttOK_lane_bound (hUe ii hii) t ht
+    have hotherb : ∀ ii t, ii < X.val → t < 512 → |eZ (((nttFwdS s).val[ii]!).val[iter.start.val]!) t| ≤ 5376 :=
+      fun ii t hii ht => NttOK_lane_bound (hSe ii hii) t ht
+    let* ⟨self1, other1, acc1, hs1, ho1, hacc1, _⟩ ←
       ntt_mulT_inner_spec { start := 0#usize, «end» := X } (nttFwdU A) (nttFwdS s) j iter.start
-        (Array.repeat 256#usize (0#i64)) hj hk_lt (by simp) rfl hX hselfb hotherb
-        (fun c hc => by rw [hzero c hc]; simp)
+        arithmetic.ntt.ACC_ZERO 5376 (by norm_num) (by norm_num) hj hk_lt (by simp) rfl hX
+        hselfb hotherb (fun t ht => by rw [hzero t ht]; simp)
     subst hs1; subst ho1
-    have hacc1' : ∀ c, c < 256 → accZ acc1 c
+    have hacc1' : ∀ t, t < 512 → accZ acc1 t
         = ∑ ii ∈ Finset.range X.val,
-            aZ (((nttFwdU A).val[ii]!).val[j.val]!) c
-              * aZ (((nttFwdS s).val[ii]!).val[iter.start.val]!) c := by
-      intro c hc
-      rw [hacc1 c hc, hzero c hc, zero_add, ← Finset.range_eq_Ico]
+            eZ (((nttFwdU A).val[ii]!).val[j.val]!) t
+              * eZ (((nttFwdS s).val[ii]!).val[iter.start.val]!) t := by
+      intro t ht
+      rw [hacc1 t ht, hzero t ht, zero_add, ← Finset.range_eq_Ico]
     let* ⟨re, hre⟩ ← ntt_entry_spec X.val sBound
       (fun ii => (A.val[ii]!).val[j.val]!) (fun ii => (s.val[ii]!).val[iter.start.val]!)
       (fun ii => ((nttFwdU A).val[ii]!).val[j.val]!)
       (fun ii => ((nttFwdS s).val[ii]!).val[iter.start.val]!)
-      (fun ii hii => nttFwdU_entry A ii j.val hii hj)
-      (fun ii hii => nttFwdS_entry s ii iter.start.val hii hk_lt)
-      hfit (fun ii c hii hc => hA ii j.val c hii hj hc)
+      hUe hSe hfit (fun ii c hii hc => hA ii j.val c hii hj hc)
       (fun ii c hii hc => hs ii iter.start.val c hii hk_lt hc) hX acc1 hacc1'
     have hrj : j.val < result.length := by have := result.property; scalar_tac
     let* ⟨a, index_mut_back, ha, hback⟩ ← Array.index_mut_usize_spec result j hrj
@@ -1198,7 +1044,7 @@ theorem ntt_mulT_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound : 
       intro x y
       rw [hback, ha1]
       exact arr2_writeback result j iter.start a re hj hk_lt ha' x y
-    apply WP.spec_mono (ntt_mulT_mid_spec A s sBound hfit hA hs hX iter1 (index_mut_back a1) j hj
+    apply WP.spec_mono (ntt_mulT_mid_spec A s sBound hfit hA hs hsb hX iter1 (index_mut_back a1) j hj
       (by rw [hend']; exact hend))
     rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3⟩
     simp only at hp1 hp2 hp3
@@ -1231,6 +1077,7 @@ theorem ntt_mulT_mid_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound : 
 /-- The outer loop of `mul_transpose`. -/
 theorem ntt_mulT_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
     (hfit : fitsExactly X.val sBound) (hA : UniformBounded A) (hs : SecretBounded s sBound)
+    (hsb : sBound ≤ 3840)
     (hX : X.val ≤ 4)
     (iter : core.ops.range.Range Usize) (result : Mat Y Z) (hend : iter.«end».val = Y.val) :
     arithmetic.ntt.NttMatrix.mul_transpose_loop0 iter (nttFwdU A) (nttFwdS s) result
@@ -1247,7 +1094,7 @@ theorem ntt_mulT_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound 
     rw [ho]; simp only
     have hj_lt : iter.start.val < Y.val := by omega
     let* ⟨self1, other1, ret1, hs1, ho1, hmid⟩ ←
-      ntt_mulT_mid_spec A s sBound hfit hA hs hX { start := 0#usize, «end» := Z } result
+      ntt_mulT_mid_spec A s sBound hfit hA hs hsb hX { start := 0#usize, «end» := Z } result
         iter.start hj_lt rfl
     subst hs1; subst ho1
     have hmid' : ∀ jj kk, jj < Y.val → kk < Z.val →
@@ -1261,7 +1108,7 @@ theorem ntt_mulT_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound 
       by_cases h : jj = iter.start.val
       · rw [if_pos h, if_pos (show jj = iter.start.val ∧ _ ≤ kk from ⟨h, Nat.zero_le kk⟩)]
       · rw [if_neg h, if_neg (fun hc : jj = iter.start.val ∧ _ => h hc.1)]
-    apply WP.spec_mono (ntt_mulT_outer_spec A s sBound hfit hA hs hX iter1 ret1
+    apply WP.spec_mono (ntt_mulT_outer_spec A s sBound hfit hA hs hsb hX iter1 ret1
       (by rw [hend']; exact hend))
     intro r hr jj kk hjj hkk
     rw [hr jj kk hjj hkk, hstart', hmid' jj kk hjj hkk]
@@ -1285,7 +1132,8 @@ schoolbook product `Aᵀ·s` of the underlying coefficient matrices, matching
 theorem ntt_mul_transpose_spec {X Y Z : Usize}
     (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
     (hfit : fitsExactly X.val sBound)
-    (hA : UniformBounded A) (hs : SecretBounded s sBound) (hX : X.val ≤ 4) :
+    (hA : UniformBounded A) (hs : SecretBounded s sBound) (hX : X.val ≤ 4)
+    (hsb : sBound ≤ 3840) :
     arithmetic.ntt.NttMatrix.mul_transpose (nttFwdU A) (nttFwdS s)
       ⦃ (r : Mat Y Z) =>
           ∀ (j : Nat) (_hj : j < Y.val) (k : Nat) (_hk : k < Z.val),
@@ -1301,7 +1149,7 @@ theorem ntt_mul_transpose_spec {X Y Z : Usize}
     simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
       arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   rw [hdef, bind_tc_ok]
-  apply WP.spec_mono (ntt_mulT_outer_spec A s sBound hfit hA hs hX
+  apply WP.spec_mono (ntt_mulT_outer_spec A s sBound hfit hA hs hsb hX
     { start := 0#usize, «end» := Y } _ rfl)
   intro r hr j hj k hk
   rw [hr j k hj hk,

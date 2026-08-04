@@ -11,7 +11,7 @@ The scaffolding is done and committed; **no AVX2 correspondence proof exists yet
 * `../extract_rust_to_lean.sh` extracts the crate twice, with no errors:
   `ExtractedRustSerial.lean` (namespace `RustKopisSerial`, 4684 lines) and
   `ExtractedRustAvx2.lean` (namespace `RustKopisAvx2`, 6947 lines).
-* `src/backend/avx2/intrinsics.rs` wraps all 45 SIMD operations behind `Vec256`/`Vec128`
+* `src/backend/avx2/intrinsics.rs` wraps all 42 SIMD operations behind `Vec256`/`Vec128`
   newtypes. `charon --opaque` keeps that module and `backend::avx2::cpu` opaque, so aeneas emits
   them as uninterpreted constants; the rest of the backend translates normally. Nothing outside
   `intrinsics.rs` contains `unsafe` or a raw pointer.
@@ -129,7 +129,7 @@ iterator-state-machine Lean that is unpleasant to prove about, so prefer indexed
 
 ## Phase A — make the intrinsic model testable, and test it
 
-**Why first.** `Kopis/Avx2/Intrinsics.lean` is 45 assumptions about what Intel silicon does,
+**Why first.** `Kopis/Avx2/Intrinsics.lean` is 42 assumptions about what Intel silicon does,
 written by reading the SDM. Nothing checks them. Every AVX2 theorem is worthless if one is wrong,
 and the failure is silent. This is the highest-value work in the plan and it is self-contained.
 
@@ -146,7 +146,7 @@ Then differential-test the models against real hardware:
 
 3. A Rust test (`tests/intrinsics_vectors.rs`, or a `#[cfg(test)]` module inside
    `src/backend/avx2/intrinsics.rs` since the wrappers are `pub(crate)`) that evaluates each of
-   the 45 wrappers on N random inputs (N ≥ 1000, fixed seed so it is reproducible) and writes
+   the 42 wrappers on N random inputs (N ≥ 1000, fixed seed so it is reproducible) and writes
    `tests/intrinsics_vectors.jsonl`: one record per call, inputs and output as hex bytes.
 4. A Lean runner under `SpecTests/Avx2/`, following the existing `SpecTests/Kopis/Run.lean`
    pattern (it already reads `.jsonl` from `../tests/`), evaluating each model on the same inputs
@@ -240,7 +240,7 @@ use of an unattended night compared with C and D, and a fine use of a morning.
    as in §1(b) and put it in the AVX2 row of `TrustBase.lean`.
 4. **Wire it up.** `lean_lib «TopLevelTheoremsAvx2»`, add it to `prove-kopis-avx2`, and add the
    second row to `backends` in `TrustBase.lean` with its own audited list (which will include the
-   45 intrinsic axioms and `available_ok`). The lists must stay separate — a union check would let
+   42 intrinsic axioms and `available_ok`). The lists must stay separate — a union check would let
    a serial theorem depend on an intrinsic axiom unnoticed.
 
 **Acceptance:** `make prove-kopis` green with `TopLevelTheoremsAvx2` in the graph and
@@ -273,7 +273,7 @@ The hard one, and it will not be finished in a night. Four separable pieces, in 
 ## 3. Priorities if the night is short
 
 A (testable model) → B (lane algebra) → C (`deserialize`) → D (`cbd`). If only A lands, the night
-was still worth it: it is the difference between 45 assumptions and 45 *tested* assumptions, and
+was still worth it: it is the difference between 42 assumptions and 42 *tested* assumptions, and
 it is the one piece whose absence undermines everything else.
 
 Do **not** start Phase F speculatively. Do **not** restructure directories (E1) unless C and D are
@@ -309,7 +309,7 @@ correspondence proof attempted yet. Resume at Phase A.
 *Phase A — landed.* `Kopis/Avx2/Model.lean` gives a computable `BitVec` model per intrinsic and
 proves, from each axiom, `∃ c, f a b = ok c ∧ bits c = Model.f (bits a) (bits b)` — so each axiom
 pins its result down to exactly the model, and the model runs.
-`src/backend/avx2/intrinsics_vectors.rs` records 47 858 vectors (≥ 1000 per wrapper, all 45)
+`src/backend/avx2/intrinsics_vectors.rs` records 47 858 vectors (≥ 1000 per wrapper, all 42)
 from real silicon into `tests/intrinsics_vectors.jsonl`; `SpecTests/Avx2/Run.lean`
 (`make test-avx2-model`, ~2 s) replays them through the models and refuses to report success if
 an operation is missing or thin. A plain `cargo test` on an AVX2 host now re-checks the
@@ -811,7 +811,7 @@ of the remaining work, and it sits behind finishing F4.
    closing with `crt_endpoint`.
 4. **AVX2 `NttMul` + `NttBridge`**, written against the two-residue representation.
 5. **`TrustBase.lean`** — a second `backends` row for `RustKopisAvx2` with its own audited axiom
-   list (the 45 intrinsic axioms, `available_ok`, `rangeInclusive_contains_ok`,
+   list (the 42 intrinsic axioms, `available_ok`, `rangeInclusive_contains_ok`,
    `CbdGeneric.U{8,32}.count_ones_spec`).
 
 Nothing in that list is blocked on a missing idea. It is volume.

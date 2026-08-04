@@ -218,8 +218,7 @@ def broadcastsi128Si256 (a : BitVec 128) : BitVec 256 := ofLanes128 fun _ => a
 
 The memory wrappers are not instructions; their axioms are about the crate's buffers.  The
 models take the buffer as a list of element words and are what the differential test evaluates,
-which is how the little-endian reinterpretation claims of `load_i16_of_i32` and friends get
-checked rather than merely asserted. -/
+so the indexing claims of the loads and stores get checked rather than merely asserted. -/
 
 /-- `load_i16` / `load_u16`: the 16 elements at `src[16 i ..]`. -/
 def loadW16 (src : List (BitVec 16)) (i : Nat) : BitVec 256 :=
@@ -242,29 +241,10 @@ def storeW16 (dst : List (BitVec 16)) (i : Nat) (v : BitVec 256) : List (BitVec 
   (List.range dst.length).map fun j =>
     if 16 * i ≤ j ∧ j < 16 * i + 16 then laneOf 16 v (j - 16 * i) else dst[j]!
 
-/-- `load_i16_of_i32`: `src`, an `[i32]`, read as twice as many little-endian `i16`. -/
-def loadW16OfW32 (src : List (BitVec 32)) (i : Nat) : BitVec 256 :=
-  ofLanes16 fun k =>
-    BitVec.extractLsb' (16 * ((16 * i + k) % 2)) 16 src[(16 * i + k) / 2]!
-
-/-- `store_i16_of_i32`: the same reinterpretation, written through. -/
-def storeW16OfW32 (dst : List (BitVec 32)) (i : Nat) (v : BitVec 256) : List (BitVec 32) :=
+/-- `store_i32`: `dst` with elements `8 i .. 8 i + 8` replaced. -/
+def storeW32 (dst : List (BitVec 32)) (i : Nat) (v : BitVec 256) : List (BitVec 32) :=
   (List.range dst.length).map fun j =>
-    if 8 * i ≤ j ∧ j < 8 * i + 8 then
-      laneOf 16 v (2 * j - 16 * i + 1) ++ laneOf 16 v (2 * j - 16 * i)
-    else dst[j]!
-
-/-- `load_i32_of_i64`: `src`, an `[i64]`, read as twice as many little-endian `i32`. -/
-def loadW32OfW64 (src : List (BitVec 64)) (i : Nat) : BitVec 256 :=
-  ofLanes32 fun k =>
-    BitVec.extractLsb' (32 * ((8 * i + k) % 2)) 32 src[(8 * i + k) / 2]!
-
-/-- `store_i32_of_i64`: the same reinterpretation, written through. -/
-def storeW32OfW64 (dst : List (BitVec 64)) (i : Nat) (v : BitVec 256) : List (BitVec 64) :=
-  (List.range dst.length).map fun j =>
-    if 4 * i ≤ j ∧ j < 4 * i + 4 then
-      laneOf 32 v (2 * j - 8 * i + 1) ++ laneOf 32 v (2 * j - 8 * i)
-    else dst[j]!
+    if 8 * i ≤ j ∧ j < 8 * i + 8 then laneOf 32 v (j - 8 * i) else dst[j]!
 
 end Model
 
