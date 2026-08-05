@@ -2,7 +2,7 @@
 //!
 //! Keccak's permutation is inherently serial — there is nothing inside one round to
 //! vectorize — so the speedup comes from running four *independent* sponges side by side, one
-//! per 64-bit lane of a `__m256i`. Kopis samples in batches that are exactly this shape: the
+//! per 64-bit lane of a `Vec256`. Kopis samples in batches that are exactly this shape: the
 //! public matrix is ℓ² independent XOF calls that differ only in a two-byte index, and the
 //! secret is ℓ more. Four at a time turns the dominant cost of key generation into a quarter
 //! as many permutations.
@@ -17,10 +17,10 @@
 //! (TurboSHAKE's 12 rounds are the *last* 12 of Keccak-f[1600], per FIPS 202 §3.4). The
 //! `matches_scalar` test checks the whole thing against the `turboshake` crate.
 
-#[cfg(target_arch = "x86")]
-use core::arch::x86::*;
-#[cfg(target_arch = "x86_64")]
-use core::arch::x86_64::*;
+use super::intrinsics::{
+    Vec256, andnot_si256, load_u8x32, or_si256, permute2x128_si256, set1_epi64x, setzero_si256,
+    slli_epi64, srli_epi64, store_u8x32, unpackhi_epi64, unpacklo_epi64, xor_si256,
+};
 
 /// Lanes in the Keccak state
 const PLEN: usize = 25;
@@ -39,37 +39,17 @@ const RC: [u64; 24] = [
     0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
 ];
 
-/// The 12 constants this permutation uses, each broadcast to all four lanes so ι is one load
-/// and one XOR. Built rather than written out, so it cannot drift from [`RC`].
-#[repr(align(32))]
-struct RoundConsts([u64; 4 * ROUNDS]);
-
-const RC4: RoundConsts = {
-    let mut broadcast = [0u64; 4 * ROUNDS];
-    let mut round = 0;
-    while round < ROUNDS {
-        let rc = RC[24 - ROUNDS + round];
-        let mut lane = 0;
-        while lane < 4 {
-            broadcast[4 * round + lane] = rc;
-            lane += 1;
-        }
-        round += 1;
-    }
-    RoundConsts(broadcast)
-};
-
 /// Rotates each 64-bit lane left by `L`.
 ///
 /// `R` must be `64 - L`; it is a second parameter only because the shift counts have to be
 /// literal immediates and Rust will not compute one from the other in that position.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn rotl<const L: i32, const R: i32>(v: __m256i) -> __m256i {
+fn rotl<const L: i32, const R: i32>(v: Vec256) -> Vec256 {
     const {
         assert!(L + R == 64, "rotate halves must sum to the lane width");
     }
-    _mm256_or_si256(_mm256_slli_epi64::<L>(v), _mm256_srli_epi64::<R>(v))
+    or_si256(slli_epi64::<L>(v), srli_epi64::<R>(v))
 }
 
 /// Transposes a 4×4 block of 64-bit lanes.
@@ -81,37 +61,33 @@ fn rotl<const L: i32, const R: i32>(v: __m256i) -> __m256i {
 /// lane at a time.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn transpose4x64(a: __m256i, b: __m256i, c: __m256i, d: __m256i) -> [__m256i; 4] {
-    let t0 = _mm256_unpacklo_epi64(a, b);
-    let t1 = _mm256_unpackhi_epi64(a, b);
-    let t2 = _mm256_unpacklo_epi64(c, d);
-    let t3 = _mm256_unpackhi_epi64(c, d);
-    [
-        _mm256_permute2x128_si256::<0x20>(t0, t2),
-        _mm256_permute2x128_si256::<0x20>(t1, t3),
-        _mm256_permute2x128_si256::<0x31>(t0, t2),
-        _mm256_permute2x128_si256::<0x31>(t1, t3),
-    ]
+fn transpose4x64(a: Vec256, b: Vec256, c: Vec256, d: Vec256) -> (Vec256, Vec256, Vec256, Vec256) {
+    let t0 = unpacklo_epi64(a, b);
+    let t1 = unpackhi_epi64(a, b);
+    let t2 = unpacklo_epi64(c, d);
+    let t3 = unpackhi_epi64(c, d);
+    (
+        permute2x128_si256::<0x20>(t0, t2),
+        permute2x128_si256::<0x20>(t1, t3),
+        permute2x128_si256::<0x31>(t0, t2),
+        permute2x128_si256::<0x31>(t1, t3),
+    )
 }
 
 /// Loads the four consecutive 64-bit words starting at `word` from one lane's block.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn load_words<const RATE: usize>(block: &[u8; RATE], word: usize) -> __m256i {
-    assert!(8 * word + 32 <= RATE);
-    // SAFETY: the assertion above puts the whole 32-byte read inside `block`.
-    unsafe { _mm256_loadu_si256(block.as_ptr().add(8 * word).cast()) }
+fn load_words<const RATE: usize>(block: &[u8; RATE], word: usize) -> Vec256 {
+    load_u8x32(block, 8 * word)
 }
 
 /// The round constant for `round`, broadcast to all four lanes.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn round_const(round: usize) -> __m256i {
+fn round_const(round: usize) -> Vec256 {
     assert!(round < ROUNDS);
-    // SAFETY: `RC4` is 32-byte aligned and holds `4 * ROUNDS` words, and the assertion above
-    // keeps the load in bounds; the offset is a whole number of 32-byte groups, so it stays
-    // aligned.
-    unsafe { _mm256_load_si256(RC4.0.as_ptr().add(4 * round).cast()) }
+    // Keccak-p[1600, n] uses the *last* n of Keccak-f's constants, per FIPS 202 section 3.4.
+    set1_epi64x(RC[24 - ROUNDS + round] as i64)
 }
 
 /// One output row of the fused ρ-π-χ step, as a `source, rotation` table.
@@ -129,16 +105,16 @@ macro_rules! chi_row {
     ($src:ident, $dst:ident, $d:ident, $y:literal,
      $f0:literal, $r0:literal, $f1:literal, $r1:literal, $f2:literal, $r2:literal,
      $f3:literal, $r3:literal, $f4:literal, $r4:literal) => {{
-        let t0 = rotl::<$r0, { 64 - $r0 }>(_mm256_xor_si256($src[$f0], $d[$f0 % 5]));
-        let t1 = rotl::<$r1, { 64 - $r1 }>(_mm256_xor_si256($src[$f1], $d[$f1 % 5]));
-        let t2 = rotl::<$r2, { 64 - $r2 }>(_mm256_xor_si256($src[$f2], $d[$f2 % 5]));
-        let t3 = rotl::<$r3, { 64 - $r3 }>(_mm256_xor_si256($src[$f3], $d[$f3 % 5]));
-        let t4 = rotl::<$r4, { 64 - $r4 }>(_mm256_xor_si256($src[$f4], $d[$f4 % 5]));
-        $dst[5 * $y] = _mm256_xor_si256(t0, _mm256_andnot_si256(t1, t2));
-        $dst[5 * $y + 1] = _mm256_xor_si256(t1, _mm256_andnot_si256(t2, t3));
-        $dst[5 * $y + 2] = _mm256_xor_si256(t2, _mm256_andnot_si256(t3, t4));
-        $dst[5 * $y + 3] = _mm256_xor_si256(t3, _mm256_andnot_si256(t4, t0));
-        $dst[5 * $y + 4] = _mm256_xor_si256(t4, _mm256_andnot_si256(t0, t1));
+        let t0 = rotl::<$r0, { 64 - $r0 }>(xor_si256($src[$f0], $d[$f0 % 5]));
+        let t1 = rotl::<$r1, { 64 - $r1 }>(xor_si256($src[$f1], $d[$f1 % 5]));
+        let t2 = rotl::<$r2, { 64 - $r2 }>(xor_si256($src[$f2], $d[$f2 % 5]));
+        let t3 = rotl::<$r3, { 64 - $r3 }>(xor_si256($src[$f3], $d[$f3 % 5]));
+        let t4 = rotl::<$r4, { 64 - $r4 }>(xor_si256($src[$f4], $d[$f4 % 5]));
+        $dst[5 * $y] = xor_si256(t0, andnot_si256(t1, t2));
+        $dst[5 * $y + 1] = xor_si256(t1, andnot_si256(t2, t3));
+        $dst[5 * $y + 2] = xor_si256(t2, andnot_si256(t3, t4));
+        $dst[5 * $y + 3] = xor_si256(t3, andnot_si256(t4, t0));
+        $dst[5 * $y + 4] = xor_si256(t4, andnot_si256(t0, t1));
     }};
 }
 
@@ -149,23 +125,43 @@ macro_rules! chi_row {
 /// and θ's per-lane xor is deferred into [`chi_row`], where the lane is already in a register.
 #[inline]
 #[target_feature(enable = "avx2")]
-fn round(src: &[__m256i; PLEN], dst: &mut [__m256i; PLEN], rc: __m256i) {
+fn round(src: &[Vec256; PLEN], dst: &mut [Vec256; PLEN], rc: Vec256) {
     // θ: fold each column, then mix each column with its two neighbours. `d` stays in registers
     // for the rest of the round — five vectors, which is what makes the fusion below fit.
-    let mut c = [_mm256_setzero_si256(); 5];
-    for (x, slot) in c.iter_mut().enumerate() {
-        *slot = _mm256_xor_si256(
-            _mm256_xor_si256(
-                _mm256_xor_si256(src[x], src[x + 5]),
-                _mm256_xor_si256(src[x + 10], src[x + 15]),
-            ),
-            src[x + 20],
-        );
-    }
-    let mut d = [_mm256_setzero_si256(); 5];
-    for x in 0..5 {
-        d[x] = _mm256_xor_si256(c[(x + 4) % 5], rotl::<1, 63>(c[(x + 1) % 5]));
-    }
+    //
+    // Written out rather than looped: the indices `(x ± 1) % 5` are computed, and aeneas cannot
+    // symbolically execute an array read at a computed index, so a loop here does not extract.
+    // Written out rather than looped or closed over: the mixing indices `(x ± 1) % 5` are
+    // computed, and aeneas can neither execute an array read at a computed index nor produce a
+    // workable model of a closure — it extracts one as a `Fn` trait instance, which every proof
+    // about this function would then have to unfold.
+    let c0 = xor_si256(
+        xor_si256(xor_si256(src[0], src[5]), xor_si256(src[10], src[15])),
+        src[20],
+    );
+    let c1 = xor_si256(
+        xor_si256(xor_si256(src[1], src[6]), xor_si256(src[11], src[16])),
+        src[21],
+    );
+    let c2 = xor_si256(
+        xor_si256(xor_si256(src[2], src[7]), xor_si256(src[12], src[17])),
+        src[22],
+    );
+    let c3 = xor_si256(
+        xor_si256(xor_si256(src[3], src[8]), xor_si256(src[13], src[18])),
+        src[23],
+    );
+    let c4 = xor_si256(
+        xor_si256(xor_si256(src[4], src[9]), xor_si256(src[14], src[19])),
+        src[24],
+    );
+    let d = [
+        xor_si256(c4, rotl::<1, 63>(c1)),
+        xor_si256(c0, rotl::<1, 63>(c2)),
+        xor_si256(c1, rotl::<1, 63>(c3)),
+        xor_si256(c2, rotl::<1, 63>(c4)),
+        xor_si256(c3, rotl::<1, 63>(c0)),
+    ];
 
     // The rest of θ, then ρ, π and χ, one output row at a time.
     chi_row!(src, dst, d, 0, 0, 0, 6, 44, 12, 43, 18, 21, 24, 14);
@@ -175,12 +171,12 @@ fn round(src: &[__m256i; PLEN], dst: &mut [__m256i; PLEN], rc: __m256i) {
     chi_row!(src, dst, d, 4, 2, 62, 8, 55, 14, 39, 15, 41, 21, 2);
 
     // ι
-    dst[0] = _mm256_xor_si256(dst[0], rc);
+    dst[0] = xor_si256(dst[0], rc);
 }
 
 /// Applies Keccak-p[1600, 12] to four independent states held one per 64-bit lane
 #[target_feature(enable = "avx2")]
-fn permute(state: &mut [__m256i; PLEN]) {
+fn permute(state: &mut [Vec256; PLEN]) {
     const {
         assert!(
             ROUNDS.is_multiple_of(2),
@@ -191,11 +187,30 @@ fn permute(state: &mut [__m256i; PLEN]) {
     // π is a permutation, so a round cannot write into the array it is reading. Rounds alternate
     // between the state and one scratch buffer instead, taken two at a time so that the second
     // of each pair lands back in `state` and nothing is ever copied.
-    let mut scratch = [_mm256_setzero_si256(); PLEN];
+    let mut scratch = [setzero_si256(); PLEN];
     for pair in 0..ROUNDS / 2 {
         round(state, &mut scratch, round_const(2 * pair));
         round(&scratch, state, round_const(2 * pair + 1));
     }
+}
+
+/// Builds one lane's padded input block.
+///
+/// TurboSHAKE's padding: the message, then the domain separator at the first free byte, then
+/// the high bit of the block's last byte. The whole message fits in this one block, which is
+/// what lets absorption be "build the block" with no state machine.
+#[inline]
+#[target_feature(enable = "avx2")]
+fn pad_block<const RATE: usize, const DS: u8, const S: usize>(
+    prefix: &[u8; 32],
+    suffix: &[u8; S],
+) -> [u8; RATE] {
+    let mut bytes = [0u8; RATE];
+    bytes[..32].copy_from_slice(prefix);
+    bytes[32..32 + S].copy_from_slice(suffix);
+    bytes[32 + S] = DS;
+    bytes[RATE - 1] |= 0x80;
+    bytes
 }
 
 /// Runs four TurboSHAKE instances at once, each absorbing `prefix || suffixes[lane]` and
@@ -210,54 +225,67 @@ fn permute(state: &mut [__m256i; PLEN]) {
 ///
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
-pub(crate) fn xof4<const RATE: usize, const DS: u8, const N: usize>(
+pub(crate) fn xof4<const RATE: usize, const DS: u8, const S: usize, const N: usize>(
     prefix: &[u8; 32],
-    suffixes: &[&[u8]; 4],
+    suffixes: &[[u8; S]; 4],
     out: &mut [[u8; N]; 4],
 ) {
     const {
         assert!(RATE == 168 || RATE == 136, "unsupported TurboSHAKE rate");
         assert!(DS >= 0x01 && DS <= 0x7F, "invalid domain separator");
+        assert!(
+            32 + S < RATE,
+            "input must leave room for the padding in one block"
+        );
     }
 
     // The entire input fits in one block, so absorption is just "build the block". Pad as
     // TurboSHAKE does: the domain separator at the first free byte, and the high bit of the
     // block's last byte.
-    let mut block = [[0u8; RATE]; 4];
-    for (lane, bytes) in block.iter_mut().enumerate() {
-        let suffix = suffixes[lane];
-        assert!(32 + suffix.len() < RATE);
-        bytes[..32].copy_from_slice(prefix);
-        bytes[32..32 + suffix.len()].copy_from_slice(suffix);
-        bytes[32 + suffix.len()] = DS;
-        bytes[RATE - 1] |= 0x80;
-    }
+    // Four separate arrays rather than a `[[u8; RATE]; 4]`: aeneas cannot symbolically execute
+    // a borrow into a nested array, and the loads below need one reference per lane.
+    let s0 = suffixes[0];
+    let s1 = suffixes[1];
+    let s2 = suffixes[2];
+    let s3 = suffixes[3];
+    let b0 = pad_block::<RATE, DS, S>(prefix, &s0);
+    let b1 = pad_block::<RATE, DS, S>(prefix, &s1);
+    let b2 = pad_block::<RATE, DS, S>(prefix, &s2);
+    let b3 = pad_block::<RATE, DS, S>(prefix, &s3);
 
     // Transpose the four blocks into the lane-parallel state. Words past the rate stay zero,
     // which is the capacity. Four words at a time where four remain — one 32-byte load per lane
     // and eight shuffles, rather than sixteen 8-byte copies — then any odd words singly. The
     // split is on the word index alone, so it does not depend on what the block contains.
-    let mut state = [_mm256_setzero_si256(); PLEN];
+    let mut state = [setzero_si256(); PLEN];
     let words = RATE / 8;
     let mut word = 0;
     while word + 4 <= words {
-        let rows = transpose4x64(
-            load_words(&block[0], word),
-            load_words(&block[1], word),
-            load_words(&block[2], word),
-            load_words(&block[3], word),
+        let (r0, r1, r2, r3) = transpose4x64(
+            load_words(&b0, word),
+            load_words(&b1, word),
+            load_words(&b2, word),
+            load_words(&b3, word),
         );
-        state[word..word + 4].copy_from_slice(&rows);
+        // Element by element, not `copy_from_slice` on `state[word..word + 4]`: aeneas cannot
+        // build a mutable subslice of an array at a computed offset.
+        state[word] = r0;
+        state[word + 1] = r1;
+        state[word + 2] = r2;
+        state[word + 3] = r3;
         word += 4;
     }
     while word < words {
-        let lanes: [u64; 4] = core::array::from_fn(|lane| {
-            let mut chunk = [0u8; 8];
-            chunk.copy_from_slice(&block[lane][8 * word..8 * word + 8]);
-            u64::from_le_bytes(chunk)
-        });
-        // SAFETY: `lanes` is 4 `u64`s, exactly the 32 bytes the load reads.
-        state[word] = unsafe { _mm256_loadu_si256(lanes.as_ptr().cast()) };
+        // Gather the four lanes' copies of this one word into the layout a vector load wants:
+        // lane `l`'s eight bytes at `8 * l`. Little-endian throughout, as Keccak is.
+        let mut packed = [0u8; 32];
+        for i in 0..8 {
+            packed[i] = b0[8 * word + i];
+            packed[8 + i] = b1[8 * word + i];
+            packed[16 + i] = b2[8 * word + i];
+            packed[24 + i] = b3[8 * word + i];
+        }
+        state[word] = load_u8x32(&packed, 0);
         word += 1;
     }
 
@@ -273,34 +301,33 @@ pub(crate) fn xof4<const RATE: usize, const DS: u8, const N: usize>(
         // Four words at a time, for as long as four whole words remain *and* the resulting
         // 32-byte store lands entirely inside `out`. Both conditions are on lengths only.
         while word + 4 <= words && done + 8 * word + 32 <= N {
-            let lanes = transpose4x64(
+            let (l0, l1, l2, l3) = transpose4x64(
                 state[word],
                 state[word + 1],
                 state[word + 2],
                 state[word + 3],
             );
             let start = done + 8 * word;
-            for (lane, packed) in lanes.iter().enumerate() {
-                // SAFETY: the loop condition puts the whole 32-byte store inside `out[lane]`.
-                unsafe {
-                    _mm256_storeu_si256(out[lane].as_mut_ptr().add(start).cast(), *packed);
-                }
-            }
+            store_u8x32(&mut out[0], start, l0);
+            store_u8x32(&mut out[1], start, l1);
+            store_u8x32(&mut out[2], start, l2);
+            store_u8x32(&mut out[3], start, l3);
             word += 4;
         }
 
         // Whatever is left: a partial group of words, and a final word the output may only
         // want part of.
         while word < words {
-            let mut lanes = [0u64; 4];
-            // SAFETY: `lanes` is 4 `u64`s, exactly the 32 bytes the store writes.
-            unsafe { _mm256_storeu_si256(lanes.as_mut_ptr().cast(), state[word]) };
-            for (lane, &value) in lanes.iter().enumerate() {
-                let bytes = value.to_le_bytes();
+            // The mirror of the absorb tail: one word of all four lanes, spread out to bytes.
+            let mut packed = [0u8; 32];
+            store_u8x32(&mut packed, 0, state[word]);
+            for lane in 0..4 {
                 // The last word of a partial output contributes only part of itself.
                 let start = done + 8 * word;
                 let len = core::cmp::min(8, N - start);
-                out[lane][start..start + len].copy_from_slice(&bytes[..len]);
+                for i in 0..len {
+                    out[lane][start + i] = packed[8 * lane + i];
+                }
             }
             word += 1;
         }
@@ -329,26 +356,26 @@ mod test {
     // rates are covered, and a rate is not a multiple of 32 either way: 168 is 5 wide groups
     // plus a word, 136 is 4 plus a word, so the narrow tail runs on every full block.
     //
-    // Suffix lengths vary too, including lanes of *different* lengths in one call — each lane
-    // pads independently, so the domain separator sits at a different offset in each block.
+    // Suffix lengths vary too. They are uniform across lanes within a call, because the length
+    // is a const generic: `xof4` cannot take `&[&[u8]; 4]`, since aeneas rejects nested borrows.
     #[test]
     fn matches_scalar() {
         if !super::super::available() {
             return;
         }
 
-        fn check<const RATE: usize, const DS: u8, const N: usize>(
+        fn check<const RATE: usize, const DS: u8, const S: usize, const N: usize>(
             prefix: &[u8; 32],
-            suffixes: &[&[u8]; 4],
+            suffixes: &[[u8; S]; 4],
             scalar: impl Fn(&[u8], &[u8], &mut [u8; N]),
         ) {
             let mut vector = [[0u8; N]; 4];
             // SAFETY: guarded by the `available()` check above.
-            unsafe { xof4::<RATE, DS, N>(prefix, suffixes, &mut vector) };
+            unsafe { xof4::<RATE, DS, S, N>(prefix, suffixes, &mut vector) };
 
             for lane in 0..4 {
                 let mut expected = [0u8; N];
-                scalar(prefix, suffixes[lane], &mut expected);
+                scalar(prefix, &suffixes[lane], &mut expected);
                 assert_eq!(
                     vector[lane],
                     expected,
@@ -383,58 +410,52 @@ mod test {
         // single call, and long ones that push the padding deep into the block.
         let two: [[u8; 2]; 4] = [[0, 0], [0, 1], [1, 0], [2, 3]];
         let one: [[u8; 1]; 4] = [[0], [1], [2], [255]];
+        let empty: [[u8; 0]; 4] = [[], [], [], []];
         let long: [[u8; 64]; 4] = core::array::from_fn(|l| core::array::from_fn(|i| (i + l) as u8));
 
         for prefix in &prefixes {
-            let two: [&[u8]; 4] = core::array::from_fn(|i| two[i].as_slice());
-            let one: [&[u8]; 4] = core::array::from_fn(|i| one[i].as_slice());
-            let empty: [&[u8]; 4] = [&[], &[], &[], &[]];
-            // Different lengths in the same call: 0, 1, 2 and 64 bytes.
-            let mixed: [&[u8]; 4] = [&[], one[1], two[2], long[3].as_slice()];
-            let longs: [&[u8]; 4] = core::array::from_fn(|i| long[i].as_slice());
-
             // Lengths shorter than one wide group, so the narrow path does all the work.
-            check::<168, 0x1F, 1>(prefix, &two, shake128::<0x1F, 1>);
-            check::<168, 0x1F, 7>(prefix, &two, shake128::<0x1F, 7>);
-            check::<168, 0x1F, 8>(prefix, &two, shake128::<0x1F, 8>);
-            check::<168, 0x1F, 9>(prefix, &two, shake128::<0x1F, 9>);
-            check::<168, 0x1F, 31>(prefix, &empty, shake128::<0x1F, 31>);
+            check::<168, 0x1F, 2, 1>(prefix, &two, shake128::<0x1F, 1>);
+            check::<168, 0x1F, 2, 7>(prefix, &two, shake128::<0x1F, 7>);
+            check::<168, 0x1F, 2, 8>(prefix, &two, shake128::<0x1F, 8>);
+            check::<168, 0x1F, 2, 9>(prefix, &two, shake128::<0x1F, 9>);
+            check::<168, 0x1F, 0, 31>(prefix, &empty, shake128::<0x1F, 31>);
 
             // The wide path switching on, and its boundary with the narrow tail.
-            check::<168, 0x1F, 32>(prefix, &two, shake128::<0x1F, 32>);
-            check::<168, 0x1F, 33>(prefix, &two, shake128::<0x1F, 33>);
-            check::<168, 0x1F, 39>(prefix, &mixed, shake128::<0x1F, 39>);
-            check::<168, 0x1F, 40>(prefix, &two, shake128::<0x1F, 40>);
-            check::<168, 0x02, 160>(prefix, &two, shake128::<0x02, 160>);
-            check::<168, 0x02, 161>(prefix, &longs, shake128::<0x02, 161>);
+            check::<168, 0x1F, 2, 32>(prefix, &two, shake128::<0x1F, 32>);
+            check::<168, 0x1F, 2, 33>(prefix, &two, shake128::<0x1F, 33>);
+            check::<168, 0x1F, 64, 39>(prefix, &long, shake128::<0x1F, 39>);
+            check::<168, 0x1F, 2, 40>(prefix, &two, shake128::<0x1F, 40>);
+            check::<168, 0x02, 2, 160>(prefix, &two, shake128::<0x02, 160>);
+            check::<168, 0x02, 64, 161>(prefix, &long, shake128::<0x02, 161>);
 
             // Block boundaries: one short of the rate, exactly the rate, one over.
-            check::<168, 0x1F, 167>(prefix, &two, shake128::<0x1F, 167>);
-            check::<168, 0x1F, 168>(prefix, &two, shake128::<0x1F, 168>);
-            check::<168, 0x1F, 169>(prefix, &mixed, shake128::<0x1F, 169>);
-            check::<168, 0x7F, 171>(prefix, &two, shake128::<0x7F, 171>);
+            check::<168, 0x1F, 2, 167>(prefix, &two, shake128::<0x1F, 167>);
+            check::<168, 0x1F, 2, 168>(prefix, &two, shake128::<0x1F, 168>);
+            check::<168, 0x1F, 64, 169>(prefix, &long, shake128::<0x1F, 169>);
+            check::<168, 0x7F, 2, 171>(prefix, &two, shake128::<0x7F, 171>);
 
             // Several blocks, including the length Kopis actually squeezes.
-            check::<168, 0x02, 336>(prefix, &two, shake128::<0x02, 336>);
-            check::<168, 0x02, 337>(prefix, &one, shake128::<0x02, 337>);
-            check::<168, 0x02, 416>(prefix, &two, shake128::<0x02, 416>);
-            check::<168, 0x02, 512>(prefix, &longs, shake128::<0x02, 512>);
+            check::<168, 0x02, 2, 336>(prefix, &two, shake128::<0x02, 336>);
+            check::<168, 0x02, 1, 337>(prefix, &one, shake128::<0x02, 337>);
+            check::<168, 0x02, 2, 416>(prefix, &two, shake128::<0x02, 416>);
+            check::<168, 0x02, 64, 512>(prefix, &long, shake128::<0x02, 512>);
 
             // The same shape of coverage at rate 136, whose block is 17 words.
-            check::<136, 0x01, 1>(prefix, &one, shake256::<0x01, 1>);
-            check::<136, 0x01, 31>(prefix, &mixed, shake256::<0x01, 31>);
-            check::<136, 0x01, 32>(prefix, &one, shake256::<0x01, 32>);
-            check::<136, 0x01, 33>(prefix, &one, shake256::<0x01, 33>);
-            check::<136, 0x01, 127>(prefix, &empty, shake256::<0x01, 127>);
-            check::<136, 0x01, 128>(prefix, &one, shake256::<0x01, 128>);
-            check::<136, 0x01, 129>(prefix, &one, shake256::<0x01, 129>);
-            check::<136, 0x01, 135>(prefix, &one, shake256::<0x01, 135>);
-            check::<136, 0x01, 136>(prefix, &one, shake256::<0x01, 136>);
-            check::<136, 0x01, 137>(prefix, &one, shake256::<0x01, 137>);
-            check::<136, 0x03, 192>(prefix, &one, shake256::<0x03, 192>);
-            check::<136, 0x03, 256>(prefix, &longs, shake256::<0x03, 256>);
-            check::<136, 0x03, 320>(prefix, &one, shake256::<0x03, 320>);
-            check::<136, 0x01, 600>(prefix, &one, shake256::<0x01, 600>);
+            check::<136, 0x01, 1, 1>(prefix, &one, shake256::<0x01, 1>);
+            check::<136, 0x01, 64, 31>(prefix, &long, shake256::<0x01, 31>);
+            check::<136, 0x01, 1, 32>(prefix, &one, shake256::<0x01, 32>);
+            check::<136, 0x01, 1, 33>(prefix, &one, shake256::<0x01, 33>);
+            check::<136, 0x01, 0, 127>(prefix, &empty, shake256::<0x01, 127>);
+            check::<136, 0x01, 1, 128>(prefix, &one, shake256::<0x01, 128>);
+            check::<136, 0x01, 1, 129>(prefix, &one, shake256::<0x01, 129>);
+            check::<136, 0x01, 1, 135>(prefix, &one, shake256::<0x01, 135>);
+            check::<136, 0x01, 1, 136>(prefix, &one, shake256::<0x01, 136>);
+            check::<136, 0x01, 1, 137>(prefix, &one, shake256::<0x01, 137>);
+            check::<136, 0x03, 1, 192>(prefix, &one, shake256::<0x03, 192>);
+            check::<136, 0x03, 64, 256>(prefix, &long, shake256::<0x03, 256>);
+            check::<136, 0x03, 1, 320>(prefix, &one, shake256::<0x03, 320>);
+            check::<136, 0x01, 1, 600>(prefix, &one, shake256::<0x01, 600>);
         }
     }
 }

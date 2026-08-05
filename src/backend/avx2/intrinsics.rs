@@ -73,6 +73,13 @@ pub(crate) fn set1_epi32(a: i32) -> Vec256 {
     Vec256(_mm256_set1_epi32(a))
 }
 
+/// `vpbroadcastq`: every 64-bit lane set to `a`
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn set1_epi64x(a: i64) -> Vec256 {
+    Vec256(_mm256_set1_epi64x(a))
+}
+
 /// `vpxor`: all 256 bits zero
 #[inline]
 #[target_feature(enable = "avx2")]
@@ -92,6 +99,30 @@ pub(crate) fn cvtsi32_si128(a: i32) -> Vec128 {
 #[target_feature(enable = "avx2")]
 pub(crate) fn and_si256(a: Vec256, b: Vec256) -> Vec256 {
     Vec256(_mm256_and_si256(a.0, b.0))
+}
+
+/// `vpxor`: bitwise exclusive or of all 256 bits
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn xor_si256(a: Vec256, b: Vec256) -> Vec256 {
+    Vec256(_mm256_xor_si256(a.0, b.0))
+}
+
+/// `vpor`: bitwise or of all 256 bits
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn or_si256(a: Vec256, b: Vec256) -> Vec256 {
+    Vec256(_mm256_or_si256(a.0, b.0))
+}
+
+/// `vpandn`: bitwise and of `b` with the complement of `a`, over all 256 bits
+///
+/// Note the operand order, which is the instruction's and not the reading order of the name:
+/// the *first* argument is the one that is complemented.
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn andnot_si256(a: Vec256, b: Vec256) -> Vec256 {
+    Vec256(_mm256_andnot_si256(a.0, b.0))
 }
 
 // ---------------------------------------------------------------------------------------
@@ -184,6 +215,25 @@ pub(crate) fn srli_epi16<const IMM: i32>(a: Vec256) -> Vec256 {
 #[target_feature(enable = "avx2")]
 pub(crate) fn slli_epi32<const IMM: i32>(a: Vec256) -> Vec256 {
     Vec256(_mm256_slli_epi32::<IMM>(a.0))
+}
+
+/// `vpsllq`: 4 lanes of 64-bit left shift by the immediate `IMM`
+///
+/// A count of 64 or more yields zero rather than wrapping, which is the instruction's own
+/// behaviour and is what makes a rotate by zero come out as the identity.
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn slli_epi64<const IMM: i32>(a: Vec256) -> Vec256 {
+    Vec256(_mm256_slli_epi64::<IMM>(a.0))
+}
+
+/// `vpsrlq`: 4 lanes of 64-bit logical right shift by the immediate `IMM`
+///
+/// As with [`slli_epi64`], a count of 64 or more yields zero.
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn srli_epi64<const IMM: i32>(a: Vec256) -> Vec256 {
+    Vec256(_mm256_srli_epi64::<IMM>(a.0))
 }
 
 /// `vpsrlw`: 16 lanes of logical right shift by a count taken from the low 64 bits of `count`
@@ -397,4 +447,26 @@ pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
     assert!(offset + 16 <= src.len());
     // SAFETY: the assert puts all 16 bytes in bounds; the load is unaligned.
     Vec128(unsafe { _mm_loadu_si128(src.as_ptr().add(offset).cast()) })
+}
+
+/// Loads the 32 bytes at `src[offset ..]`
+///
+/// Byte-indexed, like [`load_u8x16`] and for the same reason: `crate::backend::avx2::keccak`
+/// reads the sponge state a 64-bit word at a time, so its offsets are multiples of 8 and not
+/// of 32.
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn load_u8x32<const N: usize>(src: &[u8; N], offset: usize) -> Vec256 {
+    assert!(offset + 32 <= N);
+    // SAFETY: the assert puts all 32 bytes in bounds; the load is unaligned.
+    Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(offset).cast()) })
+}
+
+/// Stores 32 bytes at `dst[offset ..]`
+#[inline]
+#[target_feature(enable = "avx2")]
+pub(crate) fn store_u8x32<const N: usize>(dst: &mut [u8; N], offset: usize, v: Vec256) {
+    assert!(offset + 32 <= N);
+    // SAFETY: the assert puts all 32 bytes in bounds; the store is unaligned.
+    unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(offset).cast(), v.0) }
 }

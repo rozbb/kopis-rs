@@ -106,10 +106,8 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
             let entry = core::cmp::min(first + lane, entries - 1);
             [(entry / L) as u8, (entry % L) as u8]
         });
-        let suffixes: [&[u8]; 4] = core::array::from_fn(|lane| indices[lane].as_slice());
-
         let mut bufs = [[0u8; MATRIX_ELEM_BYTES]; 4];
-        xof4::<RATE_128, DOMSEP_GENMAT, MATRIX_ELEM_BYTES>(seed, &suffixes, &mut bufs);
+        xof4::<RATE_128, DOMSEP_GENMAT, 2, MATRIX_ELEM_BYTES>(seed, &indices, &mut bufs);
 
         for (lane, buf) in bufs.iter().enumerate() {
             let entry = first + lane;
@@ -160,10 +158,9 @@ fn secret<const L: usize, const MU: usize, const N: usize>(seed: &[u8; 32]) -> M
     }
 
     let indices: [[u8; 1]; 4] = core::array::from_fn(|lane| [core::cmp::min(lane, L - 1) as u8]);
-    let suffixes: [&[u8]; 4] = core::array::from_fn(|lane| indices[lane].as_slice());
 
     let mut bufs = [[0u8; N]; 4];
-    xof4::<RATE_256, DOMSEP_GENSEC, N>(seed, &suffixes, &mut bufs);
+    xof4::<RATE_256, DOMSEP_GENSEC, 1, N>(seed, &indices, &mut bufs);
 
     let mut secret = Matrix::default();
     for (i, row) in secret.0.iter_mut().enumerate() {

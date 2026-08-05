@@ -25,7 +25,7 @@ mv Kopis.lean ./lean/ExtractedRustSerial.lean
 rm kopis.llbc
 
 # ---------------------------------------------------------------------------------------
-# The AVX2 backend. Three modules are kept opaque, which aeneas emits as axioms:
+# The AVX2 backend. Two modules are kept opaque, which aeneas emits as axioms:
 #
 #   * `backend::avx2::intrinsics` — the SIMD instruction set. `__m256i` is a rustc builtin with
 #     no MIR and the intrinsics are bodyless `extern "unadjusted"` declarations, so there is
@@ -34,12 +34,6 @@ rm kopis.llbc
 #     `lean/Kopis/Avx2/Intrinsics.lean` — that file is this backend's whole added trust base.
 #   * `backend::avx2::cpu` — the CPUID/XGETBV feature probe. Nothing can be proved about it
 #     here, so `available()` becomes an assumption rather than a definition.
-#   * `backend::avx2::keccak` — the four-way TurboSHAKE. Unlike the rest of the backend it names
-#     `core::arch` intrinsics directly instead of going through `intrinsics`, so charon has the
-#     same nothing-to-lower problem there and the whole module has to be assumed. This is a
-#     genuine widening of the trust base, not a bookkeeping one: `xof4` is the XOF that feeds
-#     both samplers, and opaque means nothing is proved about the bytes it returns. Only its
-#     `matches_scalar` test holds it to the `turboshake` crate.
 #
 # Everything else in `backend/avx2/` is ordinary Rust and is translated normally.
 # ---------------------------------------------------------------------------------------
@@ -47,8 +41,7 @@ rm kopis.llbc
 export RUSTFLAGS='--cfg kopis_backend="avx2"'
 $CHARON cargo --preset=aeneas \
     --opaque 'kopis::backend::avx2::intrinsics' \
-    --opaque 'kopis::backend::avx2::cpu' \
-    --opaque 'kopis::backend::avx2::keccak'
+    --opaque 'kopis::backend::avx2::cpu'
 $AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopisAvx2
 mv Kopis.lean ./lean/ExtractedRustAvx2.lean
 rm kopis.llbc
