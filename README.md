@@ -124,51 +124,6 @@ must be x86, and either `avx2` must be in the enabled target features (`-C targe
 not, the build fails with an explanatory panic rather than producing a binary that would fault
 at run time.
 
-On a 12th-generation Intel Core (`cargo bench`, microseconds, lower is better):
-
-| operation           | serial | avx2  | speedup |
-| ------------------- | -----: | ----: | ------: |
-| kopis512 keygen     |  20.3  |  8.5  |   2.4× |
-| kopis512 encap      |  12.1  |  3.6  |   3.4× |
-| kopis512 decap      |  19.1  |  6.0  |   3.2× |
-| kopis768 keygen     |  35.0  | 14.8  |   2.4× |
-| kopis768 encap      |  15.9  |  4.5  |   3.6× |
-| kopis768 decap      |  24.4  |  8.0  |   3.1× |
-| kopis1024 keygen    |  54.6  | 23.8  |   2.3× |
-| kopis1024 encap     |  21.1  |  6.3  |   3.4× |
-| kopis1024 decap     |  31.1  | 10.4  |   3.0× |
-
-That table is the shipped configuration, which does *not* include the four-way TurboSHAKE. Its
-effect, measured separately on an i9-12900H with `./bench.sh auto` (which adds alignment flags,
-so its absolute numbers sit a little above the table's), is not uniform:
-
-| operation        | `turboshake` crate | four-way | change |
-| ---------------- | -----------------: | -------: | -----: |
-| kopis512 keygen  |               9.93 |     8.89 | −10.5% |
-| kopis512 encap   |               3.44 |     3.95 | **+15.0%** |
-| kopis512 decap   |               5.96 |     6.19 |  +3.9% |
-| kopis768 keygen  |              16.99 |    16.00 |  −5.8% |
-| kopis768 encap   |               4.84 |     4.65 |  −4.0% |
-| kopis768 decap   |               8.27 |     8.04 |  −2.8% |
-| kopis1024 keygen |              26.29 |    22.55 | −14.2% |
-| kopis1024 encap  |               5.98 |     6.02 |  +0.6% |
-| kopis1024 decap  |              10.41 |    10.57 |  +1.5% |
-
-Key generation is where it pays: that is the operation which expands the ℓ×ℓ matrix, so there
-are ℓ² independent sponges to fill the lanes with and the batch is always full. Encapsulation
-is the opposite case — it generates no matrix at all (the public key already carries `A` in NTT
-form), so its only XOF work is the ℓ-element secret, and a four-lane batch run for ℓ = 2 does
-twice the permutations it needs. That is the +15% on kopis512. At ℓ = 4 the lanes are all used
-and encapsulation still does not improve, which is the more telling result: per lane, this
-permutation is not faster than the one in the `turboshake` crate, and the wins above come from
-batching rather than from the vectorization being better code.
-
-One caveat on the kopis768 row: µ = 8 there, and the shipped code sends only the widths that
-straddle byte boundaries through the AVX2 `cbd`. So that row moves the sampler onto the vector
-path as well as the XOF, and its encap/decap gains are not attributable to the XOF alone. The
-kopis512 (µ = 10) and kopis1024 (µ = 6) rows use the AVX2 `cbd` in both columns and are clean
-comparisons.
-
 # Formal Verification
 
 We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates `lean/ExtractedRustSerial.lean`.

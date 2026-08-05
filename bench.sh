@@ -53,6 +53,7 @@ case "${BACKEND}" in
 
         set_filtered_bench_args "${SERIAL_FILTER}" "$@"
 
+	rm -rf target/criterion
         RUSTFLAGS="${RUST_SERIAL_FLAGS} ${RUST_PERF_FLAGS}" AWS_LC_SYS_CFLAGS="${C_SERIAL_FLAGS}" \
             cargo bench --bench all -- "${BENCH_ARGS[@]}"
         OUTDIR="target/criterion-serial"
@@ -81,6 +82,7 @@ case "${BACKEND}" in
                 ;;
         esac
 
+	rm -rf target/criterion
         RUSTFLAGS="${RUST_PERF_FLAGS}" cargo bench --bench all -- "${BENCH_ARGS[@]}"
         OUTDIR="target/criterion-${SIMD}"
         ;;
