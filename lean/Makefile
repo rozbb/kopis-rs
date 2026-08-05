@@ -143,10 +143,13 @@ prove-kopis-avx2: $(GENERATED_AUDIT) twins
 # Spec tests
 # ---------------------------------------------------------------------------
 
-# Run the audited Lean spec against the standard Kopis test vectors + KAT
-# (SpecTests/Kopis/Run.lean).  `lake exe` builds the executable first.
-# Must be run from this directory: the runner reads ../tests/ref_test_vectors-*.jsonl
-# relative to the current directory.
+# Run the audited Lean spec against the standard Kopis test vectors + KAT, and the TurboSHAKE
+# spec against ../tests/turboshake_vectors.jsonl (SpecTests/Kopis/Run.lean).  The TurboSHAKE
+# leg matters because the serial backend *assumes* the `turboshake` crate implements that spec,
+# so a typo in it would be absorbed into the assumption rather than caught by a proof.
+# `lake exe` builds the executable first.
+# Must be run from this directory: the runner reads ../tests/ref_test_vectors-*.jsonl and
+# ../tests/turboshake_vectors.jsonl relative to the current directory.
 .PHONY: test-kopis-spec
 test-kopis-spec:
 	$(LAKE) exe kopisTests
@@ -179,7 +182,7 @@ help:
 	@echo "  make prove-kopis-avx2    the AVX2 backend: proofs, intrinsic axioms, trust base"
 	@echo "  make generated           bring every generated file up to date"
 	@echo "  make twins               regenerate the AVX2 twin proof stack only"
-	@echo "  make test-kopis-spec     run the Lean spec test vectors + KAT (lake exe kopisTests)"
+	@echo "  make test-kopis-spec     run the Lean spec test vectors + KAT + TurboSHAKE (lake exe kopisTests)"
 	@echo "  make test-avx2-model     check the assumed AVX2 intrinsic semantics against silicon"
 	@echo ""
 	@echo "  Parallelism is capped at LEAN_NUM_THREADS=$(LEAN_NUM_THREADS) to fit RAM on small hosts."

@@ -1,4 +1,5 @@
 import SpecTests.Kopis.TestVectors
+import SpecTests.TurboSHAKE.Vectors
 
 /-!
 # Kopis native test entry point
@@ -11,3 +12,4 @@ collide with the ML-KEM runner's `main` in the aggregator's import closure.
 def main : IO Unit := do
   Spec.Kopis.Test.runKopisTests
   Spec.Kopis.Test.runKopisKAT
+  Spec.TurboSHAKE.Test.run

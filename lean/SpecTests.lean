@@ -3,3 +3,4 @@
 --        `lake exe kopisTests` (the KAT runner, = `make test-kopis-spec`).
 import SpecTests.TestUtils
 import SpecTests.Kopis
+import SpecTests.TurboSHAKE.Vectors
