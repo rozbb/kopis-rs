@@ -3277,7 +3277,7 @@ def impls.SharedSecret.as_bytes
   ok self
 
 /-- [kopis::pke::PkePublicKey]
-    Source: 'src/pke.rs', lines 38:0-53:1
+    Source: 'src/pke.rs', lines 37:0-52:1
     Visibility: public -/
 structure pke.PkePublicKey (L : Std.Usize) where
   matrix_seed : Array Std.U8 32#usize
@@ -3286,7 +3286,7 @@ structure pke.PkePublicKey (L : Std.Usize) where
   vec_ntt : arithmetic.ntt.NttMatrix L 1#usize
 
 /-- [kopis::pke::PkeSecretKey]
-    Source: 'src/pke.rs', lines 29:0-29:64 -/
+    Source: 'src/pke.rs', lines 28:0-28:64 -/
 @[reducible]
 def pke.PkeSecretKey (L : Std.Usize) := arithmetic.ntt.NttMatrix L 1#usize
 
@@ -3429,7 +3429,7 @@ def impls.kopis768.Kopis768PublicKey := kem.KemPublicKey 3#usize
 def impls.kopis1024.Kopis1024PublicKey := kem.KemPublicKey 4#usize
 
 /-- [kopis::pke::ciphertext_len]:
-    Source: 'src/pke.rs', lines 128:0-131:1
+    Source: 'src/pke.rs', lines 133:0-136:1
     Visibility: public -/
 def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   let i ← L * consts.MODULUS_P_BITS
@@ -3461,7 +3461,7 @@ def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 4#usize 6#usize
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/sample.rs', lines 156:8-164:9 -/
+    Source: 'src/sample.rs', lines 167:8-175:9 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -3501,7 +3501,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 155:4-165:5 -/
+    Source: 'src/sample.rs', lines 166:4-176:5 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -3521,7 +3521,7 @@ def sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]:
-    Source: 'src/sample.rs', lines 148:0-168:1 -/
+    Source: 'src/sample.rs', lines 151:0-179:1 -/
 def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L L)
@@ -3767,7 +3767,7 @@ def sample.cbd
         ok a
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 111:4-140:5 -/
+    Source: 'src/sample.rs', lines 119:4-143:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -3801,7 +3801,7 @@ def sample.gen_secret_from_seed_loop
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
-    Source: 'src/sample.rs', lines 101:0-143:1 -/
+    Source: 'src/sample.rs', lines 101:0-146:1 -/
 def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L 1#usize)
@@ -3818,110 +3818,48 @@ def sample.gen_secret_from_seed
   sample.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
     secret buf
 
-/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/pke.rs', lines 56:4-56:77
-    Visibility: public -/
-@[global_simps, irreducible]
-def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
-  let i ← L * consts.MODULUS_P_BITS
-  let i1 ← i * consts.RING_DEG
-  let i2 ← i1 / 8#usize
-  32#usize + i2
-
-/-- [kopis::pke::PK_VEC_ELEM_BYTES]
-    Source: 'src/pke.rs', lines 21:0-21:63 -/
-@[global_simps, irreducible]
-def pke.PK_VEC_ELEM_BYTES : Result Std.Usize := do
-  let i ← consts.MODULUS_P_BITS * consts.RING_DEG
-  i / 8#usize
-
-/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]: loop 0:
-    Source: 'src/pke.rs', lines 66:8-69:9 -/
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]: loop 0:
+    Source: 'src/pke.rs', lines 112:8-114:9 -/
 @[rust_loop]
-def pke.PkePublicKey.serialize_loop
+def pke.PkePublicKey.hash_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
-  Result ((pke.PkePublicKey L) × (Slice Std.U8))
+  (self : pke.PkePublicKey L) (hasher : turboshake.TurboShake 136#usize 4#u8) :
+  Result ((pke.PkePublicKey L) × (turboshake.TurboShake 136#usize 4#u8))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (self, out_buf)
+  | none => ok (self, hasher)
   | some i =>
-    let i1 ← pke.PK_VEC_ELEM_BYTES
-    let start ← i * i1
-    let i2 ← start + i1
-    let (s, index_mut_back) ←
-      core.slice.index.Slice.index_mut
-        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
-        { start, «end» := i2 }
     let a ← Array.index_usize self.vec_bytes i
-    let s1 ← lift (Array.to_slice a)
-    let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
-    let out_buf1 := index_mut_back s2
-    pke.PkePublicKey.serialize_loop iter1 self out_buf1
+    let s ← lift (Array.to_slice a)
+    let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
+    pke.PkePublicKey.hash_loop iter1 self hasher1
 partial_fixpoint
 
-/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]:
-    Source: 'src/pke.rs', lines 61:4-71:5 -/
-def pke.PkePublicKey.serialize
-  {L : Std.Usize} (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
-  Result (Slice Std.U8)
-  := do
-  let left_val := Slice.len out_buf
-  let right_val ← pke.PkePublicKey.SERIALIZED_LEN L
-  massert (left_val = right_val)
-  let (self1, out_buf1) ←
-    pke.PkePublicKey.serialize_loop { start := 0#usize, «end» := L } self
-      out_buf
-  let i ← pke.PK_VEC_ELEM_BYTES
-  let i1 ← L * i
-  let (s, index_mut_back) ←
-    core.slice.index.Slice.index_mut
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) out_buf1
-      { start := i1 }
-  let s1 ← lift (Array.to_slice self1.matrix_seed)
-  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
-  ok (index_mut_back s2)
-
-/-- [kopis::turboshake256_hash]:
-    Source: 'src/lib.rs', lines 41:0-51:1 -/
-def turboshake256_hash
-  (DS : Std.U8) (input0 : Slice Std.U8) (input1 : Slice Std.U8) :
-  Result (Array Std.U8 32#usize)
-  := do
-  let hasher ←
-    turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize DS
-  let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher input0
-  let hasher2 ←
-    turboshake.TurboShake.Insts.DigestUpdate.update hasher1 input1
-  let out := Array.repeat 32#usize 0#u8
-  let reader ←
-    turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
-      hasher2
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
-  let (_, s1) ←
-    turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s
-  ok (to_slice_mut_back s1)
-
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]:
-    Source: 'src/pke.rs', lines 105:4-111:5 -/
+    Source: 'src/pke.rs', lines 109:4-121:5 -/
 def pke.PkePublicKey.hash
   {L : Std.Usize} (self : pke.PkePublicKey L) :
   Result (Array Std.U8 32#usize)
   := do
-  let buf := Array.repeat 1312#usize 0#u8
-  let i ← pke.PkePublicKey.SERIALIZED_LEN L
-  let (pk_slice, _) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) buf
-      { «end» := i }
-  let pk_slice1 ← pke.PkePublicKey.serialize self pk_slice
-  let s ← lift (Array.to_slice (Std.Array.empty Std.U8))
-  turboshake256_hash 4#u8 pk_slice1 s
+  let hasher ←
+    turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 4#u8
+  let (self1, hasher1) ←
+    pke.PkePublicKey.hash_loop { start := 0#usize, «end» := L } self hasher
+  let s ← lift (Array.to_slice self1.matrix_seed)
+  let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s
+  let out := Array.repeat 32#usize 0#u8
+  let reader ←
+    turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
+      hasher2
+  let (s1, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+  let (_, s2) ←
+    turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s1
+  ok (to_slice_mut_back s2)
 
 /-- [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}::drop]:
-    Source: 'src/pke.rs', lines 28:18-28:31
+    Source: 'src/pke.rs', lines 27:18-27:31
     Visibility: public -/
 def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
   {L : Std.Usize} (self : pke.PkeSecretKey L) :
@@ -3933,7 +3871,7 @@ def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
   ok __zeroize_field_0
 
 /-- [kopis::pke::H1_VAL]
-    Source: 'src/pke.rs', lines 17:0-17:63 -/
+    Source: 'src/pke.rs', lines 16:0-16:63 -/
 @[global_simps, irreducible]
 def pke.H1_VAL : Result Std.U16 := do
   let i ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
@@ -3941,7 +3879,7 @@ def pke.H1_VAL : Result Std.U16 := do
   1#u16 <<< i1
 
 /-- [kopis::pke::expand_decap_key]: loop 0:
-    Source: 'src/pke.rs', lines 185:4-187:5 -/
+    Source: 'src/pke.rs', lines 190:4-192:5 -/
 @[rust_loop]
 def pke.expand_decap_key_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -3966,7 +3904,7 @@ def pke.expand_decap_key_loop
 partial_fixpoint
 
 /-- [kopis::pke::expand_decap_key]:
-    Source: 'src/pke.rs', lines 142:0-198:1 -/
+    Source: 'src/pke.rs', lines 147:0-203:1 -/
 def pke.expand_decap_key
   (L : Std.Usize) (MU : Std.Usize) (sk : Array Std.U8 32#usize) :
   Result ((pke.PkeSecretKey L) × (Array Std.U8 32#usize) × (pke.PkePublicKey
@@ -4030,7 +3968,7 @@ def kem.KemSecretKey.expand_from_seed
   ok { seed, z, pke_sk, pke_pk, hash_pke_pk }
 
 /-- [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}::zeroize]:
-    Source: 'src/pke.rs', lines 28:9-28:16
+    Source: 'src/pke.rs', lines 27:9-27:16
     Visibility: public -/
 def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
   {L : Std.Usize} (self : pke.PkeSecretKey L) :
@@ -4041,7 +3979,7 @@ def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 28:9-28:16 -/
+    Source: 'src/pke.rs', lines 27:9-27:16 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.ZeroizeZeroize (L : Std.Usize) : zeroize.Zeroize
   (pke.PkeSecretKey L) := {
@@ -4186,7 +4124,7 @@ def impls.kopis1024.Kopis1024SecretKey.expand_from_seed
   ok ksk
 
 /-- [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}::clone]:
-    Source: 'src/pke.rs', lines 37:9-37:14
+    Source: 'src/pke.rs', lines 36:9-36:14
     Visibility: public -/
 def pke.PkePublicKey.Insts.CoreCloneClone.clone
   {L : Std.Usize} (self : pke.PkePublicKey L) :
@@ -4239,6 +4177,16 @@ def impls.kopis1024.Kopis1024SecretKey.public_key
   let kpk ← kem.KemSecretKey.public_key self
   ok kpk
 
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::SERIALIZED_LEN]
+    Source: 'src/pke.rs', lines 55:4-55:77
+    Visibility: public -/
+@[global_simps, irreducible]
+def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
+  let i ← L * consts.MODULUS_P_BITS
+  let i1 ← i * consts.RING_DEG
+  let i2 ← i1 / 8#usize
+  32#usize + i2
+
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::SERIALIZED_LEN]
     Source: 'src/kem.rs', lines 24:4-24:79 -/
 @[global_simps, irreducible]
@@ -4265,6 +4213,62 @@ def impls.kopis768.Kopis768PublicKey.SERIALIZED_LEN : Result Std.Usize :=
 @[global_simps, irreducible]
 def impls.kopis1024.Kopis1024PublicKey.SERIALIZED_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 4#usize
+
+/-- [kopis::pke::PK_VEC_ELEM_BYTES]
+    Source: 'src/pke.rs', lines 20:0-20:63 -/
+@[global_simps, irreducible]
+def pke.PK_VEC_ELEM_BYTES : Result Std.Usize := do
+  let i ← consts.MODULUS_P_BITS * consts.RING_DEG
+  i / 8#usize
+
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]: loop 0:
+    Source: 'src/pke.rs', lines 65:8-68:9 -/
+@[rust_loop]
+def pke.PkePublicKey.serialize_loop
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
+  Result ((pke.PkePublicKey L) × (Slice Std.U8))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, out_buf)
+  | some i =>
+    let i1 ← pke.PK_VEC_ELEM_BYTES
+    let start ← i * i1
+    let i2 ← start + i1
+    let (s, index_mut_back) ←
+      core.slice.index.Slice.index_mut
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
+        { start, «end» := i2 }
+    let a ← Array.index_usize self.vec_bytes i
+    let s1 ← lift (Array.to_slice a)
+    let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+    let out_buf1 := index_mut_back s2
+    pke.PkePublicKey.serialize_loop iter1 self out_buf1
+partial_fixpoint
+
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]:
+    Source: 'src/pke.rs', lines 60:4-70:5 -/
+def pke.PkePublicKey.serialize
+  {L : Std.Usize} (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
+  Result (Slice Std.U8)
+  := do
+  let left_val := Slice.len out_buf
+  let right_val ← pke.PkePublicKey.SERIALIZED_LEN L
+  massert (left_val = right_val)
+  let (self1, out_buf1) ←
+    pke.PkePublicKey.serialize_loop { start := 0#usize, «end» := L } self
+      out_buf
+  let i ← pke.PK_VEC_ELEM_BYTES
+  let i1 ← L * i
+  let (s, index_mut_back) ←
+    core.slice.index.Slice.index_mut
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) out_buf1
+      { start := i1 }
+  let s1 ← lift (Array.to_slice self1.matrix_seed)
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+  ok (index_mut_back s2)
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::serialize]:
     Source: 'src/kem.rs', lines 27:4-29:5 -/
@@ -4311,7 +4315,7 @@ def impls.kopis1024.Kopis1024PublicKey.serialize
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]: loop 0:
-    Source: 'src/pke.rs', lines 89:8-92:9 -/
+    Source: 'src/pke.rs', lines 88:8-91:9 -/
 @[rust_loop]
 def pke.PkePublicKey.from_bytes_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -4338,7 +4342,7 @@ def pke.PkePublicKey.from_bytes_loop
 partial_fixpoint
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]:
-    Source: 'src/pke.rs', lines 75:4-102:5 -/
+    Source: 'src/pke.rs', lines 74:4-101:5 -/
 def pke.PkePublicKey.from_bytes
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (pke.PkePublicKey L) := do
   let left_val := Slice.len bytes
@@ -4403,7 +4407,7 @@ def impls.kopis1024.Kopis1024PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::pke::encrypt_deterministic]:
-    Source: 'src/pke.rs', lines 233:0-266:1 -/
+    Source: 'src/pke.rs', lines 238:0-271:1 -/
 def pke.encrypt_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (pk : pke.PkePublicKey L)
   (msg : Array Std.U8 32#usize) (randomness : Array Std.U8 32#usize)
@@ -4576,7 +4580,7 @@ def impls.kopis1024.Kopis1024PublicKey.encapsulate
   ok (out, rng1)
 
 /-- [kopis::pke::decrypt]:
-    Source: 'src/pke.rs', lines 202:0-229:1 -/
+    Source: 'src/pke.rs', lines 207:0-234:1 -/
 def pke.decrypt
   {L : Std.Usize} (T : Std.Usize) (sk : pke.PkeSecretKey L)
   (ciphertext : Slice Std.U8) :
@@ -4616,6 +4620,26 @@ def pke.decrypt
   let m := Array.repeat 32#usize 0#u8
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut m)
   let s1 ← arithmetic.ring_arith.RingElem.serialize mprime2 s 1#usize
+  ok (to_slice_mut_back s1)
+
+/-- [kopis::turboshake256_hash]:
+    Source: 'src/lib.rs', lines 41:0-51:1 -/
+def turboshake256_hash
+  (DS : Std.U8) (input0 : Slice Std.U8) (input1 : Slice Std.U8) :
+  Result (Array Std.U8 32#usize)
+  := do
+  let hasher ←
+    turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize DS
+  let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher input0
+  let hasher2 ←
+    turboshake.TurboShake.Insts.DigestUpdate.update hasher1 input1
+  let out := Array.repeat 32#usize 0#u8
+  let reader ←
+    turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
+      hasher2
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+  let (_, s1) ←
+    turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
@@ -4710,7 +4734,7 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 28:18-28:31 -/
+    Source: 'src/pke.rs', lines 27:18-27:31 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
   (pke.PkeSecretKey L) := {
@@ -4718,30 +4742,22 @@ def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::pke::{impl zeroize::ZeroizeOnDrop for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 28:18-28:31 -/
+    Source: 'src/pke.rs', lines 27:18-27:31 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
   zeroize.ZeroizeOnDrop (pke.PkeSecretKey L) := {
 }
 
 /-- Trait implementation: [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}]
-    Source: 'src/pke.rs', lines 37:9-37:14 -/
+    Source: 'src/pke.rs', lines 36:9-36:14 -/
 @[reducible]
 def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
   (pke.PkePublicKey L) := {
   clone := pke.PkePublicKey.Insts.CoreCloneClone.clone
 }
 
-/-- [kopis::pke::max_pke_pubkey_serialized_len]:
-    Source: 'src/pke.rs', lines 115:0-117:1 -/
-def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
-  let i ← consts.MAX_L * consts.MODULUS_P_BITS
-  let i1 ← i * consts.RING_DEG
-  let i2 ← i1 / 8#usize
-  32#usize + i2
-
 /-- [kopis::pke::max_ciphertext_len]:
-    Source: 'src/pke.rs', lines 121:0-124:1
+    Source: 'src/pke.rs', lines 126:0-129:1
     Visibility: public -/
 def pke.max_ciphertext_len : Result Std.Usize := do
   let i ← consts.MAX_T * consts.RING_DEG

@@ -1765,7 +1765,7 @@ def backend.avx2.ser.GROUPS : Result Std.Usize := consts.RING_DEG / 8#usize
 axiom backend.avx2.intrinsics.Vec128 : Type
 
 /-- [kopis::backend::avx2::intrinsics::load_u8x16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 396:0-400:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 446:0-450:1 -/
 axiom backend.avx2.intrinsics.load_u8x16
   : Slice Std.U8 → Std.Usize → Result backend.avx2.intrinsics.Vec128
 
@@ -1774,65 +1774,65 @@ axiom backend.avx2.intrinsics.load_u8x16
 axiom backend.avx2.intrinsics.Vec256 : Type
 
 /-- [kopis::backend::avx2::intrinsics::load_u8]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 384:0-388:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 434:0-438:1 -/
 axiom backend.avx2.intrinsics.load_u8
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::load_i32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 366:0-370:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 416:0-420:1 -/
 axiom backend.avx2.intrinsics.load_i32
   {N : Std.Usize} :
   Array Std.I32 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::store_u16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 357:0-361:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 407:0-411:1 -/
 axiom backend.avx2.intrinsics.store_u16
   {N : Std.Usize} :
   Array Std.U16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
     (Array Std.U16 N)
 
 /-- [kopis::backend::avx2::intrinsics::broadcastsi128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 314:0-316:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 364:0-366:1 -/
 axiom backend.avx2.intrinsics.broadcastsi128_si256
   : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::packus_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 286:0-288:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 336:0-338:1 -/
 axiom backend.avx2.intrinsics.packus_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::permute4x64_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 270:0-272:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 320:0-322:1 -/
 axiom backend.avx2.intrinsics.permute4x64_epi64
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::shuffle_epi8]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 213:0-215:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 263:0-265:1 -/
 axiom backend.avx2.intrinsics.shuffle_epi8
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srlv_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 201:0-203:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 251:0-253:1 -/
 axiom backend.avx2.intrinsics.srlv_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::and_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 93:0-95:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 100:0-102:1 -/
 axiom backend.avx2.intrinsics.and_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::setzero_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 79:0-81:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 86:0-88:1 -/
 axiom backend.avx2.intrinsics.setzero_si256
   : Result backend.avx2.intrinsics.Vec256
 
@@ -2458,42 +2458,42 @@ def backend.crt.zeta (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
   else Array.index_usize backend.crt.ZETAS_Q1 k
 
 /-- [kopis::backend::avx2::intrinsics::unpackhi_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 255:0-257:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 305:0-307:1 -/
 axiom backend.avx2.intrinsics.unpackhi_epi64
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpacklo_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 248:0-250:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 298:0-300:1 -/
 axiom backend.avx2.intrinsics.unpacklo_epi64
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpackhi_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 241:0-243:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 291:0-293:1 -/
 axiom backend.avx2.intrinsics.unpackhi_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpacklo_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 234:0-236:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 284:0-286:1 -/
 axiom backend.avx2.intrinsics.unpacklo_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpackhi_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 227:0-229:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 277:0-279:1 -/
 axiom backend.avx2.intrinsics.unpackhi_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpacklo_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 220:0-222:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 270:0-272:1 -/
 axiom backend.avx2.intrinsics.unpacklo_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -2547,20 +2547,20 @@ def backend.avx2.ntt.inlane_transpose8
   Array.update v22 7#usize v23
 
 /-- [kopis::backend::avx2::intrinsics::store_i16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 339:0-343:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 389:0-393:1 -/
 axiom backend.avx2.intrinsics.store_i16
   {N : Std.Usize} :
   Array Std.I16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
     (Array Std.I16 N)
 
 /-- [kopis::backend::avx2::intrinsics::load_i16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 330:0-334:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 380:0-384:1 -/
 axiom backend.avx2.intrinsics.load_i16
   {N : Std.Usize} :
   Array Std.I16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::permute2x128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 263:0-265:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 313:0-315:1 -/
 axiom backend.avx2.intrinsics.permute2x128_si256
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -2659,34 +2659,34 @@ def backend.avx2.ntt.transpose16
     scratch1
 
 /-- [kopis::backend::avx2::intrinsics::srai_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 164:0-166:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 195:0-197:1 -/
 axiom backend.avx2.intrinsics.srai_epi16
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::mulhi_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 139:0-141:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 170:0-172:1 -/
 axiom backend.avx2.intrinsics.mulhi_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::mullo_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 132:0-134:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 163:0-165:1 -/
 axiom backend.avx2.intrinsics.mullo_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::sub_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 111:0-113:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 142:0-144:1 -/
 axiom backend.avx2.intrinsics.sub_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::add_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 104:0-106:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 135:0-137:1 -/
 axiom backend.avx2.intrinsics.add_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -3192,7 +3192,7 @@ def backend.avx2.ntt.ntt_block
   backend.avx2.ntt.barrett_block b8 bm round q
 
 /-- [kopis::backend::avx2::intrinsics::load_u16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 348:0-352:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 398:0-402:1 -/
 axiom backend.avx2.intrinsics.load_u16
   {N : Std.Usize} :
   Array Std.U16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
@@ -3606,14 +3606,14 @@ def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
 }
 
 /-- [kopis::backend::avx2::intrinsics::store_i32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 375:0-379:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 425:0-429:1 -/
 axiom backend.avx2.intrinsics.store_i32
   {N : Std.Usize} :
   Array Std.I32 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
     (Array Std.I32 N)
 
 /-- [kopis::backend::avx2::intrinsics::add_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 118:0-120:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 149:0-151:1 -/
 axiom backend.avx2.intrinsics.add_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -4148,20 +4148,20 @@ def backend.avx2.ntt.invntt_block
     b9 q scale scale_q
 
 /-- [kopis::backend::avx2::intrinsics::packs_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 278:0-280:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 328:0-330:1 -/
 axiom backend.avx2.intrinsics.packs_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::slli_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 185:0-187:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 216:0-218:1 -/
 axiom backend.avx2.intrinsics.slli_epi32
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srai_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 171:0-173:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 202:0-204:1 -/
 axiom backend.avx2.intrinsics.srai_epi32
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
@@ -4221,37 +4221,37 @@ def backend.avx2.ntt.reduce_block
   backend.avx2.ntt.invntt_block SECOND b1
 
 /-- [kopis::backend::avx2::intrinsics::extracti128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 307:0-309:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 357:0-359:1 -/
 axiom backend.avx2.intrinsics.extracti128_si256
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::castsi256_si128]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 300:0-302:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 350:0-352:1 -/
 axiom backend.avx2.intrinsics.castsi256_si128
   : backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::cvtepu16_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 293:0-295:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 343:0-345:1 -/
 axiom backend.avx2.intrinsics.cvtepu16_epi32
   : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::cmpgt_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 153:0-155:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 184:0-186:1 -/
 axiom backend.avx2.intrinsics.cmpgt_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::mullo_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 146:0-148:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 177:0-179:1 -/
 axiom backend.avx2.intrinsics.mullo_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::sub_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 125:0-127:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 156:0-158:1 -/
 axiom backend.avx2.intrinsics.sub_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -4996,31 +4996,783 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   sub := SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
 }
 
+/-- [kopis::backend::avx2::intrinsics::set1_epi64x]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 79:0-81:1 -/
+axiom backend.avx2.intrinsics.set1_epi64x
+  : Std.I64 → Result backend.avx2.intrinsics.Vec256
+
 /-- [kopis::backend::avx2::intrinsics::cvtsi32_si128]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 86:0-88:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 93:0-95:1 -/
 axiom backend.avx2.intrinsics.cvtsi32_si128
   : Std.I32 → Result backend.avx2.intrinsics.Vec128
 
+/-- [kopis::backend::avx2::intrinsics::xor_si256]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 107:0-109:1 -/
+axiom backend.avx2.intrinsics.xor_si256
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::or_si256]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 114:0-116:1 -/
+axiom backend.avx2.intrinsics.or_si256
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::andnot_si256]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 124:0-126:1 -/
+axiom backend.avx2.intrinsics.andnot_si256
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
 /-- [kopis::backend::avx2::intrinsics::srli_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 178:0-180:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 209:0-211:1 -/
 axiom backend.avx2.intrinsics.srli_epi16
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
+/-- [kopis::backend::avx2::intrinsics::slli_epi64]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 226:0-228:1 -/
+axiom backend.avx2.intrinsics.slli_epi64
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::srli_epi64]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 235:0-237:1 -/
+axiom backend.avx2.intrinsics.srli_epi64
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
+
 /-- [kopis::backend::avx2::intrinsics::srl_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 194:0-196:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 244:0-246:1 -/
 axiom backend.avx2.intrinsics.srl_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec128 → Result
     backend.avx2.intrinsics.Vec256
 
+/-- [kopis::backend::avx2::intrinsics::load_u8x32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 459:0-463:1 -/
+axiom backend.avx2.intrinsics.load_u8x32
+  {N : Std.Usize} :
+  Array Std.U8 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::store_u8x32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 468:0-472:1 -/
+axiom backend.avx2.intrinsics.store_u8x32
+  {N : Std.Usize} :
+  Array Std.U8 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
+    (Array Std.U8 N)
+
+/-- [kopis::backend::avx2::keccak::PLEN]
+    Source: 'src/backend/avx2/keccak.rs', lines 26:0-26:23 -/
+@[global_simps, irreducible]
+def backend.avx2.keccak.PLEN : Std.Usize := 25#usize
+
+/-- [kopis::backend::avx2::keccak::ROUNDS]
+    Source: 'src/backend/avx2/keccak.rs', lines 29:0-29:25 -/
+@[global_simps, irreducible]
+def backend.avx2.keccak.ROUNDS : Std.Usize := 12#usize
+
+/-- [kopis::backend::avx2::keccak::RC]
+    Source: 'src/backend/avx2/keccak.rs', lines 33:0-40:2 -/
+@[global_simps, irreducible]
+def backend.avx2.keccak.RC : Array Std.U64 24#usize :=
+  Array.make 24#usize [
+    1#u64, 32898#u64, 9223372036854808714#u64, 9223372039002292224#u64,
+    32907#u64, 2147483649#u64, 9223372039002292353#u64,
+    9223372036854808585#u64, 138#u64, 136#u64, 2147516425#u64, 2147483658#u64,
+    2147516555#u64, 9223372036854775947#u64, 9223372036854808713#u64,
+    9223372036854808579#u64, 9223372036854808578#u64, 9223372036854775936#u64,
+    32778#u64, 9223372039002259466#u64, 9223372039002292353#u64,
+    9223372036854808704#u64, 2147483649#u64, 9223372039002292232#u64
+    ]
+
+/-- [kopis::backend::avx2::keccak::rotl]:
+    Source: 'src/backend/avx2/keccak.rs', lines 48:0-53:1 -/
+def backend.avx2.keccak.rotl
+  (L : Std.I32) (R : Std.I32) (v : backend.avx2.intrinsics.Vec256) :
+  Result backend.avx2.intrinsics.Vec256
+  := do
+  let i ← L + R
+  massert (i = 64#i32)
+  let v1 ← backend.avx2.intrinsics.slli_epi64 L v
+  let v2 ← backend.avx2.intrinsics.srli_epi64 R v
+  backend.avx2.intrinsics.or_si256 v1 v2
+
+/-- [kopis::backend::avx2::keccak::transpose4x64]:
+    Source: 'src/backend/avx2/keccak.rs', lines 64:0-75:1 -/
+def backend.avx2.keccak.transpose4x64
+  (a : backend.avx2.intrinsics.Vec256) (b : backend.avx2.intrinsics.Vec256)
+  (c : backend.avx2.intrinsics.Vec256) (d : backend.avx2.intrinsics.Vec256) :
+  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256 ×
+    backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
+  := do
+  let t0 ← backend.avx2.intrinsics.unpacklo_epi64 a b
+  let t1 ← backend.avx2.intrinsics.unpackhi_epi64 a b
+  let t2 ← backend.avx2.intrinsics.unpacklo_epi64 c d
+  let t3 ← backend.avx2.intrinsics.unpackhi_epi64 c d
+  let v ← backend.avx2.intrinsics.permute2x128_si256 32#i32 t0 t2
+  let v1 ← backend.avx2.intrinsics.permute2x128_si256 32#i32 t1 t3
+  let v2 ← backend.avx2.intrinsics.permute2x128_si256 49#i32 t0 t2
+  let v3 ← backend.avx2.intrinsics.permute2x128_si256 49#i32 t1 t3
+  ok (v, v1, v2, v3)
+
+/-- [kopis::backend::avx2::keccak::load_words]:
+    Source: 'src/backend/avx2/keccak.rs', lines 80:0-82:1 -/
+def backend.avx2.keccak.load_words
+  {RATE : Std.Usize} (block : Array Std.U8 RATE) (word : Std.Usize) :
+  Result backend.avx2.intrinsics.Vec256
+  := do
+  let i ← 8#usize * word
+  backend.avx2.intrinsics.load_u8x32 block i
+
+/-- [kopis::backend::avx2::keccak::round_const]:
+    Source: 'src/backend/avx2/keccak.rs', lines 87:0-91:1 -/
+def backend.avx2.keccak.round_const
+  (round : Std.Usize) : Result backend.avx2.intrinsics.Vec256 := do
+  massert (round < backend.avx2.keccak.ROUNDS)
+  let i ← 24#usize - backend.avx2.keccak.ROUNDS
+  let i1 ← i + round
+  let i2 ← Array.index_usize backend.avx2.keccak.RC i1
+  let i3 ← lift (UScalar.hcast .I64 i2)
+  backend.avx2.intrinsics.set1_epi64x i3
+
+/-- [kopis::backend::avx2::keccak::round]:
+    Source: 'src/backend/avx2/keccak.rs', lines 128:0-175:1 -/
+def backend.avx2.keccak.round
+  (src : Array backend.avx2.intrinsics.Vec256 25#usize)
+  (dst : Array backend.avx2.intrinsics.Vec256 25#usize)
+  (rc : backend.avx2.intrinsics.Vec256) :
+  Result (Array backend.avx2.intrinsics.Vec256 25#usize)
+  := do
+  let v ← Array.index_usize src 0#usize
+  let v1 ← Array.index_usize src 5#usize
+  let v2 ← backend.avx2.intrinsics.xor_si256 v v1
+  let v3 ← Array.index_usize src 10#usize
+  let v4 ← Array.index_usize src 15#usize
+  let v5 ← backend.avx2.intrinsics.xor_si256 v3 v4
+  let v6 ← backend.avx2.intrinsics.xor_si256 v2 v5
+  let v7 ← Array.index_usize src 20#usize
+  let c0 ← backend.avx2.intrinsics.xor_si256 v6 v7
+  let v8 ← Array.index_usize src 1#usize
+  let v9 ← Array.index_usize src 6#usize
+  let v10 ← backend.avx2.intrinsics.xor_si256 v8 v9
+  let v11 ← Array.index_usize src 11#usize
+  let v12 ← Array.index_usize src 16#usize
+  let v13 ← backend.avx2.intrinsics.xor_si256 v11 v12
+  let v14 ← backend.avx2.intrinsics.xor_si256 v10 v13
+  let v15 ← Array.index_usize src 21#usize
+  let c1 ← backend.avx2.intrinsics.xor_si256 v14 v15
+  let v16 ← Array.index_usize src 2#usize
+  let v17 ← Array.index_usize src 7#usize
+  let v18 ← backend.avx2.intrinsics.xor_si256 v16 v17
+  let v19 ← Array.index_usize src 12#usize
+  let v20 ← Array.index_usize src 17#usize
+  let v21 ← backend.avx2.intrinsics.xor_si256 v19 v20
+  let v22 ← backend.avx2.intrinsics.xor_si256 v18 v21
+  let v23 ← Array.index_usize src 22#usize
+  let c2 ← backend.avx2.intrinsics.xor_si256 v22 v23
+  let v24 ← Array.index_usize src 3#usize
+  let v25 ← Array.index_usize src 8#usize
+  let v26 ← backend.avx2.intrinsics.xor_si256 v24 v25
+  let v27 ← Array.index_usize src 13#usize
+  let v28 ← Array.index_usize src 18#usize
+  let v29 ← backend.avx2.intrinsics.xor_si256 v27 v28
+  let v30 ← backend.avx2.intrinsics.xor_si256 v26 v29
+  let v31 ← Array.index_usize src 23#usize
+  let c3 ← backend.avx2.intrinsics.xor_si256 v30 v31
+  let v32 ← Array.index_usize src 4#usize
+  let v33 ← Array.index_usize src 9#usize
+  let v34 ← backend.avx2.intrinsics.xor_si256 v32 v33
+  let v35 ← Array.index_usize src 14#usize
+  let v36 ← Array.index_usize src 19#usize
+  let v37 ← backend.avx2.intrinsics.xor_si256 v35 v36
+  let v38 ← backend.avx2.intrinsics.xor_si256 v34 v37
+  let v39 ← Array.index_usize src 24#usize
+  let c4 ← backend.avx2.intrinsics.xor_si256 v38 v39
+  let v40 ← backend.avx2.keccak.rotl 1#i32 63#i32 c1
+  let v41 ← backend.avx2.intrinsics.xor_si256 c4 v40
+  let v42 ← backend.avx2.keccak.rotl 1#i32 63#i32 c2
+  let v43 ← backend.avx2.intrinsics.xor_si256 c0 v42
+  let v44 ← backend.avx2.keccak.rotl 1#i32 63#i32 c3
+  let v45 ← backend.avx2.intrinsics.xor_si256 c1 v44
+  let v46 ← backend.avx2.keccak.rotl 1#i32 63#i32 c4
+  let v47 ← backend.avx2.intrinsics.xor_si256 c2 v46
+  let v48 ← backend.avx2.keccak.rotl 1#i32 63#i32 c0
+  let v49 ← backend.avx2.intrinsics.xor_si256 c3 v48
+  let i ← 0#usize % 5#usize
+  let v50 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i
+  let v51 ← backend.avx2.intrinsics.xor_si256 v v50
+  let t0 ← backend.avx2.keccak.rotl 0#i32 64#i32 v51
+  let i1 ← 6#usize % 5#usize
+  let v52 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i1
+  let v53 ← backend.avx2.intrinsics.xor_si256 v9 v52
+  let t1 ← backend.avx2.keccak.rotl 44#i32 20#i32 v53
+  let i2 ← 12#usize % 5#usize
+  let v54 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i2
+  let v55 ← backend.avx2.intrinsics.xor_si256 v19 v54
+  let t2 ← backend.avx2.keccak.rotl 43#i32 21#i32 v55
+  let i3 ← 18#usize % 5#usize
+  let v56 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i3
+  let v57 ← backend.avx2.intrinsics.xor_si256 v28 v56
+  let t3 ← backend.avx2.keccak.rotl 21#i32 43#i32 v57
+  let i4 ← 24#usize % 5#usize
+  let v58 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i4
+  let v59 ← backend.avx2.intrinsics.xor_si256 v39 v58
+  let t4 ← backend.avx2.keccak.rotl 14#i32 50#i32 v59
+  let v60 ← backend.avx2.intrinsics.andnot_si256 t1 t2
+  let v61 ← backend.avx2.intrinsics.xor_si256 t0 v60
+  let i5 ← 5#usize * 0#usize
+  let dst1 ← Array.update dst i5 v61
+  let v62 ← backend.avx2.intrinsics.andnot_si256 t2 t3
+  let v63 ← backend.avx2.intrinsics.xor_si256 t1 v62
+  let i6 ← i5 + 1#usize
+  let dst2 ← Array.update dst1 i6 v63
+  let v64 ← backend.avx2.intrinsics.andnot_si256 t3 t4
+  let v65 ← backend.avx2.intrinsics.xor_si256 t2 v64
+  let i7 ← i5 + 2#usize
+  let dst3 ← Array.update dst2 i7 v65
+  let v66 ← backend.avx2.intrinsics.andnot_si256 t4 t0
+  let v67 ← backend.avx2.intrinsics.xor_si256 t3 v66
+  let i8 ← i5 + 3#usize
+  let dst4 ← Array.update dst3 i8 v67
+  let v68 ← backend.avx2.intrinsics.andnot_si256 t0 t1
+  let v69 ← backend.avx2.intrinsics.xor_si256 t4 v68
+  let i9 ← i5 + 4#usize
+  let dst5 ← Array.update dst4 i9 v69
+  let i10 ← 3#usize % 5#usize
+  let v70 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i10
+  let v71 ← backend.avx2.intrinsics.xor_si256 v24 v70
+  let t01 ← backend.avx2.keccak.rotl 28#i32 36#i32 v71
+  let i11 ← 9#usize % 5#usize
+  let v72 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i11
+  let v73 ← backend.avx2.intrinsics.xor_si256 v33 v72
+  let t11 ← backend.avx2.keccak.rotl 20#i32 44#i32 v73
+  let i12 ← 10#usize % 5#usize
+  let v74 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i12
+  let v75 ← backend.avx2.intrinsics.xor_si256 v3 v74
+  let t21 ← backend.avx2.keccak.rotl 3#i32 61#i32 v75
+  let i13 ← 16#usize % 5#usize
+  let v76 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i13
+  let v77 ← backend.avx2.intrinsics.xor_si256 v12 v76
+  let t31 ← backend.avx2.keccak.rotl 45#i32 19#i32 v77
+  let i14 ← 22#usize % 5#usize
+  let v78 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i14
+  let v79 ← backend.avx2.intrinsics.xor_si256 v23 v78
+  let t41 ← backend.avx2.keccak.rotl 61#i32 3#i32 v79
+  let v80 ← backend.avx2.intrinsics.andnot_si256 t11 t21
+  let v81 ← backend.avx2.intrinsics.xor_si256 t01 v80
+  let i15 ← 5#usize * 1#usize
+  let dst6 ← Array.update dst5 i15 v81
+  let v82 ← backend.avx2.intrinsics.andnot_si256 t21 t31
+  let v83 ← backend.avx2.intrinsics.xor_si256 t11 v82
+  let i16 ← i15 + 1#usize
+  let dst7 ← Array.update dst6 i16 v83
+  let v84 ← backend.avx2.intrinsics.andnot_si256 t31 t41
+  let v85 ← backend.avx2.intrinsics.xor_si256 t21 v84
+  let i17 ← i15 + 2#usize
+  let dst8 ← Array.update dst7 i17 v85
+  let v86 ← backend.avx2.intrinsics.andnot_si256 t41 t01
+  let v87 ← backend.avx2.intrinsics.xor_si256 t31 v86
+  let i18 ← i15 + 3#usize
+  let dst9 ← Array.update dst8 i18 v87
+  let v88 ← backend.avx2.intrinsics.andnot_si256 t01 t11
+  let v89 ← backend.avx2.intrinsics.xor_si256 t41 v88
+  let i19 ← i15 + 4#usize
+  let dst10 ← Array.update dst9 i19 v89
+  let i20 ← 1#usize % 5#usize
+  let v90 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i20
+  let v91 ← backend.avx2.intrinsics.xor_si256 v8 v90
+  let t02 ← backend.avx2.keccak.rotl 1#i32 63#i32 v91
+  let i21 ← 7#usize % 5#usize
+  let v92 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i21
+  let v93 ← backend.avx2.intrinsics.xor_si256 v17 v92
+  let t12 ← backend.avx2.keccak.rotl 6#i32 58#i32 v93
+  let i22 ← 13#usize % 5#usize
+  let v94 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i22
+  let v95 ← backend.avx2.intrinsics.xor_si256 v27 v94
+  let t22 ← backend.avx2.keccak.rotl 25#i32 39#i32 v95
+  let i23 ← 19#usize % 5#usize
+  let v96 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i23
+  let v97 ← backend.avx2.intrinsics.xor_si256 v36 v96
+  let t32 ← backend.avx2.keccak.rotl 8#i32 56#i32 v97
+  let i24 ← 20#usize % 5#usize
+  let v98 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i24
+  let v99 ← backend.avx2.intrinsics.xor_si256 v7 v98
+  let t42 ← backend.avx2.keccak.rotl 18#i32 46#i32 v99
+  let v100 ← backend.avx2.intrinsics.andnot_si256 t12 t22
+  let v101 ← backend.avx2.intrinsics.xor_si256 t02 v100
+  let i25 ← 5#usize * 2#usize
+  let dst11 ← Array.update dst10 i25 v101
+  let v102 ← backend.avx2.intrinsics.andnot_si256 t22 t32
+  let v103 ← backend.avx2.intrinsics.xor_si256 t12 v102
+  let i26 ← i25 + 1#usize
+  let dst12 ← Array.update dst11 i26 v103
+  let v104 ← backend.avx2.intrinsics.andnot_si256 t32 t42
+  let v105 ← backend.avx2.intrinsics.xor_si256 t22 v104
+  let i27 ← i25 + 2#usize
+  let dst13 ← Array.update dst12 i27 v105
+  let v106 ← backend.avx2.intrinsics.andnot_si256 t42 t02
+  let v107 ← backend.avx2.intrinsics.xor_si256 t32 v106
+  let i28 ← i25 + 3#usize
+  let dst14 ← Array.update dst13 i28 v107
+  let v108 ← backend.avx2.intrinsics.andnot_si256 t02 t12
+  let v109 ← backend.avx2.intrinsics.xor_si256 t42 v108
+  let i29 ← i25 + 4#usize
+  let dst15 ← Array.update dst14 i29 v109
+  let i30 ← 4#usize % 5#usize
+  let v110 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i30
+  let v111 ← backend.avx2.intrinsics.xor_si256 v32 v110
+  let t03 ← backend.avx2.keccak.rotl 27#i32 37#i32 v111
+  let i31 ← 5#usize % 5#usize
+  let v112 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i31
+  let v113 ← backend.avx2.intrinsics.xor_si256 v1 v112
+  let t13 ← backend.avx2.keccak.rotl 36#i32 28#i32 v113
+  let i32 ← 11#usize % 5#usize
+  let v114 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i32
+  let v115 ← backend.avx2.intrinsics.xor_si256 v11 v114
+  let t23 ← backend.avx2.keccak.rotl 10#i32 54#i32 v115
+  let i33 ← 17#usize % 5#usize
+  let v116 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i33
+  let v117 ← backend.avx2.intrinsics.xor_si256 v20 v116
+  let t33 ← backend.avx2.keccak.rotl 15#i32 49#i32 v117
+  let i34 ← 23#usize % 5#usize
+  let v118 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i34
+  let v119 ← backend.avx2.intrinsics.xor_si256 v31 v118
+  let t43 ← backend.avx2.keccak.rotl 56#i32 8#i32 v119
+  let v120 ← backend.avx2.intrinsics.andnot_si256 t13 t23
+  let v121 ← backend.avx2.intrinsics.xor_si256 t03 v120
+  let i35 ← 5#usize * 3#usize
+  let dst16 ← Array.update dst15 i35 v121
+  let v122 ← backend.avx2.intrinsics.andnot_si256 t23 t33
+  let v123 ← backend.avx2.intrinsics.xor_si256 t13 v122
+  let i36 ← i35 + 1#usize
+  let dst17 ← Array.update dst16 i36 v123
+  let v124 ← backend.avx2.intrinsics.andnot_si256 t33 t43
+  let v125 ← backend.avx2.intrinsics.xor_si256 t23 v124
+  let i37 ← i35 + 2#usize
+  let dst18 ← Array.update dst17 i37 v125
+  let v126 ← backend.avx2.intrinsics.andnot_si256 t43 t03
+  let v127 ← backend.avx2.intrinsics.xor_si256 t33 v126
+  let i38 ← i35 + 3#usize
+  let dst19 ← Array.update dst18 i38 v127
+  let v128 ← backend.avx2.intrinsics.andnot_si256 t03 t13
+  let v129 ← backend.avx2.intrinsics.xor_si256 t43 v128
+  let i39 ← i35 + 4#usize
+  let dst20 ← Array.update dst19 i39 v129
+  let i40 ← 2#usize % 5#usize
+  let v130 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i40
+  let v131 ← backend.avx2.intrinsics.xor_si256 v16 v130
+  let t04 ← backend.avx2.keccak.rotl 62#i32 2#i32 v131
+  let i41 ← 8#usize % 5#usize
+  let v132 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i41
+  let v133 ← backend.avx2.intrinsics.xor_si256 v25 v132
+  let t14 ← backend.avx2.keccak.rotl 55#i32 9#i32 v133
+  let i42 ← 14#usize % 5#usize
+  let v134 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i42
+  let v135 ← backend.avx2.intrinsics.xor_si256 v35 v134
+  let t24 ← backend.avx2.keccak.rotl 39#i32 25#i32 v135
+  let i43 ← 15#usize % 5#usize
+  let v136 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i43
+  let v137 ← backend.avx2.intrinsics.xor_si256 v4 v136
+  let t34 ← backend.avx2.keccak.rotl 41#i32 23#i32 v137
+  let i44 ← 21#usize % 5#usize
+  let v138 ←
+    Array.index_usize (Array.make 5#usize [ v41, v43, v45, v47, v49 ]) i44
+  let v139 ← backend.avx2.intrinsics.xor_si256 v15 v138
+  let t44 ← backend.avx2.keccak.rotl 2#i32 62#i32 v139
+  let v140 ← backend.avx2.intrinsics.andnot_si256 t14 t24
+  let v141 ← backend.avx2.intrinsics.xor_si256 t04 v140
+  let i45 ← 5#usize * 4#usize
+  let dst21 ← Array.update dst20 i45 v141
+  let v142 ← backend.avx2.intrinsics.andnot_si256 t24 t34
+  let v143 ← backend.avx2.intrinsics.xor_si256 t14 v142
+  let i46 ← i45 + 1#usize
+  let dst22 ← Array.update dst21 i46 v143
+  let v144 ← backend.avx2.intrinsics.andnot_si256 t34 t44
+  let v145 ← backend.avx2.intrinsics.xor_si256 t24 v144
+  let i47 ← i45 + 2#usize
+  let dst23 ← Array.update dst22 i47 v145
+  let v146 ← backend.avx2.intrinsics.andnot_si256 t44 t04
+  let v147 ← backend.avx2.intrinsics.xor_si256 t34 v146
+  let i48 ← i45 + 3#usize
+  let dst24 ← Array.update dst23 i48 v147
+  let v148 ← backend.avx2.intrinsics.andnot_si256 t04 t14
+  let v149 ← backend.avx2.intrinsics.xor_si256 t44 v148
+  let i49 ← i45 + 4#usize
+  let dst25 ← Array.update dst24 i49 v149
+  let v150 ← Array.index_usize dst25 0#usize
+  let v151 ← backend.avx2.intrinsics.xor_si256 v150 rc
+  Array.update dst25 0#usize v151
+
+/-- [kopis::backend::avx2::keccak::permute]: loop 0:
+    Source: 'src/backend/avx2/keccak.rs', lines 191:4-194:5 -/
+@[rust_loop]
+def backend.avx2.keccak.permute_loop
+  (iter : core.ops.range.Range Std.Usize)
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize)
+  (scratch : Array backend.avx2.intrinsics.Vec256 25#usize) :
+  Result (Array backend.avx2.intrinsics.Vec256 25#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok state
+  | some pair =>
+    let i ← 2#usize * pair
+    let v ← backend.avx2.keccak.round_const i
+    let scratch1 ← backend.avx2.keccak.round state scratch v
+    let i1 ← i + 1#usize
+    let v1 ← backend.avx2.keccak.round_const i1
+    let state1 ← backend.avx2.keccak.round scratch1 state v1
+    backend.avx2.keccak.permute_loop iter1 state1 scratch1
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::permute]:
+    Source: 'src/backend/avx2/keccak.rs', lines 179:0-195:1 -/
+def backend.avx2.keccak.permute
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize) :
+  Result (Array backend.avx2.intrinsics.Vec256 25#usize)
+  := do
+  let v ← backend.avx2.intrinsics.setzero_si256
+  let scratch := Array.repeat 25#usize v
+  let i ← backend.avx2.keccak.ROUNDS / 2#usize
+  backend.avx2.keccak.permute_loop { start := 0#usize, «end» := i } state
+    scratch
+
+/-- [kopis::backend::avx2::keccak::pad_block]:
+    Source: 'src/backend/avx2/keccak.rs', lines 204:0-214:1 -/
+def backend.avx2.keccak.pad_block
+  (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize}
+  (prefix1 : Array Std.U8 32#usize) (suffix : Array Std.U8 S) :
+  Result (Array Std.U8 RATE)
+  := do
+  let bytes := Array.repeat RATE 0#u8
+  let (s, index_mut_back) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) bytes
+      { «end» := 32#usize }
+  let s1 ← lift (Array.to_slice prefix1)
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+  let bytes1 := index_mut_back s2
+  let i ← 32#usize + S
+  let (s3, index_mut_back1) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeUsizeSlice Std.U8)) bytes1
+      { start := 32#usize, «end» := i }
+  let s4 ← lift (Array.to_slice suffix)
+  let s5 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s3 s4
+  let bytes2 := index_mut_back1 s5
+  let bytes3 ← Array.update bytes2 i DS
+  let i1 ← RATE - 1#usize
+  let i2 ← Array.index_usize bytes3 i1
+  let i3 ← lift (i2 ||| 128#u8)
+  Array.update bytes3 i1 i3
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 0:
+    Source: 'src/backend/avx2/keccak.rs', lines 263:4-277:5 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop0
+  {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
+  (b2 : Array Std.U8 RATE) (b3 : Array Std.U8 RATE)
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize) (words : Std.Usize)
+  (word : Std.Usize) :
+  Result ((Array backend.avx2.intrinsics.Vec256 25#usize) × Std.Usize)
+  := do
+  let i ← word + 4#usize
+  if i <= words
+  then
+    let v ← backend.avx2.keccak.load_words b0 word
+    let v1 ← backend.avx2.keccak.load_words b1 word
+    let v2 ← backend.avx2.keccak.load_words b2 word
+    let v3 ← backend.avx2.keccak.load_words b3 word
+    let (r0, r1, r2, r3) ← backend.avx2.keccak.transpose4x64 v v1 v2 v3
+    let state1 ← Array.update state word r0
+    let i1 ← word + 1#usize
+    let state2 ← Array.update state1 i1 r1
+    let i2 ← word + 2#usize
+    let state3 ← Array.update state2 i2 r2
+    let i3 ← word + 3#usize
+    let a ← Array.update state3 i3 r3
+    backend.avx2.keccak.xof4_loop0 b0 b1 b2 b3 a words i
+  else ok (state, word)
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 2:
+    Source: 'src/backend/avx2/keccak.rs', lines 282:8-287:9 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop1_loop0
+  {RATE : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE) (b2 : Array Std.U8 RATE)
+  (b3 : Array Std.U8 RATE) (word : Std.Usize) (packed : Array Std.U8 32#usize)
+  :
+  Result (Array Std.U8 32#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok packed
+  | some i =>
+    let i1 ← 8#usize * word
+    let i2 ← i1 + i
+    let i3 ← Array.index_usize b0 i2
+    let packed1 ← Array.update packed i i3
+    let i4 ← i1 + i
+    let i5 ← Array.index_usize b1 i4
+    let i6 ← 8#usize + i
+    let packed2 ← Array.update packed1 i6 i5
+    let i7 ← i1 + i
+    let i8 ← Array.index_usize b2 i7
+    let i9 ← 16#usize + i
+    let packed3 ← Array.update packed2 i9 i8
+    let i10 ← i1 + i
+    let i11 ← Array.index_usize b3 i10
+    let i12 ← 24#usize + i
+    let a ← Array.update packed3 i12 i11
+    backend.avx2.keccak.xof4_loop1_loop0 iter1 b0 b1 b2 b3 word a
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 1:
+    Source: 'src/backend/avx2/keccak.rs', lines 278:4-290:5 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop1
+  {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
+  (b2 : Array Std.U8 RATE) (b3 : Array Std.U8 RATE)
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize) (words : Std.Usize)
+  (word : Std.Usize) :
+  Result (Array backend.avx2.intrinsics.Vec256 25#usize)
+  := do
+  if word < words
+  then
+    let packed := Array.repeat 32#usize 0#u8
+    let packed1 ←
+      backend.avx2.keccak.xof4_loop1_loop0
+        { start := 0#usize, «end» := 8#usize } b0 b1 b2 b3 word packed
+    let v ← backend.avx2.intrinsics.load_u8x32 packed1 0#usize
+    let a ← Array.update state word v
+    let word1 ← word + 1#usize
+    backend.avx2.keccak.xof4_loop1 b0 b1 b2 b3 a words word1
+  else ok state
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 4:
+    Source: 'src/backend/avx2/keccak.rs', lines 306:8-319:9 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop2_loop0
+  {N : Std.Usize} (out : Array (Array Std.U8 N) 4#usize)
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize) (done1 : Std.Usize)
+  (words : Std.Usize) (word : Std.Usize) :
+  Result ((Array (Array Std.U8 N) 4#usize) × Std.Usize)
+  := do
+  let i ← word + 4#usize
+  if i <= words
+  then
+    let i1 ← 8#usize * word
+    let i2 ← done1 + i1
+    let i3 ← i2 + 32#usize
+    if i3 <= N
+    then
+      let v ← Array.index_usize state word
+      let i4 ← word + 1#usize
+      let v1 ← Array.index_usize state i4
+      let i5 ← word + 2#usize
+      let v2 ← Array.index_usize state i5
+      let i6 ← word + 3#usize
+      let v3 ← Array.index_usize state i6
+      let (l0, l1, l2, l3) ← backend.avx2.keccak.transpose4x64 v v1 v2 v3
+      let start ← done1 + i1
+      let (a, index_mut_back) ← Array.index_mut_usize out 0#usize
+      let a1 ← backend.avx2.intrinsics.store_u8x32 a start l0
+      let out1 := index_mut_back a1
+      let (a2, index_mut_back1) ← Array.index_mut_usize out1 1#usize
+      let a3 ← backend.avx2.intrinsics.store_u8x32 a2 start l1
+      let out2 := index_mut_back1 a3
+      let (a4, index_mut_back2) ← Array.index_mut_usize out2 2#usize
+      let a5 ← backend.avx2.intrinsics.store_u8x32 a4 start l2
+      let out3 := index_mut_back2 a5
+      let (a6, index_mut_back3) ← Array.index_mut_usize out3 3#usize
+      let a7 ← backend.avx2.intrinsics.store_u8x32 a6 start l3
+      let a8 := index_mut_back3 a7
+      backend.avx2.keccak.xof4_loop2_loop0 a8 state done1 words i
+    else ok (out, word)
+  else ok (out, word)
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 7:
+    Source: 'src/backend/avx2/keccak.rs', lines 331:16-333:17 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop2_loop1_loop0_loop0
+  {N : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (out : Array (Array Std.U8 N) 4#usize) (packed : Array Std.U8 32#usize)
+  (lane : Std.Usize) (start : Std.Usize) :
+  Result (Array (Array Std.U8 N) 4#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let i1 ← 8#usize * lane
+    let i2 ← i1 + i
+    let i3 ← Array.index_usize packed i2
+    let i4 ← start + i
+    let (a, index_mut_back) ← Array.index_mut_usize out lane
+    let a1 ← Array.update a i4 i3
+    let a2 := index_mut_back a1
+    backend.avx2.keccak.xof4_loop2_loop1_loop0_loop0 iter1 a2 packed lane start
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 6:
+    Source: 'src/backend/avx2/keccak.rs', lines 327:12-334:13 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop2_loop1_loop0
+  {N : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (out : Array (Array Std.U8 N) 4#usize) (done1 : Std.Usize) (word : Std.Usize)
+  (packed : Array Std.U8 32#usize) :
+  Result (Array (Array Std.U8 N) 4#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some lane =>
+    let i ← 8#usize * word
+    let start ← done1 + i
+    let i1 ← N - start
+    let len ← core.cmp.min core.cmp.OrdUsize 8#usize i1
+    let out1 ←
+      backend.avx2.keccak.xof4_loop2_loop1_loop0_loop0
+        { start := 0#usize, «end» := len } out packed lane start
+    backend.avx2.keccak.xof4_loop2_loop1_loop0 iter1 out1 done1 word packed
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 5:
+    Source: 'src/backend/avx2/keccak.rs', lines 323:8-336:9 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop2_loop1
+  {N : Std.Usize} (out : Array (Array Std.U8 N) 4#usize)
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize) (done1 : Std.Usize)
+  (words : Std.Usize) (word : Std.Usize) :
+  Result (Array (Array Std.U8 N) 4#usize)
+  := do
+  if word < words
+  then
+    let packed := Array.repeat 32#usize 0#u8
+    let v ← Array.index_usize state word
+    let packed1 ← backend.avx2.intrinsics.store_u8x32 packed 0#usize v
+    let out1 ←
+      backend.avx2.keccak.xof4_loop2_loop1_loop0
+        { start := 0#usize, «end» := 4#usize } out done1 word packed1
+    let word1 ← word + 1#usize
+    backend.avx2.keccak.xof4_loop2_loop1 out1 state done1 words word1
+  else ok out
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]: loop 3:
+    Source: 'src/backend/avx2/keccak.rs', lines 294:4-339:5 -/
+@[rust_loop]
+def backend.avx2.keccak.xof4_loop2
+  (RATE : Std.Usize) {N : Std.Usize} (out : Array (Array Std.U8 N) 4#usize)
+  (state : Array backend.avx2.intrinsics.Vec256 25#usize) (done1 : Std.Usize) :
+  Result (Array (Array Std.U8 N) 4#usize)
+  := do
+  if done1 < N
+  then
+    let state1 ← backend.avx2.keccak.permute state
+    let i ← N - done1
+    let take ← core.cmp.min core.cmp.OrdUsize RATE i
+    let i1 ← take + 7#usize
+    let words ← i1 / 8#usize
+    let (out1, word) ←
+      backend.avx2.keccak.xof4_loop2_loop0 out state1 done1 words 0#usize
+    let out2 ←
+      backend.avx2.keccak.xof4_loop2_loop1 out1 state1 done1 words word
+    let done2 ← done1 + take
+    backend.avx2.keccak.xof4_loop2 RATE out2 state1 done2
+  else ok out
+partial_fixpoint
+
+/-- [kopis::backend::avx2::keccak::xof4]:
+    Source: 'src/backend/avx2/keccak.rs', lines 228:0-340:1 -/
+def backend.avx2.keccak.xof4
+  (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize} {N : Std.Usize}
+  (prefix1 : Array Std.U8 32#usize) (suffixes : Array (Array Std.U8 S) 4#usize)
+  (out : Array (Array Std.U8 N) 4#usize) :
+  Result (Array (Array Std.U8 N) 4#usize)
+  := do
+  if RATE = 168#usize
+  then ok ()
+  else massert (RATE = 136#usize)
+  massert (DS >= 1#u8)
+  massert (DS <= 127#u8)
+  let i ← 32#usize + S
+  massert (i < RATE)
+  let s0 ← Array.index_usize suffixes 0#usize
+  let s1 ← Array.index_usize suffixes 1#usize
+  let s2 ← Array.index_usize suffixes 2#usize
+  let s3 ← Array.index_usize suffixes 3#usize
+  let b0 ← backend.avx2.keccak.pad_block RATE DS prefix1 s0
+  let b1 ← backend.avx2.keccak.pad_block RATE DS prefix1 s1
+  let b2 ← backend.avx2.keccak.pad_block RATE DS prefix1 s2
+  let b3 ← backend.avx2.keccak.pad_block RATE DS prefix1 s3
+  let v ← backend.avx2.intrinsics.setzero_si256
+  let state := Array.repeat 25#usize v
+  let words ← RATE / 8#usize
+  let (state1, word) ←
+    backend.avx2.keccak.xof4_loop0 b0 b1 b2 b3 state words 0#usize
+  let state2 ← backend.avx2.keccak.xof4_loop1 b0 b1 b2 b3 state1 words word
+  backend.avx2.keccak.xof4_loop2 RATE out state2 0#usize
+
+/-- [kopis::backend::avx2::sample::RATE_128]
+    Source: 'src/backend/avx2/sample.rs', lines 21:0-21:28 -/
+@[global_simps, irreducible]
+def backend.avx2.sample.RATE_128 : Std.Usize := 168#usize
+
+/-- [kopis::backend::avx2::sample::RATE_256]
+    Source: 'src/backend/avx2/sample.rs', lines 23:0-23:28 -/
+@[global_simps, irreducible]
+def backend.avx2.sample.RATE_256 : Std.Usize := 136#usize
+
+/-- [kopis::backend::avx2::sample::MATRIX_ELEM_BYTES]
+    Source: 'src/backend/avx2/sample.rs', lines 26:0-26:63 -/
+@[global_simps, irreducible]
+def backend.avx2.sample.MATRIX_ELEM_BYTES : Result Std.Usize := do
+  let i ← consts.RING_DEG * consts.MODULUS_Q_BITS
+  i / 8#usize
+
 /-- [kopis::backend::avx2::sample::Nibbles]
-    Source: 'src/backend/avx2/sample.rs', lines 23:0-23:25 -/
+    Source: 'src/backend/avx2/sample.rs', lines 31:0-31:25 -/
 @[reducible]
 def backend.avx2.sample.Nibbles := Array Std.U8 32#usize
 
 /-- [kopis::backend::avx2::sample::NIBBLE_POPCOUNT]
-    Source: 'src/backend/avx2/sample.rs', lines 25:0-28:3 -/
+    Source: 'src/backend/avx2/sample.rs', lines 33:0-36:3 -/
 @[global_simps, irreducible]
 def backend.avx2.sample.NIBBLE_POPCOUNT : backend.avx2.sample.Nibbles :=
   Array.make 32#usize [
@@ -5030,7 +5782,7 @@ def backend.avx2.sample.NIBBLE_POPCOUNT : backend.avx2.sample.Nibbles :=
     ]
 
 /-- [kopis::backend::avx2::sample::popcount_small]:
-    Source: 'src/backend/avx2/sample.rs', lines 37:0-41:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 45:0-49:1 -/
 def backend.avx2.sample.popcount_small
   (v : backend.avx2.intrinsics.Vec256) (lut : backend.avx2.intrinsics.Vec256) :
   Result backend.avx2.intrinsics.Vec256
@@ -5044,7 +5796,7 @@ def backend.avx2.sample.popcount_small
   backend.avx2.intrinsics.add_epi16 low bit4
 
 /-- [kopis::backend::avx2::sample::shift_right_dynamic]:
-    Source: 'src/backend/avx2/sample.rs', lines 49:0-51:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 57:0-59:1 -/
 def backend.avx2.sample.shift_right_dynamic
   (v : backend.avx2.intrinsics.Vec256) (count : Std.Usize) :
   Result backend.avx2.intrinsics.Vec256
@@ -5054,7 +5806,7 @@ def backend.avx2.sample.shift_right_dynamic
   backend.avx2.intrinsics.srl_epi16 v v1
 
 /-- [kopis::backend::avx2::sample::cbd]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 69:4-76:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 79:4-86:5 -/
 @[rust_loop]
 def backend.avx2.sample.cbd_loop
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -5080,7 +5832,7 @@ def backend.avx2.sample.cbd_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::cbd]:
-    Source: 'src/backend/avx2/sample.rs', lines 62:0-78:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 72:0-88:1 -/
 def backend.avx2.sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) :
   Result arithmetic.ring_arith.RingElem
@@ -5097,6 +5849,194 @@ def backend.avx2.sample.cbd
   let i4 ← consts.RING_DEG / 16#usize
   backend.avx2.sample.cbd_loop i { start := 0#usize, «end» := i4 } fields lut
     half_mask out
+
+/-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 1:
+    Source: 'src/backend/avx2/sample.rs', lines 112:8-116:9 -/
+@[rust_loop]
+def backend.avx2.sample.gen_matrix_from_seed_loop0_loop0
+  (L : Std.Usize) (iter : core.ops.range.Range Std.Usize) (entries : Std.Usize)
+  (first : Std.Usize) (indices : Array (Array Std.U8 2#usize) 4#usize) :
+  Result (Array (Array Std.U8 2#usize) 4#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok indices
+  | some lane =>
+    let i ← first + lane
+    let i1 ← entries - 1#usize
+    let entry ← core.cmp.min core.cmp.OrdUsize i i1
+    let i2 ← entry / L
+    let (a, index_mut_back) ← Array.index_mut_usize indices lane
+    let i3 ← lift (UScalar.cast .U8 i2)
+    let a1 ← Array.update a 0#usize i3
+    let i4 ← entry % L
+    let indices1 := index_mut_back a1
+    let (a2, index_mut_back1) ← Array.index_mut_usize indices1 lane
+    let i5 ← lift (UScalar.cast .U8 i4)
+    let a3 ← Array.update a2 1#usize i5
+    let a4 := index_mut_back1 a3
+    backend.avx2.sample.gen_matrix_from_seed_loop0_loop0 L iter1 entries first
+      a4
+partial_fixpoint
+
+/-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 2:
+    Source: 'src/backend/avx2/sample.rs', lines 120:8-128:9 -/
+@[rust_loop]
+def backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (mat : arithmetic.matrix_arith.Matrix L L) (entries : Std.Usize)
+  (first : Std.Usize) (bufs : Array (Array Std.U8 416#usize) 4#usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok mat
+  | some lane =>
+    let entry ← first + lane
+    if entry < entries
+    then
+      let a ← Array.index_usize bufs lane
+      let i ← backend.avx2.sample.MATRIX_ELEM_BYTES
+      let s ←
+        core.array.Array.index (core.ops.index.IndexSlice
+          (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a
+          { «end» := i }
+      let a1 ← backend.avx2.ser.deserialize s consts.MODULUS_Q_BITS
+      let i1 ← entry / L
+      let i2 ← entry % L
+      let (a2, index_mut_back) ← Array.index_mut_usize mat i1
+      let a3 ← Array.update a2 i2 a1
+      let a4 := index_mut_back a3
+      backend.avx2.sample.gen_matrix_from_seed_loop0_loop1 iter1 a4 entries
+        first bufs
+    else
+      backend.avx2.sample.gen_matrix_from_seed_loop0_loop1 iter1 mat entries
+        first bufs
+partial_fixpoint
+
+/-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 0:
+    Source: 'src/backend/avx2/sample.rs', lines 107:4-131:5 -/
+@[rust_loop]
+def backend.avx2.sample.gen_matrix_from_seed_loop0
+  {L : Std.Usize} (seed : Array Std.U8 32#usize)
+  (mat : arithmetic.matrix_arith.Matrix L L) (entries : Std.Usize)
+  (first : Std.Usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  if first < entries
+  then
+    let a := Array.repeat 2#usize 0#u8
+    let indices := Array.repeat 4#usize a
+    let indices1 ←
+      backend.avx2.sample.gen_matrix_from_seed_loop0_loop0 L
+        { start := 0#usize, «end» := 4#usize } entries first indices
+    let a1 := Array.repeat 416#usize 0#u8
+    let bufs := Array.repeat 4#usize a1
+    let bufs1 ← backend.avx2.keccak.xof4 168#usize 2#u8 seed indices1 bufs
+    let mat1 ←
+      backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
+        { start := 0#usize, «end» := 4#usize } mat entries first bufs1
+    let first1 ← first + 4#usize
+    backend.avx2.sample.gen_matrix_from_seed_loop0 seed mat1 entries first1
+  else ok mat
+partial_fixpoint
+
+/-- [kopis::backend::avx2::sample::gen_matrix_from_seed]:
+    Source: 'src/backend/avx2/sample.rs', lines 102:0-134:1 -/
+def backend.avx2.sample.gen_matrix_from_seed
+  (L : Std.Usize) (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  let mat ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
+  let entries ← L * L
+  backend.avx2.sample.gen_matrix_from_seed_loop0 seed mat entries 0#usize
+
+/-- [kopis::backend::avx2::sample::secret]: loop 0:
+    Source: 'src/backend/avx2/sample.rs', lines 175:4-177:5 -/
+@[rust_loop]
+def backend.avx2.sample.secret_loop0
+  (L : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (indices : Array (Array Std.U8 1#usize) 4#usize) :
+  Result (Array (Array Std.U8 1#usize) 4#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok indices
+  | some lane =>
+    let i ← L - 1#usize
+    let i1 ← core.cmp.min core.cmp.OrdUsize lane i
+    let (a, index_mut_back) ← Array.index_mut_usize indices lane
+    let i2 ← lift (UScalar.cast .U8 i1)
+    let a1 ← Array.update a 0#usize i2
+    let a2 := index_mut_back a1
+    backend.avx2.sample.secret_loop0 L iter1 a2
+partial_fixpoint
+
+/-- [kopis::backend::avx2::sample::secret]: loop 1:
+    Source: 'src/backend/avx2/sample.rs', lines 183:4-185:5 -/
+@[rust_loop]
+def backend.avx2.sample.secret_loop1
+  {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (bufs : Array (Array Std.U8 N) 4#usize)
+  (secret : arithmetic.matrix_arith.Matrix L 1#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok secret
+  | some i =>
+    let a ← Array.index_usize bufs i
+    let i1 ← consts.RING_DEG * MU
+    let i2 ← i1 / 8#usize
+    let s ←
+      core.array.Array.index (core.ops.index.IndexSlice
+        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a
+        { «end» := i2 }
+    let re ← backend.avx2.sample.cbd MU s
+    let (a1, index_mut_back) ← Array.index_mut_usize secret i
+    let a2 ← Array.update a1 0#usize re
+    let a3 := index_mut_back a2
+    backend.avx2.sample.secret_loop1 MU iter1 bufs a3
+partial_fixpoint
+
+/-- [kopis::backend::avx2::sample::secret]:
+    Source: 'src/backend/avx2/sample.rs', lines 166:0-187:1 -/
+def backend.avx2.sample.secret
+  (L : Std.Usize) (MU : Std.Usize) (N : Std.Usize)
+  (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  massert (L <= 4#usize)
+  let a := Array.repeat 1#usize 0#u8
+  let indices := Array.repeat 4#usize a
+  let indices1 ←
+    backend.avx2.sample.secret_loop0 L { start := 0#usize, «end» := 4#usize }
+      indices
+  let a1 := Array.repeat N 0#u8
+  let bufs := Array.repeat 4#usize a1
+  let bufs1 ← backend.avx2.keccak.xof4 136#usize 3#u8 seed indices1 bufs
+  let secret ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+  backend.avx2.sample.secret_loop1 MU { start := 0#usize, «end» := L } bufs1
+    secret
+
+/-- [kopis::backend::avx2::sample::gen_secret_from_seed]:
+    Source: 'src/backend/avx2/sample.rs', lines 142:0-155:1 -/
+def backend.avx2.sample.gen_secret_from_seed
+  (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  match MU.val with
+  | 10 => backend.avx2.sample.secret L MU 320#usize seed
+  | 8 => backend.avx2.sample.secret L MU 256#usize seed
+  | 6 => backend.avx2.sample.secret L MU 192#usize seed
+  | _ => backend.avx2.sample.secret L MU 320#usize seed
 
 /-- [kopis::backend::avx2::ser::{impl core::clone::Clone for kopis::backend::avx2::ser::Plan}::clone]:
     Source: 'src/backend/avx2/ser.rs', lines 38:9-38:14
@@ -5247,7 +6187,7 @@ def impls.SharedSecret.as_bytes
   ok self
 
 /-- [kopis::pke::PkePublicKey]
-    Source: 'src/pke.rs', lines 38:0-53:1
+    Source: 'src/pke.rs', lines 37:0-52:1
     Visibility: public -/
 structure pke.PkePublicKey (L : Std.Usize) where
   matrix_seed : Array Std.U8 32#usize
@@ -5256,7 +6196,7 @@ structure pke.PkePublicKey (L : Std.Usize) where
   vec_ntt : arithmetic.ntt.NttMatrix L 1#usize
 
 /-- [kopis::pke::PkeSecretKey]
-    Source: 'src/pke.rs', lines 29:0-29:64 -/
+    Source: 'src/pke.rs', lines 28:0-28:64 -/
 @[reducible]
 def pke.PkeSecretKey (L : Std.Usize) := arithmetic.ntt.NttMatrix L 1#usize
 
@@ -5399,7 +6339,7 @@ def impls.kopis768.Kopis768PublicKey := kem.KemPublicKey 3#usize
 def impls.kopis1024.Kopis1024PublicKey := kem.KemPublicKey 4#usize
 
 /-- [kopis::pke::ciphertext_len]:
-    Source: 'src/pke.rs', lines 128:0-131:1
+    Source: 'src/pke.rs', lines 133:0-136:1
     Visibility: public -/
 def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   let i ← L * consts.MODULUS_P_BITS
@@ -5431,7 +6371,7 @@ def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 4#usize 6#usize
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/sample.rs', lines 156:8-164:9 -/
+    Source: 'src/sample.rs', lines 167:8-175:9 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5471,7 +6411,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 155:4-165:5 -/
+    Source: 'src/sample.rs', lines 166:4-176:5 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5491,16 +6431,20 @@ def sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]:
-    Source: 'src/sample.rs', lines 148:0-168:1 -/
+    Source: 'src/sample.rs', lines 151:0-179:1 -/
 def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L L)
   := do
-  let mat ←
-    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
-  let buf := Array.repeat 416#usize 0#u8
-  sample.gen_matrix_from_seed_loop0 { start := 0#usize, «end» := L } seed mat
-    buf
+  let b ← backend.avx2.cpu.available
+  if b
+  then backend.avx2.sample.gen_matrix_from_seed L seed
+  else
+    let mat ←
+      arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
+    let buf := Array.repeat 416#usize 0#u8
+    sample.gen_matrix_from_seed_loop0 { start := 0#usize, «end» := L } seed
+      mat buf
 
 /-- [kopis::sample::cbd_diff]:
     Source: 'src/sample.rs', lines 18:0-22:1 -/
@@ -5737,7 +6681,7 @@ def sample.cbd
         ok a
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 111:4-140:5 -/
+    Source: 'src/sample.rs', lines 119:4-143:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -5762,155 +6706,78 @@ def sample.gen_secret_from_seed_loop
         hasher2
     let (_, buf1) ←
       turboshake.TurboShakeReader.Insts.DigestXofReader.read reader buf
-    let b ← core.num.Usize.is_multiple_of MU 8#usize
-    if b
-    then
-      let (a, index_mut_back) ← Array.index_mut_usize secret i
-      let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
-      let re1 ← sample.cbd MU buf1 re
-      let a1 := index_mut_back1 re1
-      let a2 := index_mut_back a1
-      sample.gen_secret_from_seed_loop MU iter1 seed a2 buf1
-    else
-      let b1 ← backend.avx2.cpu.available
-      if b1
-      then
-        let re ← backend.avx2.sample.cbd MU buf1
-        let (a, index_mut_back) ← Array.index_mut_usize secret i
-        let a1 ← Array.update a 0#usize re
-        let a2 := index_mut_back a1
-        sample.gen_secret_from_seed_loop MU iter1 seed a2 buf1
-      else
-        let (a, index_mut_back) ← Array.index_mut_usize secret i
-        let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
-        let re1 ← sample.cbd MU buf1 re
-        let a1 := index_mut_back1 re1
-        let a2 := index_mut_back a1
-        sample.gen_secret_from_seed_loop MU iter1 seed a2 buf1
+    let (a, index_mut_back) ← Array.index_mut_usize secret i
+    let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
+    let re1 ← sample.cbd MU buf1 re
+    let a1 := index_mut_back1 re1
+    let a2 := index_mut_back a1
+    sample.gen_secret_from_seed_loop MU iter1 seed a2 buf1
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
-    Source: 'src/sample.rs', lines 101:0-143:1 -/
+    Source: 'src/sample.rs', lines 101:0-146:1 -/
 def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L 1#usize)
   := do
-  let secret ←
-    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
-  let backing_buf := Array.repeat 320#usize 0#u8
-  let i ← consts.RING_DEG * MU
-  let i1 ← i / 8#usize
-  let (buf, _) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
-      { «end» := i1 }
-  sample.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
-    secret buf
+  let b ← backend.avx2.cpu.available
+  if b
+  then backend.avx2.sample.gen_secret_from_seed L MU seed
+  else
+    let secret ←
+      arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+    let backing_buf := Array.repeat 320#usize 0#u8
+    let i ← consts.RING_DEG * MU
+    let i1 ← i / 8#usize
+    let (buf, _) ←
+      core.array.Array.index_mut (core.ops.index.IndexMutSlice
+        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
+        { «end» := i1 }
+    sample.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
+      secret buf
 
-/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/pke.rs', lines 56:4-56:77
-    Visibility: public -/
-@[global_simps, irreducible]
-def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
-  let i ← L * consts.MODULUS_P_BITS
-  let i1 ← i * consts.RING_DEG
-  let i2 ← i1 / 8#usize
-  32#usize + i2
-
-/-- [kopis::pke::PK_VEC_ELEM_BYTES]
-    Source: 'src/pke.rs', lines 21:0-21:63 -/
-@[global_simps, irreducible]
-def pke.PK_VEC_ELEM_BYTES : Result Std.Usize := do
-  let i ← consts.MODULUS_P_BITS * consts.RING_DEG
-  i / 8#usize
-
-/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]: loop 0:
-    Source: 'src/pke.rs', lines 66:8-69:9 -/
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]: loop 0:
+    Source: 'src/pke.rs', lines 112:8-114:9 -/
 @[rust_loop]
-def pke.PkePublicKey.serialize_loop
+def pke.PkePublicKey.hash_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
-  Result ((pke.PkePublicKey L) × (Slice Std.U8))
+  (self : pke.PkePublicKey L) (hasher : turboshake.TurboShake 136#usize 4#u8) :
+  Result ((pke.PkePublicKey L) × (turboshake.TurboShake 136#usize 4#u8))
   := do
   let (o, iter1) ←
     core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
   match o with
-  | none => ok (self, out_buf)
+  | none => ok (self, hasher)
   | some i =>
-    let i1 ← pke.PK_VEC_ELEM_BYTES
-    let start ← i * i1
-    let i2 ← start + i1
-    let (s, index_mut_back) ←
-      core.slice.index.Slice.index_mut
-        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
-        { start, «end» := i2 }
     let a ← Array.index_usize self.vec_bytes i
-    let s1 ← lift (Array.to_slice a)
-    let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
-    let out_buf1 := index_mut_back s2
-    pke.PkePublicKey.serialize_loop iter1 self out_buf1
+    let s ← lift (Array.to_slice a)
+    let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
+    pke.PkePublicKey.hash_loop iter1 self hasher1
 partial_fixpoint
 
-/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]:
-    Source: 'src/pke.rs', lines 61:4-71:5 -/
-def pke.PkePublicKey.serialize
-  {L : Std.Usize} (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
-  Result (Slice Std.U8)
-  := do
-  let left_val := Slice.len out_buf
-  let right_val ← pke.PkePublicKey.SERIALIZED_LEN L
-  massert (left_val = right_val)
-  let (self1, out_buf1) ←
-    pke.PkePublicKey.serialize_loop { start := 0#usize, «end» := L } self
-      out_buf
-  let i ← pke.PK_VEC_ELEM_BYTES
-  let i1 ← L * i
-  let (s, index_mut_back) ←
-    core.slice.index.Slice.index_mut
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) out_buf1
-      { start := i1 }
-  let s1 ← lift (Array.to_slice self1.matrix_seed)
-  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
-  ok (index_mut_back s2)
-
-/-- [kopis::turboshake256_hash]:
-    Source: 'src/lib.rs', lines 41:0-51:1 -/
-def turboshake256_hash
-  (DS : Std.U8) (input0 : Slice Std.U8) (input1 : Slice Std.U8) :
-  Result (Array Std.U8 32#usize)
-  := do
-  let hasher ←
-    turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize DS
-  let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher input0
-  let hasher2 ←
-    turboshake.TurboShake.Insts.DigestUpdate.update hasher1 input1
-  let out := Array.repeat 32#usize 0#u8
-  let reader ←
-    turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
-      hasher2
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
-  let (_, s1) ←
-    turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s
-  ok (to_slice_mut_back s1)
-
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]:
-    Source: 'src/pke.rs', lines 105:4-111:5 -/
+    Source: 'src/pke.rs', lines 109:4-121:5 -/
 def pke.PkePublicKey.hash
   {L : Std.Usize} (self : pke.PkePublicKey L) :
   Result (Array Std.U8 32#usize)
   := do
-  let buf := Array.repeat 1312#usize 0#u8
-  let i ← pke.PkePublicKey.SERIALIZED_LEN L
-  let (pk_slice, _) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) buf
-      { «end» := i }
-  let pk_slice1 ← pke.PkePublicKey.serialize self pk_slice
-  let s ← lift (Array.to_slice (Std.Array.empty Std.U8))
-  turboshake256_hash 4#u8 pk_slice1 s
+  let hasher ←
+    turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 4#u8
+  let (self1, hasher1) ←
+    pke.PkePublicKey.hash_loop { start := 0#usize, «end» := L } self hasher
+  let s ← lift (Array.to_slice self1.matrix_seed)
+  let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s
+  let out := Array.repeat 32#usize 0#u8
+  let reader ←
+    turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
+      hasher2
+  let (s1, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+  let (_, s2) ←
+    turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s1
+  ok (to_slice_mut_back s2)
 
 /-- [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}::drop]:
-    Source: 'src/pke.rs', lines 28:18-28:31
+    Source: 'src/pke.rs', lines 27:18-27:31
     Visibility: public -/
 def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
   {L : Std.Usize} (self : pke.PkeSecretKey L) :
@@ -5922,7 +6789,7 @@ def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
   ok __zeroize_field_0
 
 /-- [kopis::pke::H1_VAL]
-    Source: 'src/pke.rs', lines 17:0-17:63 -/
+    Source: 'src/pke.rs', lines 16:0-16:63 -/
 @[global_simps, irreducible]
 def pke.H1_VAL : Result Std.U16 := do
   let i ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
@@ -5930,7 +6797,7 @@ def pke.H1_VAL : Result Std.U16 := do
   1#u16 <<< i1
 
 /-- [kopis::pke::expand_decap_key]: loop 0:
-    Source: 'src/pke.rs', lines 185:4-187:5 -/
+    Source: 'src/pke.rs', lines 190:4-192:5 -/
 @[rust_loop]
 def pke.expand_decap_key_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5955,7 +6822,7 @@ def pke.expand_decap_key_loop
 partial_fixpoint
 
 /-- [kopis::pke::expand_decap_key]:
-    Source: 'src/pke.rs', lines 142:0-198:1 -/
+    Source: 'src/pke.rs', lines 147:0-203:1 -/
 def pke.expand_decap_key
   (L : Std.Usize) (MU : Std.Usize) (sk : Array Std.U8 32#usize) :
   Result ((pke.PkeSecretKey L) × (Array Std.U8 32#usize) × (pke.PkePublicKey
@@ -6019,7 +6886,7 @@ def kem.KemSecretKey.expand_from_seed
   ok { seed, z, pke_sk, pke_pk, hash_pke_pk }
 
 /-- [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}::zeroize]:
-    Source: 'src/pke.rs', lines 28:9-28:16
+    Source: 'src/pke.rs', lines 27:9-27:16
     Visibility: public -/
 def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
   {L : Std.Usize} (self : pke.PkeSecretKey L) :
@@ -6030,7 +6897,7 @@ def pke.PkeSecretKey.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 28:9-28:16 -/
+    Source: 'src/pke.rs', lines 27:9-27:16 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.ZeroizeZeroize (L : Std.Usize) : zeroize.Zeroize
   (pke.PkeSecretKey L) := {
@@ -6175,7 +7042,7 @@ def impls.kopis1024.Kopis1024SecretKey.expand_from_seed
   ok ksk
 
 /-- [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}::clone]:
-    Source: 'src/pke.rs', lines 37:9-37:14
+    Source: 'src/pke.rs', lines 36:9-36:14
     Visibility: public -/
 def pke.PkePublicKey.Insts.CoreCloneClone.clone
   {L : Std.Usize} (self : pke.PkePublicKey L) :
@@ -6228,6 +7095,16 @@ def impls.kopis1024.Kopis1024SecretKey.public_key
   let kpk ← kem.KemSecretKey.public_key self
   ok kpk
 
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::SERIALIZED_LEN]
+    Source: 'src/pke.rs', lines 55:4-55:77
+    Visibility: public -/
+@[global_simps, irreducible]
+def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
+  let i ← L * consts.MODULUS_P_BITS
+  let i1 ← i * consts.RING_DEG
+  let i2 ← i1 / 8#usize
+  32#usize + i2
+
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::SERIALIZED_LEN]
     Source: 'src/kem.rs', lines 24:4-24:79 -/
 @[global_simps, irreducible]
@@ -6254,6 +7131,62 @@ def impls.kopis768.Kopis768PublicKey.SERIALIZED_LEN : Result Std.Usize :=
 @[global_simps, irreducible]
 def impls.kopis1024.Kopis1024PublicKey.SERIALIZED_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 4#usize
+
+/-- [kopis::pke::PK_VEC_ELEM_BYTES]
+    Source: 'src/pke.rs', lines 20:0-20:63 -/
+@[global_simps, irreducible]
+def pke.PK_VEC_ELEM_BYTES : Result Std.Usize := do
+  let i ← consts.MODULUS_P_BITS * consts.RING_DEG
+  i / 8#usize
+
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]: loop 0:
+    Source: 'src/pke.rs', lines 65:8-68:9 -/
+@[rust_loop]
+def pke.PkePublicKey.serialize_loop
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
+  Result ((pke.PkePublicKey L) × (Slice Std.U8))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, out_buf)
+  | some i =>
+    let i1 ← pke.PK_VEC_ELEM_BYTES
+    let start ← i * i1
+    let i2 ← start + i1
+    let (s, index_mut_back) ←
+      core.slice.index.Slice.index_mut
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
+        { start, «end» := i2 }
+    let a ← Array.index_usize self.vec_bytes i
+    let s1 ← lift (Array.to_slice a)
+    let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+    let out_buf1 := index_mut_back s2
+    pke.PkePublicKey.serialize_loop iter1 self out_buf1
+partial_fixpoint
+
+/-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]:
+    Source: 'src/pke.rs', lines 60:4-70:5 -/
+def pke.PkePublicKey.serialize
+  {L : Std.Usize} (self : pke.PkePublicKey L) (out_buf : Slice Std.U8) :
+  Result (Slice Std.U8)
+  := do
+  let left_val := Slice.len out_buf
+  let right_val ← pke.PkePublicKey.SERIALIZED_LEN L
+  massert (left_val = right_val)
+  let (self1, out_buf1) ←
+    pke.PkePublicKey.serialize_loop { start := 0#usize, «end» := L } self
+      out_buf
+  let i ← pke.PK_VEC_ELEM_BYTES
+  let i1 ← L * i
+  let (s, index_mut_back) ←
+    core.slice.index.Slice.index_mut
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) out_buf1
+      { start := i1 }
+  let s1 ← lift (Array.to_slice self1.matrix_seed)
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+  ok (index_mut_back s2)
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::serialize]:
     Source: 'src/kem.rs', lines 27:4-29:5 -/
@@ -6300,7 +7233,7 @@ def impls.kopis1024.Kopis1024PublicKey.serialize
   ok (to_slice_mut_back s1)
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]: loop 0:
-    Source: 'src/pke.rs', lines 89:8-92:9 -/
+    Source: 'src/pke.rs', lines 88:8-91:9 -/
 @[rust_loop]
 def pke.PkePublicKey.from_bytes_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -6327,7 +7260,7 @@ def pke.PkePublicKey.from_bytes_loop
 partial_fixpoint
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::from_bytes]:
-    Source: 'src/pke.rs', lines 75:4-102:5 -/
+    Source: 'src/pke.rs', lines 74:4-101:5 -/
 def pke.PkePublicKey.from_bytes
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (pke.PkePublicKey L) := do
   let left_val := Slice.len bytes
@@ -6392,7 +7325,7 @@ def impls.kopis1024.Kopis1024PublicKey.from_bytes
   ok kpk
 
 /-- [kopis::pke::encrypt_deterministic]:
-    Source: 'src/pke.rs', lines 233:0-266:1 -/
+    Source: 'src/pke.rs', lines 238:0-271:1 -/
 def pke.encrypt_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (pk : pke.PkePublicKey L)
   (msg : Array Std.U8 32#usize) (randomness : Array Std.U8 32#usize)
@@ -6565,7 +7498,7 @@ def impls.kopis1024.Kopis1024PublicKey.encapsulate
   ok (out, rng1)
 
 /-- [kopis::pke::decrypt]:
-    Source: 'src/pke.rs', lines 202:0-229:1 -/
+    Source: 'src/pke.rs', lines 207:0-234:1 -/
 def pke.decrypt
   {L : Std.Usize} (T : Std.Usize) (sk : pke.PkeSecretKey L)
   (ciphertext : Slice Std.U8) :
@@ -6605,6 +7538,26 @@ def pke.decrypt
   let m := Array.repeat 32#usize 0#u8
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut m)
   let s1 ← arithmetic.ring_arith.RingElem.serialize mprime2 s 1#usize
+  ok (to_slice_mut_back s1)
+
+/-- [kopis::turboshake256_hash]:
+    Source: 'src/lib.rs', lines 41:0-51:1 -/
+def turboshake256_hash
+  (DS : Std.U8) (input0 : Slice Std.U8) (input1 : Slice Std.U8) :
+  Result (Array Std.U8 32#usize)
+  := do
+  let hasher ←
+    turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize DS
+  let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher input0
+  let hasher2 ←
+    turboshake.TurboShake.Insts.DigestUpdate.update hasher1 input1
+  let out := Array.repeat 32#usize 0#u8
+  let reader ←
+    turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
+      hasher2
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+  let (_, s1) ←
+    turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
@@ -6699,7 +7652,7 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::pke::{impl core::ops::drop::Drop for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 28:18-28:31 -/
+    Source: 'src/pke.rs', lines 27:18-27:31 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
   (pke.PkeSecretKey L) := {
@@ -6707,30 +7660,22 @@ def pke.PkeSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::pke::{impl zeroize::ZeroizeOnDrop for kopis::pke::PkeSecretKey<L>}]
-    Source: 'src/pke.rs', lines 28:18-28:31 -/
+    Source: 'src/pke.rs', lines 27:18-27:31 -/
 @[reducible]
 def pke.PkeSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
   zeroize.ZeroizeOnDrop (pke.PkeSecretKey L) := {
 }
 
 /-- Trait implementation: [kopis::pke::{impl core::clone::Clone for kopis::pke::PkePublicKey<L>}]
-    Source: 'src/pke.rs', lines 37:9-37:14 -/
+    Source: 'src/pke.rs', lines 36:9-36:14 -/
 @[reducible]
 def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
   (pke.PkePublicKey L) := {
   clone := pke.PkePublicKey.Insts.CoreCloneClone.clone
 }
 
-/-- [kopis::pke::max_pke_pubkey_serialized_len]:
-    Source: 'src/pke.rs', lines 115:0-117:1 -/
-def pke.max_pke_pubkey_serialized_len : Result Std.Usize := do
-  let i ← consts.MAX_L * consts.MODULUS_P_BITS
-  let i1 ← i * consts.RING_DEG
-  let i2 ← i1 / 8#usize
-  32#usize + i2
-
 /-- [kopis::pke::max_ciphertext_len]:
-    Source: 'src/pke.rs', lines 121:0-124:1
+    Source: 'src/pke.rs', lines 126:0-129:1
     Visibility: public -/
 def pke.max_ciphertext_len : Result Std.Usize := do
   let i ← consts.MAX_T * consts.RING_DEG
