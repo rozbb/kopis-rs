@@ -115,7 +115,11 @@ bench_kopis_variant!(kopis1024, Kopis1024SecretKey);
 
 bench_libcrux_variant!(libcrux_serial_mlkem512, portable, libcrux_ml_kem::mlkem512);
 bench_libcrux_variant!(libcrux_serial_mlkem768, portable, libcrux_ml_kem::mlkem768);
-bench_libcrux_variant!(libcrux_serial_mlkem1024, portable, libcrux_ml_kem::mlkem1024);
+bench_libcrux_variant!(
+    libcrux_serial_mlkem1024,
+    portable,
+    libcrux_ml_kem::mlkem1024
+);
 
 bench_libcrux_variant!(libcrux_avx2_mlkem512, avx2, libcrux_ml_kem::mlkem512);
 bench_libcrux_variant!(libcrux_avx2_mlkem768, avx2, libcrux_ml_kem::mlkem768);

@@ -6,7 +6,10 @@ use std::fs;
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::{CTurboShake128, CTurboShake256};
 
-const OUT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/turboshake_vectors.jsonl");
+const OUT: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/turboshake_vectors.jsonl"
+);
 
 /// Domain separators: the two Kopis uses, the RFC's, and both ends of the legal `01..=7f`.
 const DOMAIN_SEPS: [u8; 5] = [0x01, 0x02, 0x03, 0x1f, 0x7f];
