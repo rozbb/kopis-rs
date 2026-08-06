@@ -92,6 +92,12 @@ fn cbd<const MU: usize>(buf: &[u8]) -> RingElem {
 /// # Safety
 ///
 /// Requires AVX2.
+///
+// `needless_range_loop`: aeneas extracts `iter()`/`iter_mut()` plus `enumerate()` as an
+// iterator state machine whose Lean does not even typecheck, and `array::from_fn` as a `Fn`
+// trait instance with a `sorry`ed `call_once`. Explicit index loops keep the extraction plain,
+// as everywhere else in the crate.
+#[allow(clippy::needless_range_loop)]
 #[target_feature(enable = "avx2")]
 pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L, L> {
     let mut mat = Matrix::default();
@@ -102,17 +108,22 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
         // Entries are numbered in row-major order, matching the serial nested loop. A batch
         // that runs past the end repeats the last entry rather than inventing an index; the
         // extra lane's output is simply dropped below.
-        let indices: [[u8; 2]; 4] = core::array::from_fn(|lane| {
+        let mut indices = [[0u8; 2]; 4];
+        for lane in 0..4 {
             let entry = core::cmp::min(first + lane, entries - 1);
-            [(entry / L) as u8, (entry % L) as u8]
-        });
+            indices[lane][0] = (entry / L) as u8;
+            indices[lane][1] = (entry % L) as u8;
+        }
         let mut bufs = [[0u8; MATRIX_ELEM_BYTES]; 4];
         xof4::<RATE_128, DOMSEP_GENMAT, 2, MATRIX_ELEM_BYTES>(seed, &indices, &mut bufs);
 
-        for (lane, buf) in bufs.iter().enumerate() {
+        for lane in 0..4 {
             let entry = first + lane;
             if entry < entries {
-                mat.0[entry / L][entry % L] = RingElem(ser::deserialize(buf, MODULUS_Q_BITS));
+                mat.0[entry / L][entry % L] = RingElem(ser::deserialize(
+                    &bufs[lane][..MATRIX_ELEM_BYTES],
+                    MODULUS_Q_BITS,
+                ));
             }
         }
 
@@ -148,6 +159,9 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
 /// # Safety
 ///
 /// Requires AVX2. `N` must be at least `RING_DEG * MU / 8`.
+///
+// `needless_range_loop`: see `gen_matrix_from_seed` above.
+#[allow(clippy::needless_range_loop)]
 #[target_feature(enable = "avx2")]
 fn secret<const L: usize, const MU: usize, const N: usize>(seed: &[u8; 32]) -> Matrix<L, 1> {
     const {
@@ -157,14 +171,17 @@ fn secret<const L: usize, const MU: usize, const N: usize>(seed: &[u8; 32]) -> M
         );
     }
 
-    let indices: [[u8; 1]; 4] = core::array::from_fn(|lane| [core::cmp::min(lane, L - 1) as u8]);
+    let mut indices = [[0u8; 1]; 4];
+    for lane in 0..4 {
+        indices[lane][0] = core::cmp::min(lane, L - 1) as u8;
+    }
 
     let mut bufs = [[0u8; N]; 4];
     xof4::<RATE_256, DOMSEP_GENSEC, 1, N>(seed, &indices, &mut bufs);
 
     let mut secret = Matrix::default();
-    for (i, row) in secret.0.iter_mut().enumerate() {
-        row[0] = cbd::<MU>(&bufs[i][..RING_DEG * MU / 8]);
+    for i in 0..L {
+        secret.0[i][0] = cbd::<MU>(&bufs[i][..RING_DEG * MU / 8]);
     }
     secret
 }

@@ -295,7 +295,10 @@ pub(crate) fn xof4<const RATE: usize, const DS: u8, const S: usize, const N: usi
         permute(&mut state);
 
         let take = core::cmp::min(RATE, N - done);
-        let words = take.div_ceil(8);
+        // `(take + 7) / 8`, not `take.div_ceil(8)`: charon leaves `div_ceil` opaque, so the
+        // Lean proof of this loop would have to axiomatize a stdlib function. `take <= RATE
+        // <= 200`, so the `+ 7` cannot overflow.
+        let words = (take + 7) / 8;
         let mut word = 0;
 
         // Four words at a time, for as long as four whole words remain *and* the resulting

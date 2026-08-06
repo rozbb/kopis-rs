@@ -295,6 +295,9 @@ fn build() -> String {
     }
 
     binop!(and_si256);
+    binop!(xor_si256);
+    binop!(or_si256);
+    binop!(andnot_si256);
     binop!(add_epi16);
     binop!(sub_epi16);
     binop!(add_epi32);
@@ -356,6 +359,21 @@ fn build() -> String {
     #[rustfmt::skip]
     shift!(slli_epi32, 32, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
                             16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]);
+    // The 64-bit shifts are the two halves of `keccak::rotl`. Rotation counts there run over
+    // the whole 0..=63 range, and a count of 0 pairs a shift by 0 with a shift by 64 — which
+    // must give zero rather than wrap the count — so 64 is covered as well as 0..=63.
+    #[rustfmt::skip]
+    shift!(slli_epi64, 65, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                            32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+                            48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+                            64]);
+    #[rustfmt::skip]
+    shift!(srli_epi64, 65, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                            16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                            32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+                            48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+                            64]);
 
     // --- `vpsrlw` by a register --------------------------------------------------------
     //
@@ -534,6 +552,35 @@ fn build() -> String {
                 .hex("o", &r)
                 .emit(&mut o);
         }
+        // `set1_epi64x` broadcasts a Keccak round constant, so the RC values themselves are
+        // edge cases worth pinning alongside the usual boundaries.
+        for &v in &[
+            0i64,
+            1,
+            -1,
+            i64::MIN,
+            i64::MAX,
+            0x0123_4567_89ab_cdef,
+            // The first and last Keccak round constants, spelled out rather than reached
+            // through `keccak::RC`, which is private: the sign-bit-set ones are what make the
+            // `i64` round trip in `round_const` worth pinning.
+            0x0000_0000_0000_0001,
+            0x8000_0000_8000_8008u64 as i64,
+        ] {
+            let r = v256_bytes(set1_epi64x(v));
+            Rec::new("set1_epi64x")
+                .hex("a", &v.to_le_bytes())
+                .hex("o", &r)
+                .emit(&mut o);
+        }
+        for _ in 0..N_RANDOM {
+            let v = rng.u64() as i64;
+            let r = v256_bytes(set1_epi64x(v));
+            Rec::new("set1_epi64x")
+                .hex("a", &v.to_le_bytes())
+                .hex("o", &r)
+                .emit(&mut o);
+        }
         Rec::new("setzero_si256")
             .hex("o", &v256_bytes(setzero_si256()))
             .emit(&mut o);
@@ -585,6 +632,36 @@ fn build() -> String {
             .hex("buf", &raw)
             .num("idx", off as i64)
             .hex("o", &r)
+            .emit(&mut o);
+    }
+
+    // `load_u8x32` / `store_u8x32` are byte-indexed too: `keccak` reads and writes the sponge a
+    // 64-bit word at a time, so their offsets are multiples of 8 rather than of 32. The offsets
+    // drawn below are unrestricted, which covers that and more.
+    for _ in 0..N_MEMORY {
+        let mut raw = [0u8; 96];
+        rng.fill(&mut raw);
+        let off = rng.below(65) as usize;
+        let r = v256_bytes(load_u8x32(&raw, off));
+        Rec::new("load_u8x32")
+            .hex("buf", &raw)
+            .num("idx", off as i64)
+            .hex("o", &r)
+            .emit(&mut o);
+    }
+
+    for _ in 0..N_MEMORY {
+        let mut raw = [0u8; 96];
+        rng.fill(&mut raw);
+        let off = rng.below(65) as usize;
+        let val = rng.bytes32();
+        let mut after = raw;
+        store_u8x32(&mut after, off, v256_of(&val));
+        Rec::new("store_u8x32")
+            .hex("buf", &raw)
+            .num("idx", off as i64)
+            .hex("v", &val)
+            .hex("o", &after)
             .emit(&mut o);
     }
 
