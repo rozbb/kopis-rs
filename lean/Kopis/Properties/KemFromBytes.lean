@@ -74,7 +74,7 @@ theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 6
   let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
     pke_from_bytes_spec (L := 2#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
-  let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk (by scalar_tac) (by scalar_tac)
+  let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk
   -- the parsed key re-serializes to the input bytes
   have hpk : pkStructBytes pke_pk .Kopis_512 rfl = sliceToBytes bytes 672 hlen :=
     pkStructBytes_eq_of_parts pke_pk .Kopis_512 rfl (sliceToBytes bytes 672 hlen)
@@ -142,7 +142,7 @@ theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 9
   let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
     pke_from_bytes_spec (L := 3#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
-  let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk (by scalar_tac) (by scalar_tac)
+  let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk
   -- the parsed key re-serializes to the input bytes
   have hpk : pkStructBytes pke_pk .Kopis_768 rfl = sliceToBytes bytes 992 hlen :=
     pkStructBytes_eq_of_parts pke_pk .Kopis_768 rfl (sliceToBytes bytes 992 hlen)
@@ -210,7 +210,7 @@ theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 
   let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
     pke_from_bytes_spec (L := 4#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
-  let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk (by scalar_tac) (by scalar_tac)
+  let* ⟨ h, hh ⟩ ← pke_hash_spec pke_pk
   -- the parsed key re-serializes to the input bytes
   have hpk : pkStructBytes pke_pk .Kopis_1024 rfl = sliceToBytes bytes 1312 hlen :=
     pkStructBytes_eq_of_parts pke_pk .Kopis_1024 rfl (sliceToBytes bytes 1312 hlen)

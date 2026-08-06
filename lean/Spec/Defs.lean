@@ -380,12 +380,14 @@ theorem Byte.ext_testBit (a b : Byte)
 private theorem testBit_byte_of_bools (f : Fin 8 → Bool) (k : Fin 8) :
     (Fin.foldl 8 (fun (acc : Byte) (j : Fin 8) =>
       acc + (f j).toNat * (2 ^ j.val)) 0).toNat.testBit k.val = f k := by
-  native_decide +revert
+  -- `decide +kernel`, not `native_decide`: kernel reduction handles the 2⁸ cases in ~1 s and
+  -- adds no axiom, where `native_decide` would put the Lean compiler in the trust base.
+  decide +kernel +revert
 
 private theorem byte_of_testBits (b : Byte) :
     Fin.foldl 8 (fun (acc : Byte) (j : Fin 8) =>
       acc + (b.toNat.testBit j.val).toNat * (2 ^ j.val)) 0 = b := by
-  native_decide +revert
+  decide +kernel +revert
 
 /-- Each bit of the pure `bitsToBytes` output matches the input. -/
 theorem bitsToBytes_testBit {ℓ : Nat} (b : Vector Bool (8 * ℓ))

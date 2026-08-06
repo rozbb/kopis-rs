@@ -215,7 +215,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     (p : Spec.Kopis.ParameterSet)
     (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
-    (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
+    (_hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
     (_hL : L.val < 256) :
     pke.expand_decap_key L MU sk
       ⦃ (r : pke.PkeSecretKey L × Array U8 32#usize × pke.PkePublicKey L × Array U8 32#usize) =>
@@ -352,7 +352,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     (Array.repeat L (Array.repeat 320#usize 0#u8)) (by simp) rfl hfit
   let* ⟨pkh, hpkh⟩ ← pke_hash_spec
     { matrix_seed := to_slice_mut_back s3, mat_a_ntt := mat_a_ntt, vec_bytes := vec_bytes1,
-      vec_ntt := vec_ntt } hbuf hfit
+      vec_ntt := vec_ntt }
   -- the serialized rows equal the spec `serialize` of the rounded vector
   have hbytes : ∀ i, i < L.val → ∀ c, c < 320 →
       ((vec_bytes1.val[i]!).val[c]!).bv

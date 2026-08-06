@@ -16,63 +16,125 @@ theorem domsep_pkhash_bv : (4#u8).bv = DOMSEP_PKHASH := by decide
 def matSeedBytes {L : Usize} (self : pke.PkePublicKey L) : 𝔹 32 :=
   (arrayToBytes self.matrix_seed).cast rfl
 
-theorem pke_hash_spec {L : Usize} (self : pke.PkePublicKey L)
-    (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max) :
+/-- Every `vec_bytes` row is 320 bytes long, whether or not the index is in bounds:
+`getElem!`'s out-of-range fallback is still an `Array U8 320#usize`. -/
+theorem vec_bytes_row_length {L : Usize} (self : pke.PkePublicKey L) (i : ℕ) :
+    (self.vec_bytes.val[i]!).val.length = 320 := (self.vec_bytes.val[i]!).property
+
+/-- The `i`-th 320-byte window of `vecBytesFlat` is row `i` of `vec_bytes`. -/
+theorem vecBytesFlat_window {L : Usize} (self : pke.PkePublicKey L) (i : ℕ) (hi : i < L.val) :
+    ((vecBytesFlat self).toList.drop (i * 320)).take 320
+      = (self.vec_bytes.val[i]!).val.map (·.bv) := by
+  apply List.ext_getElem
+  · simp only [List.length_take, List.length_drop, Vector.toList_length, List.length_map,
+      vec_bytes_row_length]
+    omega
+  · intro k h1 h2
+    have hk : k < 320 := by
+      simp only [List.length_map, vec_bytes_row_length] at h2; exact h2
+    have hd : (i * 320 + k) / 320 = i := by omega
+    have hm : (i * 320 + k) % 320 = k := by omega
+    simp only [List.getElem_take, List.getElem_drop, Vector.getElem_toList, vecBytesFlat,
+      Vector.getElem_ofFn, List.getElem_map, hd, hm]
+    rw [getElem!_pos _ k (by rw [vec_bytes_row_length]; exact hk)]
+
+/-- Peeling one row off the flattened vector bytes: the tail from `i·320` is row `i`
+followed by the tail from `(i+1)·320`. -/
+theorem vecBytesFlat_drop_step {L : Usize} (self : pke.PkePublicKey L) (i : ℕ) (hi : i < L.val) :
+    (vecBytesFlat self).toList.drop (i * 320)
+      = (self.vec_bytes.val[i]!).val.map (·.bv)
+        ++ (vecBytesFlat self).toList.drop ((i + 1) * 320) := by
+  rw [← vecBytesFlat_window self i hi, show (i + 1) * 320 = i * 320 + 320 by ring,
+    ← List.drop_drop, List.take_append_drop]
+
+/-- Loop invariant of `hash_loop`: iterating `i ∈ [start, L)` absorbs `vec_bytes[i]` into
+the hasher in order, i.e. appends the tail of `vecBytesFlat` from `start·320` onwards.
+`self` is threaded unchanged. -/
+theorem hash_loop_spec {L : Usize} (self : pke.PkePublicKey L)
+    (iter : core.ops.range.Range Usize) (hasher : turboshake.TurboShake 136#usize 4#u8)
+    (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
+    pke.PkePublicKey.hash_loop iter self hasher
+      ⦃ ((self1 : pke.PkePublicKey L), (h : turboshake.TurboShake 136#usize 4#u8)) =>
+          self1 = self ∧
+          (hasherAbsorbed h).map (·.bv)
+            = (hasherAbsorbed hasher).map (·.bv)
+              ++ (vecBytesFlat self).toList.drop (iter.start.val * 320) ⦄ := by
+  unfold pke.PkePublicKey.hash_loop
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]; simp only
+    have hi_lt : iter.start.val < L.val := by scalar_tac
+    have hib : iter.start.val < self.vec_bytes.length := by
+      have := self.vec_bytes.property; scalar_tac
+    let* ⟨ vb, hvb ⟩ ← Array.index_usize_spec self.vec_bytes iter.start hib
+    rw [show (lift (Array.to_slice vb) : Result (Slice U8)) = ok (Array.to_slice vb) from rfl,
+      bind_tc_ok]
+    let* ⟨ hasher1, habs1 ⟩ ← hasher_update_spec
+    apply WP.spec_mono
+      (hash_loop_spec self iter1 hasher1 (by rw [hstart']; scalar_tac) (by rw [hend']; exact hend))
+    rintro ⟨pk', h'⟩ ⟨hpk', habs'⟩
+    refine ⟨hpk', ?_⟩
+    have hvbeq : vb.val = (self.vec_bytes.val[iter.start.val]!).val := by
+      rw [hvb, getElem!_pos self.vec_bytes.val iter.start.val (by
+        have := self.vec_bytes.property; simpa [Array.length] using hib)]
+    rw [habs', habs1, hstart', List.map_append, List.append_assoc,
+      Array.val_to_slice, hvbeq, ← vecBytesFlat_drop_step self iter.start.val hi_lt]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]; simp only [WP.spec_ok]
+    have hge : iter.start.val = L.val := by scalar_tac
+    refine ⟨rfl, ?_⟩
+    rw [List.drop_eq_nil_of_le (by simp only [Vector.toList_length]; rw [hge]),
+      List.append_nil]
+  termination_by iter.«end».val - iter.start.val
+  decreasing_by scalar_decr_tac
+
+theorem pke_hash_spec {L : Usize} (self : pke.PkePublicKey L) :
     pke.PkePublicKey.hash self
       ⦃ (r : Array U8 32#usize) => arrayToBytes r
           = turboSHAKE256 (vecBytesFlat self ‖ matSeedBytes self) DOMSEP_PKHASH 32 ⦄ := by
-  have hb0 : L.val * 10 ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit
-  have hmax : L.val * 320 + 32 ≤ Usize.max := le_trans hbuf (by scalar_tac)
   have e32 : (32#usize).val = 32 := rfl
-  unfold pke.PkePublicKey.hash pke.PkePublicKey.SERIALIZED_LEN
-  simp only [consts.MODULUS_P_BITS, consts.RING_DEG]
-  let* ⟨ i0, hi0 ⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) hb0
-  let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (x := i0) (y := 256#usize) (by rw [hi0]; exact hfit)
-  let* ⟨ i2, hi2 ⟩ ← Std.Usize.div_spec
-  have hi2v : i2.val = L.val * 320 := by rw [hi2, hi1, hi0]; omega
-  let* ⟨ out_size, hos ⟩ ← Std.Usize.add_spec (x := 32#usize) (y := i2) (by rw [hi2v]; omega)
-  have hosv : out_size.val = L.val * 320 + 32 := by rw [hos, hi2v]; omega
-  -- index_mut buf
-  have hbnd : ({ «end» := out_size } : core.ops.range.RangeTo Usize).«end» ≤ (1312#usize) := by
-    rw [UScalar.le_equiv, hosv]; exact hbuf
-  step with Array.index_mut_SliceIndexRangeToUsizeSlice as
-    ⟨ pk_slice, back, hpk_val, hpk_len, hpk_back ⟩
-  have hpkvlen : pk_slice.val.length = L.val * 320 + 32 := by
-    rw [← Slice.length, hpk_len, hosv]
-  let* ⟨ pk_slice1, hpk1_len, hpk1_bytes ⟩ ← pke_serialize_spec self pk_slice hpkvlen hfit
-  rw [show (lift (Array.to_slice (Std.Array.empty U8)) : Result (Slice U8))
-      = ok (Array.to_slice (Std.Array.empty U8)) from rfl, bind_tc_ok]
-  unfold turboshake256_hash
+  unfold pke.PkePublicKey.hash
+  let* ⟨ hasher, hasher_post ⟩ ← hasher_default_spec
+  let* ⟨ self1, hasher1, hself1, habs1 ⟩ ←
+    hash_loop_spec self { start := 0#usize, «end» := L } hasher (by simp) rfl
+  rw [hself1]
+  rw [show (lift (Array.to_slice self.matrix_seed) : Result (Slice U8))
+      = ok (Array.to_slice self.matrix_seed) from rfl, bind_tc_ok]
   step*
-  have habs : hasherAbsorbed hasher2 = pk_slice1.val := by
-    rw [hasher2_post, hasher1_post, hasher_post]
-    simp [Array.to_slice, Std.Array.empty]
-  have hslen : s.length = 32 := by
-    rw [Slice.length, s_post1]; simp
-  have hs1len : s1.length = 32 := by rw [__post1, hslen]
+  -- the absorbed bytes are `vecBytesFlat ‖ matrix_seed`
+  have hmapped : (hasherAbsorbed hasher2).map (·.bv)
+      = (vecBytesFlat self).toList ++ (arrayToBytes self.matrix_seed).toList := by
+    rw [hasher2_post, List.map_append, habs1, hasher_post, Array.val_to_slice,
+      arrayToBytes_toList]
+    simp
+  have hlen2 : (hasherAbsorbed hasher2).length = L.val * 320 + 32 := by
+    have := congrArg List.length hmapped
+    simpa only [List.length_map, List.length_append, Vector.toList_length, e32] using this
+  have hslen : s1.length = 32 := by
+    rw [Slice.length, s1_post1]; simp
+  have hs2len : s2.length = 32 := by rw [__post1, hslen]
   rw [reader_post1, reader_post2] at __post2
   dsimp only at __post2
   rw [Nat.zero_add, hslen] at __post2
-  rw [habs] at __post2
-  have hlen1 : pk_slice1.val.length = L.val * (32 * 10) + 32 := hpk1_len
-  -- the absorbed bytes (recast to the right length) equal `vecBytesFlat ‖ matrix_seed`
-  have hXY : (u8ListToBytes pk_slice1.val).cast hlen1
+  have hXY : (u8ListToBytes (hasherAbsorbed hasher2)).cast hlen2
       = vecBytesFlat self ‖ matSeedBytes self := by
     apply Vector.toList_inj.mp
     rw [Vector.toList_cast]
-    have hu : (u8ListToBytes pk_slice1.val).toList = pk_slice1.val.map (·.bv) := by
+    have hu : (u8ListToBytes (hasherAbsorbed hasher2)).toList
+        = (hasherAbsorbed hasher2).map (·.bv) := by
       simp only [u8ListToBytes, Vector.toList_ofFn]; rw [List.ofFn_getElem_eq_map]
-    rw [hu, hpk1_bytes]
+    rw [hu, hmapped]
     show Vector.toList (vecBytesFlat self) ++ Vector.toList (arrayToBytes self.matrix_seed)
       = (vecBytesFlat self ++ matSeedBytes self).toList
     rw [Vector.toList_append]
     rfl
-  have hbridge : turboSHAKE256 (u8ListToBytes pk_slice1.val) (4#u8).bv 32
+  have hbridge : turboSHAKE256 (u8ListToBytes (hasherAbsorbed hasher2)) (4#u8).bv 32
       = turboSHAKE256 (vecBytesFlat self ‖ matSeedBytes self) DOMSEP_PKHASH 32 := by
-    rw [domsep_pkhash_bv, ← turboSHAKE256_cast hlen1 (u8ListToBytes pk_slice1.val) DOMSEP_PKHASH 32, hXY]
-  rw [s_post2]
+    rw [domsep_pkhash_bv,
+      ← turboSHAKE256_cast hlen2 (u8ListToBytes (hasherAbsorbed hasher2)) DOMSEP_PKHASH 32, hXY]
+  rw [s1_post2]
   apply Vector.toList_inj.mp
-  rw [arrayToBytes_toList, Array.from_slice_val _ s1 (by rw [← Slice.length, hs1len]; exact e32.symm),
+  rw [arrayToBytes_toList, Array.from_slice_val _ s2 (by rw [← Slice.length, hs2len]; exact e32.symm),
     ← hbridge]
   exact __post2
 
