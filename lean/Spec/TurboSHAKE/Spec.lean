@@ -191,4 +191,98 @@ theorem turboSHAKE256_getElem_prefix {n : Nat} (msg : 𝔹 n) (D : Byte) (a b i 
   unfold turboSHAKE256
   exact turboSHAKE_getElem_prefix 136 msg D a b i hia hib (by omega)
 
+/-! ## One-block absorption
+
+Every Kopis call hashes an input that fits, with its domain-separation byte, strictly inside one
+rate-sized block.  For those the sponge collapses: xor the input into a zero state, set the pad
+bit, permute once, then squeeze.  The theorem below exposes exactly that, so an implementation can
+be matched against `turboSHAKE` without reasoning about the absorb loop at all.
+
+Nothing here changes what is specified — `absorb`, `squeeze` and `turboSHAKE` are untouched; these
+are consequences of them. -/
+
+private theorem squeeze_getElem (state : 𝔹 200) (rate rem : Nat) (h1 : 0 < rate)
+    (h2 : rate ≤ 200) (i : Nat) (hi : i < rem) :
+    (squeeze state rate rem h1 h2)[i]! = (KP_bytes^[i / rate] state)[i % rate]! := by
+  induction rem using Nat.strong_induction_on generalizing state i with
+  | _ rem IH =>
+    rw [squeeze]
+    by_cases h : rem ≤ rate
+    · rw [dif_pos h, getElem!_pos _ i (by simpa using hi),
+        Nat.div_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega),
+        Function.iterate_zero_apply, getElem!_pos _ i (by simpa using (by omega : i < 200))]
+      simp only [Vector.getElem_ofFn]
+    · rw [dif_neg h]
+      by_cases hir : i < rate
+      · rw [getElem!_pos _ i (by simpa using hi),
+          Nat.div_eq_of_lt hir, Nat.mod_eq_of_lt hir, Function.iterate_zero_apply,
+          getElem!_pos _ i (by simpa using (by omega : i < 200))]
+        simp only [Vector.getElem_cast, Vector.getElem_append, dif_pos hir, Vector.getElem_ofFn]
+      · rw [getElem!_pos _ i (by simpa using hi)]
+        simp only [Vector.getElem_cast, Vector.getElem_append, dif_neg hir]
+        rw [← getElem!_pos _ (i - rate) (by simpa using (by omega : i - rate < rem - rate)),
+          IH (rem - rate) (by omega) (KP_bytes state) (i - rate) (by omega)]
+        conv_rhs => rw [Nat.div_eq_sub_div h1 (by omega), Nat.mod_eq_sub_mod (by omega),
+          Function.iterate_succ_apply]
+
+private theorem absorb_oneBlock (state : 𝔹 200) (input : Array Byte) (rate : Nat)
+    (h1 : 0 < rate) (h2 : rate ≤ 200) (hfit : input.size < rate) :
+    absorb state input 0 rate h1 h2
+      = KP_bytes (((xorBytesAt state input 0 (input.size - 0)).set (rate - 1)
+          ((xorBytesAt state input 0 (input.size - 0))[rate - 1]'(by omega) ^^^ (0x80 : Byte))
+          (by omega))) := by
+  rw [absorb, dif_neg (by omega)]
+
+set_option maxRecDepth 8000 in
+/-- **One-block `turboSHAKE`.**  When the message and its domain-separation byte fit strictly
+inside one rate-sized block, byte `i` of the output is byte `i % rate` of the start state permuted
+`i / rate + 1` times, where the start state is the block laid into a zero state with the `0x80`
+pad bit set.
+
+The start state is a parameter, characterised pointwise, so a caller can supply whatever
+description of the padded block it already has. -/
+theorem turboSHAKE_oneBlock_getElem {mLen : Nat} (rate : Nat) (msg : 𝔹 mLen) (D : Byte)
+    (outLen : Nat) (hrate : 0 < rate ∧ rate ≤ 200) (hfit : mLen + 1 < rate)
+    (st : 𝔹 200)
+    (hst : ∀ j < 200, st[j]! =
+        if j < mLen then msg[j]!
+        else if j = mLen then D
+        else if j = rate - 1 then (0x80 : Byte)
+        else 0)
+    (i : Nat) (hi : i < outLen) :
+    (turboSHAKE rate msg D outLen hrate)[i]!
+      = (KP_bytes^[i / rate + 1] st)[i % rate]! := by
+  unfold turboSHAKE
+  have hsz : (msg.toArray.push D).size = mLen + 1 := by simp
+  have hstate :
+      (xorBytesAt (Vector.replicate 200 (0 : Byte)) (msg.toArray.push D) 0
+          ((msg.toArray.push D).size - 0)).set (rate - 1)
+        ((xorBytesAt (Vector.replicate 200 (0 : Byte)) (msg.toArray.push D) 0
+            ((msg.toArray.push D).size - 0))[rate - 1]'(by omega) ^^^ (0x80 : Byte))
+        (by omega) = st := by
+    apply Vector.ext
+    intro j hj
+    rw [Vector.getElem_set, ← getElem!_pos st j hj, hst j hj]
+    by_cases hlast : rate - 1 = j
+    · rw [if_pos hlast, ← hlast]
+      simp only [xorBytesAt, Vector.getElem_ofFn, hsz, Nat.sub_zero,
+        if_neg (show ¬(rate - 1 < mLen + 1) by omega)]
+      rw [if_neg (by omega), if_neg (by omega)]
+      simp
+    · rw [if_neg hlast]
+      simp only [xorBytesAt, Vector.getElem_ofFn, hsz, Nat.sub_zero]
+      by_cases hjm : j < mLen + 1
+      · rw [if_pos hjm, dif_pos (by omega)]
+        by_cases hjm2 : j < mLen
+        · rw [if_pos hjm2, Array.getElem_push, dif_pos (by simpa using hjm2)]
+          simp [getElem!_pos msg j hjm2]
+        · rw [if_neg hjm2, if_pos (by omega), Array.getElem_push,
+            dif_neg (by simpa using hjm2)]
+          simp
+      · rw [if_neg hjm, if_neg (by omega), if_neg (by omega), if_neg (fun h => hlast h.symm)]
+        simp
+  rw [squeeze_getElem _ _ _ hrate.1 hrate.2 i hi,
+    absorb_oneBlock _ _ _ hrate.1 hrate.2 (by rw [hsz]; omega), hstate,
+    ← Function.iterate_succ_apply]
+
 end Spec.TurboSHAKE

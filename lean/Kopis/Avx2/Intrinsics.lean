@@ -135,6 +135,11 @@ axiom set1_epi16_spec (a : Std.I16) :
 axiom set1_epi32_spec (a : Std.I32) :
     ∃ c, set1_epi32 a = ok c ∧ ∀ i < 8, lane32 c i = a.bv
 
+/-- `vpbroadcastq` — every 64-bit lane is `a`.  Used by `keccak::round_const` to splat a round
+constant across the four sponges. -/
+axiom set1_epi64x_spec (a : Std.I64) :
+    ∃ c, set1_epi64x a = ok c ∧ ∀ i < 4, lane64 c i = a.bv
+
 /-- `vpxor` against itself — all 256 bits zero. -/
 axiom setzero_si256_spec :
     ∃ c, setzero_si256 = ok c ∧ bits c = 0#256
@@ -146,6 +151,20 @@ axiom cvtsi32_si128_spec (a : Std.I32) :
 /-- `vpand` — bitwise, all 256 bits at once. -/
 axiom and_si256_spec (a b : Vec256) :
     ∃ c, and_si256 a b = ok c ∧ bits c = bits a &&& bits b
+
+/-- `vpxor` — bitwise, all 256 bits at once.  θ and ι are built from this. -/
+axiom xor_si256_spec (a b : Vec256) :
+    ∃ c, xor_si256 a b = ok c ∧ bits c = bits a ^^^ bits b
+
+/-- `vpor` — bitwise, all 256 bits at once.  The two halves of a `rotl` are combined with it. -/
+axiom or_si256_spec (a b : Vec256) :
+    ∃ c, or_si256 a b = ok c ∧ bits c = bits a ||| bits b
+
+/-- `vpandn` — `(¬a) ∧ b`, bitwise over all 256 bits.  Note the operand order: the *first*
+argument is the complemented one, which is the instruction's convention and not the reading
+order of the name.  This is χ's `(¬x) ∧ y`. -/
+axiom andnot_si256_spec (a b : Vec256) :
+    ∃ c, andnot_si256 a b = ok c ∧ bits c = (~~~bits a) &&& bits b
 
 /-! ## Lane arithmetic
 
@@ -216,6 +235,18 @@ axiom srli_epi16_spec (IMM : Std.I32) (a : Vec256) (h : 0 ≤ IMM.val) :
 axiom slli_epi32_spec (IMM : Std.I32) (a : Vec256) (h : 0 ≤ IMM.val) :
     ∃ c, slli_epi32 IMM a = ok c ∧ ∀ i < 8,
       lane32 c i = lane32 a i <<< IMM.val.toNat
+
+/-- `vpsllq` by an immediate.  A count of 64 or more gives zero rather than wrapping the count,
+which is `BitVec`'s `<<<` and is what makes `keccak::rotl`'s zero-rotation case come out as the
+identity (`x <<< 0 ||| x >>> 64 = x ||| 0`). -/
+axiom slli_epi64_spec (IMM : Std.I32) (a : Vec256) (h : 0 ≤ IMM.val) :
+    ∃ c, slli_epi64 IMM a = ok c ∧ ∀ i < 4,
+      lane64 c i = lane64 a i <<< IMM.val.toNat
+
+/-- `vpsrlq` by an immediate — logical, and zero at counts of 64 or more, as above. -/
+axiom srli_epi64_spec (IMM : Std.I32) (a : Vec256) (h : 0 ≤ IMM.val) :
+    ∃ c, srli_epi64 IMM a = ok c ∧ ∀ i < 4,
+      lane64 c i = lane64 a i >>> IMM.val.toNat
 
 /-- `vpsrlw` by a register — the count is the whole low *64* bits of `count`, not a lane, so a
 count of 2^16 is a count of 2^16 (and shifts everything out) rather than a count of 0. -/
@@ -394,6 +425,22 @@ axiom load_u8x16_spec (src : Aeneas.Std.Slice Std.U8) (offset : Std.Usize)
     (h : offset.val + 16 ≤ src.val.length) :
     ∃ c, load_u8x16 src offset = ok c ∧
       ∀ k < 16, lane8' c k = (src.val[offset.val + k]!).bv
+
+/-- Loads the 32 bytes at `src[offset ..]` — byte-indexed like `load_u8x16`, because
+`keccak::load_words` reads the sponge block a 64-bit word at a time and so its offsets are
+multiples of 8, not of 32. -/
+axiom load_u8x32_spec {N : Std.Usize} (src : Array Std.U8 N) (offset : Std.Usize)
+    (h : offset.val + 32 ≤ N.val) :
+    ∃ c, load_u8x32 src offset = ok c ∧
+      ∀ k < 32, lane8 c k = (src.val[offset.val + k]!).bv
+
+/-- Stores 32 bytes at `dst[offset ..]`, leaving everything else alone. -/
+axiom store_u8x32_spec {N : Std.Usize} (dst : Array Std.U8 N) (offset : Std.Usize) (v : Vec256)
+    (h : offset.val + 32 ≤ N.val) :
+    ∃ dst', store_u8x32 dst offset v = ok dst' ∧ ∀ j < N.val,
+      (dst'.val[j]!).bv =
+        if offset.val ≤ j ∧ j < offset.val + 32 then lane8 v (j - offset.val)
+        else (dst.val[j]!).bv
 
 end
 

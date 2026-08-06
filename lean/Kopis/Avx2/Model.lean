@@ -54,6 +54,9 @@ def set1Epi16 (a : BitVec 16) : BitVec 256 := ofLanes16 fun _ => a
 /-- `vpbroadcastd`. -/
 def set1Epi32 (a : BitVec 32) : BitVec 256 := ofLanes32 fun _ => a
 
+/-- `vpbroadcastq`. -/
+def set1Epi64x (a : BitVec 64) : BitVec 256 := ofLanes64 fun _ => a
+
 /-- `vpxor` against itself. -/
 def setzeroSi256 : BitVec 256 := 0#256
 
@@ -62,6 +65,15 @@ def cvtsi32Si128 (a : BitVec 32) : BitVec 128 := a.setWidth 128
 
 /-- `vpand`. -/
 def andSi256 (a b : BitVec 256) : BitVec 256 := a &&& b
+
+/-- `vpxor`. -/
+def xorSi256 (a b : BitVec 256) : BitVec 256 := a ^^^ b
+
+/-- `vpor`. -/
+def orSi256 (a b : BitVec 256) : BitVec 256 := a ||| b
+
+/-- `vpandn` — the *first* operand is the complemented one. -/
+def andnotSi256 (a b : BitVec 256) : BitVec 256 := (~~~a) &&& b
 
 /-! ### Lane arithmetic -/
 
@@ -120,6 +132,14 @@ def srliEpi16 (imm : Nat) (a : BitVec 256) : BitVec 256 :=
 /-- `vpslld` by an immediate. -/
 def slliEpi32 (imm : Nat) (a : BitVec 256) : BitVec 256 :=
   ofLanes32 fun i => laneOf 32 a i <<< imm
+
+/-- `vpsllq` by an immediate. -/
+def slliEpi64 (imm : Nat) (a : BitVec 256) : BitVec 256 :=
+  ofLanes64 fun i => laneOf 64 a i <<< imm
+
+/-- `vpsrlq` by an immediate. -/
+def srliEpi64 (imm : Nat) (a : BitVec 256) : BitVec 256 :=
+  ofLanes64 fun i => laneOf 64 a i >>> imm
 
 /-- `vpsrlw` by a register — the count is the whole low 64 bits of `count`. -/
 def srlEpi16 (a : BitVec 256) (count : BitVec 128) : BitVec 256 :=
@@ -236,6 +256,15 @@ def loadW8 (src : List (BitVec 8)) (i : Nat) : BitVec 256 :=
 def loadW8x16 (src : List (BitVec 8)) (offset : Nat) : BitVec 128 :=
   ofLanes8' fun k => src[offset + k]!
 
+/-- `load_u8x32`: the 32 bytes at `src[offset ..]`, byte-indexed. -/
+def loadW8x32 (src : List (BitVec 8)) (offset : Nat) : BitVec 256 :=
+  ofLanes8 fun k => src[offset + k]!
+
+/-- `store_u8x32`: `dst` with bytes `offset .. offset + 32` replaced. -/
+def storeW8x32 (dst : List (BitVec 8)) (offset : Nat) (v : BitVec 256) : List (BitVec 8) :=
+  (List.range dst.length).map fun j =>
+    if offset ≤ j ∧ j < offset + 32 then laneOf 8 v (j - offset) else dst[j]!
+
 /-- `store_i16` / `store_u16`: `dst` with elements `16 i .. 16 i + 16` replaced. -/
 def storeW16 (dst : List (BitVec 16)) (i : Nat) (v : BitVec 256) : List (BitVec 16) :=
   (List.range dst.length).map fun j =>
@@ -275,6 +304,12 @@ theorem set1_epi32_model (a : Std.I32) :
   exact ⟨c, hc, eq_of_lane32_bv fun i hi => by
     simpa [Model.set1Epi32, laneOf_ofLanes32 _ hi] using h i hi⟩
 
+theorem set1_epi64x_model (a : Std.I64) :
+    ∃ c, set1_epi64x a = ok c ∧ bits c = Model.set1Epi64x a.bv := by
+  obtain ⟨c, hc, h⟩ := set1_epi64x_spec a
+  exact ⟨c, hc, eq_of_lane64_bv fun i hi => by
+    simpa [Model.set1Epi64x, laneOf_ofLanes64 _ hi] using h i hi⟩
+
 theorem setzero_si256_model :
     ∃ c, setzero_si256 = ok c ∧ bits c = Model.setzeroSi256 := by
   obtain ⟨c, hc, h⟩ := setzero_si256_spec
@@ -289,6 +324,21 @@ theorem and_si256_model (a b : Vec256) :
     ∃ c, and_si256 a b = ok c ∧ bits c = Model.andSi256 (bits a) (bits b) := by
   obtain ⟨c, hc, h⟩ := and_si256_spec a b
   exact ⟨c, hc, by simpa [Model.andSi256] using h⟩
+
+theorem xor_si256_model (a b : Vec256) :
+    ∃ c, xor_si256 a b = ok c ∧ bits c = Model.xorSi256 (bits a) (bits b) := by
+  obtain ⟨c, hc, h⟩ := xor_si256_spec a b
+  exact ⟨c, hc, by simpa [Model.xorSi256] using h⟩
+
+theorem or_si256_model (a b : Vec256) :
+    ∃ c, or_si256 a b = ok c ∧ bits c = Model.orSi256 (bits a) (bits b) := by
+  obtain ⟨c, hc, h⟩ := or_si256_spec a b
+  exact ⟨c, hc, by simpa [Model.orSi256] using h⟩
+
+theorem andnot_si256_model (a b : Vec256) :
+    ∃ c, andnot_si256 a b = ok c ∧ bits c = Model.andnotSi256 (bits a) (bits b) := by
+  obtain ⟨c, hc, h⟩ := andnot_si256_spec a b
+  exact ⟨c, hc, by simpa [Model.andnotSi256] using h⟩
 
 /-! ### Lane arithmetic -/
 
@@ -365,6 +415,18 @@ theorem slli_epi32_model (IMM : Std.I32) (a : Vec256) (hIMM : 0 ≤ IMM.val) :
   obtain ⟨c, hc, h⟩ := slli_epi32_spec IMM a hIMM
   exact ⟨c, hc, eq_of_lane32_bv fun i hi => by
     simpa [Model.slliEpi32, laneOf_ofLanes32 _ hi] using h i hi⟩
+
+theorem slli_epi64_model (IMM : Std.I32) (a : Vec256) (hIMM : 0 ≤ IMM.val) :
+    ∃ c, slli_epi64 IMM a = ok c ∧ bits c = Model.slliEpi64 IMM.val.toNat (bits a) := by
+  obtain ⟨c, hc, h⟩ := slli_epi64_spec IMM a hIMM
+  exact ⟨c, hc, eq_of_lane64_bv fun i hi => by
+    simpa [Model.slliEpi64, laneOf_ofLanes64 _ hi] using h i hi⟩
+
+theorem srli_epi64_model (IMM : Std.I32) (a : Vec256) (hIMM : 0 ≤ IMM.val) :
+    ∃ c, srli_epi64 IMM a = ok c ∧ bits c = Model.srliEpi64 IMM.val.toNat (bits a) := by
+  obtain ⟨c, hc, h⟩ := srli_epi64_spec IMM a hIMM
+  exact ⟨c, hc, eq_of_lane64_bv fun i hi => by
+    simpa [Model.srliEpi64, laneOf_ofLanes64 _ hi] using h i hi⟩
 
 theorem srl_epi16_model (a : Vec256) (count : Vec128) :
     ∃ c, srl_epi16 a count = ok c ∧ bits c = Model.srlEpi16 (bits a) (bits' count) := by

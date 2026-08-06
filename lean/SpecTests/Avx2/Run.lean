@@ -112,7 +112,11 @@ def check (j : Json) : Except String Unit := do
   | "set1_epi16" => expect r (Model.set1Epi16 (← r.hexField "a" 16)) (← o256 ())
   | "set1_epi32" => expect r (Model.set1Epi32 (← r.hexField "a" 32)) (← o256 ())
   | "cvtsi32_si128" => expect r (Model.cvtsi32Si128 (← r.hexField "a" 32)) (← o128 ())
+  | "set1_epi64x" => expect r (Model.set1Epi64x (← r.hexField "a" 64)) (← o256 ())
   | "and_si256" => expect r (Model.andSi256 (← a256 ()) (← b256 ())) (← o256 ())
+  | "xor_si256" => expect r (Model.xorSi256 (← a256 ()) (← b256 ())) (← o256 ())
+  | "or_si256" => expect r (Model.orSi256 (← a256 ()) (← b256 ())) (← o256 ())
+  | "andnot_si256" => expect r (Model.andnotSi256 (← a256 ()) (← b256 ())) (← o256 ())
   -- lane arithmetic
   | "add_epi16" => expect r (Model.addEpi16 (← a256 ()) (← b256 ())) (← o256 ())
   | "sub_epi16" => expect r (Model.subEpi16 (← a256 ()) (← b256 ())) (← o256 ())
@@ -127,6 +131,8 @@ def check (j : Json) : Except String Unit := do
   | "srai_epi32" => expect r (Model.sraiEpi32 (← r.natField "imm") (← a256 ())) (← o256 ())
   | "srli_epi16" => expect r (Model.srliEpi16 (← r.natField "imm") (← a256 ())) (← o256 ())
   | "slli_epi32" => expect r (Model.slliEpi32 (← r.natField "imm") (← a256 ())) (← o256 ())
+  | "slli_epi64" => expect r (Model.slliEpi64 (← r.natField "imm") (← a256 ())) (← o256 ())
+  | "srli_epi64" => expect r (Model.srliEpi64 (← r.natField "imm") (← a256 ())) (← o256 ())
   | "srl_epi16" => expect r (Model.srlEpi16 (← a256 ()) (← r.hexField "c" 128)) (← o256 ())
   | "srlv_epi32" => expect r (Model.srlvEpi32 (← a256 ()) (← b256 ())) (← o256 ())
   -- shuffles, packs and lane surgery
@@ -157,6 +163,11 @@ def check (j : Json) : Except String Unit := do
       expect r (Model.loadW8 (← r.bytesField "buf") (← r.natField "idx")) (← o256 ())
   | "load_u8x16" =>
       expect r (Model.loadW8x16 (← r.bytesField "buf") (← r.natField "idx")) (← o128 ())
+  | "load_u8x32" =>
+      expect r (Model.loadW8x32 (← r.bytesField "buf") (← r.natField "idx")) (← o256 ())
+  | "store_u8x32" =>
+      expect r (Model.storeW8x32 (← r.bytesField "buf") (← r.natField "idx")
+                  (← r.hexField "v" 256)) (← r.bytesField "o")
   | "store_i16" | "store_u16" =>
       expect r (Model.storeW16 (← r.wordsField "buf" 16) (← r.natField "idx")
                   (← r.hexField "v" 256)) (← r.wordsField "o" 16)
@@ -182,7 +193,10 @@ def allOps : List String :=
    "packs_epi32", "packus_epi32", "cvtepu16_epi32", "castsi256_si128", "extracti128_si256",
    "broadcastsi128_si256",
    "load_i16", "store_i16", "load_u16", "store_u16", "load_i32", "store_i32", "load_u8",
-   "load_u8x16"]
+   "load_u8x16",
+   -- the `keccak` additions
+   "set1_epi64x", "xor_si256", "or_si256", "andnot_si256", "slli_epi64", "srli_epi64",
+   "load_u8x32", "store_u8x32"]
 
 def minVectors : Nat := 1000
 

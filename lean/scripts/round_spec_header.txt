@@ -1,0 +1,48 @@
+/-
+  # Kopis/Avx2/Keccak/RoundSpec.lean — `keccak::round` is one Keccak-p round.
+
+  This is the theorem the rest of the AVX2 Keccak proof rests on: the 208 intrinsic operations
+  `src/backend/avx2/keccak.rs::round` performs compute, in each of the four 64-bit lanes
+  independently, exactly `Rnd` of FIPS 202 §3.3 — read through `Round.lean`'s word form `RndW`
+  and `Fused.lean`'s account of how the Rust fuses ρ, π and θ into `chi_row!`.
+
+  `dst` does not appear in the postcondition: every one of its 25 registers is overwritten, which
+  is what `State.lean`'s `idx_surjective` certifies.  `l` and `hl : l < 4` are parameters rather
+  than `∀ l < 4` inside the postcondition, because `step*` introduces four binders either way and
+  with the `∀` inside, `rename_i` binds the proof where the index is meant.
+
+  The shape of the proof is worth stating, since it is entirely mechanical and was generated from
+  the extracted body:
+
+  * `step*` walks all 208 operations, given the three `@[step]` wrappers in `Ops.lean`.  It needs
+    `maxRecDepth 1000000`; the default 512 is nowhere near enough.
+  * The 60 `have`s fold registers *into* the spec's vocabulary with `State.lean`'s `lane_read`,
+    `parity_of`, `dTerm_of`, `tVal_of` and `chiRow_of` — five column parities, five θ mixing
+    terms, 25 `chi_row!` temporaries, 25 outputs.
+  * `fin_cases x <;> fin_cases y` then splits into the 25 lanes, and one `simp +decide` collapses
+    the 26 `Array.update`s to the register written at that index.  `+decide` rather than plain
+    `simp only` matters: `getElem!_list_set`'s side condition is a bound on the *write* index,
+    which `simp only` cannot discharge, so the lemma would silently never fire.
+  * Each lane then closes against `RndW_fused`, with `h00` carrying ι's round constant on the
+    one lane that gets it.
+
+  Nothing here does AC normalisation, and that is deliberate — see the note in `State.lean`.
+-/
+import Kopis.Avx2.Keccak.State
+
+open Aeneas Aeneas.Std Result
+open RustKopisAvx2
+open RustKopisAvx2.backend.avx2.intrinsics
+open Kopis.Avx2
+open Spec.SHA3
+
+namespace Kopis.Avx2.Keccak
+
+set_option maxHeartbeats 4000000
+set_option maxRecDepth 1000000
+
+noncomputable section
+
+/-- **`keccak::round` is one round of Keccak-p[1600, 12] in each of the four lanes.**  `rc` must
+carry the round constant of spec round `iᵣ` in every lane, which is what `round_const_spec`
+provides. -/
