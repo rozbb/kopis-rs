@@ -723,6 +723,23 @@ theorem deserialize_13_spec (bytes : Slice U8) (arr : Array U8 416#usize)
   have h := hr j hj
   rwa [if_neg (by simp)] at h
 
+/-- **From coefficient windows to the spec polynomial.**  A `RingElem` whose coefficients are the
+13-bit windows of a byte stream *is* the spec's `deserialize` of that stream.
+
+Stated separately from `from_bytes_spec` because the AVX2 unpacker is specified by its windows
+(`Kopis/Avx2/Ser.lean`'s `deserialize_streamNat`) rather than by going through
+`RingElem.deserialize`, so it needs this last step on its own. -/
+theorem toRingElem13_of_streamNat (bytes : Slice U8) (hlen : bytes.length = 32 * 13)
+    (r : RingElem) (hr : ∀ j < 256, (r.val[j]!).val = streamNat bytes (13 * j) 13) :
+    toRingElem13 r = Spec.Kopis.deserialize 13 (sliceToBytes bytes (32 * 13) hlen) := by
+  have hrlen : (r.val : List U16).length = 256 := by have := r.property; scalar_tac
+  apply Vector.ext
+  intro jj hjj
+  simp only [toRingElem13, Vector.getElem_ofFn]
+  rw [deserialize_get 13 (sliceToBytes bytes (32 * 13) hlen) jj hjj,
+    ← getElem!_pos r.val jj (by rw [hrlen]; exact hjj), hr jj hjj,
+    streamNat_eq_sum bytes 13 jj hlen hjj]
+
 /-- **Correctness of `RingElem::deserialize` at 13 bits.**  Decoding a 416-byte
 buffer yields the spec ring element `deserialize 13`.  (The Rust method was renamed
 from `from_bytes` to `deserialize`; the 13-bit branch now routes through the

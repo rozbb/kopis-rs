@@ -257,14 +257,273 @@ theorem pointwise_mul_acc_spec (hb : backend.avx2.cpu.available = ok false)
     # The two `from_secret_matrix_spec` call sites: the vector `from_secret` needs its input
     # already centred (see `scripts/gen_avx2_bridge.py`), and both callers already carry the
     # `SecretBounded` fact that gives it.
+    # Dispatch point 5: `gen_matrix_from_seed`.  Unlike the NTT dispatch points, both branches
+    # satisfy the *same* statement here — `Kopis/Avx2/SampleBridge.lean` proves the vector path
+    # against `GenMat` on top of `Keccak/Conform.lean`'s `xof4_turboSHAKE` — so the two are
+    # joined rather than one being restricted away.  The vector path computes `L * L`, which the
+    # portable path does not, so it carries an overflow hypothesis the portable path lacks.
+    ("GenMatrix.lean",
+     """import Kopis.Avx2.Properties.Serialize""",
+     """import Kopis.Avx2.Properties.Serialize
+import Kopis.Avx2.SampleBridge"""),
+    ("GenMatrix.lean",
+     """theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize) :
+    sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+  unfold sample.gen_matrix_from_seed
+  simp only [""",
+     """theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize)
+    (hLmax : L.val * L.val + 4 ≤ Usize.max) :
+    sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+  unfold sample.gen_matrix_from_seed
+  obtain ⟨b1, hb1⟩ := Kopis.Avx2.available_ok
+  rw [hb1, bind_tc_ok]
+  have havx : backend.avx2.sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+    apply WP.spec_mono (Kopis.Avx2.Properties.avx2_gen_matrix_from_seed_spec L seed hLmax)
+    intro r hr
+    apply Matrix.ext
+    intro a b
+    rw [toMatrix13, Matrix.of_apply, hr a.val a.isLt b.val b.isLt, GenMat_get,
+      Kopis.Avx2.Properties.entryOf]
+    rfl
+  cases b1
+  case true => simpa only [reduceIte] using havx
+  all_goals simp only [Bool.false_eq_true, reduceIte]
+  simp only ["""),
+    # Dispatch point 6: `gen_secret_from_seed`, joined the same way as `gen_matrix_from_seed`.
+    # `Kopis/Avx2/SecretBridge.lean` proves the vector path against `GenSecret`.  It carries two
+    # hypotheses the portable path does not need: the vector index loop computes `L - 1` before
+    # any guard (so `L = 0` underflows where the portable path is simply empty), and the Rust
+    # `const`-asserts `L <= 4`.
+    ("GenSecretTop.lean",
+     """import Kopis.Avx2.Properties.GenSecretSpec""",
+     """import Kopis.Avx2.Properties.GenSecretSpec
+import Kopis.Avx2.SecretBridge"""),
+    ("GenSecretTop.lean",
+     """theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+  unfold sample.gen_secret_from_seed
+  simp only [""",
+     """theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+  unfold sample.gen_secret_from_seed
+  obtain ⟨bAvx, hbAvx⟩ := Kopis.Avx2.available_ok
+  rw [hbAvx, bind_tc_ok]
+  have havx : backend.avx2.sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+    apply WP.spec_mono
+      (Kopis.Avx2.Properties.avx2_gen_secret_from_seed_spec L MU seed hMU hL hL4)
+    intro r hr
+    apply Vector.ext
+    intro a ha
+    rw [toVector13, Vector.getElem_ofFn, hr a ha,
+      getElem!_pos (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed)) a (by simpa using ha)]
+  cases bAvx
+  case true => simpa only [reduceIte] using havx
+  all_goals simp only [Bool.false_eq_true, reduceIte]
+  simp only ["""),
+    # …and the same theorem's coefficient bound, which has its own dispatch.
+    ("GenSecretTop.lean",
+     """theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          ∀ a (_ha : a < L.val) c (_hc : c < 256),
+            smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
+  unfold sample.gen_secret_from_seed
+  simp only [""",
+     """theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          ∀ a (_ha : a < L.val) c (_hc : c < 256),
+            smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
+  unfold sample.gen_secret_from_seed
+  obtain ⟨bAvx2, hbAvx2⟩ := Kopis.Avx2.available_ok
+  rw [hbAvx2, bind_tc_ok]
+  have havx : backend.avx2.sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          ∀ a (_ha : a < L.val) c (_hc : c < 256),
+            smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
+    apply WP.spec_mono
+      (Kopis.Avx2.Properties.avx2_gen_secret_from_seed_bd L MU seed hMU hL hL4)
+    intro r hr
+    exact hr
+  cases bAvx2
+  case true => simpa only [reduceIte] using havx
+  all_goals simp only [Bool.false_eq_true, reduceIte]
+  simp only ["""),
+    # Dispatch point 7: the matrix sampler's coefficient bound, which lives in `Ntt.lean` rather
+    # than `GenMatrix.lean` because it is what the NTT's exactness argument needs.
+    ("Ntt.lean",
+     """import Kopis.Avx2.Properties.GenSecretTop""",
+     """import Kopis.Avx2.Properties.GenSecretTop
+import Kopis.Avx2.SampleBridge"""),
+    ("Ntt.lean",
+     """theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
+    sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+  unfold sample.gen_matrix_from_seed
+  simp only [""",
+     """theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize)
+    (hLmax : L.val * L.val + 4 ≤ Usize.max) :
+    sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+  unfold sample.gen_matrix_from_seed
+  obtain ⟨bU, hbU⟩ := Kopis.Avx2.available_ok
+  rw [hbU, bind_tc_ok]
+  have havx : backend.avx2.sample.gen_matrix_from_seed L seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+    apply WP.spec_mono
+      (Kopis.Avx2.Properties.avx2_gen_matrix_from_seed_bd L seed hLmax)
+    intro r hr i j c hi hj hc
+    exact hr i j c hi hj hc
+  cases bU
+  case true => simpa only [reduceIte] using havx
+  all_goals simp only [Bool.false_eq_true, reduceIte]
+  simp only ["""),
+    # …and its one caller, which has to carry the vector path's two hypotheses onward.
+    ("Ntt.lean",
+     """theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
+  apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU)""",
+     """theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
+    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
+    sample.gen_secret_from_seed L MU seed
+      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+          SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
+  apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU hL hL4)"""),
+    # `expand_decap_key_spec` calls all four sampler specs.  `L ≤ 4` and `L*L + 4 ≤ Usize.max`
+    # follow from hypotheses it already has (`_hbuf` and `_hL`); `0 < L` does not, so it is added.
+    ("ExpandDecap.lean",
+     """    (_hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
+    (_hL : L.val < 256) :
+    pke.expand_decap_key L MU sk""",
+     """    (_hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
+    (_hL : L.val < 256) (hL0 : 0 < L.val) :
+    pke.expand_decap_key L MU sk"""),
+    ("ExpandDecap.lean",
+     """  let* ⟨mat_a, hmata, hmatbnd⟩ ← spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3))
+    (gen_matrix_uniformBounded (to_slice_mut_back s3))
+  let* ⟨vec_s, hvecs, hvecbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU)
+    (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU)""",
+     """  have hLsq : L.val * L.val + 4 ≤ Usize.max := by
+    have : L.val * L.val ≤ 255 * 255 := Nat.mul_le_mul (by omega) (by omega)
+    scalar_tac
+  have hL4 : L.val ≤ 4 := by omega
+  let* ⟨mat_a, hmata, hmatbnd⟩ ←
+    spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3) hLsq)
+    (gen_matrix_uniformBounded (to_slice_mut_back s3) hLsq)
+  let* ⟨vec_s, hvecs, hvecbnd⟩ ←
+    spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU hL0 hL4)
+    (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU hL0 hL4)"""),
+    # The two remaining callers of the sampler specs, threading the same hypotheses onward.
+    ("KeyGen.lean",
+     """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL""",
+     """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL hL0"""),
+    ("PkeEncryptTop.lean",
+     """    (hT : 1 ≤ T.val ∧ T.val ≤ 10)
+    (hfit : L.val * 10 * 256 ≤ Usize.max)""",
+     """    (hT : 1 ≤ T.val ∧ T.val ≤ 10) (hL0 : 0 < L.val) (hL4 : L.val ≤ 4)
+    (hfit : L.val * 10 * 256 ≤ Usize.max)"""),
+    ("PkeEncryptTop.lean",
+     """  let* ⟨vec_sprime, hvecs, hspbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU coins hMU)
+    (gen_secret_secretBounded coins hMU)""",
+     """  let* ⟨vec_sprime, hvecs, hspbnd⟩ ←
+    spec_and (gen_secret_from_seed_spec L MU coins hMU hL0 hL4)
+    (gen_secret_secretBounded coins hMU hL0 hL4)"""),
+    ("KemEncap.lean",
+     """    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 1 ≤ T.val ∧ T.val ≤ 10)
+    (hfit : L.val * 10 * 256 ≤ Usize.max)""",
+     """    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 1 ≤ T.val ∧ T.val ≤ 10)
+    (hL0 : 0 < L.val) (hL4 : L.val ≤ 4)
+    (hfit : L.val * 10 * 256 ≤ Usize.max)"""),
+    ("KemEncap.lean",
+     """    (to_slice_mut_back1 s5) out_buf p hℓ hμ ht hMU hT hfit hlenout pk_bytes V Amat""",
+     """    (to_slice_mut_back1 s5) out_buf p hℓ hμ ht hMU hT hL0 hL4 hfit hlenout pk_bytes V Amat"""),
+    ("KemDecap.lean",
+     """    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 3 ≤ T.val ∧ T.val ≤ 6)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.ctSize p ≤ 1472)""",
+     """    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 3 ≤ T.val ∧ T.val ≤ 6)
+    (hL0 : 0 < L.val) (hL4 : L.val ≤ 4)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.ctSize p ≤ 1472)"""),
+    ("KemDecap.lean",
+     """    (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hfit hrclen""",
+     """    (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hL0 hL4 hfit
+    hrclen"""),
+    ("PkeFromBytes.lean",
+     """theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
+    (hlen : bytes.length = 320 * L.val + 32)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) :""",
+     """theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
+    (hlen : bytes.length = 320 * L.val + 32)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (hLsq : L.val * L.val + 4 ≤ Usize.max) :"""),
+    ("PkeFromBytes.lean",
+     """  let* ⟨ mat_a, hmat, hmatbnd ⟩ ← spec_and (gen_matrix_from_seed_spec L matrix_seed)
+    (gen_matrix_uniformBounded matrix_seed)""",
+     """  let* ⟨ mat_a, hmat, hmatbnd ⟩ ←
+    spec_and (gen_matrix_from_seed_spec L matrix_seed hLsq)
+    (gen_matrix_uniformBounded matrix_seed hLsq)"""),
+    # The concrete parameter sets: `L` is a literal here, so the new hypotheses are `decide`.
+    ("Impls.lean",
+     """encap_deterministic_spec 10#usize 3#usize randomness self s
+    .Kopis_512 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac)""",
+     """encap_deterministic_spec 10#usize 3#usize randomness self s
+    .Kopis_512 pk_bytes rfl rfl rfl (by decide) (by decide) (by decide) (by decide)
+    (by scalar_tac)"""),
+    ("Impls.lean",
+     """decap_spec 10#usize 3#usize self (Array.to_slice encapsulated_key)
+    .Kopis_512 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac)""",
+     """decap_spec 10#usize 3#usize self (Array.to_slice encapsulated_key)
+    .Kopis_512 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by decide) (by decide)
+    (by scalar_tac)"""),
+    ("Impls.lean",
+     """encap_deterministic_spec 8#usize 4#usize randomness self s
+    .Kopis_768 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac)""",
+     """encap_deterministic_spec 8#usize 4#usize randomness self s
+    .Kopis_768 pk_bytes rfl rfl rfl (by decide) (by decide) (by decide) (by decide)
+    (by scalar_tac)"""),
+    ("Impls.lean",
+     """decap_spec 8#usize 4#usize self (Array.to_slice encapsulated_key)
+    .Kopis_768 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac)""",
+     """decap_spec 8#usize 4#usize self (Array.to_slice encapsulated_key)
+    .Kopis_768 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by decide) (by decide)
+    (by scalar_tac)"""),
+    ("Impls.lean",
+     """encap_deterministic_spec 6#usize 6#usize randomness self s
+    .Kopis_1024 pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac)""",
+     """encap_deterministic_spec 6#usize 6#usize randomness self s
+    .Kopis_1024 pk_bytes rfl rfl rfl (by decide) (by decide) (by decide) (by decide)
+    (by scalar_tac)"""),
+    ("Impls.lean",
+     """decap_spec 6#usize 6#usize self (Array.to_slice encapsulated_key)
+    .Kopis_1024 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by scalar_tac)""",
+     """decap_spec 6#usize 6#usize self (Array.to_slice encapsulated_key)
+    .Kopis_1024 sk_seed pk_bytes rfl rfl rfl (by decide) (by decide) (by decide) (by decide)
+    (by scalar_tac)"""),
 ]
+
 
 # Modules that need the phase C / D results in scope for their patches.
 EXTRA_IMPORTS = {
     "Serialize.lean": ["Kopis.Avx2.SerDispatch"],
     "DeserializeCm.lean": ["Kopis.Avx2.SerDispatch", "Kopis.Avx2.SerGeneric"],
     "DeserializeVec.lean": ["Kopis.Avx2.SerDispatch"],
-    "GenSecretTop.lean": ["Kopis.Avx2.CbdDispatch"],
     "Ntt.lean": ["Kopis.Avx2.SerDispatch"],
     "NttCrtElem.lean": ["Kopis.Avx2.Reduce"],
     "NttBridge.lean": ["Kopis.Avx2.Reduce"],
@@ -274,53 +533,13 @@ HEADER = ("-- AUTOGENERATED from Kopis/Properties/%s by `make generated`.  Do no
           "-- See AVX2_VERIFICATION_PLAN.md phase E: the serial proof, with the extracted\n"
           "-- constants and this stack's namespace renamed, and nothing else changed.\n")
 
-def _gen_secret_all_goals(out: str) -> str:
-    """`GenSecretTop.lean`: absorb the AVX2-only `MU % 8 == 0` guard.
+# `_gen_secret_all_goals` used to live here.  It absorbed an AVX2-only `MU % 8 == 0` +
+# `cpu::available` guard inside `sample::gen_secret_from_seed_loop`.  That guard is gone: the
+# branch moved the vector path up to `gen_secret_from_seed` itself, which now dispatches once and
+# calls `backend::avx2::sample::gen_secret_from_seed`.  The loop body is portable-only again, so
+# the serial proof applies unchanged and the dispatch is handled by a PATCHES entry instead.
 
-    The AVX2 extraction of `sample::gen_secret_from_seed_loop` guards the body with
-    `MU.is_multiple_of(8)` and then with `cpu::available`, so the serial proof's `step*` splits
-    into two goals where the serial file has one.  Both outcomes run the portable sampler
-    (`Kopis/Avx2/CbdDispatch.lean`), so collapse the vector branch, re-`step*` the branch the
-    guard cut short, and run the unchanged serial argument on both goals.
-    """
-    collapse = [
-        "    -- AVX2 only: `step*` splits on the `MU % 8 == 0` guard, leaving the vector branch",
-        "    -- as a second goal.  Rotate to it, collapse it onto the portable body, and step",
-        "    -- into what the guard cut short; the serial argument then applies to both goals.",
-        "    -- The `rw` supplies the continuation explicitly: left to unify it, `rw` reads",
-        "    -- `?k (index_mut_back a1)` higher-order and does not match.",
-        "    rotate_left",
-        "    rw [Kopis.Avx2.gen_secret_avx_branch_eq MU buf1 secret iter.start",
-        "      hi_lt hMU (by rw [← Slice.length, __post1, Slice.length, hbuflen])",
-        "      (fun m => sample.gen_secret_from_seed_loop MU iter1 seed m buf1)]",
-        "    step*",
-        "    all_goals",
-    ]
-    lines = out.split("\n")
-    res, i, hits = [], 0, 0
-    while i < len(lines):
-        res.append(lines[i])
-        if lines[i] == "    step*":
-            hits += 1
-            j = i + 1
-            while j < len(lines) and (not lines[j].strip() or lines[j].startswith("    ")):
-                j += 1
-            res.extend(collapse)
-            res.extend(("  " + l) if l.strip() else l for l in lines[i + 1:j])
-            i = j
-            continue
-        i += 1
-    # `all_goals` elaborates the block once per goal, so a *named* synthetic hole is declared
-    # twice and the second declaration is rejected.  `?_` is positional and repeats cleanly.
-    res = [l.replace("?sec'", "?_") for l in res]
-    if hits != 2:
-        raise SystemExit(f"gen_avx2_twins: GenSecretTop transform found {hits} `step*` (want 2). "
-                         "The serial proof changed; update _gen_secret_all_goals.")
-    return "\n".join(res)
-
-
-POST_TRANSFORMS = {"GenSecretTop.lean": _gen_secret_all_goals,
-                   "NttCrtElem.lean": lambda out: gen_avx2_bridge.patch_elem(out),
+POST_TRANSFORMS = {"NttCrtElem.lean": lambda out: gen_avx2_bridge.patch_elem(out),
                    "NttCrtMul.lean": lambda out: gen_avx2_bridge.patch_mul(out),
                    "NttBridge.lean": lambda out: gen_avx2_bridge.patch(out)}
 

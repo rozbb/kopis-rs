@@ -231,7 +231,7 @@ theorem kopis512_keygen (seed : Array U8 32#usize) :
           Properties.pkStructBytes ksk.pke_pk .Kopis_512 rfl = pk ∧
           Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 2#usize 10#usize seed
-    .Kopis_512 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide))
+    .Kopis_512 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide) (by decide))
   rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
     ⟨_Am, _hAfwd, _hAmat, _hAbnd⟩, ⟨_V, _hVfwd, _hVbnd, _hVbytes⟩⟩
   exact ⟨hz, hpkb, hhash⟩
@@ -249,7 +249,7 @@ theorem kopis768_keygen (seed : Array U8 32#usize) :
           Properties.pkStructBytes ksk.pke_pk .Kopis_768 rfl = pk ∧
           Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 3#usize 8#usize seed
-    .Kopis_768 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide))
+    .Kopis_768 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide) (by decide))
   rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
     ⟨_Am, _hAfwd, _hAmat, _hAbnd⟩, ⟨_V, _hVfwd, _hVbnd, _hVbytes⟩⟩
   exact ⟨hz, hpkb, hhash⟩
@@ -267,7 +267,7 @@ theorem kopis1024_keygen (seed : Array U8 32#usize) :
           Properties.pkStructBytes ksk.pke_pk .Kopis_1024 rfl = pk ∧
           Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 4#usize 6#usize seed
-    .Kopis_1024 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide))
+    .Kopis_1024 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide) (by decide))
   rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
     ⟨_Am, _hAfwd, _hAmat, _hAbnd⟩, ⟨_V, _hVfwd, _hVbnd, _hVbytes⟩⟩
   exact ⟨hz, hpkb, hhash⟩
@@ -438,9 +438,8 @@ read once and the per-backend difference is visible in one place.
 In summary, and beyond Lean's own three axioms: the `turboshake` crate's API implements RFC 9861
 (5 assumptions, the largest one here), `subtle`'s constant-time select and equality have their
 obvious functional meaning (2, functional only — nothing about actual timing), Rust's two
-popcount intrinsics mean popcount (2), and one `native_decide` in `Spec/Defs.lean:380` is
-discharged by compiled evaluation rather than by the kernel. No `sorry` is in the closure, and
-the check fails the build if one reappears. -/
+popcount intrinsics mean popcount (2). Nothing is discharged by compiled evaluation any more.
+No `sorry` is in the closure, and the check fails the build if one reappears. -/
 
 /-! ## §5. What is *not* proved
 

@@ -39,3 +39,22 @@ import Kopis.Avx2.CbdGeneric
 import Kopis.Avx2.CbdEq
 import Kopis.Avx2.CbdDispatch
 import Kopis.Avx2.MulT
+
+-- The four-way TurboSHAKE (`src/backend/avx2/keccak.rs`).  In progress: the spec-side bridge
+-- from FIPS 202's bit-level state to the 64-bit word view the SIMD code computes on.
+import Kopis.Avx2.Keccak.Bits
+import Kopis.Avx2.Keccak.Round
+import Kopis.Avx2.Keccak.Fused
+import Kopis.Avx2.Keccak.State
+import Kopis.Avx2.Keccak.Const
+import Kopis.Avx2.Keccak.Ops
+import Kopis.Avx2.Keccak.RoundSpec
+import Kopis.Avx2.Keccak.Permute
+import Kopis.Avx2.Keccak.Absorb
+import Kopis.Avx2.Keccak.SpecState
+import Kopis.Avx2.Keccak.KPBridge
+import Kopis.Avx2.Keccak.Squeeze
+import Kopis.Avx2.Keccak.Xof4
+import Kopis.Avx2.Keccak.Conform
+import Kopis.Avx2.SampleBridge
+import Kopis.Avx2.SecretBridge

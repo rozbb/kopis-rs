@@ -78,12 +78,10 @@ which no proof reasons about. The `RustKopisSerial.*` entries are the opaque typ
 aeneas emits for the extern crates named in (a) and (b) — they carry no logical content of their
 own.
 
-One entry deserves singling out: `Spec.testBit_byte_of_bools._native.native_decide.ax` comes
-from a `native_decide` in `Spec/Defs.lean:380`, which discharges a small finite bit-manipulation
-fact by *compiled evaluation* rather than kernel reduction. That means trusting the Lean
-compiler and runtime for that one step, which is a strictly larger trust base than the kernel
-alone. It is a 2⁸-case check about byte bit-extraction, not a cryptographic claim, but it is a
-real (if small) hole and could be closed by replacing `native_decide` with `decide`.
+`Spec/Defs.lean` used to discharge two small finite bit-manipulation facts with `native_decide`,
+which put the Lean compiler and runtime in the trust base for those steps. They are now
+`decide +kernel`, which reduces the same 2⁸ cases in the kernel in about a second and adds no
+axiom, so no compiled-evaluation assumption remains anywhere in the closure.
 
 **`sorryAx` is NOT in the list.** There are no `sorry`s left anywhere in the dependency closure
 of the top-level theorems — the NTT-multiplication hole `ntt_spec` is discharged
@@ -106,7 +104,6 @@ def serialAudited : List String :=
    "Kopis.Properties.reader_read136_spec",
    "Kopis.Properties.reader_read168_spec",
    "Quot.sound",
-   "_private.Spec.Defs.0.Spec.testBit_byte_of_bools._native.native_decide.ax_1_1",
    "RustKopisSerial.Array.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisSerial.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisSerial.U8.Insts.SubtleConditionallySelectable.conditional_select",
@@ -237,6 +234,14 @@ def avx2Audited : List String :=
    "Kopis.Avx2.unpacklo_epi16_spec",
    "Kopis.Avx2.unpacklo_epi32_spec",
    "Kopis.Avx2.unpacklo_epi64_spec",
+   "Kopis.Avx2.andnot_si256_spec",
+   "Kopis.Avx2.load_u8x32_spec",
+   "Kopis.Avx2.or_si256_spec",
+   "Kopis.Avx2.set1_epi64x_spec",
+   "Kopis.Avx2.slli_epi64_spec",
+   "Kopis.Avx2.srli_epi64_spec",
+   "Kopis.Avx2.store_u8x32_spec",
+   "Kopis.Avx2.xor_si256_spec",
    "Quot.sound",
    "RustKopisAvx2.Array.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisAvx2.Slice.Insts.SubtleConstantTimeEq.ct_eq",
@@ -244,6 +249,14 @@ def avx2Audited : List String :=
    "RustKopisAvx2.U8.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisAvx2.backend.avx2.cpu.available",
    "RustKopisAvx2.backend.avx2.intrinsics.Vec128",
+   "RustKopisAvx2.backend.avx2.intrinsics.andnot_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.load_u8x32",
+   "RustKopisAvx2.backend.avx2.intrinsics.or_si256",
+   "RustKopisAvx2.backend.avx2.intrinsics.set1_epi64x",
+   "RustKopisAvx2.backend.avx2.intrinsics.slli_epi64",
+   "RustKopisAvx2.backend.avx2.intrinsics.srli_epi64",
+   "RustKopisAvx2.backend.avx2.intrinsics.store_u8x32",
+   "RustKopisAvx2.backend.avx2.intrinsics.xor_si256",
    "RustKopisAvx2.backend.avx2.intrinsics.Vec256",
    "RustKopisAvx2.backend.avx2.intrinsics.add_epi16",
    "RustKopisAvx2.backend.avx2.intrinsics.add_epi32",
@@ -301,7 +314,6 @@ def avx2Audited : List String :=
    "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.and_low16._native.bv_decide.ax_1_5",
    "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.sar_eq._native.bv_decide.ax_1_5",
    "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.shl_sar_eq._native.bv_decide.ax_1_5",
-   "_private.Spec.Defs.0.Spec.testBit_byte_of_bools._native.native_decide.ax_1_1",
    "propext"]
 
 /-- The AVX2 twins of `serialTheorems`; the coverage check enforces that this is every theorem in
