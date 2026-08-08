@@ -631,9 +631,18 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
             *slot = barrett(*slot, bm, round, q);
         }
 
-        for j in 0..8 {
-            store_i16(b, 8 * g + j, v[j]);
-        }
+        // Unrolled, not `for j in 0..8 { store_i16(b, 8 * g + j, v[j]) }`: reading `v` at a
+        // computed index inside a loop is one of the shapes aeneas cannot translate, and it fails
+        // with a bare `Unimplemented` whose span covers the whole loop. `load_group` is spelled
+        // out for the same reason.
+        store_i16(b, 8 * g, v[0]);
+        store_i16(b, 8 * g + 1, v[1]);
+        store_i16(b, 8 * g + 2, v[2]);
+        store_i16(b, 8 * g + 3, v[3]);
+        store_i16(b, 8 * g + 4, v[4]);
+        store_i16(b, 8 * g + 5, v[5]);
+        store_i16(b, 8 * g + 6, v[6]);
+        store_i16(b, 8 * g + 7, v[7]);
     }
 
     // Levels 6 and 7, whose halves are 8 and 16 vectors apart and so cross groups.
