@@ -36,6 +36,27 @@ lean_lib «ExtractedRustAvx2» where
 lean_lib «KopisAvx2» where
   roots := #[`Kopis.Avx2]
 
+/-! ## The NEON backend
+
+    `ExtractedRustNeon.lean` is the same crate extracted from an
+    `--cfg kopis_backend="neon" -C target-feature=+sha3` build *for
+    `aarch64-unknown-linux-gnu`*, in its own namespace: the NEON backend plus
+    the dispatch blocks that reach it. Only `backend::neon::intrinsics` is
+    extracted opaquely — unlike AVX2, the CPU probe is not, because on AArch64
+    `available()` is a compile-time `true` — so what it contains for that one
+    module is uninterpreted axioms; `Kopis/Neon/Intrinsics.lean` supplies their
+    semantics and is the *only* place that does.
+
+    Not in the default target, for the same reasons as the AVX2 extraction.
+    Build this side with `make prove-kopis-neon`. -/
+lean_lib «ExtractedRustNeon» where
+  -- charon/aeneas output, never hand-edited: its generated names carry `__`, which the mathlib
+  -- style linter objects to.  Silencing it here is the only place the objection can be answered.
+  leanOptions := #[⟨`linter.style.nameCheck, false⟩]
+
+lean_lib «KopisNeon» where
+  roots := #[`Kopis.Neon]
+
 /-! ## The generated twin proof stack (phase E)
 
     `Kopis/Avx2/Properties/*.lean` is `Kopis/Properties/*.lean` with the extraction and this
@@ -46,6 +67,11 @@ lean_lib «KopisAvx2» where
 lean_lib «KopisAvx2Properties» where
   roots := #[`Kopis.Avx2.Properties]
   globs := #[.andSubmodules `Kopis.Avx2.Properties]
+
+/-- The same, for NEON: `Kopis/Neon/Properties/*.lean` from `scripts/gen_neon_twins.py`. -/
+lean_lib «KopisNeonProperties» where
+  roots := #[`Kopis.Neon.Properties]
+  globs := #[.andSubmodules `Kopis.Neon.Properties]
 
 /-! ## Specifications library
 
@@ -83,6 +109,16 @@ lean_lib «TopLevelTheoremsSerial»
     `make prove-kopis-avx2` alongside `KopisAvx2`. -/
 lean_lib «TopLevelTheoremsAvx2»
 
+/-! ## The audit surface, NEON
+
+    The same restatement against the `RustKopisNeon` extraction, generated from
+    `TopLevelTheoremsSerial.lean` by `make generated`. Declared here so that the generator has a
+    library to target and a reviewer sees the statements at the commit they review, but **it does
+    not compile yet**: it imports `Kopis.Neon.Properties`, the twin proof stack, which does not
+    exist. Nothing builds it — not the default target, and not `make prove-kopis-neon`. See
+    `NEON_VERIFICATION_PLAN.md`. -/
+lean_lib «TopLevelTheoremsNeon»
+
 /-! ## The trust base
 
     `TrustBase.lean` is the other half of the audit surface: the assumptions the
@@ -117,3 +153,12 @@ lean_exe kopisTests where
     against hardware. Run it with `lake exe avx2Tests` (= `make test-avx2-model`). -/
 lean_exe avx2Tests where
   root := `SpecTests.Avx2.Run
+
+/-! ## The NEON intrinsic model, checked against silicon
+
+    The same, for `Kopis/Neon/Model.lean`: `SpecTests/Neon/Run.lean` replays
+    `../tests/neon_intrinsics_vectors.jsonl` — 50 176 vectors recorded on an Apple M1 by
+    `src/backend/neon/intrinsics_vectors.rs` — through the models proved equal to the axioms in
+    `Kopis/Neon/Intrinsics.lean`. Run it with `lake exe neonTests` (= `make test-neon-model`). -/
+lean_exe neonTests where
+  root := `SpecTests.Neon.Run

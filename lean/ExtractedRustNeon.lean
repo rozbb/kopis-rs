@@ -15,7 +15,7 @@ set_option maxRecDepth 2048
 /- You can remove the following line by using the CLI option `-all-computable`: -/
 noncomputable section
 
-namespace RustKopisSerial
+namespace RustKopisNeon
 
 /-- Trait implementation: [core::array::equality::{impl core::cmp::PartialEq<[U; N]> for [T; N]}]
     Source: '/rustc/library/core/src/array/equality.rs', lines 5:0-7:28
@@ -26,6 +26,13 @@ def Array.Insts.CoreCmpPartialEqArray {T : Type} {U : Type} (N : Std.Usize)
   (Array U N) := {
   eq := core.array.equality.PartialEqArray.eq cmpPartialEqInst
 }
+
+/-- [core::num::{i16}::wrapping_neg]:
+    Source: '/rustc/library/core/src/num/int_macros.rs', lines 2363:8-2363:47
+    Name pattern: [core::num::{i16}::wrapping_neg]
+    Visibility: public -/
+@[rust_fun "core::num::{i16}::wrapping_neg"]
+axiom core.num.I16.wrapping_neg : Std.I16 → Result Std.I16
 
 /-- [core::num::{u32}::count_ones]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
@@ -40,6 +47,13 @@ axiom core.num.U32.count_ones : Std.U32 → Result Std.U32
     Visibility: public -/
 @[rust_fun "core::num::{u8}::count_ones"]
 axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
+
+/-- [core::num::{usize}::div_ceil]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3755:8-3755:54
+    Name pattern: [core::num::{usize}::div_ceil]
+    Visibility: public -/
+@[rust_fun "core::num::{usize}::div_ceil"]
+axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
 
 /-- Trait declaration: [core::ops::arith::Add]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 76:0-76:31
@@ -67,6 +81,18 @@ structure core.ops.arith.Sub (Self : Type) (Rhs : Type) (Self_Output : Type)
 structure core.ops.arith.Mul (Self : Type) (Rhs : Type) (Self_Output : Type)
   where
   mul : Self → Rhs → Result Self_Output
+
+/-- [core::ops::range::{core::ops::range::RangeInclusive<Idx>}::contains]:
+    Source: '/rustc/library/core/src/ops/range.rs', lines 522:4-525:44
+    Name pattern: [core::ops::range::{core::ops::range::RangeInclusive<@Idx>}::contains]
+    Visibility: public -/
+@[rust_fun
+  "core::ops::range::{core::ops::range::RangeInclusive<@Idx>}::contains"]
+axiom core.ops.range.RangeInclusive.contains
+  {Idx : Type} {U : Type} (cmpPartialOrdInst : core.cmp.PartialOrd Idx Idx)
+  (cmpPartialOrdInst1 : core.cmp.PartialOrd Idx U) (cmpPartialOrdInst2 :
+  core.cmp.PartialOrd U Idx) :
+  core.ops.range.RangeInclusive Idx → U → Result Bool
 
 /-- Trait declaration: [rand_core::RngCore]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.9.5/src/lib.rs', lines 130:0-130:17
@@ -1651,6 +1677,245 @@ def ser.deserialize_13
     Source: 'src/consts.rs', lines 2:0-2:44 -/
 @[global_simps, irreducible] def consts.MODULUS_Q_BITS : Std.Usize := 13#usize
 
+/-- [kopis::backend::neon::ser::Plan]
+    Source: 'src/backend/neon/ser.rs', lines 40:0-43:1 -/
+structure backend.neon.ser.Plan where
+  shuffle : Array Std.U8 32#usize
+  shift : Array Std.I32 8#usize
+
+/-- [kopis::backend::neon::ser::plan]: loop 1:
+    Source: 'src/backend/neon/ser.rs', lines 54:8-59:9 -/
+@[rust_loop]
+def backend.neon.ser.plan_loop0_loop0
+  (shuffle : Array Std.U8 32#usize) (k : Std.Usize) (offset : Std.Usize)
+  (byte : Std.Usize) :
+  Result (Array Std.U8 32#usize)
+  := do
+  if byte < 4#usize
+  then
+    let i ← offset + byte
+    let i1 ← 4#usize * k
+    let i2 ← i1 + byte
+    let i3 ← lift (UScalar.cast .U8 i)
+    let a ← Array.update shuffle i2 i3
+    let byte1 ← byte + 1#usize
+    backend.neon.ser.plan_loop0_loop0 a k offset byte1
+  else ok shuffle
+partial_fixpoint
+
+/-- [kopis::backend::neon::ser::plan]: loop 0:
+    Source: 'src/backend/neon/ser.rs', lines 50:4-61:5 -/
+@[rust_loop]
+def backend.neon.ser.plan_loop0
+  (bits : Std.Usize) (shuffle : Array Std.U8 32#usize)
+  (shift : Array Std.I32 8#usize) (k : Std.Usize) :
+  Result ((Array Std.U8 32#usize) × (Array Std.I32 8#usize))
+  := do
+  if k < 8#usize
+  then
+    let i ← k * bits
+    let offset ← i / 8#usize
+    let i1 ← i % 8#usize
+    let i2 ← lift (UScalar.hcast .I32 i1)
+    let i3 ← -. i2
+    let a ← Array.update shift k i3
+    let shuffle1 ← backend.neon.ser.plan_loop0_loop0 shuffle k offset 0#usize
+    let k1 ← k + 1#usize
+    backend.neon.ser.plan_loop0 bits shuffle1 a k1
+  else ok (shuffle, shift)
+partial_fixpoint
+
+/-- [kopis::backend::neon::ser::plan]:
+    Source: 'src/backend/neon/ser.rs', lines 46:0-63:1 -/
+def backend.neon.ser.plan
+  (bits : Std.Usize) : Result backend.neon.ser.Plan := do
+  let shuffle := Array.repeat 32#usize 0#u8
+  let shift := Array.repeat 8#usize 0#i32
+  let (shuffle1, shift1) ←
+    backend.neon.ser.plan_loop0 bits shuffle shift 0#usize
+  ok { shuffle := shuffle1, shift := shift1 }
+
+/-- [kopis::backend::neon::ser::MAX_BITS]
+    Source: 'src/backend/neon/ser.rs', lines 26:0-26:27 -/
+@[global_simps, irreducible]
+def backend.neon.ser.MAX_BITS : Std.Usize := 13#usize
+
+/-- [kopis::backend::neon::ser::plans]: loop 0:
+    Source: 'src/backend/neon/ser.rs', lines 73:4-76:5 -/
+@[rust_loop]
+def backend.neon.ser.plans_loop
+  (plans : Array backend.neon.ser.Plan 14#usize) (bits : Std.Usize) :
+  Result (Array backend.neon.ser.Plan 14#usize)
+  := do
+  if bits <= backend.neon.ser.MAX_BITS
+  then
+    let p ← backend.neon.ser.plan bits
+    let a ← Array.update plans bits p
+    let bits1 ← bits + 1#usize
+    backend.neon.ser.plans_loop a bits1
+  else ok plans
+partial_fixpoint
+
+/-- [kopis::backend::neon::ser::plans]:
+    Source: 'src/backend/neon/ser.rs', lines 70:0-78:1 -/
+def backend.neon.ser.plans
+  : Result (Array backend.neon.ser.Plan 14#usize) := do
+  let p ← backend.neon.ser.plan 0#usize
+  let plans := Array.repeat 14#usize p
+  backend.neon.ser.plans_loop plans 1#usize
+
+/-- [kopis::backend::neon::ser::PLANS]
+    Source: 'src/backend/neon/ser.rs', lines 81:0-81:44 -/
+@[global_simps, irreducible]
+def backend.neon.ser.PLANS : Result (Array backend.neon.ser.Plan 14#usize) :=
+  backend.neon.ser.plans
+
+/-- [kopis::backend::neon::ser::GROUPS]
+    Source: 'src/backend/neon/ser.rs', lines 29:0-29:35 -/
+@[global_simps, irreducible]
+def backend.neon.ser.GROUPS : Result Std.Usize := consts.RING_DEG / 8#usize
+
+/-- [kopis::backend::neon::intrinsics::Vec128]
+    Source: 'src/backend/neon/intrinsics.rs', lines 65:0-65:37 -/
+axiom backend.neon.intrinsics.Vec128 : Type
+
+/-- [kopis::backend::neon::intrinsics::load_u8x16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 577:0-581:1 -/
+axiom backend.neon.intrinsics.load_u8x16
+  : Slice Std.U8 → Std.Usize → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::load_i32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 554:0-558:1 -/
+axiom backend.neon.intrinsics.load_i32
+  {N : Std.Usize} :
+  Array Std.I32 N → Std.Usize → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::store_u16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 545:0-549:1 -/
+axiom backend.neon.intrinsics.store_u16
+  {N : Std.Usize} :
+  Array Std.U16 N → Std.Usize → backend.neon.intrinsics.Vec128 → Result
+    (Array Std.U16 N)
+
+/-- [kopis::backend::neon::intrinsics::tbl1_u8]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 437:0-439:1 -/
+axiom backend.neon.intrinsics.tbl1_u8
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::xtn_pair_32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 344:0-349:1 -/
+axiom backend.neon.intrinsics.xtn_pair_32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::ushl_u32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 286:0-291:1 -/
+axiom backend.neon.intrinsics.ushl_u32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::and]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 131:0-133:1 -/
+axiom backend.neon.intrinsics.and
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::dup_n_u32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 95:0-97:1 -/
+axiom backend.neon.intrinsics.dup_n_u32
+  : Std.U32 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ser::deserialize]: loop 0:
+    Source: 'src/backend/neon/ser.rs', lines 113:4-132:5 -/
+@[rust_loop]
+def backend.neon.ser.deserialize_loop
+  (iter : core.ops.range.Range Std.Usize) (bytes : Slice Std.U8)
+  (bits : Std.Usize) (shuf_lo : backend.neon.intrinsics.Vec128)
+  (shuf_hi : backend.neon.intrinsics.Vec128)
+  (shift_lo : backend.neon.intrinsics.Vec128)
+  (shift_hi : backend.neon.intrinsics.Vec128)
+  (mask : backend.neon.intrinsics.Vec128) (head_groups : Std.Usize)
+  (tail_start : Std.Usize) (tail : Array Std.U8 32#usize)
+  (out : Array Std.U16 256#usize) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some group =>
+    let raw1 ←
+      if group < head_groups
+      then do
+           let i ← group * bits
+           backend.neon.intrinsics.load_u8x16 bytes i
+      else
+        do
+        let s ← lift (Array.to_slice tail)
+        let i ← group * bits
+        let i1 ← i - tail_start
+        backend.neon.intrinsics.load_u8x16 s i1
+    let win_lo ← backend.neon.intrinsics.tbl1_u8 raw1 shuf_lo
+    let win_hi ← backend.neon.intrinsics.tbl1_u8 raw1 shuf_hi
+    let v ← backend.neon.intrinsics.ushl_u32 win_lo shift_lo
+    let val_lo ← backend.neon.intrinsics.and v mask
+    let v1 ← backend.neon.intrinsics.ushl_u32 win_hi shift_hi
+    let val_hi ← backend.neon.intrinsics.and v1 mask
+    let v2 ← backend.neon.intrinsics.xtn_pair_32 val_lo val_hi
+    let out1 ← backend.neon.intrinsics.store_u16 out group v2
+    backend.neon.ser.deserialize_loop iter1 bytes bits shuf_lo shuf_hi shift_lo
+      shift_hi mask head_groups tail_start tail out1
+partial_fixpoint
+
+/-- [kopis::backend::neon::ser::deserialize]:
+    Source: 'src/backend/neon/ser.rs', lines 93:0-135:1 -/
+def backend.neon.ser.deserialize
+  (bytes : Slice Std.U8) (bits : Std.Usize) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let a ← backend.neon.ser.PLANS
+  let plan ← Array.index_usize a bits
+  let s ← lift (Array.to_slice plan.shuffle)
+  let shuf_lo ← backend.neon.intrinsics.load_u8x16 s 0#usize
+  let s1 ← lift (Array.to_slice plan.shuffle)
+  let shuf_hi ← backend.neon.intrinsics.load_u8x16 s1 16#usize
+  let shift_lo ← backend.neon.intrinsics.load_i32 plan.shift 0#usize
+  let shift_hi ← backend.neon.intrinsics.load_i32 plan.shift 1#usize
+  let i ← 1#u32 <<< bits
+  let i1 ← i - 1#u32
+  let mask ← backend.neon.intrinsics.dup_n_u32 i1
+  let tail_groups ← 15#usize / bits
+  let i2 ← backend.neon.ser.GROUPS
+  let head_groups ← i2 - tail_groups
+  let tail_start ← head_groups * bits
+  let tail := Array.repeat 32#usize 0#u8
+  let i3 := Slice.len bytes
+  let i4 ← i3 - tail_start
+  let (s2, index_mut_back) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) tail
+      { «end» := i4 }
+  let s3 ←
+    core.slice.index.Slice.index
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U8) bytes
+      { start := tail_start }
+  let s4 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s2 s3
+  let out := Array.repeat 256#usize 0#u16
+  let tail1 := index_mut_back s4
+  backend.neon.ser.deserialize_loop { start := 0#usize, «end» := i2 } bytes
+    bits shuf_lo shuf_hi shift_lo shift_hi mask head_groups tail_start tail1
+    out
+
+/-- [kopis::backend::neon::cpu::available]:
+    Source: 'src/backend/neon/cpu.rs', lines 16:0-18:1 -/
+def backend.neon.cpu.available : Result Bool := do
+  ok true
+
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::deserialize]:
     Source: 'src/arithmetic/ring_arith.rs', lines 41:4-75:5 -/
 def arithmetic.ring_arith.RingElem.deserialize
@@ -1661,21 +1926,50 @@ def arithmetic.ring_arith.RingElem.deserialize
   let i ← bits_per_elem * consts.RING_DEG
   let right_val ← i / 8#usize
   massert (left_val = right_val)
-  if bits_per_elem = consts.MODULUS_Q_BITS
+  let ri ← core.ops.range.RangeInclusive.new 1#usize 13#usize
+  let b ←
+    core.ops.range.RangeInclusive.contains core.cmp.PartialOrdUsize
+      core.cmp.PartialOrdUsize core.cmp.PartialOrdUsize ri bits_per_elem
+  if b
   then
-    let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
-    let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-    let a ← ser.deserialize_13 arr
-    ok a
-  else
-    if bits_per_elem = consts.MODULUS_P_BITS
-    then
-      let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
-      let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-      let a ← ser.deserialize_10 arr
-      ok a
-    else let a ← ser.deserialize_generic 256#usize bytes bits_per_elem
+    let b1 ← backend.neon.cpu.available
+    if b1
+    then let a ← backend.neon.ser.deserialize bytes bits_per_elem
          ok a
+    else
+      if bits_per_elem = consts.MODULUS_Q_BITS
+      then
+        let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
+        let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+        let a ← ser.deserialize_13 arr
+        ok a
+      else
+        if bits_per_elem = consts.MODULUS_P_BITS
+        then
+          let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
+          let arr ←
+            core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+          let a ← ser.deserialize_10 arr
+          ok a
+        else
+          let a ← ser.deserialize_generic 256#usize bytes bits_per_elem
+          ok a
+  else
+    if bits_per_elem = consts.MODULUS_Q_BITS
+    then
+      let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
+      let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+      let a ← ser.deserialize_13 arr
+      ok a
+    else
+      if bits_per_elem = consts.MODULUS_P_BITS
+      then
+        let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
+        let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+        let a ← ser.deserialize_10 arr
+        ok a
+      else let a ← ser.deserialize_generic 256#usize bytes bits_per_elem
+           ok a
 
 /-- [kopis::arithmetic::matrix_arith::{kopis::arithmetic::matrix_arith::Matrix<X, Y>}::deserialize_10]: loop 1:
     Source: 'src/arithmetic/matrix_arith.rs', lines 125:12-129:13 -/
@@ -1931,64 +2225,386 @@ def arithmetic.ntt.NttElem.Insts.CoreDefaultDefault : core.default.Default
 def arithmetic.ntt.ACC_ZERO : Array Std.I32 512#usize :=
   Array.repeat 512#usize 0#i32
 
-/-- [kopis::backend::crt::Q2_BARRETT_M]
-    Source: 'src/backend/crt.rs', lines 90:0-90:43 -/
-@[global_simps, irreducible]
-def backend.crt.Q2_BARRETT_M : Std.I16 := 12482#i16
+/-- [kopis::backend::neon::intrinsics::trn2_64]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 423:0-428:1 -/
+axiom backend.neon.intrinsics.trn2_64
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
 
-/-- [kopis::backend::crt::Q1_BARRETT_M]
-    Source: 'src/backend/crt.rs', lines 88:0-88:43 -/
-@[global_simps, irreducible]
-def backend.crt.Q1_BARRETT_M : Std.I16 := 17474#i16
+/-- [kopis::backend::neon::intrinsics::trn1_64]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 413:0-418:1 -/
+axiom backend.neon.intrinsics.trn1_64
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
 
-/-- [kopis::backend::crt::barrett_m]:
-    Source: 'src/backend/crt.rs', lines 199:0-201:1 -/
-def backend.crt.barrett_m (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok backend.crt.Q2_BARRETT_M
-  else ok backend.crt.Q1_BARRETT_M
+/-- [kopis::backend::neon::intrinsics::trn2_32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 403:0-408:1 -/
+axiom backend.neon.intrinsics.trn2_32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
 
-/-- [kopis::backend::crt::Q2]
-    Source: 'src/backend/crt.rs', lines 82:0-82:33 -/
-@[global_simps, irreducible] def backend.crt.Q2 : Std.I16 := 10753#i16
+/-- [kopis::backend::neon::intrinsics::trn1_32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 393:0-398:1 -/
+axiom backend.neon.intrinsics.trn1_32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
 
-/-- [kopis::backend::crt::Q1]
-    Source: 'src/backend/crt.rs', lines 80:0-80:32 -/
-@[global_simps, irreducible] def backend.crt.Q1 : Std.I16 := 7681#i16
+/-- [kopis::backend::neon::intrinsics::trn2_16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 383:0-388:1 -/
+axiom backend.neon.intrinsics.trn2_16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
 
-/-- [kopis::backend::crt::q]:
-    Source: 'src/backend/crt.rs', lines 189:0-191:1 -/
-def backend.crt.q (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok backend.crt.Q2
-  else ok backend.crt.Q1
+/-- [kopis::backend::neon::intrinsics::trn1_16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 373:0-378:1 -/
+axiom backend.neon.intrinsics.trn1_16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
 
-/-- [kopis::backend::crt::zetas_qinv]: loop 0:
-    Source: 'src/backend/crt.rs', lines 159:4-162:5 -/
+/-- [kopis::backend::neon::ntt::transpose8]:
+    Source: 'src/backend/neon/ntt.rs', lines 303:0-330:1 -/
+def backend.neon.ntt.transpose8
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let v1 ← Array.index_usize v 0#usize
+  let v2 ← Array.index_usize v 1#usize
+  let b0 ← backend.neon.intrinsics.trn1_16 v1 v2
+  let b1 ← backend.neon.intrinsics.trn2_16 v1 v2
+  let v3 ← Array.index_usize v 2#usize
+  let v4 ← Array.index_usize v 3#usize
+  let b2 ← backend.neon.intrinsics.trn1_16 v3 v4
+  let b3 ← backend.neon.intrinsics.trn2_16 v3 v4
+  let v5 ← Array.index_usize v 4#usize
+  let v6 ← Array.index_usize v 5#usize
+  let b4 ← backend.neon.intrinsics.trn1_16 v5 v6
+  let b5 ← backend.neon.intrinsics.trn2_16 v5 v6
+  let v7 ← Array.index_usize v 6#usize
+  let v8 ← Array.index_usize v 7#usize
+  let b6 ← backend.neon.intrinsics.trn1_16 v7 v8
+  let b7 ← backend.neon.intrinsics.trn2_16 v7 v8
+  let c0 ← backend.neon.intrinsics.trn1_32 b0 b2
+  let c2 ← backend.neon.intrinsics.trn2_32 b0 b2
+  let c1 ← backend.neon.intrinsics.trn1_32 b1 b3
+  let c3 ← backend.neon.intrinsics.trn2_32 b1 b3
+  let c4 ← backend.neon.intrinsics.trn1_32 b4 b6
+  let c6 ← backend.neon.intrinsics.trn2_32 b4 b6
+  let c5 ← backend.neon.intrinsics.trn1_32 b5 b7
+  let c7 ← backend.neon.intrinsics.trn2_32 b5 b7
+  let v9 ← backend.neon.intrinsics.trn1_64 c0 c4
+  let v10 ← Array.update v 0#usize v9
+  let v11 ← backend.neon.intrinsics.trn2_64 c0 c4
+  let v12 ← Array.update v10 4#usize v11
+  let v13 ← backend.neon.intrinsics.trn1_64 c1 c5
+  let v14 ← Array.update v12 1#usize v13
+  let v15 ← backend.neon.intrinsics.trn2_64 c1 c5
+  let v16 ← Array.update v14 5#usize v15
+  let v17 ← backend.neon.intrinsics.trn1_64 c2 c6
+  let v18 ← Array.update v16 2#usize v17
+  let v19 ← backend.neon.intrinsics.trn2_64 c2 c6
+  let v20 ← Array.update v18 6#usize v19
+  let v21 ← backend.neon.intrinsics.trn1_64 c3 c7
+  let v22 ← Array.update v20 3#usize v21
+  let v23 ← backend.neon.intrinsics.trn2_64 c3 c7
+  Array.update v22 7#usize v23
+
+/-- [kopis::backend::neon::intrinsics::store_i16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 527:0-531:1 -/
+axiom backend.neon.intrinsics.store_i16
+  {N : Std.Usize} :
+  Array Std.I16 N → Std.Usize → backend.neon.intrinsics.Vec128 → Result
+    (Array Std.I16 N)
+
+/-- [kopis::backend::neon::ntt::store_group]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 356:4-358:5 -/
 @[rust_loop]
-def backend.crt.zetas_qinv_loop
-  (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
-  (table : Array Std.I16 256#usize) (k : Std.Usize) :
+def backend.neon.ntt.store_group_loop
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (g : Std.Usize) (v : Array backend.neon.intrinsics.Vec128 8#usize) :
   Result (Array Std.I16 256#usize)
   := do
-  if k < 256#usize
-  then
-    let i ← Array.index_usize zetas k
-    let i1 ← lift (core.num.I16.wrapping_mul i qinv)
-    let a ← Array.update table k i1
-    let k1 ← k + 1#usize
-    backend.crt.zetas_qinv_loop zetas qinv a k1
-  else ok table
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let i ← 8#usize * g
+    let i1 ← i + j
+    let v1 ← Array.index_usize v j
+    let b1 ← backend.neon.intrinsics.store_i16 b i1 v1
+    backend.neon.ntt.store_group_loop iter1 b1 g v
 partial_fixpoint
 
-/-- [kopis::backend::crt::zetas_qinv]:
-    Source: 'src/backend/crt.rs', lines 156:0-164:1 -/
-def backend.crt.zetas_qinv
-  (zetas : Array Std.I16 256#usize) (qinv : Std.I16) :
+/-- [kopis::backend::neon::ntt::store_group]:
+    Source: 'src/backend/neon/ntt.rs', lines 354:0-359:1 -/
+def backend.neon.ntt.store_group
+  (b : Array Std.I16 256#usize) (g : Std.Usize)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) :
+  Result ((Array Std.I16 256#usize) × (Array backend.neon.intrinsics.Vec128
+    8#usize))
+  := do
+  let v1 ← backend.neon.ntt.transpose8 v
+  let b1 ←
+    backend.neon.ntt.store_group_loop { start := 0#usize, «end» := 8#usize }
+      b g v1
+  ok (b1, v1)
+
+/-- [kopis::backend::neon::intrinsics::load_i16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 518:0-522:1 -/
+axiom backend.neon.intrinsics.load_i16
+  {N : Std.Usize} :
+  Array Std.I16 N → Std.Usize → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::load_group]:
+    Source: 'src/backend/neon/ntt.rs', lines 336:0-349:1 -/
+def backend.neon.ntt.load_group
+  (b : Array Std.I16 256#usize) (g : Std.Usize) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let i ← 8#usize * g
+  let v ← backend.neon.intrinsics.load_i16 b i
+  let i1 ← i + 1#usize
+  let v1 ← backend.neon.intrinsics.load_i16 b i1
+  let i2 ← i + 2#usize
+  let v2 ← backend.neon.intrinsics.load_i16 b i2
+  let i3 ← i + 3#usize
+  let v3 ← backend.neon.intrinsics.load_i16 b i3
+  let i4 ← i + 4#usize
+  let v4 ← backend.neon.intrinsics.load_i16 b i4
+  let i5 ← i + 5#usize
+  let v5 ← backend.neon.intrinsics.load_i16 b i5
+  let i6 ← i + 6#usize
+  let v6 ← backend.neon.intrinsics.load_i16 b i6
+  let i7 ← i + 7#usize
+  let v7 ← backend.neon.intrinsics.load_i16 b i7
+  backend.neon.ntt.transpose8
+    (Array.make 8#usize [ v, v1, v2, v3, v4, v5, v6, v7 ])
+
+/-- [kopis::backend::neon::intrinsics::sshr_n_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 217:0-221:1 -/
+axiom backend.neon.intrinsics.sshr_n_s16
+  (IMM : Std.I32) :
+  backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::sqdmulh_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 194:0-199:1 -/
+axiom backend.neon.intrinsics.sqdmulh_s16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::mulhi]:
+    Source: 'src/backend/neon/ntt.rs', lines 239:0-241:1 -/
+def backend.neon.ntt.mulhi
+  (a : backend.neon.intrinsics.Vec128) (b : backend.neon.intrinsics.Vec128) :
+  Result backend.neon.intrinsics.Vec128
+  := do
+  let v ← backend.neon.intrinsics.sqdmulh_s16 a b
+  backend.neon.intrinsics.sshr_n_s16 1#i32 v
+
+/-- [kopis::backend::neon::intrinsics::mul_16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 180:0-185:1 -/
+axiom backend.neon.intrinsics.mul_16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::sub_16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 170:0-175:1 -/
+axiom backend.neon.intrinsics.sub_16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::add_16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 160:0-165:1 -/
+axiom backend.neon.intrinsics.add_16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::barrett]:
+    Source: 'src/backend/neon/ntt.rs', lines 263:0-266:1 -/
+def backend.neon.ntt.barrett
+  (x : backend.neon.intrinsics.Vec128) (m : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) (q : backend.neon.intrinsics.Vec128)
+  :
+  Result backend.neon.intrinsics.Vec128
+  := do
+  let v ← backend.neon.ntt.mulhi x m
+  let v1 ← backend.neon.intrinsics.add_16 v round
+  let t ← backend.neon.intrinsics.sshr_n_s16 11#i32 v1
+  let v2 ← backend.neon.intrinsics.mul_16 t q
+  backend.neon.intrinsics.sub_16 x v2
+
+/-- [kopis::backend::neon::ntt::VECS]
+    Source: 'src/backend/neon/ntt.rs', lines 58:0-58:33 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.VECS : Result Std.Usize := consts.RING_DEG / 8#usize
+
+/-- [kopis::backend::neon::ntt::barrett_block]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 291:4-293:5 -/
+@[rust_loop]
+def backend.neon.ntt.barrett_block_loop
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (m : backend.neon.intrinsics.Vec128) (round : backend.neon.intrinsics.Vec128)
+  (q : backend.neon.intrinsics.Vec128) :
   Result (Array Std.I16 256#usize)
   := do
-  let table := Array.repeat 256#usize 0#i16
-  backend.crt.zetas_qinv_loop zetas qinv table 0#usize
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let v ← backend.neon.intrinsics.load_i16 b i
+    let v1 ← backend.neon.ntt.barrett v m round q
+    let b1 ← backend.neon.intrinsics.store_i16 b i v1
+    backend.neon.ntt.barrett_block_loop iter1 b1 m round q
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::barrett_block]:
+    Source: 'src/backend/neon/ntt.rs', lines 290:0-294:1 -/
+def backend.neon.ntt.barrett_block
+  (b : Array Std.I16 256#usize) (m : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) (q : backend.neon.intrinsics.Vec128)
+  :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← backend.neon.ntt.VECS
+  backend.neon.ntt.barrett_block_loop { start := 0#usize, «end» := i } b m
+    round q
+
+/-- [kopis::backend::neon::intrinsics::shsub_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 207:0-212:1 -/
+axiom backend.neon.intrinsics.shsub_s16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::mont_mul]:
+    Source: 'src/backend/neon/ntt.rs', lines 252:0-255:1 -/
+def backend.neon.ntt.mont_mul
+  (a : backend.neon.intrinsics.Vec128) (z : backend.neon.intrinsics.Vec128)
+  (zq : backend.neon.intrinsics.Vec128) (q : backend.neon.intrinsics.Vec128) :
+  Result backend.neon.intrinsics.Vec128
+  := do
+  let t ← backend.neon.intrinsics.mul_16 a zq
+  let v ← backend.neon.intrinsics.sqdmulh_s16 a z
+  let v1 ← backend.neon.intrinsics.sqdmulh_s16 t q
+  backend.neon.intrinsics.shsub_s16 v v1
+
+/-- [kopis::backend::neon::ntt::ct_butterfly]:
+    Source: 'src/backend/neon/ntt.rs', lines 271:0-275:1 -/
+def backend.neon.ntt.ct_butterfly
+  (lo : backend.neon.intrinsics.Vec128) (hi : backend.neon.intrinsics.Vec128)
+  (z : backend.neon.intrinsics.Vec128) (zq : backend.neon.intrinsics.Vec128)
+  (q : backend.neon.intrinsics.Vec128) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  let t ← backend.neon.ntt.mont_mul hi z zq q
+  let hi1 ← backend.neon.intrinsics.sub_16 lo t
+  let lo1 ← backend.neon.intrinsics.add_16 lo t
+  ok (lo1, hi1)
+
+/-- [kopis::backend::neon::ntt::Tbl]
+    Source: 'src/backend/neon/ntt.rs', lines 63:0-66:1 -/
+structure backend.neon.ntt.Tbl (N : Std.Usize) where
+  z : Array Std.I16 N
+  zq : Array Std.I16 N
+
+/-- [kopis::backend::neon::ntt::ld_tbl]:
+    Source: 'src/backend/neon/ntt.rs', lines 147:0-149:1 -/
+def backend.neon.ntt.ld_tbl
+  {N : Std.Usize} (table : backend.neon.ntt.Tbl N) (g : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  let v ← backend.neon.intrinsics.load_i16 table.z g
+  let v1 ← backend.neon.intrinsics.load_i16 table.zq g
+  ok (v, v1)
+
+/-- [kopis::backend::neon::ntt::lane_tbl]: loop 1:
+    Source: 'src/backend/neon/ntt.rs', lines 94:8-101:9 -/
+@[rust_loop]
+def backend.neon.ntt.lane_tbl_loop0_loop0
+  {N : Std.Usize} (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (base : Std.Isize) (q_stride : Std.Isize) (h_stride : Std.Isize)
+  (m_stride : Std.Isize) (neg : Bool) (z : Array Std.I16 N)
+  (zq : Array Std.I16 N) (g : Std.Usize) (g_hi : Std.Isize) (g_lo : Std.Isize)
+  (m : Std.Usize) :
+  Result ((Array Std.I16 N) × (Array Std.I16 N))
+  := do
+  if m < 8#usize
+  then
+    let i ← g_hi * q_stride
+    let i1 ← base + i
+    let i2 ← g_lo * h_stride
+    let i3 ← i1 + i2
+    let i4 ← lift (UScalar.hcast .Isize m)
+    let i5 ← i4 * m_stride
+    let idx ← i3 + i5
+    let i6 ← lift (IScalar.hcast .Usize idx)
+    let value ← Array.index_usize zetas i6
+    let value1 ← if neg
+                   then -. value
+                   else ok value
+    let i7 ← g * 8#usize
+    let i8 ← i7 + m
+    let a ← Array.update z i8 value1
+    let i9 ← lift (core.num.I16.wrapping_mul value1 qinv)
+    let i10 ← i7 + m
+    let a1 ← Array.update zq i10 i9
+    let m1 ← m + 1#usize
+    backend.neon.ntt.lane_tbl_loop0_loop0 zetas qinv base q_stride h_stride
+      m_stride neg a a1 g g_hi g_lo m1
+  else ok (z, zq)
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::lane_tbl]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 90:4-103:5 -/
+@[rust_loop]
+def backend.neon.ntt.lane_tbl_loop0
+  {N : Std.Usize} (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (base : Std.Isize) (q_stride : Std.Isize) (h_stride : Std.Isize)
+  (m_stride : Std.Isize) (h_count : Std.Usize) (neg : Bool)
+  (z : Array Std.I16 N) (zq : Array Std.I16 N) (g : Std.Usize) :
+  Result ((Array Std.I16 N) × (Array Std.I16 N))
+  := do
+  let i ← g * 8#usize
+  if i < N
+  then
+    let i1 ← g / h_count
+    let g_hi ← lift (UScalar.hcast .Isize i1)
+    let i2 ← g % h_count
+    let g_lo ← lift (UScalar.hcast .Isize i2)
+    let (z1, zq1) ←
+      backend.neon.ntt.lane_tbl_loop0_loop0 zetas qinv base q_stride h_stride
+        m_stride neg z zq g g_hi g_lo 0#usize
+    let g1 ← g + 1#usize
+    backend.neon.ntt.lane_tbl_loop0 zetas qinv base q_stride h_stride m_stride
+      h_count neg z1 zq1 g1
+  else ok (z, zq)
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::lane_tbl]:
+    Source: 'src/backend/neon/ntt.rs', lines 77:0-105:1 -/
+def backend.neon.ntt.lane_tbl
+  (N : Std.Usize) (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (base : Std.Isize) (q_stride : Std.Isize) (h_stride : Std.Isize)
+  (m_stride : Std.Isize) (h_count : Std.Usize) (neg : Bool) :
+  Result (backend.neon.ntt.Tbl N)
+  := do
+  let z := Array.repeat N 0#i16
+  let zq := Array.repeat N 0#i16
+  let (z1, zq1) ←
+    backend.neon.ntt.lane_tbl_loop0 zetas qinv base q_stride h_stride m_stride
+      h_count neg z zq 0#usize
+  ok { z := z1, zq := zq1 }
 
 /-- [kopis::backend::crt::ZETAS_Q2]
     Source: 'src/backend/crt.rs', lines 135:0-152:2 -/
@@ -2042,11 +2658,12 @@ def backend.crt.ZETAS_Q2 : Array Std.I16 256#usize :=
     Source: 'src/backend/crt.rs', lines 86:0-86:38 -/
 @[global_simps, irreducible] def backend.crt.Q2_INV : Std.I16 := (-10751)#i16
 
-/-- [kopis::backend::crt::ZETAS_Q2_QINV]
-    Source: 'src/backend/crt.rs', lines 167:0-167:75 -/
+/-- [kopis::backend::neon::ntt::FWD1_Q2]
+    Source: 'src/backend/neon/ntt.rs', lines 128:0-128:80 -/
 @[global_simps, irreducible]
-def backend.crt.ZETAS_Q2_QINV : Result (Array Std.I16 256#usize) :=
-  backend.crt.zetas_qinv backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+def backend.neon.ntt.FWD1_Q2 : Result (backend.neon.ntt.Tbl 128#usize) :=
+  backend.neon.ntt.lane_tbl 128#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+    128#isize 32#isize 1#isize 4#isize 4#usize false
 
 /-- [kopis::backend::crt::ZETAS_Q1]
     Source: 'src/backend/crt.rs', lines 114:0-131:2 -/
@@ -2100,6 +2717,115 @@ def backend.crt.ZETAS_Q1 : Array Std.I16 256#usize :=
     Source: 'src/backend/crt.rs', lines 84:0-84:37 -/
 @[global_simps, irreducible] def backend.crt.Q1_INV : Std.I16 := (-7679)#i16
 
+/-- [kopis::backend::neon::ntt::FWD1_Q1]
+    Source: 'src/backend/neon/ntt.rs', lines 117:0-117:80 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.FWD1_Q1 : Result (backend.neon.ntt.Tbl 128#usize) :=
+  backend.neon.ntt.lane_tbl 128#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+    128#isize 32#isize 1#isize 4#isize 4#usize false
+
+/-- [kopis::backend::neon::ntt::fwd1]:
+    Source: 'src/backend/neon/ntt.rs', lines 191:0-197:1 -/
+def backend.neon.ntt.fwd1
+  (SECOND : Bool) (h : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  if SECOND
+  then let t ← backend.neon.ntt.FWD1_Q2
+       backend.neon.ntt.ld_tbl t h
+  else let t ← backend.neon.ntt.FWD1_Q1
+       backend.neon.ntt.ld_tbl t h
+
+/-- [kopis::backend::neon::ntt::FWD2_Q2]
+    Source: 'src/backend/neon/ntt.rs', lines 127:0-127:78 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.FWD2_Q2 : Result (backend.neon.ntt.Tbl 64#usize) :=
+  backend.neon.ntt.lane_tbl 64#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+    64#isize 16#isize 1#isize 2#isize 2#usize false
+
+/-- [kopis::backend::neon::ntt::FWD2_Q1]
+    Source: 'src/backend/neon/ntt.rs', lines 116:0-116:78 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.FWD2_Q1 : Result (backend.neon.ntt.Tbl 64#usize) :=
+  backend.neon.ntt.lane_tbl 64#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+    64#isize 16#isize 1#isize 2#isize 2#usize false
+
+/-- [kopis::backend::neon::ntt::fwd2]:
+    Source: 'src/backend/neon/ntt.rs', lines 180:0-186:1 -/
+def backend.neon.ntt.fwd2
+  (SECOND : Bool) (h : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  if SECOND
+  then let t ← backend.neon.ntt.FWD2_Q2
+       backend.neon.ntt.ld_tbl t h
+  else let t ← backend.neon.ntt.FWD2_Q1
+       backend.neon.ntt.ld_tbl t h
+
+/-- [kopis::backend::neon::ntt::FWD4_Q2]
+    Source: 'src/backend/neon/ntt.rs', lines 126:0-126:77 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.FWD4_Q2 : Result (backend.neon.ntt.Tbl 32#usize) :=
+  backend.neon.ntt.lane_tbl 32#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+    32#isize 8#isize 0#isize 1#isize 1#usize false
+
+/-- [kopis::backend::neon::ntt::FWD4_Q1]
+    Source: 'src/backend/neon/ntt.rs', lines 115:0-115:77 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.FWD4_Q1 : Result (backend.neon.ntt.Tbl 32#usize) :=
+  backend.neon.ntt.lane_tbl 32#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+    32#isize 8#isize 0#isize 1#isize 1#usize false
+
+/-- [kopis::backend::neon::ntt::fwd4]:
+    Source: 'src/backend/neon/ntt.rs', lines 169:0-175:1 -/
+def backend.neon.ntt.fwd4
+  (SECOND : Bool) (g : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  if SECOND
+  then let t ← backend.neon.ntt.FWD4_Q2
+       backend.neon.ntt.ld_tbl t g
+  else let t ← backend.neon.ntt.FWD4_Q1
+       backend.neon.ntt.ld_tbl t g
+
+/-- [kopis::backend::neon::intrinsics::dup_n_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 74:0-76:1 -/
+axiom backend.neon.intrinsics.dup_n_s16
+  : Std.I16 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::crt::zetas_qinv]: loop 0:
+    Source: 'src/backend/crt.rs', lines 159:4-162:5 -/
+@[rust_loop]
+def backend.crt.zetas_qinv_loop
+  (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (table : Array Std.I16 256#usize) (k : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  if k < 256#usize
+  then
+    let i ← Array.index_usize zetas k
+    let i1 ← lift (core.num.I16.wrapping_mul i qinv)
+    let a ← Array.update table k i1
+    let k1 ← k + 1#usize
+    backend.crt.zetas_qinv_loop zetas qinv a k1
+  else ok table
+partial_fixpoint
+
+/-- [kopis::backend::crt::zetas_qinv]:
+    Source: 'src/backend/crt.rs', lines 156:0-164:1 -/
+def backend.crt.zetas_qinv
+  (zetas : Array Std.I16 256#usize) (qinv : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let table := Array.repeat 256#usize 0#i16
+  backend.crt.zetas_qinv_loop zetas qinv table 0#usize
+
+/-- [kopis::backend::crt::ZETAS_Q2_QINV]
+    Source: 'src/backend/crt.rs', lines 167:0-167:75 -/
+@[global_simps, irreducible]
+def backend.crt.ZETAS_Q2_QINV : Result (Array Std.I16 256#usize) :=
+  backend.crt.zetas_qinv backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+
 /-- [kopis::backend::crt::ZETAS_Q1_QINV]
     Source: 'src/backend/crt.rs', lines 166:0-166:75 -/
 @[global_simps, irreducible]
@@ -2121,6 +2847,404 @@ def backend.crt.zeta (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
   if SECOND
   then Array.index_usize backend.crt.ZETAS_Q2 k
   else Array.index_usize backend.crt.ZETAS_Q1 k
+
+/-- [kopis::backend::crt::Q2_BARRETT_M]
+    Source: 'src/backend/crt.rs', lines 90:0-90:43 -/
+@[global_simps, irreducible]
+def backend.crt.Q2_BARRETT_M : Std.I16 := 12482#i16
+
+/-- [kopis::backend::crt::Q1_BARRETT_M]
+    Source: 'src/backend/crt.rs', lines 88:0-88:43 -/
+@[global_simps, irreducible]
+def backend.crt.Q1_BARRETT_M : Std.I16 := 17474#i16
+
+/-- [kopis::backend::crt::barrett_m]:
+    Source: 'src/backend/crt.rs', lines 199:0-201:1 -/
+def backend.crt.barrett_m (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok backend.crt.Q2_BARRETT_M
+  else ok backend.crt.Q1_BARRETT_M
+
+/-- [kopis::backend::crt::Q2]
+    Source: 'src/backend/crt.rs', lines 82:0-82:33 -/
+@[global_simps, irreducible] def backend.crt.Q2 : Std.I16 := 10753#i16
+
+/-- [kopis::backend::crt::Q1]
+    Source: 'src/backend/crt.rs', lines 80:0-80:32 -/
+@[global_simps, irreducible] def backend.crt.Q1 : Std.I16 := 7681#i16
+
+/-- [kopis::backend::crt::q]:
+    Source: 'src/backend/crt.rs', lines 189:0-191:1 -/
+def backend.crt.q (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok backend.crt.Q2
+  else ok backend.crt.Q1
+
+/-- [kopis::backend::crt::BARRETT_SH]
+    Source: 'src/backend/crt.rs', lines 96:0-96:38 -/
+@[global_simps, irreducible] def backend.crt.BARRETT_SH : Std.I32 := 11#i32
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 2:
+    Source: 'src/backend/neon/ntt.rs', lines 389:12-396:13 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop0_loop0_loop0
+  (b : Array Std.I16 256#usize) (q : backend.neon.intrinsics.Vec128)
+  (half : Std.Usize) (start : Std.Usize) (z : backend.neon.intrinsics.Vec128)
+  (zq : backend.neon.intrinsics.Vec128) (i : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i1 ← start + half
+  if i < i1
+  then
+    let lo ← backend.neon.intrinsics.load_i16 b i
+    let i2 ← i + half
+    let hi ← backend.neon.intrinsics.load_i16 b i2
+    let (lo1, hi1) ← backend.neon.ntt.ct_butterfly lo hi z zq q
+    let b1 ← backend.neon.intrinsics.store_i16 b i lo1
+    let b2 ← backend.neon.intrinsics.store_i16 b1 i2 hi1
+    let i3 ← i + 1#usize
+    backend.neon.ntt.ntt_block_loop0_loop0_loop0 b2 q half start z zq i3
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 1:
+    Source: 'src/backend/neon/ntt.rs', lines 384:8-398:9 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop0_loop0
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (k : Std.Usize) (half : Std.Usize)
+  (start : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  let i ← backend.neon.ntt.VECS
+  if start < i
+  then
+    let k1 ← k + 1#usize
+    let i1 ← backend.crt.zeta SECOND k1
+    let z ← backend.neon.intrinsics.dup_n_s16 i1
+    let i2 ← backend.crt.zeta_q SECOND k1
+    let zq ← backend.neon.intrinsics.dup_n_s16 i2
+    let b1 ←
+      backend.neon.ntt.ntt_block_loop0_loop0_loop0 b q half start z zq start
+    let i3 ← 2#usize * half
+    let start1 ← start + i3
+    backend.neon.ntt.ntt_block_loop0_loop0 SECOND b1 q k1 half start1
+  else ok (b, k)
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 382:4-405:5 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop0
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) (k : Std.Usize) (half : Std.Usize)
+  (level : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  if half >= 1#usize
+  then
+    let (b1, k1) ←
+      backend.neon.ntt.ntt_block_loop0_loop0 SECOND b q k half 0#usize
+    let b2 ←
+      if level = 2#usize
+      then backend.neon.ntt.barrett_block b1 bm round q
+      else ok b1
+    let half1 ← half / 2#usize
+    let level1 ← level + 1#usize
+    backend.neon.ntt.ntt_block_loop0 SECOND b2 q bm round k1 half1 level1
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 4:
+    Source: 'src/backend/neon/ntt.rs', lines 415:8-420:9 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop1_loop0
+  (iter : core.ops.range.Range Std.Usize) (q : backend.neon.intrinsics.Vec128)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize)
+  (z : backend.neon.intrinsics.Vec128) (zq : backend.neon.intrinsics.Vec128) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some i =>
+    let lo ← Array.index_usize v i
+    let i1 ← i + 4#usize
+    let hi ← Array.index_usize v i1
+    let (lo1, hi1) ← backend.neon.ntt.ct_butterfly lo hi z zq q
+    let v1 ← Array.update v i lo1
+    let a ← Array.update v1 i1 hi1
+    backend.neon.ntt.ntt_block_loop1_loop0 iter1 q a z zq
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 5:
+    Source: 'src/backend/neon/ntt.rs', lines 423:8-425:9 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop1_loop1
+  (iter : core.slice.iter.IterMut backend.neon.intrinsics.Vec128)
+  (back : core.slice.iter.IterMut backend.neon.intrinsics.Vec128 →
+  core.slice.iter.IterMut backend.neon.intrinsics.Vec128)
+  (q : backend.neon.intrinsics.Vec128) (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) :
+  Result ((core.slice.iter.IterMut backend.neon.intrinsics.Vec128) ×
+    (core.slice.iter.IterMut backend.neon.intrinsics.Vec128 →
+    core.slice.iter.IterMut backend.neon.intrinsics.Vec128))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (iter1, fun im => let im1 := next_back im none
+                                 back im1)
+  | some slot =>
+    let slot1 ← backend.neon.ntt.barrett slot bm round q
+    backend.neon.ntt.ntt_block_loop1_loop1 iter1
+      (fun im => let im1 := next_back im (some slot1)
+                 back im1) q bm round
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 7:
+    Source: 'src/backend/neon/ntt.rs', lines 431:12-437:13 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop1_loop2_loop0
+  (iter : core.ops.range.Range Std.Usize) (q : backend.neon.intrinsics.Vec128)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) (h : Std.Usize)
+  (z : backend.neon.intrinsics.Vec128) (zq : backend.neon.intrinsics.Vec128) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some i =>
+    let i1 ← 4#usize * h
+    let base ← i1 + i
+    let lo ← Array.index_usize v base
+    let i2 ← base + 2#usize
+    let hi ← Array.index_usize v i2
+    let (lo1, hi1) ← backend.neon.ntt.ct_butterfly lo hi z zq q
+    let v1 ← Array.update v base lo1
+    let a ← Array.update v1 i2 hi1
+    backend.neon.ntt.ntt_block_loop1_loop2_loop0 iter1 q a h z zq
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 6:
+    Source: 'src/backend/neon/ntt.rs', lines 429:8-438:9 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop1_loop2
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (q : backend.neon.intrinsics.Vec128) (g : Std.Usize)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some h =>
+    let i ← 2#usize * g
+    let i1 ← i + h
+    let (z, zq) ← backend.neon.ntt.fwd2 SECOND i1
+    let v1 ←
+      backend.neon.ntt.ntt_block_loop1_loop2_loop0
+        { start := 0#usize, «end» := 2#usize } q v h z zq
+    backend.neon.ntt.ntt_block_loop1_loop2 SECOND iter1 q g v1
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 8:
+    Source: 'src/backend/neon/ntt.rs', lines 442:8-448:9 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop1_loop3
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (q : backend.neon.intrinsics.Vec128) (g : Std.Usize)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some r =>
+    let i ← 4#usize * g
+    let i1 ← i + r
+    let (z, zq) ← backend.neon.ntt.fwd1 SECOND i1
+    let i2 ← 2#usize * r
+    let lo ← Array.index_usize v i2
+    let i3 ← i2 + 1#usize
+    let hi ← Array.index_usize v i3
+    let (lo1, hi1) ← backend.neon.ntt.ct_butterfly lo hi z zq q
+    let v1 ← Array.update v i2 lo1
+    let i4 ← i2 + 1#usize
+    let a ← Array.update v1 i4 hi1
+    backend.neon.ntt.ntt_block_loop1_loop3 SECOND iter1 q g a
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]: loop 3:
+    Source: 'src/backend/neon/ntt.rs', lines 409:4-451:5 -/
+@[rust_loop]
+def backend.neon.ntt.ntt_block_loop1
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.neon.intrinsics.Vec128)
+  (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some g =>
+    let v ← backend.neon.ntt.load_group b g
+    let (z, zq) ← backend.neon.ntt.fwd4 SECOND g
+    let v1 ←
+      backend.neon.ntt.ntt_block_loop1_loop0
+        { start := 0#usize, «end» := 4#usize } q v z zq
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut v1)
+    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
+    let (im, back) ←
+      backend.neon.ntt.ntt_block_loop1_loop1 iter2 (fun im1 => im1) q bm round
+    let im1 := back im
+    let s1 := iter_mut_back im1
+    let a := to_slice_mut_back s1
+    let v2 ←
+      backend.neon.ntt.ntt_block_loop1_loop2 SECOND
+        { start := 0#usize, «end» := 2#usize } q g a
+    let v3 ←
+      backend.neon.ntt.ntt_block_loop1_loop3 SECOND
+        { start := 0#usize, «end» := 4#usize } q g v2
+    let (b1, _) ← backend.neon.ntt.store_group b g v3
+    backend.neon.ntt.ntt_block_loop1 SECOND iter1 b1 q bm round
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::ntt_block]:
+    Source: 'src/backend/neon/ntt.rs', lines 372:0-455:1 -/
+def backend.neon.ntt.ntt_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← backend.crt.q SECOND
+  let q ← backend.neon.intrinsics.dup_n_s16 i
+  let i1 ← backend.crt.barrett_m SECOND
+  let bm ← backend.neon.intrinsics.dup_n_s16 i1
+  let i2 ← backend.crt.BARRETT_SH - 1#i32
+  let i3 ← 1#i16 <<< i2
+  let round ← backend.neon.intrinsics.dup_n_s16 i3
+  let b1 ←
+    backend.neon.ntt.ntt_block_loop0 SECOND b q bm round 0#usize 16#usize
+      0#usize
+  let b2 ←
+    backend.neon.ntt.ntt_block_loop1 SECOND
+      { start := 0#usize, «end» := 4#usize } b1 q bm round
+  backend.neon.ntt.barrett_block b2 bm round q
+
+/-- [kopis::backend::neon::intrinsics::load_u16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 536:0-540:1 -/
+axiom backend.neon.intrinsics.load_u16
+  {N : Std.Usize} :
+  Array Std.U16 N → Std.Usize → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::split_and_transform]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 573:4-580:5 -/
+@[rust_loop]
+def backend.neon.ntt.split_and_transform_loop
+  (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
+  (elem : Array Std.U16 256#usize) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let x ← backend.neon.intrinsics.load_u16 elem i
+    let x1 ← if REDUCE
+               then backend.neon.ntt.barrett x bm round q
+               else ok x
+    let b1 ← backend.neon.intrinsics.store_i16 b i x1
+    backend.neon.ntt.split_and_transform_loop REDUCE iter1 elem b1 q bm round
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::split_and_transform]:
+    Source: 'src/backend/neon/ntt.rs', lines 566:0-583:1 -/
+def backend.neon.ntt.split_and_transform
+  (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← backend.crt.q SECOND
+  let q ← backend.neon.intrinsics.dup_n_s16 i
+  let i1 ← backend.crt.barrett_m SECOND
+  let bm ← backend.neon.intrinsics.dup_n_s16 i1
+  let i2 ← backend.crt.BARRETT_SH - 1#i32
+  let i3 ← 1#i16 <<< i2
+  let round ← backend.neon.intrinsics.dup_n_s16 i3
+  let i4 ← backend.neon.ntt.VECS
+  let b1 ←
+    backend.neon.ntt.split_and_transform_loop REDUCE
+      { start := 0#usize, «end» := i4 } elem b q bm round
+  backend.neon.ntt.ntt_block SECOND b1
+
+/-- [kopis::backend::neon::ntt::from_ring_elem]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 601:4-603:5 -/
+@[rust_loop]
+def backend.neon.ntt.from_ring_elem_loop0
+  (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let v ← backend.neon.intrinsics.load_i16 b i
+    let out1 ← backend.neon.intrinsics.store_i16 out i v
+    backend.neon.ntt.from_ring_elem_loop0 iter1 out1 b
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::from_ring_elem]: loop 1:
+    Source: 'src/backend/neon/ntt.rs', lines 606:4-608:5 -/
+@[rust_loop]
+def backend.neon.ntt.from_ring_elem_loop1
+  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (out : Array Std.I16 512#usize) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i1 =>
+    let i2 ← i + i1
+    let v ← backend.neon.intrinsics.load_i16 b i1
+    let out1 ← backend.neon.intrinsics.store_i16 out i2 v
+    backend.neon.ntt.from_ring_elem_loop1 i iter1 out1 b
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::from_ring_elem]:
+    Source: 'src/backend/neon/ntt.rs', lines 596:0-611:1 -/
+def backend.neon.ntt.from_ring_elem
+  (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let out := Array.repeat 512#usize 0#i16
+  let b := Array.repeat 256#usize 0#i16
+  let b1 ← backend.neon.ntt.split_and_transform false REDUCE elem b
+  let i ← backend.neon.ntt.VECS
+  let out1 ←
+    backend.neon.ntt.from_ring_elem_loop0 { start := 0#usize, «end» := i }
+      out b1
+  let b2 ← backend.neon.ntt.split_and_transform true REDUCE elem b1
+  backend.neon.ntt.from_ring_elem_loop1 i { start := 0#usize, «end» := i }
+    out1 b2
+
+/-- [kopis::backend::neon::ntt::from_uniform]:
+    Source: 'src/backend/neon/ntt.rs', lines 619:0-621:1 -/
+def backend.neon.ntt.from_uniform
+  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
+  backend.neon.ntt.from_ring_elem true elem
 
 /-- [kopis::arithmetic::ntt_crt::mont_mul]:
     Source: 'src/arithmetic/ntt_crt.rs', lines 74:0-79:1 -/
@@ -2198,10 +3322,6 @@ def arithmetic.ntt_crt.ct_level
   := do
   let q ← backend.crt.q SECOND
   arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b k q 0#usize
-
-/-- [kopis::backend::crt::BARRETT_SH]
-    Source: 'src/backend/crt.rs', lines 96:0-96:38 -/
-@[global_simps, irreducible] def backend.crt.BARRETT_SH : Std.I32 := 11#i32
 
 /-- [kopis::arithmetic::ntt_crt::barrett]:
     Source: 'src/arithmetic/ntt_crt.rs', lines 87:0-91:1 -/
@@ -2339,8 +3459,18 @@ def arithmetic.ntt_crt.from_uniform
     Source: 'src/arithmetic/ntt.rs', lines 265:4-283:5 -/
 def arithmetic.ntt.NttElem.from_uniform
   (elem : arithmetic.ring_arith.RingElem) : Result arithmetic.ntt.NttElem := do
-  let a ← arithmetic.ntt_crt.from_uniform elem
-  ok a
+  let b ← backend.neon.cpu.available
+  if b
+  then let a ← backend.neon.ntt.from_uniform elem
+       ok a
+  else let a ← arithmetic.ntt_crt.from_uniform elem
+       ok a
+
+/-- [kopis::backend::neon::ntt::from_secret]:
+    Source: 'src/backend/neon/ntt.rs', lines 629:0-631:1 -/
+def backend.neon.ntt.from_secret
+  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
+  backend.neon.ntt.from_ring_elem false elem
 
 /-- [kopis::arithmetic::ntt_crt::from_secret]:
     Source: 'src/arithmetic/ntt_crt.rs', lines 236:0-238:1 -/
@@ -2352,8 +3482,12 @@ def arithmetic.ntt_crt.from_secret
     Source: 'src/arithmetic/ntt.rs', lines 290:4-306:5 -/
 def arithmetic.ntt.NttElem.from_secret
   (elem : arithmetic.ring_arith.RingElem) : Result arithmetic.ntt.NttElem := do
-  let a ← arithmetic.ntt_crt.from_secret elem
-  ok a
+  let b ← backend.neon.cpu.available
+  if b
+  then let a ← backend.neon.ntt.from_secret elem
+       ok a
+  else let a ← arithmetic.ntt_crt.from_secret elem
+       ok a
 
 /-- [kopis::arithmetic::ntt::NttMatrix]
     Source: 'src/arithmetic/ntt.rs', lines 311:0-311:90 -/
@@ -2419,6 +3553,101 @@ def arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
   default := arithmetic.ntt.NttMatrix.Insts.CoreDefaultDefault.default X Y
 }
 
+/-- [kopis::backend::neon::intrinsics::store_i32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 563:0-567:1 -/
+axiom backend.neon.intrinsics.store_i32
+  {N : Std.Usize} :
+  Array Std.I32 N → Std.Usize → backend.neon.intrinsics.Vec128 → Result
+    (Array Std.I32 N)
+
+/-- [kopis::backend::neon::intrinsics::smull_high_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 314:0-319:1 -/
+axiom backend.neon.intrinsics.smull_high_s16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::smull_low_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 304:0-309:1 -/
+axiom backend.neon.intrinsics.smull_low_s16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::add_32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 243:0-248:1 -/
+axiom backend.neon.intrinsics.add_32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::pointwise_mul_acc]: loop 1:
+    Source: 'src/backend/neon/ntt.rs', lines 650:8-665:9 -/
+@[rust_loop]
+def backend.neon.ntt.pointwise_mul_acc_loop0_loop0
+  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
+  (rhs : Array Std.I16 512#usize) (block : Std.Usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok acc
+  | some i1 =>
+    let i2 ← i * block
+    let i3 ← i2 + i1
+    let l ← backend.neon.intrinsics.load_i16 lhs i3
+    let i4 ← i * block
+    let i5 ← i4 + i1
+    let r ← backend.neon.intrinsics.load_i16 rhs i5
+    let first ← backend.neon.intrinsics.smull_low_s16 l r
+    let second ← backend.neon.intrinsics.smull_high_s16 l r
+    let i6 ← 2#usize * i
+    let i7 ← i6 * block
+    let i8 ← 2#usize * i1
+    let a0 ← i7 + i8
+    let a1 ← a0 + 1#usize
+    let v ← backend.neon.intrinsics.load_i32 acc a0
+    let v1 ← backend.neon.intrinsics.add_32 v first
+    let acc1 ← backend.neon.intrinsics.store_i32 acc a0 v1
+    let v2 ← backend.neon.intrinsics.load_i32 acc1 a1
+    let v3 ← backend.neon.intrinsics.add_32 v2 second
+    let acc2 ← backend.neon.intrinsics.store_i32 acc1 a1 v3
+    backend.neon.ntt.pointwise_mul_acc_loop0_loop0 i iter1 acc2 lhs rhs block
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::pointwise_mul_acc]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 649:4-666:5 -/
+@[rust_loop]
+def backend.neon.ntt.pointwise_mul_acc_loop0
+  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
+  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok acc
+  | some block =>
+    let i ← backend.neon.ntt.VECS
+    let acc1 ←
+      backend.neon.ntt.pointwise_mul_acc_loop0_loop0 i
+        { start := 0#usize, «end» := i } acc lhs rhs block
+    backend.neon.ntt.pointwise_mul_acc_loop0 iter1 acc1 lhs rhs
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::pointwise_mul_acc]:
+    Source: 'src/backend/neon/ntt.rs', lines 644:0-667:1 -/
+@[reducible]
+def backend.neon.ntt.pointwise_mul_acc
+  (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
+  (rhs : Array Std.I16 512#usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  backend.neon.ntt.pointwise_mul_acc_loop0
+    { start := 0#usize, «end» := 2#usize } acc lhs rhs
+
 /-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]: loop 0:
     Source: 'src/arithmetic/ntt_crt.rs', lines 250:4-252:5 -/
 @[rust_loop]
@@ -2461,7 +3690,501 @@ def arithmetic.ntt.pointwise_mul_acc
   (rhs : arithmetic.ntt.NttElem) :
   Result (Array Std.I32 512#usize)
   := do
-  arithmetic.ntt_crt.pointwise_mul_acc acc lhs rhs
+  let b ← backend.neon.cpu.available
+  if b
+  then backend.neon.ntt.pointwise_mul_acc acc lhs rhs
+  else arithmetic.ntt_crt.pointwise_mul_acc acc lhs rhs
+
+/-- [kopis::backend::neon::ntt::gs_butterfly]:
+    Source: 'src/backend/neon/ntt.rs', lines 281:0-285:1 -/
+def backend.neon.ntt.gs_butterfly
+  (lo : backend.neon.intrinsics.Vec128) (hi : backend.neon.intrinsics.Vec128)
+  (z : backend.neon.intrinsics.Vec128) (zq : backend.neon.intrinsics.Vec128)
+  (q : backend.neon.intrinsics.Vec128) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  let diff ← backend.neon.intrinsics.sub_16 lo hi
+  let lo1 ← backend.neon.intrinsics.add_16 lo hi
+  let hi1 ← backend.neon.ntt.mont_mul diff z zq q
+  ok (lo1, hi1)
+
+/-- [kopis::backend::neon::ntt::INV4_Q2]
+    Source: 'src/backend/neon/ntt.rs', lines 132:0-132:78 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.INV4_Q2 : Result (backend.neon.ntt.Tbl 32#usize) :=
+  backend.neon.ntt.lane_tbl 32#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+    63#isize (-8)#isize 0#isize (-1)#isize 1#usize true
+
+/-- [kopis::backend::neon::ntt::INV4_Q1]
+    Source: 'src/backend/neon/ntt.rs', lines 124:0-124:78 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.INV4_Q1 : Result (backend.neon.ntt.Tbl 32#usize) :=
+  backend.neon.ntt.lane_tbl 32#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+    63#isize (-8)#isize 0#isize (-1)#isize 1#usize true
+
+/-- [kopis::backend::neon::ntt::inv4]:
+    Source: 'src/backend/neon/ntt.rs', lines 224:0-230:1 -/
+def backend.neon.ntt.inv4
+  (SECOND : Bool) (g : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  if SECOND
+  then let t ← backend.neon.ntt.INV4_Q2
+       backend.neon.ntt.ld_tbl t g
+  else let t ← backend.neon.ntt.INV4_Q1
+       backend.neon.ntt.ld_tbl t g
+
+/-- [kopis::backend::neon::ntt::INV2_Q2]
+    Source: 'src/backend/neon/ntt.rs', lines 131:0-131:81 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.INV2_Q2 : Result (backend.neon.ntt.Tbl 64#usize) :=
+  backend.neon.ntt.lane_tbl 64#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+    127#isize (-16)#isize (-1)#isize (-2)#isize 2#usize true
+
+/-- [kopis::backend::neon::ntt::INV2_Q1]
+    Source: 'src/backend/neon/ntt.rs', lines 123:0-123:81 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.INV2_Q1 : Result (backend.neon.ntt.Tbl 64#usize) :=
+  backend.neon.ntt.lane_tbl 64#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+    127#isize (-16)#isize (-1)#isize (-2)#isize 2#usize true
+
+/-- [kopis::backend::neon::ntt::inv2]:
+    Source: 'src/backend/neon/ntt.rs', lines 213:0-219:1 -/
+def backend.neon.ntt.inv2
+  (SECOND : Bool) (h : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  if SECOND
+  then let t ← backend.neon.ntt.INV2_Q2
+       backend.neon.ntt.ld_tbl t h
+  else let t ← backend.neon.ntt.INV2_Q1
+       backend.neon.ntt.ld_tbl t h
+
+/-- [kopis::backend::neon::ntt::INV1_Q2]
+    Source: 'src/backend/neon/ntt.rs', lines 130:0-130:82 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.INV1_Q2 : Result (backend.neon.ntt.Tbl 128#usize) :=
+  backend.neon.ntt.lane_tbl 128#usize backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+    255#isize (-32)#isize (-1)#isize (-4)#isize 4#usize true
+
+/-- [kopis::backend::neon::ntt::INV1_Q1]
+    Source: 'src/backend/neon/ntt.rs', lines 122:0-122:82 -/
+@[global_simps, irreducible]
+def backend.neon.ntt.INV1_Q1 : Result (backend.neon.ntt.Tbl 128#usize) :=
+  backend.neon.ntt.lane_tbl 128#usize backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+    255#isize (-32)#isize (-1)#isize (-4)#isize 4#usize true
+
+/-- [kopis::backend::neon::ntt::inv1]:
+    Source: 'src/backend/neon/ntt.rs', lines 202:0-208:1 -/
+def backend.neon.ntt.inv1
+  (SECOND : Bool) (h : Std.Usize) :
+  Result (backend.neon.intrinsics.Vec128 × backend.neon.intrinsics.Vec128)
+  := do
+  if SECOND
+  then let t ← backend.neon.ntt.INV1_Q2
+       backend.neon.ntt.ld_tbl t h
+  else let t ← backend.neon.ntt.INV1_Q1
+       backend.neon.ntt.ld_tbl t h
+
+/-- [kopis::backend::crt::INVNTT_SCALE_2]
+    Source: 'src/backend/crt.rs', lines 101:0-101:44 -/
+@[global_simps, irreducible]
+def backend.crt.INVNTT_SCALE_2 : Std.I16 := 2536#i16
+
+/-- [kopis::backend::crt::INVNTT_SCALE_1]
+    Source: 'src/backend/crt.rs', lines 99:0-99:44 -/
+@[global_simps, irreducible]
+def backend.crt.INVNTT_SCALE_1 : Std.I16 := 1912#i16
+
+/-- [kopis::backend::crt::invntt_scale]:
+    Source: 'src/backend/crt.rs', lines 204:0-210:1 -/
+def backend.crt.invntt_scale (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok backend.crt.INVNTT_SCALE_2
+  else ok backend.crt.INVNTT_SCALE_1
+
+/-- [kopis::backend::crt::qinv]:
+    Source: 'src/backend/crt.rs', lines 194:0-196:1 -/
+def backend.crt.qinv (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok backend.crt.Q2_INV
+  else ok backend.crt.Q1_INV
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 1:
+    Source: 'src/backend/neon/ntt.rs', lines 474:8-480:9 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop0_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (q : backend.neon.intrinsics.Vec128) (g : Std.Usize)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some r =>
+    let i ← 4#usize * g
+    let i1 ← i + r
+    let (z, zq) ← backend.neon.ntt.inv1 SECOND i1
+    let i2 ← 2#usize * r
+    let lo ← Array.index_usize v i2
+    let i3 ← i2 + 1#usize
+    let hi ← Array.index_usize v i3
+    let (lo1, hi1) ← backend.neon.ntt.gs_butterfly lo hi z zq q
+    let v1 ← Array.update v i2 lo1
+    let i4 ← i2 + 1#usize
+    let a ← Array.update v1 i4 hi1
+    backend.neon.ntt.invntt_block_loop0_loop0 SECOND iter1 q g a
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 3:
+    Source: 'src/backend/neon/ntt.rs', lines 485:12-491:13 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop0_loop1_loop0
+  (iter : core.ops.range.Range Std.Usize) (q : backend.neon.intrinsics.Vec128)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) (h : Std.Usize)
+  (z : backend.neon.intrinsics.Vec128) (zq : backend.neon.intrinsics.Vec128) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some i =>
+    let i1 ← 4#usize * h
+    let base ← i1 + i
+    let lo ← Array.index_usize v base
+    let i2 ← base + 2#usize
+    let hi ← Array.index_usize v i2
+    let (lo1, hi1) ← backend.neon.ntt.gs_butterfly lo hi z zq q
+    let v1 ← Array.update v base lo1
+    let a ← Array.update v1 i2 hi1
+    backend.neon.ntt.invntt_block_loop0_loop1_loop0 iter1 q a h z zq
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 2:
+    Source: 'src/backend/neon/ntt.rs', lines 483:8-492:9 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop0_loop1
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (q : backend.neon.intrinsics.Vec128) (g : Std.Usize)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some h =>
+    let i ← 2#usize * g
+    let i1 ← i + h
+    let (z, zq) ← backend.neon.ntt.inv2 SECOND i1
+    let v1 ←
+      backend.neon.ntt.invntt_block_loop0_loop1_loop0
+        { start := 0#usize, «end» := 2#usize } q v h z zq
+    backend.neon.ntt.invntt_block_loop0_loop1 SECOND iter1 q g v1
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 4:
+    Source: 'src/backend/neon/ntt.rs', lines 496:8-498:9 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop0_loop2
+  (iter : core.slice.iter.IterMut backend.neon.intrinsics.Vec128)
+  (back : core.slice.iter.IterMut backend.neon.intrinsics.Vec128 →
+  core.slice.iter.IterMut backend.neon.intrinsics.Vec128)
+  (q : backend.neon.intrinsics.Vec128) (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) :
+  Result ((core.slice.iter.IterMut backend.neon.intrinsics.Vec128) ×
+    (core.slice.iter.IterMut backend.neon.intrinsics.Vec128 →
+    core.slice.iter.IterMut backend.neon.intrinsics.Vec128))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (iter1, fun im => let im1 := next_back im none
+                                 back im1)
+  | some slot =>
+    let slot1 ← backend.neon.ntt.barrett slot bm round q
+    backend.neon.ntt.invntt_block_loop0_loop2 iter1
+      (fun im => let im1 := next_back im (some slot1)
+                 back im1) q bm round
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 5:
+    Source: 'src/backend/neon/ntt.rs', lines 502:8-507:9 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop0_loop3
+  (iter : core.ops.range.Range Std.Usize) (q : backend.neon.intrinsics.Vec128)
+  (v : Array backend.neon.intrinsics.Vec128 8#usize)
+  (z : backend.neon.intrinsics.Vec128) (zq : backend.neon.intrinsics.Vec128) :
+  Result (Array backend.neon.intrinsics.Vec128 8#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok v
+  | some i =>
+    let lo ← Array.index_usize v i
+    let i1 ← i + 4#usize
+    let hi ← Array.index_usize v i1
+    let (lo1, hi1) ← backend.neon.ntt.gs_butterfly lo hi z zq q
+    let v1 ← Array.update v i lo1
+    let a ← Array.update v1 i1 hi1
+    backend.neon.ntt.invntt_block_loop0_loop3 iter1 q a z zq
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 470:4-510:5 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.neon.intrinsics.Vec128)
+  (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some g =>
+    let v ← backend.neon.ntt.load_group b g
+    let v1 ←
+      backend.neon.ntt.invntt_block_loop0_loop0 SECOND
+        { start := 0#usize, «end» := 4#usize } q g v
+    let v2 ←
+      backend.neon.ntt.invntt_block_loop0_loop1 SECOND
+        { start := 0#usize, «end» := 2#usize } q g v1
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut v2)
+    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
+    let (im, back) ←
+      backend.neon.ntt.invntt_block_loop0_loop2 iter2 (fun im1 => im1) q bm
+        round
+    let (z, zq) ← backend.neon.ntt.inv4 SECOND g
+    let im1 := back im
+    let s1 := iter_mut_back im1
+    let a := to_slice_mut_back s1
+    let v3 ←
+      backend.neon.ntt.invntt_block_loop0_loop3
+        { start := 0#usize, «end» := 4#usize } q a z zq
+    let (b1, _) ← backend.neon.ntt.store_group b g v3
+    backend.neon.ntt.invntt_block_loop0 SECOND iter1 b1 q bm round
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 8:
+    Source: 'src/backend/neon/ntt.rs', lines 526:12-533:13 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop1_loop0_loop0
+  (b : Array Std.I16 256#usize) (q : backend.neon.intrinsics.Vec128)
+  (half : Std.Usize) (start : Std.Usize) (z : backend.neon.intrinsics.Vec128)
+  (zq : backend.neon.intrinsics.Vec128) (i : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i1 ← start + half
+  if i < i1
+  then
+    let lo ← backend.neon.intrinsics.load_i16 b i
+    let i2 ← i + half
+    let hi ← backend.neon.intrinsics.load_i16 b i2
+    let (lo1, hi1) ← backend.neon.ntt.gs_butterfly lo hi z zq q
+    let b1 ← backend.neon.intrinsics.store_i16 b i lo1
+    let b2 ← backend.neon.intrinsics.store_i16 b1 i2 hi1
+    let i3 ← i + 1#usize
+    backend.neon.ntt.invntt_block_loop1_loop0_loop0 b2 q half start z zq i3
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 7:
+    Source: 'src/backend/neon/ntt.rs', lines 519:8-535:9 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop1_loop0
+  (SECOND : Bool) (i : Std.Usize) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (k : Std.Usize) (half : Std.Usize)
+  (start : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  if start < i
+  then
+    let k1 ← k - 1#usize
+    let i1 ← backend.crt.zeta SECOND k1
+    let neg_zeta ← core.num.I16.wrapping_neg i1
+    let z ← backend.neon.intrinsics.dup_n_s16 neg_zeta
+    let i2 ← backend.crt.qinv SECOND
+    let i3 ← lift (core.num.I16.wrapping_mul neg_zeta i2)
+    let zq ← backend.neon.intrinsics.dup_n_s16 i3
+    let b1 ←
+      backend.neon.ntt.invntt_block_loop1_loop0_loop0 b q half start z zq start
+    let i4 ← 2#usize * half
+    let start1 ← start + i4
+    backend.neon.ntt.invntt_block_loop1_loop0 SECOND i b1 q k1 half start1
+  else ok (b, k)
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 6:
+    Source: 'src/backend/neon/ntt.rs', lines 517:4-541:5 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop1
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (bm : backend.neon.intrinsics.Vec128)
+  (round : backend.neon.intrinsics.Vec128) (k : Std.Usize) (half : Std.Usize)
+  (level : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← backend.neon.ntt.VECS
+  if half < i
+  then
+    let (b1, k1) ←
+      backend.neon.ntt.invntt_block_loop1_loop0 SECOND i b q k half 0#usize
+    let b2 ←
+      if level = 3#usize
+      then backend.neon.ntt.barrett_block b1 bm round q
+      else
+        if level = 5#usize
+        then backend.neon.ntt.barrett_block b1 bm round q
+        else ok b1
+    let half1 ← half * 2#usize
+    let level1 ← level + 1#usize
+    backend.neon.ntt.invntt_block_loop1 SECOND b2 q bm round k1 half1 level1
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]: loop 9:
+    Source: 'src/backend/neon/ntt.rs', lines 546:4-548:5 -/
+@[rust_loop]
+def backend.neon.ntt.invntt_block_loop2
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (scale : backend.neon.intrinsics.Vec128)
+  (scale_q : backend.neon.intrinsics.Vec128) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let v ← backend.neon.intrinsics.load_i16 b i
+    let v1 ← backend.neon.ntt.mont_mul v scale scale_q q
+    let b1 ← backend.neon.intrinsics.store_i16 b i v1
+    backend.neon.ntt.invntt_block_loop2 iter1 b1 q scale scale_q
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::invntt_block]:
+    Source: 'src/backend/neon/ntt.rs', lines 464:0-549:1 -/
+def backend.neon.ntt.invntt_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← backend.crt.q SECOND
+  let q ← backend.neon.intrinsics.dup_n_s16 i
+  let i1 ← backend.crt.barrett_m SECOND
+  let bm ← backend.neon.intrinsics.dup_n_s16 i1
+  let i2 ← backend.crt.BARRETT_SH - 1#i32
+  let i3 ← 1#i16 <<< i2
+  let round ← backend.neon.intrinsics.dup_n_s16 i3
+  let b1 ←
+    backend.neon.ntt.invntt_block_loop0 SECOND
+      { start := 0#usize, «end» := 4#usize } b q bm round
+  let b2 ←
+    backend.neon.ntt.invntt_block_loop1 SECOND b1 q bm round 32#usize 1#usize
+      3#usize
+  let i4 ← backend.crt.invntt_scale SECOND
+  let scale ← backend.neon.intrinsics.dup_n_s16 i4
+  let i5 ← backend.crt.qinv SECOND
+  let i6 ← lift (core.num.I16.wrapping_mul i4 i5)
+  let scale_q ← backend.neon.intrinsics.dup_n_s16 i6
+  let i7 ← backend.neon.ntt.VECS
+  backend.neon.ntt.invntt_block_loop2 { start := 0#usize, «end» := i7 } b2 q
+    scale scale_q
+
+/-- [kopis::backend::neon::intrinsics::shrn16_pair_s32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 359:0-364:1 -/
+axiom backend.neon.intrinsics.shrn16_pair_s32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::ntt::reduce_block]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 682:4-692:5 -/
+@[rust_loop]
+def backend.neon.ntt.reduce_block_loop
+  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
+  (base : Std.Usize) (b : Array Std.I16 256#usize)
+  (q : backend.neon.intrinsics.Vec128) (qinv : backend.neon.intrinsics.Vec128)
+  :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let i1 ← 2#usize * i
+    let i2 ← base + i1
+    let a0 ← backend.neon.intrinsics.load_i32 acc i2
+    let i3 ← base + i1
+    let i4 ← i3 + 1#usize
+    let a1 ← backend.neon.intrinsics.load_i32 acc i4
+    let lo ← backend.neon.intrinsics.xtn_pair_32 a0 a1
+    let hi ← backend.neon.intrinsics.shrn16_pair_s32 a0 a1
+    let t ← backend.neon.intrinsics.mul_16 lo qinv
+    let v ← backend.neon.ntt.mulhi t q
+    let v1 ← backend.neon.intrinsics.sub_16 hi v
+    let b1 ← backend.neon.intrinsics.store_i16 b i v1
+    backend.neon.ntt.reduce_block_loop iter1 acc base b1 q qinv
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::reduce_block]:
+    Source: 'src/backend/neon/ntt.rs', lines 678:0-696:1 -/
+def backend.neon.ntt.reduce_block
+  (SECOND : Bool) (acc : Array Std.I32 512#usize) (base : Std.Usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← backend.crt.q SECOND
+  let q ← backend.neon.intrinsics.dup_n_s16 i
+  let i1 ← backend.crt.qinv SECOND
+  let qinv ← backend.neon.intrinsics.dup_n_s16 i1
+  let i2 ← backend.neon.ntt.VECS
+  let b1 ←
+    backend.neon.ntt.reduce_block_loop { start := 0#usize, «end» := i2 } acc
+      base b q qinv
+  backend.neon.ntt.invntt_block SECOND b1
+
+/-- [kopis::backend::neon::intrinsics::sxtl_high_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 333:0-337:1 -/
+axiom backend.neon.intrinsics.sxtl_high_s16
+  : backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::sxtl_low_s16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 324:0-328:1 -/
+axiom backend.neon.intrinsics.sxtl_low_s16
+  : backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::cmgt_s32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 274:0-279:1 -/
+axiom backend.neon.intrinsics.cmgt_s32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::mla_32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 263:0-269:1 -/
+axiom backend.neon.intrinsics.mla_32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 →
+    backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::sub_32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 253:0-258:1 -/
+axiom backend.neon.intrinsics.sub_32
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::dup_n_s32]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 88:0-90:1 -/
+axiom backend.neon.intrinsics.dup_n_s32
+  : Std.I32 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::crt::CRT_Q1_INV_MONT]
     Source: 'src/backend/crt.rs', lines 107:0-107:45 -/
@@ -2477,12 +4200,113 @@ def backend.crt.CRT_Q_HALF : Std.I32 := 41296896#i32
     Source: 'src/backend/crt.rs', lines 103:0-103:39 -/
 @[global_simps, irreducible] def backend.crt.CRT_Q : Std.I32 := 82593793#i32
 
-/-- [kopis::backend::crt::qinv]:
-    Source: 'src/backend/crt.rs', lines 194:0-196:1 -/
-def backend.crt.qinv (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok backend.crt.Q2_INV
-  else ok backend.crt.Q1_INV
+/-- [kopis::backend::neon::ntt::reduce_invntt]: loop 1:
+    Source: 'src/backend/neon/ntt.rs', lines 745:8-749:9 -/
+@[rust_loop]
+def backend.neon.ntt.reduce_invntt_loop0_loop0
+  (iter : core.slice.iter.IterMut backend.neon.intrinsics.Vec128)
+  (back : core.slice.iter.IterMut backend.neon.intrinsics.Vec128 →
+  core.slice.iter.IterMut backend.neon.intrinsics.Vec128)
+  (crt_q : backend.neon.intrinsics.Vec128)
+  (crt_q_half : backend.neon.intrinsics.Vec128) :
+  Result ((core.slice.iter.IterMut backend.neon.intrinsics.Vec128) ×
+    (core.slice.iter.IterMut backend.neon.intrinsics.Vec128 →
+    core.slice.iter.IterMut backend.neon.intrinsics.Vec128))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (iter1, fun im => let im1 := next_back im none
+                                 back im1)
+  | some x =>
+    let over ← backend.neon.intrinsics.cmgt_s32 x crt_q_half
+    let v ← backend.neon.intrinsics.and crt_q over
+    let x1 ← backend.neon.intrinsics.sub_32 x v
+    backend.neon.ntt.reduce_invntt_loop0_loop0 iter1
+      (fun im => let im1 := next_back im (some x1)
+                 back im1) crt_q crt_q_half
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::reduce_invntt]: loop 0:
+    Source: 'src/backend/neon/ntt.rs', lines 727:4-754:5 -/
+@[rust_loop]
+def backend.neon.ntt.reduce_invntt_loop0
+  (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
+  (v2 : Array Std.I16 256#usize) (q1 : backend.neon.intrinsics.Vec128)
+  (q2 : backend.neon.intrinsics.Vec128)
+  (q1_inv_mont : backend.neon.intrinsics.Vec128)
+  (q1_inv_mont_q : backend.neon.intrinsics.Vec128)
+  (q1_wide : backend.neon.intrinsics.Vec128)
+  (crt_q : backend.neon.intrinsics.Vec128)
+  (crt_q_half : backend.neon.intrinsics.Vec128) (out : Array Std.U16 256#usize)
+  :
+  Result (Array Std.U16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let r1 ← backend.neon.intrinsics.load_i16 v1 i
+    let r2 ← backend.neon.intrinsics.load_i16 v2 i
+    let v ← backend.neon.intrinsics.sshr_n_s16 15#i32 r1
+    let v3 ← backend.neon.intrinsics.and v q1
+    let a1 ← backend.neon.intrinsics.add_16 r1 v3
+    let v4 ← backend.neon.intrinsics.sshr_n_s16 15#i32 r2
+    let v5 ← backend.neon.intrinsics.and v4 q2
+    let a2 ← backend.neon.intrinsics.add_16 r2 v5
+    let v6 ← backend.neon.intrinsics.sub_16 a2 a1
+    let t ← backend.neon.ntt.mont_mul v6 q1_inv_mont q1_inv_mont_q q2
+    let v7 ← backend.neon.intrinsics.sshr_n_s16 15#i32 t
+    let v8 ← backend.neon.intrinsics.and v7 q2
+    let t1 ← backend.neon.intrinsics.add_16 t v8
+    let v9 ← backend.neon.intrinsics.sxtl_low_s16 a1
+    let v10 ← backend.neon.intrinsics.sxtl_low_s16 t1
+    let v11 ← backend.neon.intrinsics.mla_32 v9 v10 q1_wide
+    let v12 ← backend.neon.intrinsics.sxtl_high_s16 a1
+    let v13 ← backend.neon.intrinsics.sxtl_high_s16 t1
+    let v14 ← backend.neon.intrinsics.mla_32 v12 v13 q1_wide
+    let (s, to_slice_mut_back) ←
+      lift (Array.to_slice_mut (Array.make 2#usize [ v11, v14 ]))
+    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
+    let (im, back) ←
+      backend.neon.ntt.reduce_invntt_loop0_loop0 iter2 (fun im1 => im1) crt_q
+        crt_q_half
+    let im1 := back im
+    let s1 := iter_mut_back im1
+    let wide := to_slice_mut_back s1
+    let v15 ← Array.index_usize wide 0#usize
+    let v16 ← Array.index_usize wide 1#usize
+    let v17 ← backend.neon.intrinsics.xtn_pair_32 v15 v16
+    let out1 ← backend.neon.intrinsics.store_u16 out i v17
+    backend.neon.ntt.reduce_invntt_loop0 iter1 v1 v2 q1 q2 q1_inv_mont
+      q1_inv_mont_q q1_wide crt_q crt_q_half out1
+partial_fixpoint
+
+/-- [kopis::backend::neon::ntt::reduce_invntt]:
+    Source: 'src/backend/neon/ntt.rs', lines 705:0-756:1 -/
+def backend.neon.ntt.reduce_invntt
+  (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
+  let v1 := Array.repeat 256#usize 0#i16
+  let v2 := Array.repeat 256#usize 0#i16
+  let v11 ← backend.neon.ntt.reduce_block false acc 0#usize v1
+  let i ← backend.neon.ntt.VECS
+  let i1 ← 2#usize * i
+  let v21 ← backend.neon.ntt.reduce_block true acc i1 v2
+  let q1 ← backend.neon.intrinsics.dup_n_s16 backend.crt.Q1
+  let q2 ← backend.neon.intrinsics.dup_n_s16 backend.crt.Q2
+  let q1_inv_mont ←
+    backend.neon.intrinsics.dup_n_s16 backend.crt.CRT_Q1_INV_MONT
+  let i2 ←
+    lift (core.num.I16.wrapping_mul backend.crt.CRT_Q1_INV_MONT
+      backend.crt.Q2_INV)
+  let q1_inv_mont_q ← backend.neon.intrinsics.dup_n_s16 i2
+  let i3 ← lift (IScalar.cast .I32 backend.crt.Q1)
+  let q1_wide ← backend.neon.intrinsics.dup_n_s32 i3
+  let crt_q ← backend.neon.intrinsics.dup_n_s32 backend.crt.CRT_Q
+  let crt_q_half ← backend.neon.intrinsics.dup_n_s32 backend.crt.CRT_Q_HALF
+  let out := Array.repeat 256#usize 0#u16
+  backend.neon.ntt.reduce_invntt_loop0 { start := 0#usize, «end» := i } v11
+    v21 q1 q2 q1_inv_mont q1_inv_mont_q q1_wide crt_q crt_q_half out
 
 /-- [kopis::arithmetic::ntt_crt::reduce_block]: loop 0:
     Source: 'src/arithmetic/ntt_crt.rs', lines 263:4-268:5 -/
@@ -2522,23 +4346,6 @@ def arithmetic.ntt_crt.reduce_block
   let qinv ← backend.crt.qinv SECOND
   arithmetic.ntt_crt.reduce_block_loop
     { start := 0#usize, «end» := consts.RING_DEG } acc b q qinv
-
-/-- [kopis::backend::crt::INVNTT_SCALE_2]
-    Source: 'src/backend/crt.rs', lines 101:0-101:44 -/
-@[global_simps, irreducible]
-def backend.crt.INVNTT_SCALE_2 : Std.I16 := 2536#i16
-
-/-- [kopis::backend::crt::INVNTT_SCALE_1]
-    Source: 'src/backend/crt.rs', lines 99:0-99:44 -/
-@[global_simps, irreducible]
-def backend.crt.INVNTT_SCALE_1 : Std.I16 := 1912#i16
-
-/-- [kopis::backend::crt::invntt_scale]:
-    Source: 'src/backend/crt.rs', lines 204:0-210:1 -/
-def backend.crt.invntt_scale (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok backend.crt.INVNTT_SCALE_2
-  else ok backend.crt.INVNTT_SCALE_1
 
 /-- [kopis::arithmetic::ntt_crt::gs_level]: loop 1:
     Source: 'src/arithmetic/ntt_crt.rs', lines 141:8-146:9 -/
@@ -2714,8 +4521,12 @@ def arithmetic.ntt_crt.reduce_invntt
     Source: 'src/arithmetic/ntt.rs', lines 346:0-362:1 -/
 def arithmetic.ntt.reduce_invntt_to_ring_elem
   (acc : Array Std.I32 512#usize) : Result arithmetic.ring_arith.RingElem := do
-  let a ← arithmetic.ntt_crt.reduce_invntt acc
-  ok a
+  let b ← backend.neon.cpu.available
+  if b
+  then let a ← backend.neon.ntt.reduce_invntt acc
+       ok a
+  else let a ← arithmetic.ntt_crt.reduce_invntt acc
+       ok a
 
 /-- [kopis::arithmetic::ntt::{kopis::arithmetic::ntt::NttMatrix<X, Y>}::from_uniform_matrix]: loop 1:
     Source: 'src/arithmetic/ntt.rs', lines 369:12-371:13 -/
@@ -3151,6 +4962,1168 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   sub := SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
 }
 
+/-- [kopis::backend::neon::intrinsics::dup_n_u16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 81:0-83:1 -/
+axiom backend.neon.intrinsics.dup_n_u16
+  : Std.U16 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::dup_n_u64]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 105:0-107:1 -/
+axiom backend.neon.intrinsics.dup_n_u64
+  : Std.U64 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::set_u64x2]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 117:0-122:1 -/
+axiom backend.neon.intrinsics.set_u64x2
+  : Std.U64 → Std.U64 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::eor]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 142:0-144:1 -/
+axiom backend.neon.intrinsics.eor
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::cnt_u8]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 149:0-151:1 -/
+axiom backend.neon.intrinsics.cnt_u8
+  : backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::ushl_u16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 229:0-234:1 -/
+axiom backend.neon.intrinsics.ushl_u16
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::eor3]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 452:0-458:1 -/
+axiom backend.neon.intrinsics.eor3
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 →
+    backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::bcax]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 468:0-474:1 -/
+axiom backend.neon.intrinsics.bcax
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 →
+    backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::rax1]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 480:0-485:1 -/
+axiom backend.neon.intrinsics.rax1
+  :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::xar]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 494:0-499:1 -/
+axiom backend.neon.intrinsics.xar
+  (IMM : Std.I32) :
+  backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
+    backend.neon.intrinsics.Vec128
+
+/-- [kopis::backend::neon::intrinsics::store_u8x16]:
+    Source: 'src/backend/neon/intrinsics.rs', lines 590:0-594:1 -/
+axiom backend.neon.intrinsics.store_u8x16
+  :
+  Slice Std.U8 → Std.Usize → backend.neon.intrinsics.Vec128 → Result
+    (Slice Std.U8)
+
+/-- [kopis::backend::neon::keccak::PLEN]
+    Source: 'src/backend/neon/keccak.rs', lines 56:0-56:23 -/
+@[global_simps, irreducible]
+def backend.neon.keccak.PLEN : Std.Usize := 25#usize
+
+/-- [kopis::backend::neon::keccak::ROUNDS]
+    Source: 'src/backend/neon/keccak.rs', lines 59:0-59:25 -/
+@[global_simps, irreducible]
+def backend.neon.keccak.ROUNDS : Std.Usize := 12#usize
+
+/-- [kopis::backend::neon::keccak::WAYS]
+    Source: 'src/backend/neon/keccak.rs', lines 62:0-62:33 -/
+@[global_simps, irreducible]
+def backend.neon.keccak.WAYS : Std.Usize := 2#usize
+
+/-- [kopis::backend::neon::keccak::RC]
+    Source: 'src/backend/neon/keccak.rs', lines 66:0-73:2 -/
+@[global_simps, irreducible]
+def backend.neon.keccak.RC : Array Std.U64 24#usize :=
+  Array.make 24#usize [
+    1#u64, 32898#u64, 9223372036854808714#u64, 9223372039002292224#u64,
+    32907#u64, 2147483649#u64, 9223372039002292353#u64,
+    9223372036854808585#u64, 138#u64, 136#u64, 2147516425#u64, 2147483658#u64,
+    2147516555#u64, 9223372036854775947#u64, 9223372036854808713#u64,
+    9223372036854808579#u64, 9223372036854808578#u64, 9223372036854775936#u64,
+    32778#u64, 9223372039002259466#u64, 9223372039002292353#u64,
+    9223372036854808704#u64, 2147483649#u64, 9223372039002292232#u64
+    ]
+
+/-- [kopis::backend::neon::keccak::round_const]:
+    Source: 'src/backend/neon/keccak.rs', lines 117:0-121:1 -/
+def backend.neon.keccak.round_const
+  (round : Std.Usize) : Result backend.neon.intrinsics.Vec128 := do
+  massert (round < backend.neon.keccak.ROUNDS)
+  let i ← 24#usize - backend.neon.keccak.ROUNDS
+  let i1 ← i + round
+  let i2 ← Array.index_usize backend.neon.keccak.RC i1
+  backend.neon.intrinsics.dup_n_u64 i2
+
+/-- [kopis::backend::neon::keccak::round]:
+    Source: 'src/backend/neon/keccak.rs', lines 130:0-158:1 -/
+def backend.neon.keccak.round
+  (src : Array backend.neon.intrinsics.Vec128 25#usize)
+  (dst : Array backend.neon.intrinsics.Vec128 25#usize)
+  (rc : backend.neon.intrinsics.Vec128) :
+  Result (Array backend.neon.intrinsics.Vec128 25#usize)
+  := do
+  let v ← Array.index_usize src 0#usize
+  let v1 ← Array.index_usize src 5#usize
+  let v2 ← Array.index_usize src 10#usize
+  let v3 ← backend.neon.intrinsics.eor3 v v1 v2
+  let v4 ← Array.index_usize src 15#usize
+  let v5 ← Array.index_usize src 20#usize
+  let c0 ← backend.neon.intrinsics.eor3 v3 v4 v5
+  let v6 ← Array.index_usize src 1#usize
+  let v7 ← Array.index_usize src 6#usize
+  let v8 ← Array.index_usize src 11#usize
+  let v9 ← backend.neon.intrinsics.eor3 v6 v7 v8
+  let v10 ← Array.index_usize src 16#usize
+  let v11 ← Array.index_usize src 21#usize
+  let c1 ← backend.neon.intrinsics.eor3 v9 v10 v11
+  let v12 ← Array.index_usize src 2#usize
+  let v13 ← Array.index_usize src 7#usize
+  let v14 ← Array.index_usize src 12#usize
+  let v15 ← backend.neon.intrinsics.eor3 v12 v13 v14
+  let v16 ← Array.index_usize src 17#usize
+  let v17 ← Array.index_usize src 22#usize
+  let c2 ← backend.neon.intrinsics.eor3 v15 v16 v17
+  let v18 ← Array.index_usize src 3#usize
+  let v19 ← Array.index_usize src 8#usize
+  let v20 ← Array.index_usize src 13#usize
+  let v21 ← backend.neon.intrinsics.eor3 v18 v19 v20
+  let v22 ← Array.index_usize src 18#usize
+  let v23 ← Array.index_usize src 23#usize
+  let c3 ← backend.neon.intrinsics.eor3 v21 v22 v23
+  let v24 ← Array.index_usize src 4#usize
+  let v25 ← Array.index_usize src 9#usize
+  let v26 ← Array.index_usize src 14#usize
+  let v27 ← backend.neon.intrinsics.eor3 v24 v25 v26
+  let v28 ← Array.index_usize src 19#usize
+  let v29 ← Array.index_usize src 24#usize
+  let c4 ← backend.neon.intrinsics.eor3 v27 v28 v29
+  let v30 ← backend.neon.intrinsics.rax1 c4 c1
+  let v31 ← backend.neon.intrinsics.rax1 c0 c2
+  let v32 ← backend.neon.intrinsics.rax1 c1 c3
+  let v33 ← backend.neon.intrinsics.rax1 c2 c4
+  let v34 ← backend.neon.intrinsics.rax1 c3 c0
+  let i ← 0#usize % 5#usize
+  let v35 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i
+  let t0 ← backend.neon.intrinsics.xar 0#i32 v v35
+  let i1 ← 6#usize % 5#usize
+  let v36 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i1
+  let t1 ← backend.neon.intrinsics.xar 20#i32 v7 v36
+  let i2 ← 12#usize % 5#usize
+  let v37 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i2
+  let t2 ← backend.neon.intrinsics.xar 21#i32 v14 v37
+  let i3 ← 18#usize % 5#usize
+  let v38 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i3
+  let t3 ← backend.neon.intrinsics.xar 43#i32 v22 v38
+  let i4 ← 24#usize % 5#usize
+  let v39 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i4
+  let t4 ← backend.neon.intrinsics.xar 50#i32 v29 v39
+  let v40 ← backend.neon.intrinsics.bcax t0 t2 t1
+  let i5 ← 5#usize * 0#usize
+  let dst1 ← Array.update dst i5 v40
+  let v41 ← backend.neon.intrinsics.bcax t1 t3 t2
+  let i6 ← i5 + 1#usize
+  let dst2 ← Array.update dst1 i6 v41
+  let v42 ← backend.neon.intrinsics.bcax t2 t4 t3
+  let i7 ← i5 + 2#usize
+  let dst3 ← Array.update dst2 i7 v42
+  let v43 ← backend.neon.intrinsics.bcax t3 t0 t4
+  let i8 ← i5 + 3#usize
+  let dst4 ← Array.update dst3 i8 v43
+  let v44 ← backend.neon.intrinsics.bcax t4 t1 t0
+  let i9 ← i5 + 4#usize
+  let dst5 ← Array.update dst4 i9 v44
+  let i10 ← 3#usize % 5#usize
+  let v45 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i10
+  let t01 ← backend.neon.intrinsics.xar 36#i32 v18 v45
+  let i11 ← 9#usize % 5#usize
+  let v46 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i11
+  let t11 ← backend.neon.intrinsics.xar 44#i32 v25 v46
+  let i12 ← 10#usize % 5#usize
+  let v47 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i12
+  let t21 ← backend.neon.intrinsics.xar 61#i32 v2 v47
+  let i13 ← 16#usize % 5#usize
+  let v48 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i13
+  let t31 ← backend.neon.intrinsics.xar 19#i32 v10 v48
+  let i14 ← 22#usize % 5#usize
+  let v49 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i14
+  let t41 ← backend.neon.intrinsics.xar 3#i32 v17 v49
+  let v50 ← backend.neon.intrinsics.bcax t01 t21 t11
+  let i15 ← 5#usize * 1#usize
+  let dst6 ← Array.update dst5 i15 v50
+  let v51 ← backend.neon.intrinsics.bcax t11 t31 t21
+  let i16 ← i15 + 1#usize
+  let dst7 ← Array.update dst6 i16 v51
+  let v52 ← backend.neon.intrinsics.bcax t21 t41 t31
+  let i17 ← i15 + 2#usize
+  let dst8 ← Array.update dst7 i17 v52
+  let v53 ← backend.neon.intrinsics.bcax t31 t01 t41
+  let i18 ← i15 + 3#usize
+  let dst9 ← Array.update dst8 i18 v53
+  let v54 ← backend.neon.intrinsics.bcax t41 t11 t01
+  let i19 ← i15 + 4#usize
+  let dst10 ← Array.update dst9 i19 v54
+  let i20 ← 1#usize % 5#usize
+  let v55 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i20
+  let t02 ← backend.neon.intrinsics.xar 63#i32 v6 v55
+  let i21 ← 7#usize % 5#usize
+  let v56 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i21
+  let t12 ← backend.neon.intrinsics.xar 58#i32 v13 v56
+  let i22 ← 13#usize % 5#usize
+  let v57 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i22
+  let t22 ← backend.neon.intrinsics.xar 39#i32 v20 v57
+  let i23 ← 19#usize % 5#usize
+  let v58 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i23
+  let t32 ← backend.neon.intrinsics.xar 56#i32 v28 v58
+  let i24 ← 20#usize % 5#usize
+  let v59 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i24
+  let t42 ← backend.neon.intrinsics.xar 46#i32 v5 v59
+  let v60 ← backend.neon.intrinsics.bcax t02 t22 t12
+  let i25 ← 5#usize * 2#usize
+  let dst11 ← Array.update dst10 i25 v60
+  let v61 ← backend.neon.intrinsics.bcax t12 t32 t22
+  let i26 ← i25 + 1#usize
+  let dst12 ← Array.update dst11 i26 v61
+  let v62 ← backend.neon.intrinsics.bcax t22 t42 t32
+  let i27 ← i25 + 2#usize
+  let dst13 ← Array.update dst12 i27 v62
+  let v63 ← backend.neon.intrinsics.bcax t32 t02 t42
+  let i28 ← i25 + 3#usize
+  let dst14 ← Array.update dst13 i28 v63
+  let v64 ← backend.neon.intrinsics.bcax t42 t12 t02
+  let i29 ← i25 + 4#usize
+  let dst15 ← Array.update dst14 i29 v64
+  let i30 ← 4#usize % 5#usize
+  let v65 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i30
+  let t03 ← backend.neon.intrinsics.xar 37#i32 v24 v65
+  let i31 ← 5#usize % 5#usize
+  let v66 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i31
+  let t13 ← backend.neon.intrinsics.xar 28#i32 v1 v66
+  let i32 ← 11#usize % 5#usize
+  let v67 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i32
+  let t23 ← backend.neon.intrinsics.xar 54#i32 v8 v67
+  let i33 ← 17#usize % 5#usize
+  let v68 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i33
+  let t33 ← backend.neon.intrinsics.xar 49#i32 v16 v68
+  let i34 ← 23#usize % 5#usize
+  let v69 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i34
+  let t43 ← backend.neon.intrinsics.xar 8#i32 v23 v69
+  let v70 ← backend.neon.intrinsics.bcax t03 t23 t13
+  let i35 ← 5#usize * 3#usize
+  let dst16 ← Array.update dst15 i35 v70
+  let v71 ← backend.neon.intrinsics.bcax t13 t33 t23
+  let i36 ← i35 + 1#usize
+  let dst17 ← Array.update dst16 i36 v71
+  let v72 ← backend.neon.intrinsics.bcax t23 t43 t33
+  let i37 ← i35 + 2#usize
+  let dst18 ← Array.update dst17 i37 v72
+  let v73 ← backend.neon.intrinsics.bcax t33 t03 t43
+  let i38 ← i35 + 3#usize
+  let dst19 ← Array.update dst18 i38 v73
+  let v74 ← backend.neon.intrinsics.bcax t43 t13 t03
+  let i39 ← i35 + 4#usize
+  let dst20 ← Array.update dst19 i39 v74
+  let i40 ← 2#usize % 5#usize
+  let v75 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i40
+  let t04 ← backend.neon.intrinsics.xar 2#i32 v12 v75
+  let i41 ← 8#usize % 5#usize
+  let v76 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i41
+  let t14 ← backend.neon.intrinsics.xar 9#i32 v19 v76
+  let i42 ← 14#usize % 5#usize
+  let v77 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i42
+  let t24 ← backend.neon.intrinsics.xar 25#i32 v26 v77
+  let i43 ← 15#usize % 5#usize
+  let v78 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i43
+  let t34 ← backend.neon.intrinsics.xar 23#i32 v4 v78
+  let i44 ← 21#usize % 5#usize
+  let v79 ←
+    Array.index_usize (Array.make 5#usize [ v30, v31, v32, v33, v34 ]) i44
+  let t44 ← backend.neon.intrinsics.xar 62#i32 v11 v79
+  let v80 ← backend.neon.intrinsics.bcax t04 t24 t14
+  let i45 ← 5#usize * 4#usize
+  let dst21 ← Array.update dst20 i45 v80
+  let v81 ← backend.neon.intrinsics.bcax t14 t34 t24
+  let i46 ← i45 + 1#usize
+  let dst22 ← Array.update dst21 i46 v81
+  let v82 ← backend.neon.intrinsics.bcax t24 t44 t34
+  let i47 ← i45 + 2#usize
+  let dst23 ← Array.update dst22 i47 v82
+  let v83 ← backend.neon.intrinsics.bcax t34 t04 t44
+  let i48 ← i45 + 3#usize
+  let dst24 ← Array.update dst23 i48 v83
+  let v84 ← backend.neon.intrinsics.bcax t44 t14 t04
+  let i49 ← i45 + 4#usize
+  let dst25 ← Array.update dst24 i49 v84
+  let v85 ← Array.index_usize dst25 0#usize
+  let v86 ← backend.neon.intrinsics.eor v85 rc
+  Array.update dst25 0#usize v86
+
+/-- [kopis::backend::neon::keccak::permute]: loop 0:
+    Source: 'src/backend/neon/keccak.rs', lines 174:4-177:5 -/
+@[rust_loop]
+def backend.neon.keccak.permute_loop
+  (iter : core.ops.range.Range Std.Usize)
+  (state : Array backend.neon.intrinsics.Vec128 25#usize)
+  (scratch : Array backend.neon.intrinsics.Vec128 25#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 25#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok state
+  | some pair =>
+    let i ← 2#usize * pair
+    let v ← backend.neon.keccak.round_const i
+    let scratch1 ← backend.neon.keccak.round state scratch v
+    let i1 ← i + 1#usize
+    let v1 ← backend.neon.keccak.round_const i1
+    let state1 ← backend.neon.keccak.round scratch1 state v1
+    backend.neon.keccak.permute_loop iter1 state1 scratch1
+partial_fixpoint
+
+/-- [kopis::backend::neon::keccak::permute]:
+    Source: 'src/backend/neon/keccak.rs', lines 162:0-178:1 -/
+def backend.neon.keccak.permute
+  (state : Array backend.neon.intrinsics.Vec128 25#usize) :
+  Result (Array backend.neon.intrinsics.Vec128 25#usize)
+  := do
+  let v ← backend.neon.intrinsics.dup_n_u64 0#u64
+  let scratch := Array.repeat 25#usize v
+  let i ← backend.neon.keccak.ROUNDS / 2#usize
+  backend.neon.keccak.permute_loop { start := 0#usize, «end» := i } state
+    scratch
+
+/-- [kopis::backend::neon::keccak::pad_block]:
+    Source: 'src/backend/neon/keccak.rs', lines 186:0-196:1 -/
+def backend.neon.keccak.pad_block
+  (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize}
+  (prefix1 : Array Std.U8 32#usize) (suffix : Array Std.U8 S) :
+  Result (Array Std.U8 RATE)
+  := do
+  let bytes := Array.repeat RATE 0#u8
+  let (s, index_mut_back) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) bytes
+      { «end» := 32#usize }
+  let s1 ← lift (Array.to_slice prefix1)
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+  let bytes1 := index_mut_back s2
+  let i ← 32#usize + S
+  let (s3, index_mut_back1) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeUsizeSlice Std.U8)) bytes1
+      { start := 32#usize, «end» := i }
+  let s4 ← lift (Array.to_slice suffix)
+  let s5 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s3 s4
+  let bytes2 := index_mut_back1 s5
+  let bytes3 ← Array.update bytes2 i DS
+  let i1 ← RATE - 1#usize
+  let i2 ← Array.index_usize bytes3 i1
+  let i3 ← lift (i2 ||| 128#u8)
+  Array.update bytes3 i1 i3
+
+/-- [kopis::backend::neon::keccak::load_words]:
+    Source: 'src/backend/neon/keccak.rs', lines 204:0-206:1 -/
+def backend.neon.keccak.load_words
+  {RATE : Std.Usize} (block : Array Std.U8 RATE) (word : Std.Usize) :
+  Result backend.neon.intrinsics.Vec128
+  := do
+  let s ← lift (Array.to_slice block)
+  let i ← 8#usize * word
+  backend.neon.intrinsics.load_u8x16 s i
+
+/-- [kopis::backend::neon::keccak::read8]:
+    Source: 'src/backend/neon/keccak.rs', lines 320:0-324:1 -/
+def backend.neon.keccak.read8
+  {RATE : Std.Usize} (block : Array Std.U8 RATE) (offset : Std.Usize) :
+  Result (Array Std.U8 8#usize)
+  := do
+  let word := Array.repeat 8#usize 0#u8
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut word)
+  let i ← offset + 8#usize
+  let s1 ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeUsizeSlice Std.U8)) block
+      { start := offset, «end» := i }
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s s1
+  ok (to_slice_mut_back s2)
+
+/-- [kopis::backend::neon::keccak::xof2]: loop 0:
+    Source: 'src/backend/neon/keccak.rs', lines 254:4-261:5 -/
+@[rust_loop]
+def backend.neon.keccak.xof2_loop0
+  {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
+  (state : Array backend.neon.intrinsics.Vec128 25#usize) (words : Std.Usize)
+  (word : Std.Usize) :
+  Result ((Array backend.neon.intrinsics.Vec128 25#usize) × Std.Usize)
+  := do
+  let i ← word + 2#usize
+  if i <= words
+  then
+    let v0 ← backend.neon.keccak.load_words b0 word
+    let v1 ← backend.neon.keccak.load_words b1 word
+    let v ← backend.neon.intrinsics.trn1_64 v0 v1
+    let state1 ← Array.update state word v
+    let v2 ← backend.neon.intrinsics.trn2_64 v0 v1
+    let i1 ← word + 1#usize
+    let a ← Array.update state1 i1 v2
+    backend.neon.keccak.xof2_loop0 b0 b1 a words i
+  else ok (state, word)
+partial_fixpoint
+
+/-- [kopis::backend::neon::keccak::xof2]: loop 1:
+    Source: 'src/backend/neon/keccak.rs', lines 262:4-268:5 -/
+@[rust_loop]
+def backend.neon.keccak.xof2_loop1
+  {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
+  (state : Array backend.neon.intrinsics.Vec128 25#usize) (words : Std.Usize)
+  (word : Std.Usize) :
+  Result (Array backend.neon.intrinsics.Vec128 25#usize)
+  := do
+  if word < words
+  then
+    let i ← 8#usize * word
+    let a ← backend.neon.keccak.read8 b0 i
+    let lane0 ← lift (core.num.U64.from_le_bytes a)
+    let a1 ← backend.neon.keccak.read8 b1 i
+    let lane1 ← lift (core.num.U64.from_le_bytes a1)
+    let v ← backend.neon.intrinsics.set_u64x2 lane0 lane1
+    let a2 ← Array.update state word v
+    let word1 ← word + 1#usize
+    backend.neon.keccak.xof2_loop1 b0 b1 a2 words word1
+  else ok state
+partial_fixpoint
+
+/-- [kopis::backend::neon::keccak::xof2]: loop 3:
+    Source: 'src/backend/neon/keccak.rs', lines 285:8-294:9 -/
+@[rust_loop]
+def backend.neon.keccak.xof2_loop2_loop0
+  {N : Std.Usize} (state : Array backend.neon.intrinsics.Vec128 25#usize)
+  (out0 : Array Std.U8 N) (out1 : Array Std.U8 N) (done1 : Std.Usize)
+  (words : Std.Usize) (word : Std.Usize) :
+  Result ((Array Std.U8 N) × (Array Std.U8 N) × Std.Usize)
+  := do
+  let i ← word + 2#usize
+  if i <= words
+  then
+    let i1 ← 8#usize * word
+    let i2 ← done1 + i1
+    let i3 ← i2 + 16#usize
+    if i3 <= N
+    then
+      let v ← Array.index_usize state word
+      let i4 ← word + 1#usize
+      let v1 ← Array.index_usize state i4
+      let v0 ← backend.neon.intrinsics.trn1_64 v v1
+      let v2 ← Array.index_usize state i4
+      let v11 ← backend.neon.intrinsics.trn2_64 v v2
+      let start ← done1 + i1
+      let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out0)
+      let s1 ← backend.neon.intrinsics.store_u8x16 s start v0
+      let (s2, to_slice_mut_back1) ← lift (Array.to_slice_mut out1)
+      let s3 ← backend.neon.intrinsics.store_u8x16 s2 start v11
+      let out11 := to_slice_mut_back1 s3
+      let out01 := to_slice_mut_back s1
+      backend.neon.keccak.xof2_loop2_loop0 state out01 out11 done1 words i
+    else ok (out0, out1, word)
+  else ok (out0, out1, word)
+partial_fixpoint
+
+/-- [kopis::backend::neon::keccak::xof2]: loop 4:
+    Source: 'src/backend/neon/keccak.rs', lines 298:8-309:9 -/
+@[rust_loop]
+def backend.neon.keccak.xof2_loop2_loop1
+  {N : Std.Usize} (state : Array backend.neon.intrinsics.Vec128 25#usize)
+  (out0 : Array Std.U8 N) (out1 : Array Std.U8 N) (done1 : Std.Usize)
+  (words : Std.Usize) (word : Std.Usize) :
+  Result ((Array Std.U8 N) × (Array Std.U8 N))
+  := do
+  if word < words
+  then
+    let packed := Array.repeat 16#usize 0#u8
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut packed)
+    let v ← Array.index_usize state word
+    let s1 ← backend.neon.intrinsics.store_u8x16 s 0#usize v
+    let i ← 8#usize * word
+    let start ← done1 + i
+    let i1 ← N - start
+    let len ← core.cmp.min core.cmp.OrdUsize 8#usize i1
+    let i2 ← start + len
+    let (s2, index_mut_back) ←
+      core.array.Array.index_mut (core.ops.index.IndexMutSlice
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8)) out0
+        { start, «end» := i2 }
+    let packed1 := to_slice_mut_back s1
+    let s3 ←
+      core.array.Array.index (core.ops.index.IndexSlice
+        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) packed1
+        { «end» := len }
+    let s4 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s2 s3
+    let (s5, index_mut_back1) ←
+      core.array.Array.index_mut (core.ops.index.IndexMutSlice
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8)) out1
+        { start, «end» := i2 }
+    let i3 ← 8#usize + len
+    let s6 ←
+      core.array.Array.index (core.ops.index.IndexSlice
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8)) packed1
+        { start := 8#usize, «end» := i3 }
+    let s7 ← core.slice.Slice.copy_from_slice core.marker.CopyU8 s5 s6
+    let word1 ← word + 1#usize
+    let out11 := index_mut_back1 s7
+    let out01 := index_mut_back s4
+    backend.neon.keccak.xof2_loop2_loop1 state out01 out11 done1 words word1
+  else ok (out0, out1)
+partial_fixpoint
+
+/-- [kopis::backend::neon::keccak::xof2]: loop 2:
+    Source: 'src/backend/neon/keccak.rs', lines 276:4-312:5 -/
+@[rust_loop]
+def backend.neon.keccak.xof2_loop2
+  (RATE : Std.Usize) {N : Std.Usize}
+  (state : Array backend.neon.intrinsics.Vec128 25#usize)
+  (out0 : Array Std.U8 N) (out1 : Array Std.U8 N) (done1 : Std.Usize) :
+  Result ((Array Std.U8 N) × (Array Std.U8 N))
+  := do
+  if done1 < N
+  then
+    let state1 ← backend.neon.keccak.permute state
+    let i ← N - done1
+    let take ← core.cmp.min core.cmp.OrdUsize RATE i
+    let words ← core.num.Usize.div_ceil take 8#usize
+    let (out01, out11, word) ←
+      backend.neon.keccak.xof2_loop2_loop0 state1 out0 out1 done1 words 0#usize
+    let (out02, out12) ←
+      backend.neon.keccak.xof2_loop2_loop1 state1 out01 out11 done1 words word
+    let done2 ← done1 + take
+    backend.neon.keccak.xof2_loop2 RATE state1 out02 out12 done2
+  else ok (out0, out1)
+partial_fixpoint
+
+/-- [kopis::backend::neon::keccak::xof2]:
+    Source: 'src/backend/neon/keccak.rs', lines 220:0-313:1 -/
+def backend.neon.keccak.xof2
+  (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize} {N : Std.Usize}
+  (prefix1 : Array Std.U8 32#usize) (suffixes : Array (Array Std.U8 S) 2#usize)
+  (out : Array (Array Std.U8 N) 2#usize) :
+  Result (Array (Array Std.U8 N) 2#usize)
+  := do
+  if RATE = 168#usize
+  then ok ()
+  else massert (RATE = 136#usize)
+  massert (DS >= 1#u8)
+  massert (DS <= 127#u8)
+  let i ← 32#usize + S
+  massert (i < RATE)
+  let i1 ← RATE / 8#usize
+  let b ← core.num.Usize.is_multiple_of i1 2#usize
+  massert (¬ b)
+  let a ← Array.index_usize suffixes 0#usize
+  let b0 ← backend.neon.keccak.pad_block RATE DS prefix1 a
+  let a1 ← Array.index_usize suffixes 1#usize
+  let b1 ← backend.neon.keccak.pad_block RATE DS prefix1 a1
+  let v ← backend.neon.intrinsics.dup_n_u64 0#u64
+  let state := Array.repeat 25#usize v
+  let (state1, word) ← backend.neon.keccak.xof2_loop0 b0 b1 state i1 0#usize
+  let state2 ← backend.neon.keccak.xof2_loop1 b0 b1 state1 i1 word
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+  let ((head, tail), split_at_mut_back) ←
+    core.slice.Slice.split_at_mut s 1#usize
+  let (out0, index_mut_back) ← Slice.index_mut_usize head 0#usize
+  let (out1, index_mut_back1) ← Slice.index_mut_usize tail 0#usize
+  let (out01, out11) ←
+    backend.neon.keccak.xof2_loop2 RATE state2 out0 out1 0#usize
+  let head1 := index_mut_back out01
+  let tail1 := index_mut_back1 out11
+  let s1 := split_at_mut_back (head1, tail1)
+  ok (to_slice_mut_back s1)
+
+/-- [kopis::backend::neon::sample::RATE_128]
+    Source: 'src/backend/neon/sample.rs', lines 39:0-39:28 -/
+@[global_simps, irreducible]
+def backend.neon.sample.RATE_128 : Std.Usize := 168#usize
+
+/-- [kopis::backend::neon::sample::RATE_256]
+    Source: 'src/backend/neon/sample.rs', lines 42:0-42:28 -/
+@[global_simps, irreducible]
+def backend.neon.sample.RATE_256 : Std.Usize := 136#usize
+
+/-- [kopis::backend::neon::sample::MATRIX_ELEM_BYTES]
+    Source: 'src/backend/neon/sample.rs', lines 46:0-46:63 -/
+@[global_simps, irreducible]
+def backend.neon.sample.MATRIX_ELEM_BYTES : Result Std.Usize := do
+  let i ← consts.RING_DEG * consts.MODULUS_Q_BITS
+  i / 8#usize
+
+/-- [kopis::backend::neon::sample::popcount_small]:
+    Source: 'src/backend/neon/sample.rs', lines 55:0-57:1 -/
+def backend.neon.sample.popcount_small
+  (v : backend.neon.intrinsics.Vec128) :
+  Result backend.neon.intrinsics.Vec128
+  := do
+  backend.neon.intrinsics.cnt_u8 v
+
+/-- [kopis::backend::neon::sample::cbd_lanes]: loop 0:
+    Source: 'src/backend/neon/sample.rs', lines 83:4-89:5 -/
+@[rust_loop]
+def backend.neon.sample.cbd_lanes_loop
+  (iter : core.ops.range.Range Std.Usize) (fields : Array Std.U16 256#usize)
+  (half_mask : backend.neon.intrinsics.Vec128)
+  (half_shift : backend.neon.intrinsics.Vec128)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let field ← backend.neon.intrinsics.load_u16 fields i
+    let low ← backend.neon.intrinsics.and field half_mask
+    let v ← backend.neon.intrinsics.ushl_u16 field half_shift
+    let high ← backend.neon.intrinsics.and v half_mask
+    let v1 ← backend.neon.sample.popcount_small low
+    let v2 ← backend.neon.sample.popcount_small high
+    let coeff ← backend.neon.intrinsics.sub_16 v1 v2
+    let a ← backend.neon.intrinsics.store_u16 out i coeff
+    backend.neon.sample.cbd_lanes_loop iter1 fields half_mask half_shift a
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::cbd_lanes]:
+    Source: 'src/backend/neon/sample.rs', lines 75:0-91:1 -/
+def backend.neon.sample.cbd_lanes
+  (MU : Std.Usize) (buf : Slice Std.U8) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let fields ← backend.neon.ser.deserialize buf MU
+  let i ← MU / 2#usize
+  let i1 ← 1#u16 <<< i
+  let i2 ← i1 - 1#u16
+  let half_mask ← backend.neon.intrinsics.dup_n_u16 i2
+  let i3 ← lift (UScalar.hcast .I16 i)
+  let i4 ← -. i3
+  let half_shift ← backend.neon.intrinsics.dup_n_s16 i4
+  let out ← arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default
+  let i5 ← consts.RING_DEG / 8#usize
+  backend.neon.sample.cbd_lanes_loop { start := 0#usize, «end» := i5 } fields
+    half_mask half_shift out
+
+/-- [kopis::backend::neon::sample::gen_matrix_from_seed]: loop 1:
+    Source: 'src/backend/neon/sample.rs', lines 119:8-123:9 -/
+@[rust_loop]
+def backend.neon.sample.gen_matrix_from_seed_loop0_loop0
+  (L : Std.Usize) (iter : core.ops.range.Range Std.Usize) (entries : Std.Usize)
+  (first : Std.Usize) (indices : Array (Array Std.U8 2#usize) 2#usize) :
+  Result (Array (Array Std.U8 2#usize) 2#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok indices
+  | some lane =>
+    let i ← first + lane
+    let i1 ← entries - 1#usize
+    let entry ← core.cmp.min core.cmp.OrdUsize i i1
+    let i2 ← entry / L
+    let (a, index_mut_back) ← Array.index_mut_usize indices lane
+    let i3 ← lift (UScalar.cast .U8 i2)
+    let a1 ← Array.update a 0#usize i3
+    let i4 ← entry % L
+    let indices1 := index_mut_back a1
+    let (a2, index_mut_back1) ← Array.index_mut_usize indices1 lane
+    let i5 ← lift (UScalar.cast .U8 i4)
+    let a3 ← Array.update a2 1#usize i5
+    let a4 := index_mut_back1 a3
+    backend.neon.sample.gen_matrix_from_seed_loop0_loop0 L iter1 entries first
+      a4
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::gen_matrix_from_seed]: loop 2:
+    Source: 'src/backend/neon/sample.rs', lines 127:8-133:9 -/
+@[rust_loop]
+def backend.neon.sample.gen_matrix_from_seed_loop0_loop1
+  {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (mat : arithmetic.matrix_arith.Matrix L L) (entries : Std.Usize)
+  (bufs : Array (Array Std.U8 416#usize) 2#usize) (first : Std.Usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok mat
+  | some lane =>
+    let entry ← first + lane
+    if entry < entries
+    then
+      let a ← Array.index_usize bufs lane
+      let s ← lift (Array.to_slice a)
+      let a1 ← backend.neon.ser.deserialize s consts.MODULUS_Q_BITS
+      let i ← entry / L
+      let i1 ← entry % L
+      let (a2, index_mut_back) ← Array.index_mut_usize mat i
+      let a3 ← Array.update a2 i1 a1
+      let a4 := index_mut_back a3
+      backend.neon.sample.gen_matrix_from_seed_loop0_loop1 iter1 a4 entries
+        bufs first
+    else
+      backend.neon.sample.gen_matrix_from_seed_loop0_loop1 iter1 mat entries
+        bufs first
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::gen_matrix_from_seed]: loop 0:
+    Source: 'src/backend/neon/sample.rs', lines 114:4-136:5 -/
+@[rust_loop]
+def backend.neon.sample.gen_matrix_from_seed_loop0
+  {L : Std.Usize} (seed : Array Std.U8 32#usize)
+  (mat : arithmetic.matrix_arith.Matrix L L) (entries : Std.Usize)
+  (bufs : Array (Array Std.U8 416#usize) 2#usize) (first : Std.Usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  if first < entries
+  then
+    let a := Array.repeat 2#usize 0#u8
+    let indices := Array.repeat 2#usize a
+    let indices1 ←
+      backend.neon.sample.gen_matrix_from_seed_loop0_loop0 L
+        { start := 0#usize, «end» := backend.neon.keccak.WAYS } entries first
+        indices
+    let bufs1 ← backend.neon.keccak.xof2 168#usize 2#u8 seed indices1 bufs
+    let mat1 ←
+      backend.neon.sample.gen_matrix_from_seed_loop0_loop1
+        { start := 0#usize, «end» := backend.neon.keccak.WAYS } mat entries
+        bufs1 first
+    let first1 ← first + backend.neon.keccak.WAYS
+    backend.neon.sample.gen_matrix_from_seed_loop0 seed mat1 entries bufs1
+      first1
+  else ok mat
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::gen_matrix_from_seed]:
+    Source: 'src/backend/neon/sample.rs', lines 105:0-139:1 -/
+def backend.neon.sample.gen_matrix_from_seed
+  (L : Std.Usize) (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L L)
+  := do
+  let mat ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
+  let entries ← L * L
+  let a := Array.repeat 416#usize 0#u8
+  let bufs := Array.repeat 2#usize a
+  backend.neon.sample.gen_matrix_from_seed_loop0 seed mat entries bufs 0#usize
+
+/-- [kopis::sample::cbd_diff]:
+    Source: 'src/sample.rs', lines 18:0-22:1 -/
+def sample.cbd_diff
+  (raw1 : Std.U32) (half : Std.U32) (mask : Std.U32) : Result Std.U16 := do
+  let i ← lift (raw1 &&& mask)
+  let i1 ← core.num.U32.count_ones i
+  let a ← lift (UScalar.cast .U16 i1)
+  let i2 ← raw1 >>> half
+  let i3 ← lift (i2 &&& mask)
+  let i4 ← core.num.U32.count_ones i3
+  let b ← lift (UScalar.cast .U16 i4)
+  ok (core.num.U16.wrapping_sub a b)
+
+/-- [kopis::sample::cbd]: loop 0:
+    Source: 'src/sample.rs', lines 34:8-38:9 -/
+@[rust_loop]
+def sample.cbd_loop0
+  (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.adapters.enumerate.IteratorEnumerate.next
+      (core.iter.traits.iterator.IteratorSliceIter Std.U8) iter
+  match o with
+  | none => ok out
+  | some p =>
+    let (i, byte) := p
+    let i1 ← lift (byte &&& 15#u8)
+    let i2 ← core.num.U8.count_ones i1
+    let a ← lift (UScalar.cast .U16 i2)
+    let i3 ← byte >>> 4#i32
+    let i4 ← core.num.U8.count_ones i3
+    let b ← lift (UScalar.cast .U16 i4)
+    let i5 ← lift (core.num.U16.wrapping_sub a b)
+    let a1 ← Array.update out i i5
+    sample.cbd_loop0 iter1 a1
+partial_fixpoint
+
+/-- [kopis::sample::cbd]: loop 1:
+    Source: 'src/sample.rs', lines 43:8-55:9 -/
+@[rust_loop]
+def sample.cbd_loop1
+  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some g =>
+    let i ← 5#usize * g
+    let i1 ← Slice.index_usize buf i
+    let b0 ← lift (UScalar.cast .U32 i1)
+    let i2 ← i + 1#usize
+    let i3 ← Slice.index_usize buf i2
+    let b1 ← lift (UScalar.cast .U32 i3)
+    let i4 ← i + 2#usize
+    let i5 ← Slice.index_usize buf i4
+    let b2 ← lift (UScalar.cast .U32 i5)
+    let i6 ← i + 3#usize
+    let i7 ← Slice.index_usize buf i6
+    let b3 ← lift (UScalar.cast .U32 i7)
+    let i8 ← i + 4#usize
+    let i9 ← Slice.index_usize buf i8
+    let b4 ← lift (UScalar.cast .U32 i9)
+    let o1 ← 4#usize * g
+    let i10 ← b1 <<< 8#i32
+    let i11 ← lift (b0 ||| i10)
+    let i12 ← sample.cbd_diff i11 5#u32 31#u32
+    let a ← Array.update out o1 i12
+    let i13 ← b2 <<< 8#i32
+    let i14 ← lift (b1 ||| i13)
+    let i15 ← i14 >>> 2#i32
+    let i16 ← sample.cbd_diff i15 5#u32 31#u32
+    let i17 ← o1 + 1#usize
+    let a1 ← Array.update a i17 i16
+    let i18 ← b3 <<< 8#i32
+    let i19 ← lift (b2 ||| i18)
+    let i20 ← i19 >>> 4#i32
+    let i21 ← sample.cbd_diff i20 5#u32 31#u32
+    let i22 ← o1 + 2#usize
+    let a2 ← Array.update a1 i22 i21
+    let i23 ← b4 <<< 8#i32
+    let i24 ← lift (b3 ||| i23)
+    let i25 ← i24 >>> 6#i32
+    let i26 ← sample.cbd_diff i25 5#u32 31#u32
+    let i27 ← o1 + 3#usize
+    let a3 ← Array.update a2 i27 i26
+    sample.cbd_loop1 iter1 buf a3
+partial_fixpoint
+
+/-- [kopis::sample::cbd]: loop 2:
+    Source: 'src/sample.rs', lines 59:8-69:9 -/
+@[rust_loop]
+def sample.cbd_loop2
+  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
+  (out : arithmetic.ring_arith.RingElem) :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some g =>
+    let i ← 3#usize * g
+    let i1 ← Slice.index_usize buf i
+    let b0 ← lift (UScalar.cast .U32 i1)
+    let i2 ← i + 1#usize
+    let i3 ← Slice.index_usize buf i2
+    let b1 ← lift (UScalar.cast .U32 i3)
+    let i4 ← i + 2#usize
+    let i5 ← Slice.index_usize buf i4
+    let b2 ← lift (UScalar.cast .U32 i5)
+    let o1 ← 4#usize * g
+    let i6 ← sample.cbd_diff b0 3#u32 7#u32
+    let a ← Array.update out o1 i6
+    let i7 ← b1 <<< 8#i32
+    let i8 ← lift (b0 ||| i7)
+    let i9 ← i8 >>> 6#i32
+    let i10 ← sample.cbd_diff i9 3#u32 7#u32
+    let i11 ← o1 + 1#usize
+    let a1 ← Array.update a i11 i10
+    let i12 ← b2 <<< 8#i32
+    let i13 ← lift (b1 ||| i12)
+    let i14 ← i13 >>> 4#i32
+    let i15 ← sample.cbd_diff i14 3#u32 7#u32
+    let i16 ← o1 + 2#usize
+    let a2 ← Array.update a1 i16 i15
+    let i17 ← b2 >>> 2#i32
+    let i18 ← sample.cbd_diff i17 3#u32 7#u32
+    let i19 ← o1 + 3#usize
+    let a3 ← Array.update a2 i19 i18
+    sample.cbd_loop2 iter1 buf a3
+partial_fixpoint
+
+/-- [kopis::sample::cbd]: loop 3:
+    Source: 'src/sample.rs', lines 77:8-95:9 -/
+@[rust_loop]
+def sample.cbd_loop3
+  (MU : Std.Usize) (iter : core.slice.iter.IterMut Std.U16)
+  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
+  (buf : Slice Std.U8) (half : Std.Usize) (mask : Std.U32)
+  (bit_pos : Std.Usize) :
+  Result (core.slice.iter.IterMut Std.U16)
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some _ =>
+    let byte_idx ← bit_pos / 8#usize
+    let bit_in_byte ← bit_pos % 8#usize
+    let i ← Slice.index_usize buf byte_idx
+    let raw1 ← lift (UScalar.cast .U32 i)
+    let i1 ← byte_idx + 1#usize
+    let i2 := Slice.len buf
+    let (raw2, back1) ←
+      if i1 < i2
+      then
+        do
+        let i3 ← Slice.index_usize buf i1
+        let i4 ← lift (UScalar.cast .U32 i3)
+        let i5 ← i4 <<< 8#i32
+        let raw3 ← lift (raw1 ||| i5)
+        ok (raw3, fun i6 im => next_back im (some i6))
+      else ok (raw1, fun i3 im => next_back im (some i3))
+    let i3 ← byte_idx + 2#usize
+    let i4 := Slice.len buf
+    let raw3 ←
+      if i3 < i4
+      then
+        do
+        let i5 ← Slice.index_usize buf i3
+        let i6 ← lift (UScalar.cast .U32 i5)
+        let i7 ← i6 <<< 16#i32
+        ok (raw2 ||| i7)
+      else ok raw2
+    let raw4 ← raw3 >>> bit_in_byte
+    let i5 ← lift (raw4 &&& mask)
+    let i6 ← core.num.U32.count_ones i5
+    let a ← lift (UScalar.cast .U16 i6)
+    let i7 ← raw4 >>> half
+    let i8 ← lift (i7 &&& mask)
+    let i9 ← core.num.U32.count_ones i8
+    let b ← lift (UScalar.cast .U16 i9)
+    let coeff ← lift (core.num.U16.wrapping_sub a b)
+    let bit_pos1 ← bit_pos + MU
+    sample.cbd_loop3 MU iter1 (fun im => let im1 := back1 coeff im
+                                         back im1) buf half mask bit_pos1
+partial_fixpoint
+
+/-- [kopis::sample::cbd]:
+    Source: 'src/sample.rs', lines 25:0-97:1 -/
+def sample.cbd
+  (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.ring_arith.RingElem)
+  :
+  Result arithmetic.ring_arith.RingElem
+  := do
+  let left_val := Slice.len buf
+  let _ ← consts.RING_DEG * MU
+  let i ← lift (Std.Usize.wrapping_mul consts.RING_DEG MU)
+  let right_val ← i / 8#usize
+  massert (left_val = right_val)
+  if MU = 8#usize
+  then
+    let i1 ← core.slice.Slice.iter buf
+    let iter ←
+      core.iter.traits.iterator.Iterator.enumerate.trait_default
+        (core.iter.traits.iterator.IteratorSliceIter Std.U8) i1
+    sample.cbd_loop0 iter out
+  else
+    if MU = 10#usize
+    then
+      let i1 ← consts.RING_DEG / 4#usize
+      sample.cbd_loop1 { start := 0#usize, «end» := i1 } buf out
+    else
+      if MU = 6#usize
+      then
+        let i1 ← consts.RING_DEG / 4#usize
+        sample.cbd_loop2 { start := 0#usize, «end» := i1 } buf out
+      else
+        let half ← MU / 2#usize
+        let i1 ← 1#u32 <<< half
+        let mask ← i1 - 1#u32
+        let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
+        let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+        let back ←
+          sample.cbd_loop3 MU iter (fun im => im) buf half mask 0#usize
+        let s1 := iter_mut_back back
+        let a := to_slice_mut_back s1
+        ok a
+
+/-- [kopis::backend::neon::sample::secret]: loop 1:
+    Source: 'src/backend/neon/sample.rs', lines 181:8-183:9 -/
+@[rust_loop]
+def backend.neon.sample.secret_loop0_loop0
+  (L : Std.Usize) (iter : core.ops.range.Range Std.Usize) (first : Std.Usize)
+  (indices : Array (Array Std.U8 1#usize) 2#usize) :
+  Result (Array (Array Std.U8 1#usize) 2#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok indices
+  | some lane =>
+    let i ← first + lane
+    let i1 ← L - 1#usize
+    let i2 ← core.cmp.min core.cmp.OrdUsize i i1
+    let (a, index_mut_back) ← Array.index_mut_usize indices lane
+    let i3 ← lift (UScalar.cast .U8 i2)
+    let a1 ← Array.update a 0#usize i3
+    let a2 := index_mut_back a1
+    backend.neon.sample.secret_loop0_loop0 L iter1 first a2
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::secret]: loop 2:
+    Source: 'src/backend/neon/sample.rs', lines 188:8-203:9 -/
+@[rust_loop]
+def backend.neon.sample.secret_loop0_loop1
+  {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (secret : arithmetic.matrix_arith.Matrix L 1#usize) (first : Std.Usize)
+  (bufs : Array (Array Std.U8 N) 2#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok secret
+  | some lane =>
+    let i ← first + lane
+    if i < L
+    then
+      let a ← Array.index_usize bufs lane
+      let i1 ← consts.RING_DEG * MU
+      let i2 ← i1 / 8#usize
+      let buf ←
+        core.array.Array.index (core.ops.index.IndexSlice
+          (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a
+          { «end» := i2 }
+      let b ← core.num.Usize.is_multiple_of MU 8#usize
+      if b
+      then
+        let (a1, index_mut_back) ← Array.index_mut_usize secret i
+        let (re, index_mut_back1) ← Array.index_mut_usize a1 0#usize
+        let re1 ← sample.cbd MU buf re
+        let a2 := index_mut_back1 re1
+        let a3 := index_mut_back a2
+        backend.neon.sample.secret_loop0_loop1 MU iter1 a3 first bufs
+      else
+        let re ← backend.neon.sample.cbd_lanes MU buf
+        let (a1, index_mut_back) ← Array.index_mut_usize secret i
+        let a2 ← Array.update a1 0#usize re
+        let a3 := index_mut_back a2
+        backend.neon.sample.secret_loop0_loop1 MU iter1 a3 first bufs
+    else backend.neon.sample.secret_loop0_loop1 MU iter1 secret first bufs
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::secret]: loop 0:
+    Source: 'src/backend/neon/sample.rs', lines 177:4-206:5 -/
+@[rust_loop]
+def backend.neon.sample.secret_loop0
+  {L : Std.Usize} (MU : Std.Usize) (N : Std.Usize)
+  (seed : Array Std.U8 32#usize)
+  (secret : arithmetic.matrix_arith.Matrix L 1#usize) (first : Std.Usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  if first < L
+  then
+    let a := Array.repeat 1#usize 0#u8
+    let indices := Array.repeat 2#usize a
+    let indices1 ←
+      backend.neon.sample.secret_loop0_loop0 L
+        { start := 0#usize, «end» := backend.neon.keccak.WAYS } first indices
+    let a1 := Array.repeat N 0#u8
+    let bufs := Array.repeat 2#usize a1
+    let bufs1 ← backend.neon.keccak.xof2 136#usize 3#u8 seed indices1 bufs
+    let secret1 ←
+      backend.neon.sample.secret_loop0_loop1 MU
+        { start := 0#usize, «end» := backend.neon.keccak.WAYS } secret first
+        bufs1
+    let first1 ← first + backend.neon.keccak.WAYS
+    backend.neon.sample.secret_loop0 MU N seed secret1 first1
+  else ok secret
+partial_fixpoint
+
+/-- [kopis::backend::neon::sample::secret]:
+    Source: 'src/backend/neon/sample.rs', lines 173:0-209:1 -/
+def backend.neon.sample.secret
+  (L : Std.Usize) (MU : Std.Usize) (N : Std.Usize)
+  (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  let secret ←
+    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+  backend.neon.sample.secret_loop0 MU N seed secret 0#usize
+
+/-- [kopis::backend::neon::sample::gen_secret_from_seed]:
+    Source: 'src/backend/neon/sample.rs', lines 148:0-161:1 -/
+def backend.neon.sample.gen_secret_from_seed
+  (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
+  Result (arithmetic.matrix_arith.Matrix L 1#usize)
+  := do
+  match MU.val with
+  | 10 => backend.neon.sample.secret L MU 320#usize seed
+  | 8 => backend.neon.sample.secret L MU 256#usize seed
+  | 6 => backend.neon.sample.secret L MU 192#usize seed
+  | _ => backend.neon.sample.secret L MU 320#usize seed
+
+/-- [kopis::backend::neon::ser::{impl core::clone::Clone for kopis::backend::neon::ser::Plan}::clone]:
+    Source: 'src/backend/neon/ser.rs', lines 38:9-38:14
+    Visibility: public -/
+def backend.neon.ser.Plan.Insts.CoreCloneClone.clone
+  (self : backend.neon.ser.Plan) : Result backend.neon.ser.Plan := do
+  ok self
+
+/-- Trait implementation: [kopis::backend::neon::ser::{impl core::clone::Clone for kopis::backend::neon::ser::Plan}]
+    Source: 'src/backend/neon/ser.rs', lines 38:9-38:14 -/
+@[reducible]
+def backend.neon.ser.Plan.Insts.CoreCloneClone : core.clone.Clone
+  backend.neon.ser.Plan := {
+  clone := backend.neon.ser.Plan.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [kopis::backend::neon::ser::{impl core::marker::Copy for kopis::backend::neon::ser::Plan}]
+    Source: 'src/backend/neon/ser.rs', lines 38:16-38:20 -/
+@[reducible]
+def backend.neon.ser.Plan.Insts.CoreMarkerCopy : core.marker.Copy
+  backend.neon.ser.Plan := {
+  cloneInst := backend.neon.ser.Plan.Insts.CoreCloneClone
+}
+
 /-- [kopis::consts::KOPIS512_L]
     Source: 'src/consts.rs', lines 16:0-16:39 -/
 @[global_simps, irreducible] def consts.KOPIS512_L : Std.Usize := 2#usize
@@ -3526,252 +6499,22 @@ def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L L)
   := do
-  let mat ←
-    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
-  let buf := Array.repeat 416#usize 0#u8
-  sample.gen_matrix_from_seed_loop0 { start := 0#usize, «end» := L } seed mat
-    buf
-
-/-- [kopis::sample::cbd_diff]:
-    Source: 'src/sample.rs', lines 18:0-22:1 -/
-def sample.cbd_diff
-  (raw1 : Std.U32) (half : Std.U32) (mask : Std.U32) : Result Std.U16 := do
-  let i ← lift (raw1 &&& mask)
-  let i1 ← core.num.U32.count_ones i
-  let a ← lift (UScalar.cast .U16 i1)
-  let i2 ← raw1 >>> half
-  let i3 ← lift (i2 &&& mask)
-  let i4 ← core.num.U32.count_ones i3
-  let b ← lift (UScalar.cast .U16 i4)
-  ok (core.num.U16.wrapping_sub a b)
-
-/-- [kopis::sample::cbd]: loop 0:
-    Source: 'src/sample.rs', lines 34:8-38:9 -/
-@[rust_loop]
-def sample.cbd_loop0
-  (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
-  (out : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.adapters.enumerate.IteratorEnumerate.next
-      (core.iter.traits.iterator.IteratorSliceIter Std.U8) iter
-  match o with
-  | none => ok out
-  | some p =>
-    let (i, byte) := p
-    let i1 ← lift (byte &&& 15#u8)
-    let i2 ← core.num.U8.count_ones i1
-    let a ← lift (UScalar.cast .U16 i2)
-    let i3 ← byte >>> 4#i32
-    let i4 ← core.num.U8.count_ones i3
-    let b ← lift (UScalar.cast .U16 i4)
-    let i5 ← lift (core.num.U16.wrapping_sub a b)
-    let a1 ← Array.update out i i5
-    sample.cbd_loop0 iter1 a1
-partial_fixpoint
-
-/-- [kopis::sample::cbd]: loop 1:
-    Source: 'src/sample.rs', lines 43:8-55:9 -/
-@[rust_loop]
-def sample.cbd_loop1
-  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
-  (out : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some g =>
-    let i ← 5#usize * g
-    let i1 ← Slice.index_usize buf i
-    let b0 ← lift (UScalar.cast .U32 i1)
-    let i2 ← i + 1#usize
-    let i3 ← Slice.index_usize buf i2
-    let b1 ← lift (UScalar.cast .U32 i3)
-    let i4 ← i + 2#usize
-    let i5 ← Slice.index_usize buf i4
-    let b2 ← lift (UScalar.cast .U32 i5)
-    let i6 ← i + 3#usize
-    let i7 ← Slice.index_usize buf i6
-    let b3 ← lift (UScalar.cast .U32 i7)
-    let i8 ← i + 4#usize
-    let i9 ← Slice.index_usize buf i8
-    let b4 ← lift (UScalar.cast .U32 i9)
-    let o1 ← 4#usize * g
-    let i10 ← b1 <<< 8#i32
-    let i11 ← lift (b0 ||| i10)
-    let i12 ← sample.cbd_diff i11 5#u32 31#u32
-    let a ← Array.update out o1 i12
-    let i13 ← b2 <<< 8#i32
-    let i14 ← lift (b1 ||| i13)
-    let i15 ← i14 >>> 2#i32
-    let i16 ← sample.cbd_diff i15 5#u32 31#u32
-    let i17 ← o1 + 1#usize
-    let a1 ← Array.update a i17 i16
-    let i18 ← b3 <<< 8#i32
-    let i19 ← lift (b2 ||| i18)
-    let i20 ← i19 >>> 4#i32
-    let i21 ← sample.cbd_diff i20 5#u32 31#u32
-    let i22 ← o1 + 2#usize
-    let a2 ← Array.update a1 i22 i21
-    let i23 ← b4 <<< 8#i32
-    let i24 ← lift (b3 ||| i23)
-    let i25 ← i24 >>> 6#i32
-    let i26 ← sample.cbd_diff i25 5#u32 31#u32
-    let i27 ← o1 + 3#usize
-    let a3 ← Array.update a2 i27 i26
-    sample.cbd_loop1 iter1 buf a3
-partial_fixpoint
-
-/-- [kopis::sample::cbd]: loop 2:
-    Source: 'src/sample.rs', lines 59:8-69:9 -/
-@[rust_loop]
-def sample.cbd_loop2
-  (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
-  (out : arithmetic.ring_arith.RingElem) :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some g =>
-    let i ← 3#usize * g
-    let i1 ← Slice.index_usize buf i
-    let b0 ← lift (UScalar.cast .U32 i1)
-    let i2 ← i + 1#usize
-    let i3 ← Slice.index_usize buf i2
-    let b1 ← lift (UScalar.cast .U32 i3)
-    let i4 ← i + 2#usize
-    let i5 ← Slice.index_usize buf i4
-    let b2 ← lift (UScalar.cast .U32 i5)
-    let o1 ← 4#usize * g
-    let i6 ← sample.cbd_diff b0 3#u32 7#u32
-    let a ← Array.update out o1 i6
-    let i7 ← b1 <<< 8#i32
-    let i8 ← lift (b0 ||| i7)
-    let i9 ← i8 >>> 6#i32
-    let i10 ← sample.cbd_diff i9 3#u32 7#u32
-    let i11 ← o1 + 1#usize
-    let a1 ← Array.update a i11 i10
-    let i12 ← b2 <<< 8#i32
-    let i13 ← lift (b1 ||| i12)
-    let i14 ← i13 >>> 4#i32
-    let i15 ← sample.cbd_diff i14 3#u32 7#u32
-    let i16 ← o1 + 2#usize
-    let a2 ← Array.update a1 i16 i15
-    let i17 ← b2 >>> 2#i32
-    let i18 ← sample.cbd_diff i17 3#u32 7#u32
-    let i19 ← o1 + 3#usize
-    let a3 ← Array.update a2 i19 i18
-    sample.cbd_loop2 iter1 buf a3
-partial_fixpoint
-
-/-- [kopis::sample::cbd]: loop 3:
-    Source: 'src/sample.rs', lines 77:8-95:9 -/
-@[rust_loop]
-def sample.cbd_loop3
-  (MU : Std.Usize) (iter : core.slice.iter.IterMut Std.U16)
-  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
-  (buf : Slice Std.U8) (half : Std.Usize) (mask : Std.U32)
-  (bit_pos : Std.Usize) :
-  Result (core.slice.iter.IterMut Std.U16)
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (let im := next_back iter1 none
-                back im)
-  | some _ =>
-    let byte_idx ← bit_pos / 8#usize
-    let bit_in_byte ← bit_pos % 8#usize
-    let i ← Slice.index_usize buf byte_idx
-    let raw1 ← lift (UScalar.cast .U32 i)
-    let i1 ← byte_idx + 1#usize
-    let i2 := Slice.len buf
-    let (raw2, back1) ←
-      if i1 < i2
-      then
-        do
-        let i3 ← Slice.index_usize buf i1
-        let i4 ← lift (UScalar.cast .U32 i3)
-        let i5 ← i4 <<< 8#i32
-        let raw3 ← lift (raw1 ||| i5)
-        ok (raw3, fun i6 im => next_back im (some i6))
-      else ok (raw1, fun i3 im => next_back im (some i3))
-    let i3 ← byte_idx + 2#usize
-    let i4 := Slice.len buf
-    let raw3 ←
-      if i3 < i4
-      then
-        do
-        let i5 ← Slice.index_usize buf i3
-        let i6 ← lift (UScalar.cast .U32 i5)
-        let i7 ← i6 <<< 16#i32
-        ok (raw2 ||| i7)
-      else ok raw2
-    let raw4 ← raw3 >>> bit_in_byte
-    let i5 ← lift (raw4 &&& mask)
-    let i6 ← core.num.U32.count_ones i5
-    let a ← lift (UScalar.cast .U16 i6)
-    let i7 ← raw4 >>> half
-    let i8 ← lift (i7 &&& mask)
-    let i9 ← core.num.U32.count_ones i8
-    let b ← lift (UScalar.cast .U16 i9)
-    let coeff ← lift (core.num.U16.wrapping_sub a b)
-    let bit_pos1 ← bit_pos + MU
-    sample.cbd_loop3 MU iter1 (fun im => let im1 := back1 coeff im
-                                         back im1) buf half mask bit_pos1
-partial_fixpoint
-
-/-- [kopis::sample::cbd]:
-    Source: 'src/sample.rs', lines 25:0-97:1 -/
-def sample.cbd
-  (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.ring_arith.RingElem)
-  :
-  Result arithmetic.ring_arith.RingElem
-  := do
-  let left_val := Slice.len buf
-  let _ ← consts.RING_DEG * MU
-  let i ← lift (Std.Usize.wrapping_mul consts.RING_DEG MU)
-  let right_val ← i / 8#usize
-  massert (left_val = right_val)
-  if MU = 8#usize
-  then
-    let i1 ← core.slice.Slice.iter buf
-    let iter ←
-      core.iter.traits.iterator.Iterator.enumerate.trait_default
-        (core.iter.traits.iterator.IteratorSliceIter Std.U8) i1
-    sample.cbd_loop0 iter out
+  let b ← backend.neon.cpu.available
+  if b
+  then backend.neon.sample.gen_matrix_from_seed L seed
   else
-    if MU = 10#usize
-    then
-      let i1 ← consts.RING_DEG / 4#usize
-      sample.cbd_loop1 { start := 0#usize, «end» := i1 } buf out
-    else
-      if MU = 6#usize
-      then
-        let i1 ← consts.RING_DEG / 4#usize
-        sample.cbd_loop2 { start := 0#usize, «end» := i1 } buf out
-      else
-        let half ← MU / 2#usize
-        let i1 ← 1#u32 <<< half
-        let mask ← i1 - 1#u32
-        let (s, to_slice_mut_back) ← lift (Array.to_slice_mut out)
-        let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-        let back ←
-          sample.cbd_loop3 MU iter (fun im => im) buf half mask 0#usize
-        let s1 := iter_mut_back back
-        let a := to_slice_mut_back s1
-        ok a
+    let mat ←
+      arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L L
+    let buf := Array.repeat 416#usize 0#u8
+    sample.gen_matrix_from_seed_loop0 { start := 0#usize, «end» := L } seed
+      mat buf
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
     Source: 'src/sample.rs', lines 128:4-154:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
-  {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (seed : Array Std.U8 32#usize)
+  {L : Std.Usize} (MU : Std.Usize) (b : Bool)
+  (iter : core.ops.range.Range Std.Usize) (seed : Array Std.U8 32#usize)
   (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice Std.U8) :
   Result (arithmetic.matrix_arith.Matrix L 1#usize)
   := do
@@ -3792,12 +6535,30 @@ def sample.gen_secret_from_seed_loop
         hasher2
     let (_, buf1) ←
       turboshake.TurboShakeReader.Insts.DigestXofReader.read reader buf
-    let (a, index_mut_back) ← Array.index_mut_usize secret i
-    let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
-    let re1 ← sample.cbd MU buf1 re
-    let a1 := index_mut_back1 re1
-    let a2 := index_mut_back a1
-    sample.gen_secret_from_seed_loop MU iter1 seed a2 buf1
+    let b1 ← core.num.Usize.is_multiple_of MU 8#usize
+    if b1
+    then
+      let (a, index_mut_back) ← Array.index_mut_usize secret i
+      let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
+      let re1 ← sample.cbd MU buf1 re
+      let a1 := index_mut_back1 re1
+      let a2 := index_mut_back a1
+      sample.gen_secret_from_seed_loop MU b iter1 seed a2 buf1
+    else
+      if b
+      then
+        let re ← backend.neon.sample.cbd_lanes MU buf1
+        let (a, index_mut_back) ← Array.index_mut_usize secret i
+        let a1 ← Array.update a 0#usize re
+        let a2 := index_mut_back a1
+        sample.gen_secret_from_seed_loop MU b iter1 seed a2 buf1
+      else
+        let (a, index_mut_back) ← Array.index_mut_usize secret i
+        let (re, index_mut_back1) ← Array.index_mut_usize a 0#usize
+        let re1 ← sample.cbd MU buf1 re
+        let a1 := index_mut_back1 re1
+        let a2 := index_mut_back a1
+        sample.gen_secret_from_seed_loop MU b iter1 seed a2 buf1
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
@@ -3806,17 +6567,21 @@ def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L 1#usize)
   := do
-  let secret ←
-    arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
-  let backing_buf := Array.repeat 320#usize 0#u8
-  let i ← consts.RING_DEG * MU
-  let i1 ← i / 8#usize
-  let (buf, _) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
-      { «end» := i1 }
-  sample.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
-    secret buf
+  let b ← backend.neon.cpu.available
+  if b
+  then backend.neon.sample.gen_secret_from_seed L MU seed
+  else
+    let secret ←
+      arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+    let backing_buf := Array.repeat 320#usize 0#u8
+    let i ← consts.RING_DEG * MU
+    let i1 ← i / 8#usize
+    let (buf, _) ←
+      core.array.Array.index_mut (core.ops.index.IndexMutSlice
+        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
+        { «end» := i1 }
+    sample.gen_secret_from_seed_loop MU b { start := 0#usize, «end» := L }
+      seed secret buf
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::hash]: loop 0:
     Source: 'src/pke.rs', lines 112:8-114:9 -/
@@ -4918,4 +7683,4 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
   call := ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
 }
 
-end RustKopisSerial
+end RustKopisNeon

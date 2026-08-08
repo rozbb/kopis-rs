@@ -6371,7 +6371,7 @@ def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 4#usize 6#usize
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/sample.rs', lines 167:8-175:9 -/
+    Source: 'src/sample.rs', lines 187:8-195:9 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -6411,7 +6411,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 166:4-176:5 -/
+    Source: 'src/sample.rs', lines 186:4-196:5 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -6431,7 +6431,7 @@ def sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]:
-    Source: 'src/sample.rs', lines 151:0-179:1 -/
+    Source: 'src/sample.rs', lines 162:0-199:1 -/
 def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L L)
@@ -6681,7 +6681,7 @@ def sample.cbd
         ok a
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 119:4-143:5 -/
+    Source: 'src/sample.rs', lines 128:4-154:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -6715,7 +6715,7 @@ def sample.gen_secret_from_seed_loop
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
-    Source: 'src/sample.rs', lines 101:0-146:1 -/
+    Source: 'src/sample.rs', lines 101:0-157:1 -/
 def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.matrix_arith.Matrix L 1#usize)

@@ -435,7 +435,7 @@ import Kopis.Avx2.SampleBridge"""),
     # The two remaining callers of the sampler specs, threading the same hypotheses onward.
     ("KeyGen.lean",
      """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL""",
-     """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL hL0"""),
+     """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL _hL0"""),
     ("PkeEncryptTop.lean",
      """    (hT : 1 ≤ T.val ∧ T.val ≤ 10)
     (hfit : L.val * 10 * 256 ≤ Usize.max)""",
