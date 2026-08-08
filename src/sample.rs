@@ -109,6 +109,15 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
         return unsafe { crate::backend::avx2::sample::gen_secret_from_seed::<L, MU>(seed) };
     }
 
+    // The same, two lanes at a time, where NEON has the SHA3 extension to make it worthwhile.
+    #[cfg(kopis_neon_sha3)]
+    #[allow(unsafe_code)]
+    if crate::backend::neon_available() {
+        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON, and this arm is
+        // compiled only when `build.rs` confirmed the SHA3 extension for the target.
+        return unsafe { crate::backend::neon::sample::gen_secret_from_seed::<L, MU>(seed) };
+    }
+
     let mut secret = Matrix::default();
     // Buffer to hold XOF bytes. Can't do const math here, so we make it the max size
     // and cut it down
@@ -130,12 +139,14 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
         // costs nothing at run time.
         //
         // There is no AVX2 arm here: on that backend the four-lane batch above has already
-        // returned, so this loop only ever runs on CPUs without AVX2.
+        // returned, so this loop only ever runs on CPUs without AVX2. The NEON arm survives
+        // because its batch is conditional on the SHA3 extension — on an AArch64 target
+        // without it this loop still runs, and the CBD step is still worth vectorizing.
         #[cfg(kopis_neon)]
         #[allow(unsafe_code)]
         if !MU.is_multiple_of(8) && crate::backend::neon_available() {
             // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
-            secret.0[i][0] = unsafe { crate::backend::neon::sample::cbd::<MU>(buf) };
+            secret.0[i][0] = unsafe { crate::backend::neon::sample::cbd_lanes::<MU>(buf) };
             continue;
         }
 
@@ -155,6 +166,15 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
     if crate::backend::avx2_available() {
         // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2.
         return unsafe { crate::backend::avx2::sample::gen_matrix_from_seed::<L>(seed) };
+    }
+
+    // Two to a vector on NEON, where a `uint64x2_t` holds two 64-bit lanes to a `Vec256`'s four.
+    #[cfg(kopis_neon_sha3)]
+    #[allow(unsafe_code)]
+    if crate::backend::neon_available() {
+        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON, and this arm is
+        // compiled only when `build.rs` confirmed the SHA3 extension for the target.
+        return unsafe { crate::backend::neon::sample::gen_matrix_from_seed::<L>(seed) };
     }
 
     // Our output is a matrix of ring elements

@@ -22,11 +22,14 @@ RUST_PERF_FLAGS="-C llvm-args=-align-all-functions=6 -C llvm-args=-align-all-nof
 # of the benchmark-group prefixes we do want. Keep these in sync with the group names in
 # `benches/all.rs`.
 #
-# libcrux registers a separate benchmark group per SIMD backend, so each run takes only the variant
-# that matches it: `libcrux_serial_*` (portable) on the serial and NEON runs, `libcrux_avx2_*` on
-# the AVX2 one. Graviola's ML-KEM is AVX2-only, so it has no place in the serial or NEON runs.
+# libcrux registers a separate benchmark group per SIMD backend, and each run takes only the variant
+# that matches it: `libcrux_serial_*` (portable) on the serial run, `libcrux_avx2_*` on the AVX2 one.
+# libcrux has no NEON backend at all, so the NEON run drops it rather than comparing NEON kopis
+# against portable libcrux, which would not be a like-for-like measurement. Graviola has hand-written
+# assembly for both AVX2 and NEON, so it joins both of those runs, but has nothing for the serial one.
 SERIAL_FILTER='^(kopis|libcrux_serial|awslc)'
 AVX2_FILTER='^(kopis|libcrux_avx2|awslc|graviola)'
+NEON_FILTER='^(kopis|awslc|graviola)'
 
 # Sets BENCH_ARGS to the arguments to pass after `--`: the caller's, or $1 — this run's allowlist
 # filter — when the caller gave none. Criterion accepts only one positional filter, so a
@@ -73,8 +76,7 @@ case "${BACKEND}" in
                 ;;
             aarch64 | arm64)
                 SIMD="neon"
-                # No libcrux NEON group exists, so NEON takes the portable one, as serial does.
-                set_filtered_bench_args "${SERIAL_FILTER}" "$@"
+                set_filtered_bench_args "${NEON_FILTER}" "$@"
                 ;;
             *)
                 echo "Unsupported CPU architecture for autodetect benches: ${ARCH}" >&2

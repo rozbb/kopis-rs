@@ -64,6 +64,7 @@ fn main() {
     println!("cargo::rustc-check-cfg=cfg(kopis_avx2_assume)");
     println!("cargo::rustc-check-cfg=cfg(kopis_neon)");
     println!("cargo::rustc-check-cfg=cfg(kopis_neon_assume)");
+    println!("cargo::rustc-check-cfg=cfg(kopis_neon_sha3)");
 
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
     let is_x86 = arch == "x86_64" || arch == "x86";
@@ -110,6 +111,7 @@ fn main() {
             }
             println!("cargo::rustc-cfg=kopis_neon");
             println!("cargo::rustc-cfg=kopis_neon_assume");
+            emit_neon_sha3();
         }
 
         // Autodetect: compile in the accelerated backend for the target's architecture and pick
@@ -121,6 +123,7 @@ fn main() {
                 println!("cargo::rustc-cfg=kopis_avx2");
             } else if neon_is_available(is_aarch64) {
                 println!("cargo::rustc-cfg=kopis_neon");
+                emit_neon_sha3();
             }
         }
     }
@@ -141,6 +144,30 @@ fn neon_is_available(is_aarch64: bool) -> bool {
     let has_neon = features.split(',').any(|feature| feature == "neon");
     let softfloat = env::var("CARGO_CFG_TARGET_ABI").unwrap_or_default() == "softfloat";
     has_neon && !softfloat
+}
+
+/// Emits `kopis_neon_sha3` when the target carries the ARMv8.2 SHA3 extension.
+///
+/// That extension (FEAT_SHA3) adds `eor3`, `rax1`, `xar` and `bcax`, each of which is a Keccak
+/// step rather than a general bit trick — the xor-and-rotate that θ/ρ needs is a single `xar`,
+/// and χ's and-not-xor a single `bcax`. That brings a round down to 66 vector instructions
+/// covering *two lanes at once*, which measures at about 1.7x per lane against the scalar sponge.
+/// Without it a two-way NEON permutation is not clearly better than the two scalar sponges it
+/// would replace, since scalar AArch64 gets its rotates free in the operand. So the batched XOF
+/// is compiled only when the extension is there, and `sample.rs` keeps the scalar path for when
+/// it is not.
+///
+/// This is a *build-time* decision, unlike AVX2's CPUID probe, because the crate is `no_std` and
+/// `core` has no AArch64 feature detection to call at run time. That costs nothing on the targets
+/// that matter: `aarch64-apple-darwin` enables `sha3` by default (every Apple silicon core has
+/// it), so a plain `cargo build` picks this up. Generic targets such as
+/// `aarch64-unknown-linux-gnu` do not, and get the scalar sponge unless the caller opts in with
+/// `-C target-feature=+sha3` or `-C target-cpu=native`.
+fn emit_neon_sha3() {
+    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+    if features.split(',').any(|feature| feature == "sha3") {
+        println!("cargo::rustc-cfg=kopis_neon_sha3");
+    }
 }
 
 /// Parses `--cfg kopis_backend="..."` out of the flags cargo is passing to rustc.

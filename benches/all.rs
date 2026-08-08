@@ -2,7 +2,10 @@ use kopis::{
     kopis512::Kopis512SecretKey, kopis768::Kopis768SecretKey, kopis1024::Kopis1024SecretKey,
 };
 
-use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+
+// Only the graviola benchmark needs batched iteration.
+use criterion::BatchSize;
 
 // Every benchmark below drives `bench_with_input` off a fixture built once, outside the timing
 // loop. Criterion passes that fixture through `black_box` before it invokes the closure (see
@@ -121,14 +124,21 @@ bench_libcrux_variant!(
     libcrux_ml_kem::mlkem1024
 );
 
+// libcrux exposes its AVX2 backend only on x86, so these are absent on AArch64 — where they would
+// not merely be filtered out at run time but fail to compile.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 bench_libcrux_variant!(libcrux_avx2_mlkem512, avx2, libcrux_ml_kem::mlkem512);
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 bench_libcrux_variant!(libcrux_avx2_mlkem768, avx2, libcrux_ml_kem::mlkem768);
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 bench_libcrux_variant!(libcrux_avx2_mlkem1024, avx2, libcrux_ml_kem::mlkem1024);
 
 bench_awslc_variant!(awslc_mlkem512, ML_KEM_512);
 bench_awslc_variant!(awslc_mlkem768, ML_KEM_768);
 bench_awslc_variant!(awslc_mlkem1024, ML_KEM_1024);
 
+// graviola has hand-written ML-KEM assembly for both x86_64 (AVX2) and AArch64 (NEON), behind one
+// portable API, so this benchmark builds and runs on either.
 fn graviola_mlkem768(c: &mut Criterion) {
     use graviola::key_agreement::mlkem768::*;
 
@@ -176,13 +186,15 @@ criterion_group!(
     awslc_mlkem768,
     awslc_mlkem1024
 );
-criterion_group!(graviola_benches, graviola_mlkem768);
 criterion_group!(
     libcrux_serial_benches,
     libcrux_serial_mlkem512,
     libcrux_serial_mlkem768,
     libcrux_serial_mlkem1024
 );
+
+criterion_group!(graviola_benches, graviola_mlkem768);
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 criterion_group!(
     libcrux_avx2_benches,
     libcrux_avx2_mlkem512,
@@ -190,10 +202,19 @@ criterion_group!(
     libcrux_avx2_mlkem1024
 );
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 criterion_main!(
     kopis_benches,
     libcrux_serial_benches,
     libcrux_avx2_benches,
+    graviola_benches,
+    awslc_benches
+);
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+criterion_main!(
+    kopis_benches,
+    libcrux_serial_benches,
     graviola_benches,
     awslc_benches
 );

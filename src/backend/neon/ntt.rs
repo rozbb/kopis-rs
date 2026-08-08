@@ -34,13 +34,25 @@
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
 
-use core::arch::aarch64::*;
-
 use crate::backend::crt::{
     self, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
     ZETAS_Q2,
 };
 use crate::consts::RING_DEG;
+
+use super::intrinsics::{
+    Vec128, add_16, add_32, and, cmgt_s32, dup_n_s16, dup_n_s32, load_i16, load_i32, load_u16,
+    mla_32, mul_16, shrn16_pair_s32, shsub_s16, smull_high_s16, smull_low_s16, sqdmulh_s16,
+    sshr_n_s16, store_i16, store_i32, store_u16, sub_16, sub_32, sxtl_high_s16, sxtl_low_s16,
+    trn1_16, trn1_32, trn1_64, trn2_16, trn2_32, trn2_64, xtn_pair_32,
+};
+
+/// One prime's 256 centered residues, as 32 vectors of 8 `i16`.
+///
+/// The transform works in these blocks throughout; the two-blocks-in-one-buffer layout that
+/// [`crate::arithmetic::ntt::NttElem`] presents to the rest of the crate is applied only at this
+/// module's entry points.
+type Block = [i16; RING_DEG];
 
 /// Vectors per 256-coefficient residue block
 const VECS: usize = RING_DEG / 8;
@@ -119,83 +131,101 @@ static INV1_Q2: Tbl<128> = lane_tbl(&ZETAS_Q2, Q2_INV, 255, -32, -1, -4, 4, true
 static INV2_Q2: Tbl<64> = lane_tbl(&ZETAS_Q2, Q2_INV, 127, -16, -1, -2, 2, true);
 static INV4_Q2: Tbl<32> = lane_tbl(&ZETAS_Q2, Q2_INV, 63, -8, 0, -1, 1, true);
 
-/// The per-lane ψ tables for one prime. Unlike everything in [`crate::backend::crt`], these are
-/// specific to this backend: their grouping is by NEON's 8 `i16` lanes.
-struct LaneTables {
-    fwd4: &'static Tbl<32>,
-    fwd2: &'static Tbl<64>,
-    fwd1: &'static Tbl<128>,
-    inv1: &'static Tbl<128>,
-    inv2: &'static Tbl<64>,
-    inv4: &'static Tbl<32>,
-}
-
-static L1: LaneTables = LaneTables {
-    fwd4: &FWD4_Q1,
-    fwd2: &FWD2_Q1,
-    fwd1: &FWD1_Q1,
-    inv1: &INV1_Q1,
-    inv2: &INV2_Q1,
-    inv4: &INV4_Q1,
-};
-
-static L2: LaneTables = LaneTables {
-    fwd4: &FWD4_Q2,
-    fwd2: &FWD2_Q2,
-    fwd1: &FWD1_Q2,
-    inv1: &INV1_Q2,
-    inv2: &INV2_Q2,
-    inv4: &INV4_Q2,
-};
-
-/// This backend's tables for prime `SECOND`, selected by const generic for the same reason
-/// [`crate::backend::crt::q`] and its siblings are: so each monomorphization folds the addresses in.
-const fn lanes<const SECOND: bool>() -> &'static LaneTables {
-    if SECOND { &L2 } else { &L1 }
-}
+// Unlike everything in [`crate::backend::crt`], these tables are specific to this backend: their
+// grouping is by NEON's 8 `i16` lanes. They are reached through the six value-returning
+// accessors below rather than through a `&'static Tbl<N>` held in a struct or returned from one:
+// a function that returns a reference to a static is one of the things aeneas cannot translate,
+// and neither is a struct with a reference field reached by reference.
 
 // ---------------------------------------------------------------------------------------
 // Lane primitives
 // ---------------------------------------------------------------------------------------
 
-/// Loads vector `i` (coefficients `8i..8i+8`) of a 256-`i16` block
-///
-/// # Safety
-///
-/// `ptr` must be valid for reads of at least `8 * (i + 1)` `i16`s.
-#[inline]
-#[target_feature(enable = "neon")]
-unsafe fn ld(ptr: *const i16, i: usize) -> int16x8_t {
-    // SAFETY: guaranteed by this function's contract.
-    unsafe { vld1q_s16(ptr.add(8 * i)) }
-}
-
-/// Stores vector `i` (coefficients `8i..8i+8`) of a 256-`i16` block
-///
-/// # Safety
-///
-/// `ptr` must be valid for writes of at least `8 * (i + 1)` `i16`s.
-#[inline]
-#[target_feature(enable = "neon")]
-unsafe fn st(ptr: *mut i16, i: usize, v: int16x8_t) {
-    // SAFETY: guaranteed by this function's contract.
-    unsafe { vst1q_s16(ptr.add(8 * i), v) }
-}
-
 /// Loads group `g` of a per-lane ψ table, as `(ψ, ψ·q⁻¹)`
-///
-/// # Safety
-///
-/// `8g + 8` must be within the table.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn ld_tbl<const N: usize>(table: &Tbl<N>, g: usize) -> (int16x8_t, int16x8_t) {
-    // SAFETY: guaranteed by this function's contract.
-    unsafe {
-        (
-            vld1q_s16(table.z.as_ptr().add(8 * g)),
-            vld1q_s16(table.zq.as_ptr().add(8 * g)),
-        )
+fn ld_tbl<const N: usize>(table: &Tbl<N>, g: usize) -> (Vec128, Vec128) {
+    (load_i16(&table.z, g), load_i16(&table.zq, g))
+}
+
+// One accessor per transposed level, each selecting between the two primes' tables and returning
+// the loaded pair *by value*.
+//
+// The selection has to happen inside a function body rather than at the use site. Written there
+// as `let (z, zq) = if SECOND { … } else { … }`, aeneas fails with "Internal error, please file an
+// issue" out of `simplify_let_branching` — a `let` bound to a branch, in a position where the
+// tuple is then consumed by a following loop. As the tail expression of its own function the
+// same branch translates normally. See `lean/NEON_VERIFICATION_PLAN.md`.
+//
+// Returning the `&'static Tbl<N>` instead and loading at the use site would not work either:
+// a function returning a reference to a static is one of the things aeneas cannot translate at
+// all. Both constraints together are why these return `(Vec128, Vec128)`.
+//
+// The `if SECOND` still folds away per monomorphization, so this costs nothing.
+
+/// Group `g` of the forward len = 4 table
+#[inline]
+#[target_feature(enable = "neon")]
+fn fwd4<const SECOND: bool>(g: usize) -> (Vec128, Vec128) {
+    if SECOND {
+        ld_tbl(&FWD4_Q2, g)
+    } else {
+        ld_tbl(&FWD4_Q1, g)
+    }
+}
+
+/// Group `h` of the forward len = 2 table
+#[inline]
+#[target_feature(enable = "neon")]
+fn fwd2<const SECOND: bool>(h: usize) -> (Vec128, Vec128) {
+    if SECOND {
+        ld_tbl(&FWD2_Q2, h)
+    } else {
+        ld_tbl(&FWD2_Q1, h)
+    }
+}
+
+/// Group `h` of the forward len = 1 table
+#[inline]
+#[target_feature(enable = "neon")]
+fn fwd1<const SECOND: bool>(h: usize) -> (Vec128, Vec128) {
+    if SECOND {
+        ld_tbl(&FWD1_Q2, h)
+    } else {
+        ld_tbl(&FWD1_Q1, h)
+    }
+}
+
+/// Group `h` of the inverse len = 1 table
+#[inline]
+#[target_feature(enable = "neon")]
+fn inv1<const SECOND: bool>(h: usize) -> (Vec128, Vec128) {
+    if SECOND {
+        ld_tbl(&INV1_Q2, h)
+    } else {
+        ld_tbl(&INV1_Q1, h)
+    }
+}
+
+/// Group `h` of the inverse len = 2 table
+#[inline]
+#[target_feature(enable = "neon")]
+fn inv2<const SECOND: bool>(h: usize) -> (Vec128, Vec128) {
+    if SECOND {
+        ld_tbl(&INV2_Q2, h)
+    } else {
+        ld_tbl(&INV2_Q1, h)
+    }
+}
+
+/// Group `g` of the inverse len = 4 table
+#[inline]
+#[target_feature(enable = "neon")]
+fn inv4<const SECOND: bool>(g: usize) -> (Vec128, Vec128) {
+    if SECOND {
+        ld_tbl(&INV4_Q2, g)
+    } else {
+        ld_tbl(&INV4_Q1, g)
     }
 }
 
@@ -206,8 +236,8 @@ unsafe fn ld_tbl<const N: usize>(table: &Tbl<N>, g: usize) -> (int16x8_t, int16x
 /// −2^15, which no ψ, Barrett multiplier or modulus here ever is.
 #[inline]
 #[target_feature(enable = "neon")]
-fn mulhi(a: int16x8_t, b: int16x8_t) -> int16x8_t {
-    vshrq_n_s16::<1>(vqdmulhq_s16(a, b))
+fn mulhi(a: Vec128, b: Vec128) -> Vec128 {
+    sshr_n_s16::<1>(sqdmulh_s16(a, b))
 }
 
 /// Signed Montgomery multiply on 8 lanes: `a · ψ · 2⁻¹⁶ mod q`, centered.
@@ -219,9 +249,9 @@ fn mulhi(a: int16x8_t, b: int16x8_t) -> int16x8_t {
 /// the *same* carry bit `b` — it depends only on `r` — so `vhsub` gives `p − k` exactly.
 #[inline]
 #[target_feature(enable = "neon")]
-fn mont_mul(a: int16x8_t, z: int16x8_t, zq: int16x8_t, q: int16x8_t) -> int16x8_t {
-    let t = vmulq_s16(a, zq);
-    vhsubq_s16(vqdmulhq_s16(a, z), vqdmulhq_s16(t, q))
+fn mont_mul(a: Vec128, z: Vec128, zq: Vec128, q: Vec128) -> Vec128 {
+    let t = mul_16(a, zq);
+    shsub_s16(sqdmulh_s16(a, z), sqdmulh_s16(t, q))
 }
 
 /// Centered Barrett reduction of 8 lanes: `r ≡ x (mod q)` with `|r| ≤ q/2`.
@@ -230,41 +260,36 @@ fn mont_mul(a: int16x8_t, z: int16x8_t, zq: int16x8_t, q: int16x8_t) -> int16x8_
 /// makes the result centered rather than merely bounded by q.
 #[inline]
 #[target_feature(enable = "neon")]
-fn barrett(x: int16x8_t, m: int16x8_t, round: int16x8_t, q: int16x8_t) -> int16x8_t {
-    let t = vshrq_n_s16::<BARRETT_SH>(vaddq_s16(mulhi(x, m), round));
-    vsubq_s16(x, vmulq_s16(t, q))
+fn barrett(x: Vec128, m: Vec128, round: Vec128, q: Vec128) -> Vec128 {
+    let t = sshr_n_s16::<BARRETT_SH>(add_16(mulhi(x, m), round));
+    sub_16(x, mul_16(t, q))
 }
 
 /// One Cooley-Tukey butterfly pair: `(lo, hi) ← (lo + ψ·hi, lo − ψ·hi)`
 #[inline]
 #[target_feature(enable = "neon")]
-fn ct_butterfly(lo: &mut int16x8_t, hi: &mut int16x8_t, z: int16x8_t, zq: int16x8_t, q: int16x8_t) {
+fn ct_butterfly(lo: &mut Vec128, hi: &mut Vec128, z: Vec128, zq: Vec128, q: Vec128) {
     let t = mont_mul(*hi, z, zq, q);
-    *hi = vsubq_s16(*lo, t);
-    *lo = vaddq_s16(*lo, t);
+    *hi = sub_16(*lo, t);
+    *lo = add_16(*lo, t);
 }
 
 /// One Gentleman-Sande butterfly pair: `(lo, hi) ← (lo + hi, −ψ·(lo − hi))`. The tables and
 /// broadcasts feeding `z` already carry the negation.
 #[inline]
 #[target_feature(enable = "neon")]
-fn gs_butterfly(lo: &mut int16x8_t, hi: &mut int16x8_t, z: int16x8_t, zq: int16x8_t, q: int16x8_t) {
-    let diff = vsubq_s16(*lo, *hi);
-    *lo = vaddq_s16(*lo, *hi);
+fn gs_butterfly(lo: &mut Vec128, hi: &mut Vec128, z: Vec128, zq: Vec128, q: Vec128) {
+    let diff = sub_16(*lo, *hi);
+    *lo = add_16(*lo, *hi);
     *hi = mont_mul(diff, z, zq, q);
 }
 
 /// Barrett-reduces a whole 256-coefficient block
-///
-/// # Safety
-///
-/// `ptr` must be valid for reads and writes of 256 `i16`s.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn barrett_block(ptr: *mut i16, m: int16x8_t, round: int16x8_t, q: int16x8_t) {
+fn barrett_block(b: &mut Block, m: Vec128, round: Vec128, q: Vec128) {
     for i in 0..VECS {
-        // SAFETY: `i < VECS` indexes within the 256-coefficient block.
-        unsafe { st(ptr, i, barrett(ld(ptr, i), m, round, q)) };
+        store_i16(b, i, barrett(load_i16(b, i), m, round, q));
     }
 }
 
@@ -275,73 +300,61 @@ unsafe fn barrett_block(ptr: *mut i16, m: int16x8_t, round: int16x8_t, q: int16x
 /// twice it is the identity, which is how the transform gets back to coefficient order.
 #[inline]
 #[target_feature(enable = "neon")]
-fn transpose8(v: &mut [int16x8_t; 8]) {
-    let b0 = vreinterpretq_s32_s16(vtrn1q_s16(v[0], v[1]));
-    let b1 = vreinterpretq_s32_s16(vtrn2q_s16(v[0], v[1]));
-    let b2 = vreinterpretq_s32_s16(vtrn1q_s16(v[2], v[3]));
-    let b3 = vreinterpretq_s32_s16(vtrn2q_s16(v[2], v[3]));
-    let b4 = vreinterpretq_s32_s16(vtrn1q_s16(v[4], v[5]));
-    let b5 = vreinterpretq_s32_s16(vtrn2q_s16(v[4], v[5]));
-    let b6 = vreinterpretq_s32_s16(vtrn1q_s16(v[6], v[7]));
-    let b7 = vreinterpretq_s32_s16(vtrn2q_s16(v[6], v[7]));
+fn transpose8(v: &mut [Vec128; 8]) {
+    let b0 = trn1_16(v[0], v[1]);
+    let b1 = trn2_16(v[0], v[1]);
+    let b2 = trn1_16(v[2], v[3]);
+    let b3 = trn2_16(v[2], v[3]);
+    let b4 = trn1_16(v[4], v[5]);
+    let b5 = trn2_16(v[4], v[5]);
+    let b6 = trn1_16(v[6], v[7]);
+    let b7 = trn2_16(v[6], v[7]);
 
-    let c0 = vreinterpretq_s64_s32(vtrn1q_s32(b0, b2));
-    let c2 = vreinterpretq_s64_s32(vtrn2q_s32(b0, b2));
-    let c1 = vreinterpretq_s64_s32(vtrn1q_s32(b1, b3));
-    let c3 = vreinterpretq_s64_s32(vtrn2q_s32(b1, b3));
-    let c4 = vreinterpretq_s64_s32(vtrn1q_s32(b4, b6));
-    let c6 = vreinterpretq_s64_s32(vtrn2q_s32(b4, b6));
-    let c5 = vreinterpretq_s64_s32(vtrn1q_s32(b5, b7));
-    let c7 = vreinterpretq_s64_s32(vtrn2q_s32(b5, b7));
+    let c0 = trn1_32(b0, b2);
+    let c2 = trn2_32(b0, b2);
+    let c1 = trn1_32(b1, b3);
+    let c3 = trn2_32(b1, b3);
+    let c4 = trn1_32(b4, b6);
+    let c6 = trn2_32(b4, b6);
+    let c5 = trn1_32(b5, b7);
+    let c7 = trn2_32(b5, b7);
 
-    v[0] = vreinterpretq_s16_s64(vtrn1q_s64(c0, c4));
-    v[4] = vreinterpretq_s16_s64(vtrn2q_s64(c0, c4));
-    v[1] = vreinterpretq_s16_s64(vtrn1q_s64(c1, c5));
-    v[5] = vreinterpretq_s16_s64(vtrn2q_s64(c1, c5));
-    v[2] = vreinterpretq_s16_s64(vtrn1q_s64(c2, c6));
-    v[6] = vreinterpretq_s16_s64(vtrn2q_s64(c2, c6));
-    v[3] = vreinterpretq_s16_s64(vtrn1q_s64(c3, c7));
-    v[7] = vreinterpretq_s16_s64(vtrn2q_s64(c3, c7));
+    v[0] = trn1_64(c0, c4);
+    v[4] = trn2_64(c0, c4);
+    v[1] = trn1_64(c1, c5);
+    v[5] = trn2_64(c1, c5);
+    v[2] = trn1_64(c2, c6);
+    v[6] = trn2_64(c2, c6);
+    v[3] = trn1_64(c3, c7);
+    v[7] = trn2_64(c3, c7);
 }
 
 /// Loads the 8 vectors of group `g` and transposes them, so lane `m` owns coefficient block
 /// `8g + m`
-///
-/// # Safety
-///
-/// `ptr` must be valid for reads of 256 `i16`s and `g < 4`.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn load_group(ptr: *const i16, g: usize) -> [int16x8_t; 8] {
-    // SAFETY: guaranteed by this function's contract; `8g + 7 < 32`.
-    let mut v = unsafe {
-        [
-            ld(ptr, 8 * g),
-            ld(ptr, 8 * g + 1),
-            ld(ptr, 8 * g + 2),
-            ld(ptr, 8 * g + 3),
-            ld(ptr, 8 * g + 4),
-            ld(ptr, 8 * g + 5),
-            ld(ptr, 8 * g + 6),
-            ld(ptr, 8 * g + 7),
-        ]
-    };
+fn load_group(b: &Block, g: usize) -> [Vec128; 8] {
+    let mut v = [
+        load_i16(b, 8 * g),
+        load_i16(b, 8 * g + 1),
+        load_i16(b, 8 * g + 2),
+        load_i16(b, 8 * g + 3),
+        load_i16(b, 8 * g + 4),
+        load_i16(b, 8 * g + 5),
+        load_i16(b, 8 * g + 6),
+        load_i16(b, 8 * g + 7),
+    ];
     transpose8(&mut v);
     v
 }
 
 /// Transposes group `g` back to coefficient order and stores it
-///
-/// # Safety
-///
-/// `ptr` must be valid for writes of 256 `i16`s and `g < 4`.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn store_group(ptr: *mut i16, g: usize, v: &mut [int16x8_t; 8]) {
+fn store_group(b: &mut Block, g: usize, v: &mut [Vec128; 8]) {
     transpose8(v);
     for j in 0..8 {
-        // SAFETY: guaranteed by this function's contract; `8g + 7 < 32`.
-        unsafe { st(ptr, 8 * g + j, v[j]) };
+        store_i16(b, 8 * g + j, v[j]);
     }
 }
 
@@ -354,14 +367,12 @@ unsafe fn store_group(ptr: *mut i16, g: usize, v: &mut [int16x8_t; 8]) {
 ///
 /// # Safety
 ///
-/// Requires NEON. `ptr` must be valid for reads and writes of 256 `i16`s, whose values must be
-/// centered residues, `|a| ≤ q/2`.
+/// Requires NEON. The block's values must be centered residues, `|a| ≤ q/2`.
 #[target_feature(enable = "neon")]
-unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
-    let t = lanes::<SECOND>();
-    let q = vdupq_n_s16(crt::q::<SECOND>());
-    let bm = vdupq_n_s16(crt::barrett_m::<SECOND>());
-    let round = vdupq_n_s16(1i16 << (BARRETT_SH - 1));
+fn ntt_block<const SECOND: bool>(b: &mut Block) {
+    let q = dup_n_s16(crt::q::<SECOND>());
+    let bm = dup_n_s16(crt::barrett_m::<SECOND>());
+    let round = dup_n_s16(1i16 << (BARRETT_SH - 1));
 
     // Levels with len ≥ 8: both halves of every butterfly are whole vectors, and ψ is constant
     // across a block, so it is simply broadcast.
@@ -372,26 +383,22 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
         let mut start = 0usize;
         while start < VECS {
             k += 1;
-            let z = vdupq_n_s16(crt::zeta::<SECOND>(k));
-            let zq = vdupq_n_s16(crt::zeta_q::<SECOND>(k));
+            let z = dup_n_s16(crt::zeta::<SECOND>(k));
+            let zq = dup_n_s16(crt::zeta_q::<SECOND>(k));
             let mut i = start;
             while i < start + half {
-                // SAFETY: `i + half < VECS` because `start + 2*half ≤ VECS`.
-                unsafe {
-                    let mut lo = ld(ptr, i);
-                    let mut hi = ld(ptr, i + half);
-                    ct_butterfly(&mut lo, &mut hi, z, zq, q);
-                    st(ptr, i, lo);
-                    st(ptr, i + half, hi);
-                }
+                let mut lo = load_i16(b, i);
+                let mut hi = load_i16(b, i + half);
+                ct_butterfly(&mut lo, &mut hi, z, zq, q);
+                store_i16(b, i, lo);
+                store_i16(b, i + half, hi);
                 i += 1;
             }
             start += 2 * half;
         }
         // Three levels of Cooley-Tukey growth reach 2.75q; re-center before a fourth.
         if level == 2 {
-            // SAFETY: `ptr` covers the whole block.
-            unsafe { barrett_block(ptr, bm, round, q) };
+            barrett_block(b, bm, round, q);
         }
         half /= 2;
         level += 1;
@@ -400,12 +407,11 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
     // Levels with len < 8: transpose each group of 8 so every lane owns a whole coefficient
     // block, then three more vertical levels with per-lane ψ.
     for g in 0..4 {
-        // SAFETY: `g < 4`, and `ptr` covers all 256 coefficients.
-        let mut v = unsafe { load_group(ptr, g) };
+        let mut v = load_group(b, g);
 
-        // len = 4: pair k with k+4, one ψ per lane
-        // SAFETY: group index `g < 4` is in range for a 4-group table.
-        let (z, zq) = unsafe { ld_tbl(t.fwd4, g) };
+        // len = 4: pair k with k+4, one ψ per lane. Group index `g < 4` is in range for a
+        // 4-group table.
+        let (z, zq) = fwd4::<SECOND>(g);
         for i in 0..4 {
             let (mut lo, mut hi) = (v[i], v[i + 4]);
             ct_butterfly(&mut lo, &mut hi, z, zq, q);
@@ -419,10 +425,9 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
         }
 
         // len = 2: pair k with k+2; the low pair and the high pair are different blocks and so
-        // take different ψ
+        // take different ψ. `2g + h < 8` is in range for an 8-group table.
         for h in 0..2 {
-            // SAFETY: `2g + h < 8` is in range for an 8-group table.
-            let (z, zq) = unsafe { ld_tbl(t.fwd2, 2 * g + h) };
+            let (z, zq) = fwd2::<SECOND>(2 * g + h);
             for i in 0..2 {
                 let base = 4 * h + i;
                 let (mut lo, mut hi) = (v[base], v[base + 2]);
@@ -432,22 +437,21 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
             }
         }
 
-        // len = 1: adjacent pairs, four distinct blocks per lane
+        // len = 1: adjacent pairs, four distinct blocks per lane. `4g + r < 16` is in range for
+        // a 16-group table.
         for r in 0..4 {
-            // SAFETY: `4g + r < 16` is in range for a 16-group table.
-            let (z, zq) = unsafe { ld_tbl(t.fwd1, 4 * g + r) };
+            let (z, zq) = fwd1::<SECOND>(4 * g + r);
             let (mut lo, mut hi) = (v[2 * r], v[2 * r + 1]);
             ct_butterfly(&mut lo, &mut hi, z, zq, q);
             v[2 * r] = lo;
             v[2 * r + 1] = hi;
         }
 
-        // SAFETY: as for `load_group`.
-        unsafe { store_group(ptr, g, &mut v) };
+        store_group(b, g, &mut v);
     }
 
-    // SAFETY: `ptr` covers the whole block. Leaves every coefficient centered, |a| ≤ q/2.
-    unsafe { barrett_block(ptr, bm, round, q) };
+    // Leaves every coefficient centered, |a| ≤ q/2.
+    barrett_block(b, bm, round, q);
 }
 
 /// In-place inverse negacyclic NTT of one 256-coefficient block, including the final scaling
@@ -455,32 +459,29 @@ unsafe fn ntt_block<const SECOND: bool>(ptr: *mut i16) {
 ///
 /// # Safety
 ///
-/// Requires NEON. `ptr` must be valid for reads and writes of 256 `i16`s, whose values must
-/// satisfy `|a| < q`.
+/// Requires NEON. The block's values must satisfy `|a| < q`.
 #[target_feature(enable = "neon")]
-unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
-    let t = lanes::<SECOND>();
-    let q = vdupq_n_s16(crt::q::<SECOND>());
-    let bm = vdupq_n_s16(crt::barrett_m::<SECOND>());
-    let round = vdupq_n_s16(1i16 << (BARRETT_SH - 1));
+fn invntt_block<const SECOND: bool>(b: &mut Block) {
+    let q = dup_n_s16(crt::q::<SECOND>());
+    let bm = dup_n_s16(crt::barrett_m::<SECOND>());
+    let round = dup_n_s16(1i16 << (BARRETT_SH - 1));
 
     // Levels with len < 8, in transposed form: len = 1, then 2, then 4.
     for g in 0..4 {
-        // SAFETY: `g < 4`, and `ptr` covers all 256 coefficients.
-        let mut v = unsafe { load_group(ptr, g) };
+        let mut v = load_group(b, g);
 
+        // `4g + r < 16` is in range for a 16-group table.
         for r in 0..4 {
-            // SAFETY: `4g + r < 16` is in range for a 16-group table.
-            let (z, zq) = unsafe { ld_tbl(t.inv1, 4 * g + r) };
+            let (z, zq) = inv1::<SECOND>(4 * g + r);
             let (mut lo, mut hi) = (v[2 * r], v[2 * r + 1]);
             gs_butterfly(&mut lo, &mut hi, z, zq, q);
             v[2 * r] = lo;
             v[2 * r + 1] = hi;
         }
 
+        // `2g + h < 8` is in range for an 8-group table.
         for h in 0..2 {
-            // SAFETY: `2g + h < 8` is in range for an 8-group table.
-            let (z, zq) = unsafe { ld_tbl(t.inv2, 2 * g + h) };
+            let (z, zq) = inv2::<SECOND>(2 * g + h);
             for i in 0..2 {
                 let base = 4 * h + i;
                 let (mut lo, mut hi) = (v[base], v[base + 2]);
@@ -496,8 +497,8 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
             *slot = barrett(*slot, bm, round, q);
         }
 
-        // SAFETY: group index `g < 4` is in range for a 4-group table.
-        let (z, zq) = unsafe { ld_tbl(t.inv4, g) };
+        // Group index `g < 4` is in range for a 4-group table.
+        let (z, zq) = inv4::<SECOND>(g);
         for i in 0..4 {
             let (mut lo, mut hi) = (v[i], v[i + 4]);
             gs_butterfly(&mut lo, &mut hi, z, zq, q);
@@ -505,8 +506,7 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
             v[i + 4] = hi;
         }
 
-        // SAFETY: as for `load_group`.
-        unsafe { store_group(ptr, g, &mut v) };
+        store_group(b, g, &mut v);
     }
 
     // Levels with len ≥ 8. `k` continues downward from where the transposed levels stopped:
@@ -520,36 +520,31 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
             k -= 1;
             // The table entries are centered, so |ψ| ≤ q/2 and the negation cannot overflow.
             let neg_zeta = crt::zeta::<SECOND>(k).wrapping_neg();
-            let z = vdupq_n_s16(neg_zeta);
-            let zq = vdupq_n_s16(neg_zeta.wrapping_mul(crt::qinv::<SECOND>()));
+            let z = dup_n_s16(neg_zeta);
+            let zq = dup_n_s16(neg_zeta.wrapping_mul(crt::qinv::<SECOND>()));
             let mut i = start;
             while i < start + half {
-                // SAFETY: `i + half < VECS` because `start + 2*half ≤ VECS`.
-                unsafe {
-                    let mut lo = ld(ptr, i);
-                    let mut hi = ld(ptr, i + half);
-                    gs_butterfly(&mut lo, &mut hi, z, zq, q);
-                    st(ptr, i, lo);
-                    st(ptr, i + half, hi);
-                }
+                let mut lo = load_i16(b, i);
+                let mut hi = load_i16(b, i + half);
+                gs_butterfly(&mut lo, &mut hi, z, zq, q);
+                store_i16(b, i, lo);
+                store_i16(b, i + half, hi);
                 i += 1;
             }
             start += 2 * half;
         }
         if level == 3 || level == 5 {
-            // SAFETY: `ptr` covers the whole block.
-            unsafe { barrett_block(ptr, bm, round, q) };
+            barrett_block(b, bm, round, q);
         }
         half *= 2;
         level += 1;
     }
 
     // One final Montgomery multiply undoes both the 1/256 and the Montgomery factor.
-    let scale = vdupq_n_s16(crt::invntt_scale::<SECOND>());
-    let scale_q = vdupq_n_s16(crt::invntt_scale::<SECOND>().wrapping_mul(crt::qinv::<SECOND>()));
+    let scale = dup_n_s16(crt::invntt_scale::<SECOND>());
+    let scale_q = dup_n_s16(crt::invntt_scale::<SECOND>().wrapping_mul(crt::qinv::<SECOND>()));
     for i in 0..VECS {
-        // SAFETY: `i < VECS`.
-        unsafe { st(ptr, i, mont_mul(ld(ptr, i), scale, scale_q, q)) };
+        store_i16(b, i, mont_mul(load_i16(b, i), scale, scale_q, q));
     }
 }
 
@@ -565,47 +560,53 @@ unsafe fn invntt_block<const SECOND: bool>(ptr: *mut i16) {
 ///
 /// # Safety
 ///
-/// Requires NEON. `ptr` must be valid for writes of 256 `i16`s.
+/// Requires NEON.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
+fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
     elem: &[u16; RING_DEG],
-    ptr: *mut i16,
+    b: &mut Block,
 ) {
-    let q = vdupq_n_s16(crt::q::<SECOND>());
-    let bm = vdupq_n_s16(crt::barrett_m::<SECOND>());
-    let round = vdupq_n_s16(1i16 << (BARRETT_SH - 1));
+    let q = dup_n_s16(crt::q::<SECOND>());
+    let bm = dup_n_s16(crt::barrett_m::<SECOND>());
+    let round = dup_n_s16(1i16 << (BARRETT_SH - 1));
     for i in 0..VECS {
-        // SAFETY: `i < VECS` is in range for both the 256-`u16` source and the block.
         // Coefficients below 2^13 fit an `i16` lane, so the Barrett reduction is in range;
-        // secret coefficients need none, and the `i16` reinterpretation of the load is their
-        // sign extension.
-        unsafe {
-            let x = vld1q_s16(elem.as_ptr().cast::<i16>().add(8 * i));
-            let x = if REDUCE { barrett(x, bm, round, q) } else { x };
-            st(ptr, i, x);
-        }
+        // secret coefficients need none, and the `i16` reading of the load is their sign
+        // extension.
+        let x = load_u16(elem, i);
+        let x = if REDUCE { barrett(x, bm, round, q) } else { x };
+        store_i16(b, i, x);
     }
-    // SAFETY: the block is 256 `i16` and now holds centered residues.
-    unsafe { ntt_block::<SECOND>(ptr) };
+    // The block is 256 `i16` and now holds centered residues.
+    ntt_block::<SECOND>(b);
 }
 
 /// Splits a ring element into both residue blocks and transforms each
+///
+/// The two blocks are written into the halves of one `[i16; 512]`, which is what
+/// [`crate::arithmetic::ntt::NttElem`] is: the q₁ block occupies `i16` vectors 0..32 and the q₂
+/// block vectors 32..64.
 ///
 /// # Safety
 ///
 /// Requires NEON.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
+fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
     let mut out = [0i16; 2 * RING_DEG];
-    let base = out.as_mut_ptr();
-    // SAFETY: `out` is 512 `i16`, so the q₂ block starts at `i16` offset 256 and both blocks
-    // are 256 `i16` long.
-    unsafe {
-        split_and_transform::<false, REDUCE>(elem, base);
-        split_and_transform::<true, REDUCE>(elem, base.add(RING_DEG));
+    let mut b = [0i16; RING_DEG];
+
+    split_and_transform::<false, REDUCE>(elem, &mut b);
+    for i in 0..VECS {
+        store_i16(&mut out, i, load_i16(&b, i));
     }
+
+    split_and_transform::<true, REDUCE>(elem, &mut b);
+    for i in 0..VECS {
+        store_i16(&mut out, VECS + i, load_i16(&b, i));
+    }
+
     out
 }
 
@@ -616,8 +617,7 @@ unsafe fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i16; 2 
 /// Requires NEON.
 #[target_feature(enable = "neon")]
 pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
-    // SAFETY: the caller guarantees NEON.
-    unsafe { from_ring_elem::<true>(elem) }
+    from_ring_elem::<true>(elem)
 }
 
 /// Forward-transforms a CBD secret, reading each coefficient as the signed value it encodes
@@ -627,8 +627,7 @@ pub(crate) fn from_uniform(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
 /// Requires NEON.
 #[target_feature(enable = "neon")]
 pub(crate) fn from_secret(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
-    // SAFETY: the caller guarantees NEON.
-    unsafe { from_ring_elem::<false>(elem) }
+    from_ring_elem::<false>(elem)
 }
 
 /// Adds the pointwise product `lhs ∘ rhs` into an unreduced accumulator, per prime.
@@ -647,64 +646,53 @@ pub(crate) fn pointwise_mul_acc(
     lhs: &[i16; 2 * RING_DEG],
     rhs: &[i16; 2 * RING_DEG],
 ) {
-    let acc_base = acc.as_mut_ptr();
-    let lhs_base = lhs.as_ptr();
-    let rhs_base = rhs.as_ptr();
-
     for block in 0..2 {
-        // SAFETY: the accumulator is 512 `i32` and each operand 512 `i16`, so both blocks are
-        // in range for their respective buffers, as is every `i < VECS` within a block.
-        unsafe {
-            let acc_ptr = acc_base.add(RING_DEG * block);
-            let l_ptr = lhs_base.add(RING_DEG * block);
-            let r_ptr = rhs_base.add(RING_DEG * block);
+        for i in 0..VECS {
+            // Vector `VECS * block + i` of the operands read as 512 `i16`, and the two `i32`
+            // vectors `2 * VECS * block + 2i` and `+ 1` of the accumulator read as 512 `i32`,
+            // are the same 8 coefficients of the same prime.
+            let l = load_i16(lhs, VECS * block + i);
+            let r = load_i16(rhs, VECS * block + i);
+            // The widening multiplies give the 32-bit products already in coefficient order,
+            // so unlike the AVX2 path there is nothing to un-permute.
+            let first = smull_low_s16(l, r);
+            let second = smull_high_s16(l, r);
 
-            for i in 0..VECS {
-                let l = ld(l_ptr, i);
-                let r = ld(r_ptr, i);
-                // The widening multiplies give the 32-bit products already in coefficient
-                // order, so unlike the AVX2 path there is nothing to un-permute.
-                let first = vmull_s16(vget_low_s16(l), vget_low_s16(r));
-                let second = vmull_high_s16(l, r);
-
-                let a0 = acc_ptr.add(8 * i);
-                let a1 = acc_ptr.add(8 * i + 4);
-                vst1q_s32(a0, vaddq_s32(vld1q_s32(a0), first));
-                vst1q_s32(a1, vaddq_s32(vld1q_s32(a1), second));
-            }
+            let a0 = 2 * VECS * block + 2 * i;
+            let a1 = a0 + 1;
+            store_i32(acc, a0, add_32(load_i32(acc, a0), first));
+            store_i32(acc, a1, add_32(load_i32(acc, a1), second));
         }
     }
 }
 
-/// Montgomery-reduces one accumulator block into `i16` lanes, then inverse-transforms it
+/// Montgomery-reduces one accumulator block into `i16` lanes, then inverse-transforms it.
+///
+/// `base` is the accumulator's first `i32` vector for this prime: 0 for q₁, 64 for q₂.
 ///
 /// # Safety
 ///
-/// Requires NEON. `acc_ptr` must be valid for reads of 256 `i32`s and `ptr` for reads and
-/// writes of 256 `i16`s.
+/// Requires NEON.
 #[inline]
 #[target_feature(enable = "neon")]
-unsafe fn reduce_block<const SECOND: bool>(acc_ptr: *const i32, ptr: *mut i16) {
-    let q = vdupq_n_s16(crt::q::<SECOND>());
-    let qinv = vdupq_n_s16(crt::qinv::<SECOND>());
+fn reduce_block<const SECOND: bool>(acc: &[i32; 2 * RING_DEG], base: usize, b: &mut Block) {
+    let q = dup_n_s16(crt::q::<SECOND>());
+    let qinv = dup_n_s16(crt::qinv::<SECOND>());
 
     for i in 0..VECS {
-        // SAFETY: `i < VECS` covers the 8 `i32` at `8i` and the 8 `i16` of output vector `i`.
-        unsafe {
-            let a0 = vld1q_s32(acc_ptr.add(8 * i));
-            let a1 = vld1q_s32(acc_ptr.add(8 * i + 4));
-            // Signed Montgomery reduction of an `i32` with R = 2^16: `vmovn` truncates to the
-            // low halves and `vshrn` takes the high ones. As in `mont_mul`, the low halves
-            // cancel, so subtracting the high halves is the whole answer.
-            let lo = vmovn_high_s32(vmovn_s32(a0), a1);
-            let hi = vshrn_high_n_s32::<16>(vshrn_n_s32::<16>(a0), a1);
-            let t = vmulq_s16(lo, qinv);
-            st(ptr, i, vsubq_s16(hi, mulhi(t, q)));
-        }
+        let a0 = load_i32(acc, base + 2 * i);
+        let a1 = load_i32(acc, base + 2 * i + 1);
+        // Signed Montgomery reduction of an `i32` with R = 2^16: `xtn` truncates to the low
+        // halves and `shrn` takes the high ones. As in `mont_mul`, the low halves cancel, so
+        // subtracting the high halves is the whole answer.
+        let lo = xtn_pair_32(a0, a1);
+        let hi = shrn16_pair_s32(a0, a1);
+        let t = mul_16(lo, qinv);
+        store_i16(b, i, sub_16(hi, mulhi(t, q)));
     }
 
-    // SAFETY: the block now holds residues with |a| < q, as `invntt_block` requires.
-    unsafe { invntt_block::<SECOND>(ptr) };
+    // The block now holds residues with |a| < q, as `invntt_block` requires.
+    invntt_block::<SECOND>(b);
 }
 
 /// Montgomery-reduces the accumulator, inverse-transforms both residue blocks, reconstructs the
@@ -715,65 +703,54 @@ unsafe fn reduce_block<const SECOND: bool>(acc_ptr: *const i32, ptr: *mut i16) {
 /// Requires NEON.
 #[target_feature(enable = "neon")]
 pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
-    let acc_base = acc.as_ptr();
-    let mut v = [0i16; 2 * RING_DEG];
+    let mut v1 = [0i16; RING_DEG];
+    let mut v2 = [0i16; RING_DEG];
 
-    // SAFETY: the accumulator is 512 `i32`, so both of its blocks are in range, as are both
-    // halves of the 512-`i16` scratch buffer.
-    unsafe {
-        reduce_block::<false>(acc_base, v.as_mut_ptr());
-        reduce_block::<true>(acc_base.add(RING_DEG), v.as_mut_ptr().add(RING_DEG));
-    }
+    // The accumulator is 512 `i32`, so the q₂ block starts at `i32` vector 64.
+    reduce_block::<false>(acc, 0, &mut v1);
+    reduce_block::<true>(acc, 2 * VECS, &mut v2);
 
     // CRT reconstruction, by Garner: with a₁ = r₁ mod q₁ and a₂ = r₂ mod q₂ taken in [0, q),
     // the unique x ≡ rᵢ (mod qᵢ) in [0, q₁q₂) is a₁ + q₁·((a₂ − a₁)·q₁⁻¹ mod q₂). Subtracting
     // q₁q₂ above the midpoint centers it; truncating to 16 bits then gives the wrapping-`u16`
     // coefficient, exactly as `to_wrapping_u16` does for the single prime. This is exact
     // because the true product lies in (−q₁q₂/2, q₁q₂/2] — the bound in `crt`'s docs.
-    let q1 = vdupq_n_s16(Q1);
-    let q2 = vdupq_n_s16(Q2);
-    let q1_inv_mont = vdupq_n_s16(CRT_Q1_INV_MONT);
-    let q1_inv_mont_q = vdupq_n_s16(CRT_Q1_INV_MONT.wrapping_mul(Q2_INV));
-    let q1_wide = vdupq_n_s32(Q1 as i32);
-    let crt_q = vdupq_n_s32(CRT_Q);
-    let crt_q_half = vdupq_n_s32(CRT_Q_HALF);
+    let q1 = dup_n_s16(Q1);
+    let q2 = dup_n_s16(Q2);
+    let q1_inv_mont = dup_n_s16(CRT_Q1_INV_MONT);
+    let q1_inv_mont_q = dup_n_s16(CRT_Q1_INV_MONT.wrapping_mul(Q2_INV));
+    let q1_wide = dup_n_s32(Q1 as i32);
+    let crt_q = dup_n_s32(CRT_Q);
+    let crt_q_half = dup_n_s32(CRT_Q_HALF);
 
     let mut out = [0u16; RING_DEG];
     for i in 0..VECS {
-        // SAFETY: `i < VECS` indexes both 256-coefficient residue blocks of the scratch buffer
-        // and the 8 `u16` at `out[8i..8i + 8]`.
-        unsafe {
-            let r1 = ld(v.as_ptr(), i);
-            let r2 = ld(v.as_ptr().add(RING_DEG), i);
+        let r1 = load_i16(&v1, i);
+        let r2 = load_i16(&v2, i);
 
-            // Canonicalize both residues to [0, q) by adding q where negative.
-            let a1 = vaddq_s16(r1, vandq_s16(vshrq_n_s16::<15>(r1), q1));
-            let a2 = vaddq_s16(r2, vandq_s16(vshrq_n_s16::<15>(r2), q2));
+        // Canonicalize both residues to [0, q) by adding q where negative.
+        let a1 = add_16(r1, and(sshr_n_s16::<15>(r1), q1));
+        let a2 = add_16(r2, and(sshr_n_s16::<15>(r2), q2));
 
-            // t = (a₂ − a₁)·q₁⁻¹ mod q₂, centered, then canonicalized to [0, q₂).
-            let t = mont_mul(vsubq_s16(a2, a1), q1_inv_mont, q1_inv_mont_q, q2);
-            let t = vaddq_s16(t, vandq_s16(vshrq_n_s16::<15>(t), q2));
+        // t = (a₂ − a₁)·q₁⁻¹ mod q₂, centered, then canonicalized to [0, q₂).
+        let t = mont_mul(sub_16(a2, a1), q1_inv_mont, q1_inv_mont_q, q2);
+        let t = add_16(t, and(sshr_n_s16::<15>(t), q2));
 
-            // a₁ + q₁·t needs 32 bits, so widen each half. Both operands are non-negative and
-            // below their prime, so the sign-extending widen is the right one.
-            let mut wide = [
-                vmlaq_s32(
-                    vmovl_s16(vget_low_s16(a1)),
-                    vmovl_s16(vget_low_s16(t)),
-                    q1_wide,
-                ),
-                vmlaq_s32(vmovl_high_s16(a1), vmovl_high_s16(t), q1_wide),
-            ];
-            for x in wide.iter_mut() {
-                // Center: subtract q₁q₂ above the midpoint.
-                let over = vreinterpretq_s32_u32(vcgtq_s32(*x, crt_q_half));
-                *x = vsubq_s32(*x, vandq_s32(crt_q, over));
-            }
-
-            // `vmovn` truncates each to its low 16 bits, which is the wrapping-`u16` value.
-            let packed = vmovn_high_s32(vmovn_s32(wide[0]), wide[1]);
-            vst1q_u16(out.as_mut_ptr().add(8 * i), vreinterpretq_u16_s16(packed));
+        // a₁ + q₁·t needs 32 bits, so widen each half. Both operands are non-negative and
+        // below their prime, so the sign-extending widen is the right one.
+        let mut wide = [
+            mla_32(sxtl_low_s16(a1), sxtl_low_s16(t), q1_wide),
+            mla_32(sxtl_high_s16(a1), sxtl_high_s16(t), q1_wide),
+        ];
+        for x in wide.iter_mut() {
+            // Center: subtract q₁q₂ above the midpoint.
+            let over = cmgt_s32(*x, crt_q_half);
+            *x = sub_32(*x, and(crt_q, over));
         }
+
+        // `xtn` truncates each to its low 16 bits, which is the wrapping-`u16` value. The store
+        // covers `out[8i .. 8i + 8]`, within `RING_DEG = 8 * VECS`.
+        store_u16(&mut out, i, xtn_pair_32(wide[0], wide[1]));
     }
     out
 }
@@ -787,16 +764,20 @@ mod test {
     #[allow(unsafe_code)]
     #[test]
     fn transpose8_permutes_as_documented() {
-        let mut a: [i16; 64] = core::array::from_fn(|i| i as i16);
-        let mut probe = [0i16; 64];
+        if !super::super::available() {
+            return;
+        }
 
-        // SAFETY: NEON is baseline on AArch64, and `a` holds exactly 8 vectors of 8.
+        let mut a: Block = core::array::from_fn(|i| i as i16);
+        let mut probe: Block = [0i16; RING_DEG];
+
+        // SAFETY: `available()` returned true, and group 0 is vectors 0..8 of a 32-vector block.
         unsafe {
-            let mut v = load_group(a.as_ptr(), 0);
+            let mut v = load_group(&a, 0);
             for j in 0..8 {
-                st(probe.as_mut_ptr(), j, v[j]);
+                store_i16(&mut probe, j, v[j]);
             }
-            store_group(a.as_mut_ptr(), 0, &mut v);
+            store_group(&mut a, 0, &mut v);
         }
 
         // Vector `k` lane `m` — linear index 8k + m — must hold what was `v[m]` lane `k`.
