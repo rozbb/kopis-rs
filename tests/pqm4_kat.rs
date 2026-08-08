@@ -141,9 +141,8 @@ macro_rules! pqm4_kat_test {
 
                     // Expand the secret key from its seed and check that the derived public key
                     // matches the recorded one.
-                    let sk = <$sk_ty>::expand_from_seed(&vector.keyseed);
-                    let mut pk_bytes = [0u8; <$pk_ty>::SERIALIZED_LEN];
-                    sk.public_key().serialize(&mut pk_bytes);
+                    let sk = <$sk_ty>::from_seed(&vector.keyseed);
+                    let pk_bytes = sk.public_key().to_bytes();
                     assert_eq!(
                         pk_bytes.as_slice(),
                         vector.pk.as_slice(),

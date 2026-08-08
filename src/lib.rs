@@ -27,6 +27,8 @@ mod sample;
 mod ser;
 
 pub use impls::*;
+pub use kem::SharedSecret;
+pub use subtle;
 
 use turboshake::{
     CTurboShake256,

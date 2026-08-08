@@ -1,45 +1,42 @@
 use kopis::{
     SharedSecret,
-    kopis512::{KOPIS512_CIPHERTEXT_LEN, Kopis512Ciphertext, Kopis512PublicKey, Kopis512SecretKey},
+    kopis768::{
+        KOPIS768_CIPHERTEXT_LEN, KOPIS768_PUBKEY_LEN, Kopis768Ciphertext, Kopis768PublicKey,
+        Kopis768SecretKey,
+    },
+    subtle::ConstantTimeEq,
 };
 
 fn main() {
     let mut rng = rand::rng();
 
-    // Generate a keypair
-    let sk = Kopis512SecretKey::generate(&mut rng);
+    // Alice generates a keypair
+    let sk = Kopis768SecretKey::generate_from_rng(&mut rng);
     let pk = sk.public_key();
 
-    // Serialize the secret key, maybe to save on disk
+    // Alice serializes the secret key, and saves to disk
     let sk_seed = sk.seed();
 
-    // Deserialize the secret key
+    // Alice serializes her pubkey and sends to bob
+    let _pk_bytes = pk.to_bytes();
+    let pk_bytes = _pk_bytes.as_slice();
+
+    // Bob receives the public key and deserializes
     // The API only accepts fixed-len slices, so we have to cast it first
-    let sk = Kopis512SecretKey::expand_from_seed(sk_seed);
+    let pk_arr: &[u8; KOPIS768_PUBKEY_LEN] = pk_bytes.try_into().unwrap();
+    let pk = Kopis768PublicKey::from_bytes(pk_arr);
 
-    // Also serialize and deserialize the public key
-    let mut pk_bytes = [0u8; Kopis512PublicKey::SERIALIZED_LEN];
-    pk.serialize(&mut pk_bytes);
-    let slice_containing_pk = pk_bytes.as_slice();
-    // The API only accepts fixed-len slices, so we have to cast it first
-    assert_eq!(slice_containing_pk.len(), Kopis512PublicKey::SERIALIZED_LEN);
-    let pk_arr = slice_containing_pk.try_into().unwrap();
-    let pk = Kopis512PublicKey::from_bytes(pk_arr);
+    // Bob encapsulates to Alice and gets a shared secret ss1
+    let (_ct, ss1): (Kopis768Ciphertext, SharedSecret) = pk.encapsulate_with_rng(&mut rng);
+    let ct = _ct.as_slice();
 
-    // Encapsulate a shared secret, ss1, to pk
-    let (ct, ss1): (Kopis512Ciphertext, SharedSecret) = pk.encapsulate(&mut rng);
-    let slice_containing_ct = ct.as_slice();
+    // Alice receives the ciphertext. She reconstructs her decap key from her saved seed
+    let sk = Kopis768SecretKey::from_seed(sk_seed);
+    let ct_arr: &[u8; KOPIS768_CIPHERTEXT_LEN] = ct.try_into().unwrap();
+    let ss2 = sk.decapsulate(ct_arr);
 
-    // Deserializing is also straightforward
-    assert_eq!(slice_containing_ct.len(), KOPIS512_CIPHERTEXT_LEN);
-    let receiver_ct: &Kopis512Ciphertext = slice_containing_ct.try_into().unwrap();
-
-    // Use the secret key to decapsulate the ciphertext
-    let ss2 = sk.decapsulate(receiver_ct);
-
-    // Check the shared secrets are equal. NOTE is not a constant-time check (ie not secure). We
-    // only do this for testing purposes.
-    assert_eq!(ss1.as_bytes(), ss2.as_bytes());
+    // Check the shared secrets are equal
+    assert!(bool::from(ss1.ct_eq(&ss2)));
 
     println!("KEM ran successfully");
 }

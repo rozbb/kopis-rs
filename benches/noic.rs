@@ -22,11 +22,10 @@ fn noic_init_start(
     [u8; Kopis768PublicKey::SERIALIZED_LEN],
 ) {
     let sk: [u8; 32] = rng.random();
-    let decap_key = Kopis768SecretKey::expand_from_seed(&sk);
+    let decap_key = Kopis768SecretKey::from_seed(&sk);
     let encap_key = decap_key.public_key();
 
-    let mut encap_key_bytes = [0u8; Kopis768PublicKey::SERIALIZED_LEN];
-    encap_key.serialize(&mut encap_key_bytes);
+    let encap_key_bytes = encap_key.to_bytes();
 
     let r: [u8; 32] = rng.random();
     // R = G(sid || pw || r)
@@ -111,7 +110,7 @@ fn noic_resp(
     }
 
     let pk = Kopis768PublicKey::from_bytes(&pk_bytes);
-    let (ct, k_s) = pk.encapsulate(rng);
+    let (ct, k_s) = pk.encapsulate_with_rng(rng);
 
     // tag || K = H(K_s,sid,pw,pk,apk,cph)
     let h = Sha3_512::new()

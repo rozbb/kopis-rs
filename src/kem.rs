@@ -13,6 +13,7 @@ use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// A public key for the IND-CCA-secure Kopis KEM scheme
+#[derive(Clone)]
 pub struct KemPublicKey<const L: usize> {
     /// The PKE public key
     pke_pk: PkePublicKey<L>,
@@ -21,7 +22,7 @@ pub struct KemPublicKey<const L: usize> {
 }
 
 impl<const L: usize> KemPublicKey<L> {
-    pub(crate) const SERIALIZED_LEN: usize = PkePublicKey::<L>::SERIALIZED_LEN;
+    pub const SERIALIZED_LEN: usize = PkePublicKey::<L>::SERIALIZED_LEN;
 
     /// Serializes just `pke_pk`
     pub(crate) fn serialize(&self, out_buf: &mut [u8]) {
@@ -29,7 +30,7 @@ impl<const L: usize> KemPublicKey<L> {
     }
 
     /// Deserializes from `pke_pk`, and recomputes `hash_pke_pk`
-    pub(crate) fn from_bytes(bytes: &[u8]) -> Self {
+    pub(crate) fn from_bytes_inner(bytes: &[u8]) -> Self {
         let pke_pk = PkePublicKey::from_bytes(bytes);
         let hash_pke_pk = pke_pk.hash();
 
@@ -40,8 +41,24 @@ impl<const L: usize> KemPublicKey<L> {
     }
 }
 
-/// The shared secret of a KEM operation
-pub type SharedSecret = [u8; 32];
+/// A shared secret of a KEM execution. This is just a `[u8; 32]` that zeroes itself from memory
+/// when it goes out of scope.
+#[derive(ZeroizeOnDrop)]
+pub struct SharedSecret([u8; 32]);
+
+impl SharedSecret {
+    /// Returns the shared secret as a slice
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl ConstantTimeEq for SharedSecret {
+    fn ct_eq(&self, other: &Self) -> subtle::Choice {
+        self.0.ct_eq(&other.0)
+    }
+}
 
 /// A secret key for the IND-CCA-secure Kopis KEM scheme.
 ///
@@ -59,30 +76,30 @@ pub struct KemSecretKey<const L: usize> {
     z: [u8; 32],
     /// The PKE secret key (expanded from seed)
     pke_sk: PkeSecretKey<L>,
-    /// The PKE public key that `pke_sk` generated
+    /// The KEM public key corresponding to this secret key
     #[zeroize(skip)]
-    pke_pk: PkePublicKey<L>,
-    /// The hash of `pke_pk`
-    #[zeroize(skip)]
-    hash_pke_pk: [u8; 32],
+    pub(crate) kem_pk: KemPublicKey<L>,
 }
 
 impl<const L: usize> KemSecretKey<L> {
     /// Construct a secret key from a 32-byte seed by expanding it via `ExpandDecapKey`.
-    pub fn expand_from_seed<const MU: usize>(seed: &[u8; 32]) -> KemSecretKey<L> {
+    pub(crate) fn expand_from_seed<const MU: usize>(seed: &[u8; 32]) -> KemSecretKey<L> {
         let (pke_sk, z, pke_pk, hash_pke_pk) = expand_decap_key::<L, MU>(seed);
+        let kem_pk = KemPublicKey {
+            pke_pk,
+            hash_pke_pk,
+        };
 
         KemSecretKey {
             seed: *seed,
             z,
             pke_sk,
-            pke_pk,
-            hash_pke_pk,
+            kem_pk,
         }
     }
 
-    /// Generate a fresh secret key by sampling a random 32-byte seed.
-    pub fn generate<const MU: usize>(rng: &mut impl CryptoRng) -> KemSecretKey<L> {
+    /// Generate a fresh secret key
+    pub(crate) fn generate_inner<const MU: usize>(rng: &mut impl CryptoRng) -> KemSecretKey<L> {
         let mut seed = [0u8; 32];
         rng.fill_bytes(&mut seed);
         let out = Self::expand_from_seed::<MU>(&seed);
@@ -91,16 +108,13 @@ impl<const L: usize> KemSecretKey<L> {
         out
     }
 
-    /// Returns the seed that produced this secret key
+    /// Returns the seed that produced this secret key.
+    ///
+    /// This seed **is** the complete long-term secret key — it is the canonical
+    /// serialized form, and anyone holding it can re-derive the full key with
+    /// [`Self::expand_from_seed`]. Handle it with the same care as the key itself.
     pub fn seed(&self) -> &[u8; 32] {
         &self.seed
-    }
-
-    pub(crate) fn public_key(&self) -> KemPublicKey<L> {
-        KemPublicKey {
-            pke_pk: self.pke_pk.clone(),
-            hash_pke_pk: self.hash_pke_pk,
-        }
     }
 }
 
@@ -132,7 +146,7 @@ pub(crate) fn encap_deterministic<const L: usize, const MU: usize, const T: usiz
     // c = PkeEncrypt(r, pk, randomness)
     pke::encrypt_deterministic::<L, MU, T>(pke_pk, randomness, &r, out_buf);
 
-    k
+    SharedSecret(k)
 }
 
 /// Decapsulates a shared secret from the given ciphertext and secret key.
@@ -154,7 +168,7 @@ pub fn decap<const L: usize, const MU: usize, const T: usize>(
     let mut xof = {
         let mut hasher = CTurboShake256::<DOMSEP_FO>::default();
         hasher.update(&randomness);
-        hasher.update(&sk.hash_pke_pk);
+        hasher.update(&sk.kem_pk.hash_pke_pk);
         hasher.finalize_xof()
     };
     xof.read(&mut k);
@@ -163,14 +177,20 @@ pub fn decap<const L: usize, const MU: usize, const T: usize>(
     // cprime = PkeEncrypt(rprime, pk, randomness)
     let mut buf = [0u8; max_ciphertext_len()];
     let reconstructed_ct = &mut buf[..ciphertext_len::<L, T>()];
-    pke::encrypt_deterministic::<L, MU, T>(&sk.pke_pk, &randomness, &rprime, reconstructed_ct);
+    pke::encrypt_deterministic::<L, MU, T>(
+        &sk.kem_pk.pke_pk,
+        &randomness,
+        &rprime,
+        reconstructed_ct,
+    );
 
     // Compute rejection value: TurboSHAKE256(z || c, 32, DOMSEP_NOREJECT)
     let reject_val = turboshake256_hash::<DOMSEP_NOREJECT>(&sk.z, ciphertext);
 
     // Constant-time select: return k if c == cprime, else return reject_val
     let reconstruction_matched = reconstructed_ct.ct_eq(ciphertext);
-    <[u8; 32]>::conditional_select(&reject_val, &k, reconstruction_matched)
+    let ss = <[u8; 32]>::conditional_select(&reject_val, &k, reconstruction_matched);
+    SharedSecret(ss)
 }
 
 #[cfg(test)]
@@ -179,6 +199,7 @@ mod test {
     use crate::consts::*;
 
     use rand::Rng;
+    use subtle::ConstantTimeEq;
 
     #[test]
     fn kopis512_cca_kem() {
@@ -200,14 +221,14 @@ mod test {
         let mut backing_buf = [0u8; max_ciphertext_len()];
 
         for _ in 0..100 {
-            let sk = KemSecretKey::<L>::generate::<MU>(&mut rng);
-            let pk = sk.public_key();
+            let sk = KemSecretKey::<L>::generate_inner::<MU>(&mut rng);
+            let pk = &sk.kem_pk;
             let ct_buf = &mut backing_buf[..ciphertext_len::<L, T>()];
 
             let randomness: [u8; 32] = rng.random();
-            let ss1 = encap_deterministic::<L, MU, T>(&randomness, &pk, ct_buf);
+            let ss1 = encap_deterministic::<L, MU, T>(&randomness, pk, ct_buf);
             let ss2 = decap::<L, MU, T>(&sk, ct_buf);
-            assert_eq!(ss1, ss2);
+            assert!(bool::from(ss1.ct_eq(&ss2)));
 
             // Check that the Fujisaki-Okamoto transform was implemented properly. That is, a
             // perturbed ciphertext should yield a secret key that is totally unguessable to the
@@ -229,7 +250,7 @@ mod test {
             // randomness and pk) could compute k.
             let ss2 =
                 recompute_shared_secret_for_pertrubed_ciphertext::<L, MU, T>(&randomness, &pk);
-            assert_ne!(ss1, ss2);
+            assert!(bool::from(ss1.ct_ne(&ss2)));
         }
     }
 
@@ -258,6 +279,6 @@ mod test {
         };
         xof.read(&mut k);
 
-        k
+        SharedSecret(k)
     }
 }
