@@ -1,4 +1,5 @@
 import ExtractedRustAvx2
+import Kopis.Bits.Lanes
 /-!
 # AVX2 intrinsics: the assumed semantics
 
@@ -90,10 +91,10 @@ axiom available_ok : ∃ b, RustKopisAvx2.backend.avx2.cpu.available = ok b
 axiom bits_inj {a b : Vec256} : bits a = bits b → a = b
 axiom bits'_inj {a b : Vec128} : bits' a = bits' b → a = b
 
-/-- Lane `i` of width `w`, counting from the least significant end — the lane numbering the
-Intel manuals use, so `lane16 v 0` is `v[15:0]`. -/
-def laneOf (w : Nat) {n : Nat} (x : BitVec n) (i : Nat) : BitVec w :=
-  BitVec.extractLsb' (w * i) w x
+/- Lane `i` of width `w`, counting from the least significant end — the lane numbering the
+Intel manuals use, so `lane16 v 0` is `v[15:0]`.  Defined in `Kopis/Bits/Lanes.lean`, which both
+backends share; re-exported here so that this file reads as one self-contained model. -/
+export Kopis.Bits (laneOf)
 
 @[reducible] def lane8 (v : Vec256) (i : Nat) : BitVec 8 := laneOf 8 (bits v) i
 @[reducible] def lane16 (v : Vec256) (i : Nat) : BitVec 16 := laneOf 16 (bits v) i

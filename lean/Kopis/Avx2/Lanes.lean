@@ -1,73 +1,28 @@
 /-
-  # Kopis/Avx2/Lanes.lean — the lane algebra.
+  # Kopis/Avx2/Lanes.lean — the lane algebra at AVX2's widths.
 
-  `Kopis/Avx2/Intrinsics.lean` states every AVX2 axiom through `laneOf w x i`, the `w`-bit lane
-  `i` of a 256- (or 128-) bit word.  Two things are needed before those axioms can be composed
-  into anything, and both are proved here rather than assumed:
+  The generic part — `laneOf`, `concatLanes`, `eq_of_laneOf_eq`, `laneOf_split`, `laneOf_laneOf`,
+  `laneOf_and` — is about `BitVec` and mentions no register width, so it lives in
+  `Kopis/Bits/Lanes.lean` and is shared with the NEON stack; this file re-exports it under
+  `Kopis.Avx2` so that every proof below `Kopis/Avx2/` sees one vocabulary.
 
-  * **Lanes determine the word.**  An axiom that fixes all 16 of a result's 16-bit lanes must be
-    usable where a whole-register fact is needed, and vice versa.  `eq_of_laneOf_eq` and the
-    `Vec256`/`Vec128` corollaries below are that bridge.  libcrux `admit()`s the corresponding
-    step; this is the one place it costs anything to prove it, and it costs one induction.
-  * **A word can be built from its lanes.**  `ofLanes*` constructs the word whose lane `i` is
-    `f i`, and `laneOf_ofLanes*` reads it back.  Every computable model in
-    `Kopis/Avx2/Model.lean` is phrased with it, which is what lets a model be checked against an
-    axiom lane by lane and evaluated by `#eval` on a test vector.
-
-  Everything here is about `BitVec`; nothing in this file mentions an extracted constant except
-  the four `Vec256`/`Vec128` corollaries at the end, which go through `bits_inj`.
+  What is left here is what genuinely is AVX2's: the seven `ofLanes*` widths a 256-bit register
+  (and the 128-bit halves the shuffles produce) decomposes into, and the `bits_inj` corollaries
+  that turn "agrees on every lane" into "is the same register".
 -/
 import Kopis.Avx2.Intrinsics
 
 namespace Kopis.Avx2
 
-/-! ## Bits of a lane -/
+/-! ## The generic lane algebra, shared with the NEON backend
 
-/-- Bit `j` of lane `i` is bit `w * i + j` of the word — the defining property of `laneOf`,
-which every proof below is ultimately a rearrangement of. -/
-theorem getLsbD_laneOf {n : Nat} (w : Nat) (x : BitVec n) (i j : Nat) :
-    (laneOf w x i).getLsbD j = (decide (j < w) && x.getLsbD (w * i + j)) := by
-  simp [laneOf]
+Re-exported rather than re-proved.  See `Kopis/Bits/Lanes.lean`. -/
 
-theorem getElem_laneOf {n : Nat} (w : Nat) (x : BitVec n) (i j : Nat) (hj : j < w) :
-    (laneOf w x i)[j] = x.getLsbD (w * i + j) := by
-  rw [← BitVec.getLsbD_eq_getElem, getLsbD_laneOf]
-  simp [hj]
+export Kopis.Bits (concatLanes laneOf_concatLanes getLsbD_laneOf getElem_laneOf eq_of_laneOf_eq
+  laneOf_split laneOf_laneOf laneOf_and laneOf_xor lane16_eq_bytes lane32_eq_lane16
+  lane64_eq_lane32 half_eq_lane64)
 
-/-! ## Building a word from its lanes
-
-`concatLanes w f n` is the `w * n`-bit word holding lanes `f 0, …, f (n-1)`, least significant
-first.  The recursion appends the *new, most significant* lane on the left, so the induction
-below never has to reason about division by `w`. -/
-
-/-- The `w * n`-bit word whose lane `i` is `f i`, for `i < n`. -/
-def concatLanes (w : Nat) (f : Nat → BitVec w) : (n : Nat) → BitVec (w * n)
-  | 0 => 0#(w * 0)
-  | n + 1 => (f n ++ concatLanes w f n).cast (by rw [Nat.mul_succ, Nat.add_comm])
-
-theorem laneOf_concatLanes (w : Nat) (f : Nat → BitVec w) :
-    ∀ (n i : Nat), i < n → laneOf w (concatLanes w f n) i = f i := by
-  intro n
-  induction n with
-  | zero => intro i hi; omega
-  | succ n ih =>
-    intro i hi
-    ext j hj
-    rw [getElem_laneOf w _ i j hj]
-    show (BitVec.cast _ (f n ++ concatLanes w f n)).getLsbD (w * i + j) = _
-    rw [BitVec.getLsbD_cast, BitVec.getLsbD_append]
-    rcases Nat.lt_or_ge i n with h | h
-    · -- an earlier lane: it is entirely inside the low `w * n` bits
-      have hlt : w * i + j < w * n := by
-        have : w * (i + 1) ≤ w * n := Nat.mul_le_mul_left w (by omega)
-        rw [Nat.mul_succ] at this; omega
-      rw [if_pos hlt]
-      rw [← getElem_laneOf w _ i j hj, ih i h]
-    · -- the top lane: `i = n`, and the bit index lands in the appended `f n`
-      have hi' : i = n := by omega
-      subst hi'
-      rw [if_neg (by omega), show w * i + j - w * i = j by omega,
-        BitVec.getLsbD_eq_getElem hj]
+open Kopis.Bits
 
 /-! ## The lane views at the widths the backend uses -/
 
@@ -103,25 +58,7 @@ theorem laneOf_ofLanes16' (f : Nat → BitVec 16) {i : Nat} (h : i < 8) :
 
 /-! ## Lanes determine the word
 
-This is the bridge the whole development rests on: a fact stated about every lane of a width is
-a fact about the register, so a 16-bit-lane axiom and a 32-bit-lane axiom constrain the same
-object.  Stated for an arbitrary factorisation `N = w * n` and then specialised. -/
-
-theorem eq_of_laneOf_eq {N : Nat} (w n : Nat) (hN : N = w * n) {x y : BitVec N}
-    (h : ∀ i < n, laneOf w x i = laneOf w y i) : x = y := by
-  ext k hk
-  have hw : 0 < w := by
-    rcases Nat.eq_zero_or_pos w with rfl | hw
-    · omega
-    · exact hw
-  have hkn : k / w < n := by
-    apply Nat.div_lt_of_lt_mul; omega
-  have hjw : k % w < w := Nat.mod_lt _ hw
-  have hsplit : w * (k / w) + k % w = k := Nat.div_add_mod k w
-  have := congrArg (fun z => z.getLsbD (k % w)) (h (k / w) hkn)
-  simp only [getLsbD_laneOf, hjw, decide_true, Bool.true_and, hsplit] at this
-  rw [← BitVec.getLsbD_eq_getElem, ← BitVec.getLsbD_eq_getElem]
-  exact this
+`eq_of_laneOf_eq` at the six factorisations of 256 and 128 that arise. -/
 
 theorem eq_of_lane8_bv {x y : BitVec 256} (h : ∀ i < 32, laneOf 8 x i = laneOf 8 y i) : x = y :=
   eq_of_laneOf_eq 8 32 rfl h
@@ -141,7 +78,8 @@ theorem eq_of_lane16'_bv {x y : BitVec 128} (h : ∀ i < 8, laneOf 16 x i = lane
 /-! ## …and hence determine the register
 
 `bits_inj` says a `Vec256` is nothing but its 256 bits, so agreeing on every lane of any one
-width is enough to be the same vector. -/
+width is enough to be the same vector.  These are the only statements in the lane algebra that
+mention an extracted constant. -/
 
 open RustKopisAvx2.backend.avx2.intrinsics in
 theorem vec_eq_of_lane8 {a b : Vec256} (h : ∀ i < 32, lane8 a i = lane8 b i) : a = b :=
@@ -170,72 +108,5 @@ theorem vec128_eq_of_lane8' {a b : Vec128} (h : ∀ i < 16, lane8' a i = lane8' 
 open RustKopisAvx2.backend.avx2.intrinsics in
 theorem vec128_eq_of_lane16' {a b : Vec128} (h : ∀ i < 8, lane16' a i = lane16' b i) : a = b :=
   bits'_inj (eq_of_lane16'_bv h)
-
-/-! ## Crossing widths
-
-A 16-bit lane is two 8-bit lanes, a 32-bit lane is two 16-bit lanes, and so on.  These are what
-the transpose and pack sequences need: `vpunpckldq` is stated on 32-bit lanes and its input came
-from a 16-bit-lane fact. -/
-
-theorem laneOf_split {n : Nat} (w : Nat) (x : BitVec n) (i : Nat) :
-    laneOf (2 * w) x i =
-      BitVec.cast (by omega) (laneOf w x (2 * i + 1) ++ laneOf w x (2 * i)) := by
-  ext j hj
-  rw [getElem_laneOf _ _ _ _ hj, BitVec.getElem_cast, BitVec.getElem_append]
-  by_cases h : j < w
-  · rw [dif_pos h, ← BitVec.getLsbD_eq_getElem, getLsbD_laneOf]
-    simp only [h, decide_true, Bool.true_and]
-    congr 1
-    ring
-  · rw [dif_neg h, ← BitVec.getLsbD_eq_getElem, getLsbD_laneOf]
-    have hjw : j - w < w := by omega
-    have hlin : w * (2 * i + 1) = 2 * w * i + w := by ring
-    simp only [hjw, decide_true, Bool.true_and]
-    congr 1
-    omega
-
-/-- A lane of a lane: the `i`th `w`-bit lane is lane `i % q` of the `(w·q)`-bit lane `i / q`.
-This is what lets a fact about a 128-bit half be read off byte by byte — the shape every
-`vbroadcasti128` argument arrives in. -/
-theorem laneOf_laneOf {n : ℕ} (w q : ℕ) (x : BitVec n) (i : ℕ) (hq : 0 < q) :
-    laneOf w x i = laneOf w (laneOf (w * q) x (i / q)) (i % q) := by
-  ext j hj
-  rw [getElem_laneOf _ _ _ _ hj, getElem_laneOf _ _ _ _ hj, getLsbD_laneOf]
-  have hmod : i % q < q := Nat.mod_lt _ hq
-  have hmul : w * (i % q + 1) ≤ w * q := Nat.mul_le_mul_left w (by omega)
-  rw [Nat.mul_succ] at hmul
-  have hlt : w * (i % q) + j < w * q := by omega
-  simp only [hlt, decide_true, Bool.true_and]
-  congr 1
-  have hdm : q * (i / q) + i % q = i := Nat.div_add_mod i q
-  calc w * i + j = w * (q * (i / q) + i % q) + j := by rw [hdm]
-    _ = w * q * (i / q) + (w * (i % q) + j) := by ring
-
-/-- Bitwise operations act lane by lane. -/
-theorem laneOf_and {n : ℕ} (w : ℕ) (x y : BitVec n) (i : ℕ) :
-    laneOf w (x &&& y) i = laneOf w x i &&& laneOf w y i := by
-  ext j hj
-  simp only [← BitVec.getLsbD_eq_getElem, BitVec.getLsbD_and, getLsbD_laneOf, hj, decide_true,
-    Bool.true_and]
-
-/-- The 16-bit lane `i` of a word, in terms of its bytes. -/
-theorem lane16_eq_bytes {n : Nat} (x : BitVec n) (i : Nat) :
-    laneOf 16 x i = laneOf 8 x (2 * i + 1) ++ laneOf 8 x (2 * i) :=
-  laneOf_split 8 x i
-
-/-- The 32-bit lane `i` of a word, in terms of its 16-bit lanes. -/
-theorem lane32_eq_lane16 {n : Nat} (x : BitVec n) (i : Nat) :
-    laneOf 32 x i = laneOf 16 x (2 * i + 1) ++ laneOf 16 x (2 * i) :=
-  laneOf_split 16 x i
-
-/-- The 64-bit lane `i` of a word, in terms of its 32-bit lanes. -/
-theorem lane64_eq_lane32 {n : Nat} (x : BitVec n) (i : Nat) :
-    laneOf 64 x i = laneOf 32 x (2 * i + 1) ++ laneOf 32 x (2 * i) :=
-  laneOf_split 32 x i
-
-/-- A 128-bit half, in terms of its 64-bit lanes. -/
-theorem half_eq_lane64 {n : Nat} (x : BitVec n) (i : Nat) :
-    laneOf 128 x i = laneOf 64 x (2 * i + 1) ++ laneOf 64 x (2 * i) :=
-  laneOf_split 64 x i
 
 end Kopis.Avx2

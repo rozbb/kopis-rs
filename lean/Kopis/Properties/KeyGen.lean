@@ -13,7 +13,7 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
-    (hL : L.val < 256) (hL0 : 0 < L.val) :
+    (hL : L.val < 256) (_hL0 : 0 < L.val) :
     kem.KemSecretKey.expand_from_seed L MU seed
       ⦃ (ksk : kem.KemSecretKey L) =>
           (∃ S : Mat L 1#usize, ksk.pke_sk = nttFwdS S ∧
