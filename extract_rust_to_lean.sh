@@ -13,6 +13,13 @@ AENEAS="nix run github:AeneasVerif/aeneas/${AENEAS_VERSION} \
     --extra-experimental-features flakes \
     --"
 
+# Charon does not build against the normal standard library. It needs a `core`/`std` compiled
+# with full MIR, so it builds its own copy and then compiles *everything* against it — kopis and
+# every one of its dependencies.
+# We don't want Charon's build artifacts to interfere with other builds, and
+# vice-versa. So we give it its own directory
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/charon}"
+
 # All three backends are extracted, into separate files and separate Lean namespaces. The backend
 # is forced here rather than left to `build.rs`'s autodetection so that each run sees exactly one
 # set of `#[cfg(kopis_avx2)]` / `#[cfg(kopis_neon)]` dispatch blocks — either all of them or none
