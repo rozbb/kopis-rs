@@ -1,5 +1,6 @@
 import TopLevelTheoremsSerial
 import TopLevelTheoremsAvx2
+import TopLevelTheoremsNeon
 
 /-!
 # The trust base — what `kopis-rs`'s proofs assume
@@ -335,6 +336,192 @@ def avx2Theorems : List Name :=
    ``Kopis.TopLevelAvx2.kopis768_from_bytes_then_encapsulate,
    ``Kopis.TopLevelAvx2.kopis1024_from_bytes_then_encapsulate]
 
+/-! ## The NEON (`RustKopisNeon`) backend
+
+Extracted from an `--cfg kopis_backend="neon" -C target-feature=+sha3` build cross-compiled for
+AArch64, and proved against the same statements as the other two — `TopLevelTheoremsNeon.lean` is
+generated from `TopLevelTheoremsSerial.lean` by `make generated`, so a statement that drifted
+would fail to compile.
+
+One difference from the AVX2 row is worth stating, because it is the whole of what makes this row
+shorter.
+
+* **No `available_ok`.** On AArch64 NEON is baseline and `cpu::available()` is
+  `cfg!(target_arch = "aarch64")` — a compile-time `true`. aeneas extracts it as an ordinary
+  definition (`ok true`) rather than opaquely, so every dispatch point resolves at elaboration
+  time and nothing at all is assumed about feature detection. Both branches are still proved
+  where the generated twins case-split on it; the `false` branch is the portable proof.
+
+**The intrinsic axioms are checked against silicon**, as the AVX2 ones are, and this row is no
+longer the weaker of the two on that point. Both halves of the check exist and both have run:
+`Kopis/Neon/Model.lean` gives every wrapper a computable model and proves the axiom pins the
+result down to exactly it, `src/backend/neon/intrinsics_vectors.rs` records what the real
+instructions do, and `SpecTests/Neon/Run.lean` (`make test-neon-model`) replays one through the
+other. `tests/neon_intrinsics_vectors.jsonl` is committed — 50 176 vectors over all 46 wrappers,
+≥ 1 000 each, recorded on an Apple M1 (`aarch64-apple-darwin`, FEAT_SHA3) — and a plain
+`cargo test` on any such host re-checks it against that CPU, so drift is caught continuously
+rather than when someone remembers to look.
+
+What that is and is not: a differential test over ~1 000 inputs per operation, so it is strong
+evidence and not a proof. What it rules out is the failure mode that matters — an axiom that is
+simply *wrong* — and nothing else in the tree would catch that. The negative check was run: a
+deliberately corrupted saturation bound in `satS16` is caught immediately, and corrupting a model
+alone does not even compile, because `Kopis/Neon/Model.lean` proves each model equal to its axiom.
+
+One assumption is NEON-only and has no AVX2 counterpart: `Usize.div_ceil_spec`. `usize::div_ceil`
+is a compiler intrinsic whose body charon does not translate, so aeneas leaves it opaque; Kopis
+calls it once, to turn a byte count into a word count, and the assumption is exactly `⌈x / y⌉`. -/
+
+def neonAudited : List String :=
+  ["Aeneas.Std.core.fmt.Formatter",
+   "Classical.choice",
+   "Kopis.Neon.CbdGeneric.U32.count_ones_spec",
+   "Kopis.Neon.CbdGeneric.U8.count_ones_spec",
+   "Kopis.Neon.I16.wrapping_neg_spec",
+   "Kopis.Neon.Keccak.Usize.div_ceil_spec",
+   "Kopis.Neon.Properties.U32.count_ones_spec",
+   "Kopis.Neon.Properties.U8.count_ones_spec",
+   "Kopis.Neon.Properties.conditional_select_array_u8_spec",
+   "Kopis.Neon.Properties.ct_eq_slice_u8_spec",
+   "Kopis.Neon.Properties.hasher_default_spec",
+   "Kopis.Neon.Properties.hasher_finalize_spec",
+   "Kopis.Neon.Properties.hasher_update_spec",
+   "Kopis.Neon.Properties.reader_read136_spec",
+   "Kopis.Neon.Properties.reader_read168_spec",
+   "Kopis.Neon.add_16_spec",
+   "Kopis.Neon.add_32_spec",
+   "Kopis.Neon.and_spec",
+   "Kopis.Neon.bcax_spec",
+   "Kopis.Neon.bits",
+   "Kopis.Neon.cmgt_s32_spec",
+   "Kopis.Neon.cnt_u8_spec",
+   "Kopis.Neon.dup_n_s16_spec",
+   "Kopis.Neon.dup_n_s32_spec",
+   "Kopis.Neon.dup_n_u16_spec",
+   "Kopis.Neon.dup_n_u32_spec",
+   "Kopis.Neon.dup_n_u64_spec",
+   "Kopis.Neon.eor3_spec",
+   "Kopis.Neon.eor_spec",
+   "Kopis.Neon.load_i16_spec",
+   "Kopis.Neon.load_i32_spec",
+   "Kopis.Neon.load_u16_spec",
+   "Kopis.Neon.load_u8x16_spec",
+   "Kopis.Neon.mla_32_spec",
+   "Kopis.Neon.mul_16_spec",
+   "Kopis.Neon.rangeInclusive_contains_ok",
+   "Kopis.Neon.rax1_spec",
+   "Kopis.Neon.set_u64x2_spec",
+   "Kopis.Neon.shrn16_pair_s32_spec",
+   "Kopis.Neon.shsub_s16_spec",
+   "Kopis.Neon.smull_high_s16_spec",
+   "Kopis.Neon.smull_low_s16_spec",
+   "Kopis.Neon.sqdmulh_s16_spec",
+   "Kopis.Neon.sshr15_bits._native.bv_decide.ax_1_5",
+   "Kopis.Neon.sshr_n_s16_spec",
+   "Kopis.Neon.store_i16_spec",
+   "Kopis.Neon.store_i32_spec",
+   "Kopis.Neon.store_u16_spec",
+   "Kopis.Neon.store_u8x16_spec",
+   "Kopis.Neon.sub_16_spec",
+   "Kopis.Neon.sub_32_spec",
+   "Kopis.Neon.sxtl_high_s16_spec",
+   "Kopis.Neon.sxtl_low_s16_spec",
+   "Kopis.Neon.tbl1_u8_spec",
+   "Kopis.Neon.trn1_16_spec",
+   "Kopis.Neon.trn1_32_spec",
+   "Kopis.Neon.trn1_64_spec",
+   "Kopis.Neon.trn2_16_spec",
+   "Kopis.Neon.trn2_32_spec",
+   "Kopis.Neon.trn2_64_spec",
+   "Kopis.Neon.ushl_u16_spec",
+   "Kopis.Neon.ushl_u32_spec",
+   "Kopis.Neon.xar_spec",
+   "Kopis.Neon.xtn_pair_32_spec",
+   "Quot.sound",
+   "RustKopisNeon.Array.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisNeon.Slice.Insts.SubtleConstantTimeEq.ct_eq",
+   "RustKopisNeon.U8.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisNeon.U8.Insts.SubtleConstantTimeEq.ct_eq",
+   "RustKopisNeon.backend.neon.intrinsics.Vec128",
+   "RustKopisNeon.backend.neon.intrinsics.add_16",
+   "RustKopisNeon.backend.neon.intrinsics.add_32",
+   "RustKopisNeon.backend.neon.intrinsics.and",
+   "RustKopisNeon.backend.neon.intrinsics.bcax",
+   "RustKopisNeon.backend.neon.intrinsics.cmgt_s32",
+   "RustKopisNeon.backend.neon.intrinsics.cnt_u8",
+   "RustKopisNeon.backend.neon.intrinsics.dup_n_s16",
+   "RustKopisNeon.backend.neon.intrinsics.dup_n_s32",
+   "RustKopisNeon.backend.neon.intrinsics.dup_n_u16",
+   "RustKopisNeon.backend.neon.intrinsics.dup_n_u32",
+   "RustKopisNeon.backend.neon.intrinsics.dup_n_u64",
+   "RustKopisNeon.backend.neon.intrinsics.eor",
+   "RustKopisNeon.backend.neon.intrinsics.eor3",
+   "RustKopisNeon.backend.neon.intrinsics.load_i16",
+   "RustKopisNeon.backend.neon.intrinsics.load_i32",
+   "RustKopisNeon.backend.neon.intrinsics.load_u16",
+   "RustKopisNeon.backend.neon.intrinsics.load_u8x16",
+   "RustKopisNeon.backend.neon.intrinsics.mla_32",
+   "RustKopisNeon.backend.neon.intrinsics.mul_16",
+   "RustKopisNeon.backend.neon.intrinsics.rax1",
+   "RustKopisNeon.backend.neon.intrinsics.set_u64x2",
+   "RustKopisNeon.backend.neon.intrinsics.shrn16_pair_s32",
+   "RustKopisNeon.backend.neon.intrinsics.shsub_s16",
+   "RustKopisNeon.backend.neon.intrinsics.smull_high_s16",
+   "RustKopisNeon.backend.neon.intrinsics.smull_low_s16",
+   "RustKopisNeon.backend.neon.intrinsics.sqdmulh_s16",
+   "RustKopisNeon.backend.neon.intrinsics.sshr_n_s16",
+   "RustKopisNeon.backend.neon.intrinsics.store_i16",
+   "RustKopisNeon.backend.neon.intrinsics.store_i32",
+   "RustKopisNeon.backend.neon.intrinsics.store_u16",
+   "RustKopisNeon.backend.neon.intrinsics.store_u8x16",
+   "RustKopisNeon.backend.neon.intrinsics.sub_16",
+   "RustKopisNeon.backend.neon.intrinsics.sub_32",
+   "RustKopisNeon.backend.neon.intrinsics.sxtl_high_s16",
+   "RustKopisNeon.backend.neon.intrinsics.sxtl_low_s16",
+   "RustKopisNeon.backend.neon.intrinsics.tbl1_u8",
+   "RustKopisNeon.backend.neon.intrinsics.trn1_16",
+   "RustKopisNeon.backend.neon.intrinsics.trn1_32",
+   "RustKopisNeon.backend.neon.intrinsics.trn1_64",
+   "RustKopisNeon.backend.neon.intrinsics.trn2_16",
+   "RustKopisNeon.backend.neon.intrinsics.trn2_32",
+   "RustKopisNeon.backend.neon.intrinsics.trn2_64",
+   "RustKopisNeon.backend.neon.intrinsics.ushl_u16",
+   "RustKopisNeon.backend.neon.intrinsics.ushl_u32",
+   "RustKopisNeon.backend.neon.intrinsics.xar",
+   "RustKopisNeon.backend.neon.intrinsics.xtn_pair_32",
+   "RustKopisNeon.core.num.I16.wrapping_neg",
+   "RustKopisNeon.core.num.U32.count_ones",
+   "RustKopisNeon.core.num.U8.count_ones",
+   "RustKopisNeon.core.num.Usize.div_ceil",
+   "RustKopisNeon.core.ops.range.RangeInclusive.contains",
+   "RustKopisNeon.subtle.Choice",
+   "RustKopisNeon.turboshake.TurboShake",
+   "RustKopisNeon.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
+   "RustKopisNeon.turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof",
+   "RustKopisNeon.turboshake.TurboShake.Insts.DigestUpdate.update",
+   "RustKopisNeon.turboshake.TurboShakeReader",
+   "RustKopisNeon.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
+   "propext"]
+
+/-- The NEON twins of `serialTheorems`; the coverage check enforces that this is every theorem in
+`Kopis.TopLevelNeon`. -/
+def neonTheorems : List Name :=
+  [``Kopis.TopLevelNeon.triple_means_success,
+   ``Kopis.TopLevelNeon.arrayToBytes_is_identity,
+   ``Kopis.TopLevelNeon.kopis512_keygen,
+   ``Kopis.TopLevelNeon.kopis768_keygen,
+   ``Kopis.TopLevelNeon.kopis1024_keygen,
+   ``Kopis.TopLevelNeon.kopis512_keygen_then_encapsulate,
+   ``Kopis.TopLevelNeon.kopis768_keygen_then_encapsulate,
+   ``Kopis.TopLevelNeon.kopis1024_keygen_then_encapsulate,
+   ``Kopis.TopLevelNeon.kopis512_keygen_then_decapsulate,
+   ``Kopis.TopLevelNeon.kopis768_keygen_then_decapsulate,
+   ``Kopis.TopLevelNeon.kopis1024_keygen_then_decapsulate,
+   ``Kopis.TopLevelNeon.pk_serialize_matches_translation,
+   ``Kopis.TopLevelNeon.kopis512_from_bytes_then_encapsulate,
+   ``Kopis.TopLevelNeon.kopis768_from_bytes_then_encapsulate,
+   ``Kopis.TopLevelNeon.kopis1024_from_bytes_then_encapsulate]
+
 /-! ## The check
 
 One row per backend: a label, the namespace its theorems live in, its audited assumptions, and
@@ -358,7 +545,8 @@ open Lean in
 run_cmd do
   let backends : List (String × Name × List String × List Name) :=
     [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited, serialTheorems),
-     ("RustKopisAvx2", `Kopis.TopLevelAvx2, avx2Audited, avx2Theorems)]
+     ("RustKopisAvx2", `Kopis.TopLevelAvx2, avx2Audited, avx2Theorems),
+     ("RustKopisNeon", `Kopis.TopLevelNeon, neonAudited, neonTheorems)]
   let env ← getEnv
   for (label, ns, audited, theorems) in backends do
     -- Footprint.
