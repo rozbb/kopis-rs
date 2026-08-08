@@ -238,6 +238,15 @@ fn invntt(a: &mut [i32; RING_DEG]) {
 /// A ring element in the NTT domain. Coefficients are centered mod-p values, |·| ≤ p/2 + 41.
 // The NTT is an invertible linear map, so a transformed secret is exactly as sensitive as the
 // coefficient-domain one. Zeroize accordingly, matching RingElem.
+//
+// Note on cost: `zeroize` writes an array element by element, each write volatile and each
+// followed by its own optimization barrier, so a 1 KB `NttElem` is 512 unmergeable stores.
+// Dropping an expanded kopis-768 secret key zeroizes three of them, which measures at ~1.3 µs
+// on an M1 against ~0.3 µs for the same bytes cleared by an ordinary memset — about a tenth of
+// key expansion. Routing through `zeroize`'s slice impl instead of its array one does not help
+// (it drops the per-element barriers but the writes stay volatile and so stay unmerged); it
+// would take chunked volatile writes, which is `unsafe`. Left as is deliberately: the volatile
+// guarantee is the point of the type.
 #[derive(Clone, Copy, Zeroize)]
 pub(crate) struct NttElem(pub(crate) [i16; 2 * RING_DEG]);
 

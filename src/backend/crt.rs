@@ -50,15 +50,25 @@
 //! none. The bounds, taken over the worst case q₂ = 10753:
 //!
 //! * Forward: inputs are centered, |a| ≤ q/2, and a Cooley-Tukey level adds at most 0.75q per
-//!   level under the crude per-level budget. The two backends place their interior passes
-//!   *differently*. NEON re-centers after levels 3 and 6 plus a final pass (runs of 3, 3, 2),
-//!   which the crude budget covers: three levels reach at most 2.75q < 3.05q. AVX2 re-centers
-//!   after levels 3 and 7 plus a final pass (runs of 3, 4, 1), and the crude budget does *not*
-//!   cover a four-level run — it predicts 3.5q > 3.05q. AVX2's schedule is safe anyway
-//!   because the ψ magnitudes at its levels 4–7 are small enough: interval propagation with
-//!   the actual per-butterfly ψ values bounds the worst AVX2 lane below 30_700 of 32_767
-//!   (NEON's below 23_700). Anyone reordering the reductions or regenerating the ψ tables must
-//!   redo that propagation; the per-level budget alone does not justify the AVX2 schedule.
+//!   level under the crude per-level budget. Neither backend's schedule is justified by that
+//!   budget alone, and neither uses the same one.
+//!
+//!   The crude figure linearizes a bound that is really multiplicative: a level maps |a| to at
+//!   most |a|·(1 + q/2^17) + q/2, since the ψ are centered (|ψ| ≤ q/2) and the Montgomery
+//!   quotient is an `i16`. Charging 0.75q per level is that bound evaluated at |a| ≈ 3q, so it
+//!   over-counts badly while |a| is small — which is exactly where a run of levels begins.
+//!   Propagating the real bound from a centered start gives, for q₂ = 10753, 1.04q, 1.63q,
+//!   2.26q, 2.95q over four levels — inside the 3.05q an `i16` lane holds, with about 3% to
+//!   spare — and 3.19q on a fifth, which does not fit.
+//!
+//!   So NEON runs **two** passes, re-centering after level 3 and again at the end (runs of 4,
+//!   4). AVX2 re-centers after levels 3 and 7 plus a final pass (runs of 3, 4, 1), resting on
+//!   the sharper, table-dependent version of the same argument: interval propagation with the
+//!   actual per-butterfly ψ values bounds the worst AVX2 lane below 30_700 of 32_767. Anyone
+//!   reordering the reductions or regenerating the ψ tables must redo that propagation. For
+//!   NEON, `forward_growth_fits_an_i16_lane` in `backend::neon::ntt` re-derives the four-level
+//!   figure on every test run, and fails if a fifth level ever starts to fit — which would mean
+//!   the schedule could be cheaper still.
 //! * Inverse: the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so
 //!   the usable bound is 1.52q. Starting under 0.7q, two levels reach 2.66q — as a *sum*,
 //!   which fits — and a Barrett pass after the second, fourth and sixth levels keeps it there.

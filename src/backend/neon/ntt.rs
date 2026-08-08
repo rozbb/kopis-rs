@@ -25,11 +25,16 @@
 //! back. Four groups cover the block, and a group needs only 8 of AArch64's 32 vector
 //! registers, so it stays in registers across all three levels.
 //!
-//! Reductions, stated by level number: forward, a Barrett pass after levels 3 and 6 plus one
-//! at the end (runs of 3, 3, 2, which the crude 0.75q-per-level budget in
-//! [`crate::backend::crt`] covers); inverse, after levels 2, 4 and 6. Note this forward
-//! schedule does *not* match AVX2's, which re-centers after levels 3 and 7 and rests on a
-//! sharper, table-dependent bound — growth bounds do not transfer between the two backends.
+//! Reductions, stated by level number: forward, a Barrett pass after level 3 and one at the end
+//! (runs of 4, 4); inverse, after levels 2, 4 and 6. Four levels to a run is more than the
+//! crude 0.75q-per-level budget in [`crate::backend::crt`] allows, and rests on the sharper
+//! multiplicative bound stated there — [`test::forward_growth_fits_an_i16_lane`] re-derives it.
+//! Note this forward schedule does *not* match AVX2's, which re-centers after levels 3 and 7 on
+//! a table-dependent bound: growth bounds do not transfer between the two backends.
+//!
+//! Both transforms are *blocked*. Only two of the eight levels have butterfly partners outside
+//! a group of eight vectors, so the other six — and every Barrett pass among them — run with
+//! the group held in registers, a group at a time. See [`ntt_block`].
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
@@ -229,6 +234,19 @@ fn inv4<const SECOND: bool>(g: usize) -> (Vec128, Vec128) {
     }
 }
 
+/// Broadcasts ψ entry `k` negated, with its `q⁻¹`-scaled twin — what a Gentleman-Sande
+/// butterfly at a whole-vector level wants. The table entries are centered, so `|ψ| ≤ q/2` and
+/// the negation cannot overflow.
+#[inline]
+#[target_feature(enable = "neon")]
+fn neg_zeta<const SECOND: bool>(k: usize) -> (Vec128, Vec128) {
+    let z = crt::zeta::<SECOND>(k).wrapping_neg();
+    (
+        dup_n_s16(z),
+        dup_n_s16(z.wrapping_mul(crt::qinv::<SECOND>())),
+    )
+}
+
 /// The high half of `a · b`, for 8 lanes.
 ///
 /// AArch64 has no plain 16-bit high-multiply; `sqdmulh` returns the *doubled* high half, so
@@ -284,14 +302,9 @@ fn gs_butterfly(lo: &mut Vec128, hi: &mut Vec128, z: Vec128, zq: Vec128, q: Vec1
     *hi = mont_mul(diff, z, zq, q);
 }
 
-/// Barrett-reduces a whole 256-coefficient block
-#[inline]
-#[target_feature(enable = "neon")]
-fn barrett_block(b: &mut Block, m: Vec128, round: Vec128, q: Vec128) {
-    for i in 0..VECS {
-        store_i16(b, i, barrett(load_i16(b, i), m, round, q));
-    }
-}
+// There is no whole-block Barrett pass any more: every reduction in both transforms happens
+// while the group it applies to is already in registers, so it is a loop over eight `Vec128`
+// rather than a round trip through the block.
 
 /// Transposes 8 vectors as an 8×8 `i16` matrix, in place.
 ///
@@ -348,38 +361,42 @@ fn load_group(b: &Block, g: usize) -> [Vec128; 8] {
     v
 }
 
-/// Transposes group `g` back to coefficient order and stores it
-#[inline]
-#[target_feature(enable = "neon")]
-fn store_group(b: &mut Block, g: usize, v: &mut [Vec128; 8]) {
-    transpose8(v);
-    for j in 0..8 {
-        store_i16(b, 8 * g + j, v[j]);
-    }
-}
-
 // ---------------------------------------------------------------------------------------
 // The transforms
 // ---------------------------------------------------------------------------------------
 
-/// In-place forward negacyclic NTT of one 256-coefficient block, modulo the prime `SECOND`
-/// selects.
+/// In-place forward negacyclic NTT of the 256-coefficient block starting at vector `base` of
+/// `b`, modulo the prime `SECOND` selects.
+///
+/// # Blocking
+///
+/// Only the first two levels have butterfly partners outside a group of eight vectors: level 0
+/// pairs vector `i` with `i + 16` and level 1 pairs `i` with `i + 8`. From level 2 on, `len`
+/// has dropped to 32 coefficients — four vectors — so every partner is inside the same group of
+/// eight, and so are the three transposed levels that follow. So the six remaining levels, and
+/// the two interior Barrett passes among them, are done a group at a time with the group held
+/// in registers: eight vectors plus the constants, well inside AArch64's 32. Only levels 0 and
+/// 1 walk the whole block.
+///
+/// The order in which values meet butterflies, ψ and Barrett is exactly the level-by-level
+/// order of the flat form, so this computes the same integers — it moves where they live, not
+/// what happens to them.
 ///
 /// # Safety
 ///
-/// Requires NEON. The block's values must be centered residues, `|a| ≤ q/2`.
+/// Requires NEON. The block's values must be centered residues, `|a| ≤ q/2`, and vectors
+/// `base .. base + VECS` must be in bounds.
 #[target_feature(enable = "neon")]
-fn ntt_block<const SECOND: bool>(b: &mut Block) {
+fn ntt_block<const SECOND: bool, const N: usize>(b: &mut [i16; N], base: usize) {
     let q = dup_n_s16(crt::q::<SECOND>());
     let bm = dup_n_s16(crt::barrett_m::<SECOND>());
     let round = dup_n_s16(1i16 << (BARRETT_SH - 1));
 
-    // Levels with len ≥ 8: both halves of every butterfly are whole vectors, and ψ is constant
-    // across a block, so it is simply broadcast.
+    // Levels 0 and 1 (len = 128 and 64), whose halves are 16 and 8 vectors apart. ψ is constant
+    // across a butterfly block here, so it is simply broadcast.
     let mut k = 0usize;
     let mut half = 16usize; // len/8, the block half-width in vectors
-    let mut level = 0usize;
-    while half >= 1 {
+    while half >= 8 {
         let mut start = 0usize;
         while start < VECS {
             k += 1;
@@ -387,27 +404,79 @@ fn ntt_block<const SECOND: bool>(b: &mut Block) {
             let zq = dup_n_s16(crt::zeta_q::<SECOND>(k));
             let mut i = start;
             while i < start + half {
-                let mut lo = load_i16(b, i);
-                let mut hi = load_i16(b, i + half);
+                let mut lo = load_i16(b, base + i);
+                let mut hi = load_i16(b, base + i + half);
                 ct_butterfly(&mut lo, &mut hi, z, zq, q);
-                store_i16(b, i, lo);
-                store_i16(b, i + half, hi);
+                store_i16(b, base + i, lo);
+                store_i16(b, base + i + half, hi);
                 i += 1;
             }
             start += 2 * half;
         }
-        // Three levels of Cooley-Tukey growth reach 2.75q; re-center before a fourth.
-        if level == 2 {
-            barrett_block(b, bm, round, q);
-        }
         half /= 2;
-        level += 1;
     }
 
-    // Levels with len < 8: transpose each group of 8 so every lane owns a whole coefficient
-    // block, then three more vertical levels with per-lane ψ.
+    // Levels 2 through 7, one group of eight vectors at a time. The ψ indices are the ones the
+    // flat `k` counter reaches over group `g`: level 2 walks four butterfly blocks in all
+    // (k = 4..8), level 3 eight (k = 8..16) and level 4 sixteen (k = 16..32), so group `g` gets
+    // the g-th, the 2g-th and 2g+1-th, and the 4g..4g+4-th of them respectively.
     for g in 0..4 {
-        let mut v = load_group(b, g);
+        let mut v = [
+            load_i16(b, base + 8 * g),
+            load_i16(b, base + 8 * g + 1),
+            load_i16(b, base + 8 * g + 2),
+            load_i16(b, base + 8 * g + 3),
+            load_i16(b, base + 8 * g + 4),
+            load_i16(b, base + 8 * g + 5),
+            load_i16(b, base + 8 * g + 6),
+            load_i16(b, base + 8 * g + 7),
+        ];
+
+        // Level 2 (len = 32): pair vector i with i + 4, one ψ for the group.
+        let z = dup_n_s16(crt::zeta::<SECOND>(4 + g));
+        let zq = dup_n_s16(crt::zeta_q::<SECOND>(4 + g));
+        for i in 0..4 {
+            let (mut lo, mut hi) = (v[i], v[i + 4]);
+            ct_butterfly(&mut lo, &mut hi, z, zq, q);
+            v[i] = lo;
+            v[i + 4] = hi;
+        }
+
+        // Level 3 (len = 16): pair i with i + 2, a different ψ for each half of the group.
+        for h in 0..2 {
+            let kk = 8 + 2 * g + h;
+            let z = dup_n_s16(crt::zeta::<SECOND>(kk));
+            let zq = dup_n_s16(crt::zeta_q::<SECOND>(kk));
+            for i in 0..2 {
+                let idx = 4 * h + i;
+                let (mut lo, mut hi) = (v[idx], v[idx + 2]);
+                ct_butterfly(&mut lo, &mut hi, z, zq, q);
+                v[idx] = lo;
+                v[idx + 2] = hi;
+            }
+        }
+
+        // Four levels of Cooley-Tukey growth since the last centering; re-center before a
+        // fifth. See the forward-growth note in [`crate::backend::crt`] for why four fit.
+        for slot in v.iter_mut() {
+            *slot = barrett(*slot, bm, round, q);
+        }
+
+        // Level 4 (len = 8): adjacent vectors, a ψ each.
+        for r in 0..4 {
+            let kk = 16 + 4 * g + r;
+            let z = dup_n_s16(crt::zeta::<SECOND>(kk));
+            let zq = dup_n_s16(crt::zeta_q::<SECOND>(kk));
+            let (mut lo, mut hi) = (v[2 * r], v[2 * r + 1]);
+            ct_butterfly(&mut lo, &mut hi, z, zq, q);
+            v[2 * r] = lo;
+            v[2 * r + 1] = hi;
+        }
+
+        // Levels 5 to 7 have len < 8, so they live inside a vector: transpose the group so that
+        // lane `m` owns the whole coefficient block `8g + m`, and they become vertical
+        // butterflies with a per-lane ψ.
+        transpose8(&mut v);
 
         // len = 4: pair k with k+4, one ψ per lane. Group index `g < 4` is in range for a
         // 4-group table.
@@ -419,21 +488,16 @@ fn ntt_block<const SECOND: bool>(b: &mut Block) {
             v[i + 4] = hi;
         }
 
-        // Six levels done since the start; re-center again before the last two.
-        for slot in v.iter_mut() {
-            *slot = barrett(*slot, bm, round, q);
-        }
-
         // len = 2: pair k with k+2; the low pair and the high pair are different blocks and so
         // take different ψ. `2g + h < 8` is in range for an 8-group table.
         for h in 0..2 {
             let (z, zq) = fwd2::<SECOND>(2 * g + h);
             for i in 0..2 {
-                let base = 4 * h + i;
-                let (mut lo, mut hi) = (v[base], v[base + 2]);
+                let idx = 4 * h + i;
+                let (mut lo, mut hi) = (v[idx], v[idx + 2]);
                 ct_butterfly(&mut lo, &mut hi, z, zq, q);
-                v[base] = lo;
-                v[base + 2] = hi;
+                v[idx] = lo;
+                v[idx + 2] = hi;
             }
         }
 
@@ -447,15 +511,28 @@ fn ntt_block<const SECOND: bool>(b: &mut Block) {
             v[2 * r + 1] = hi;
         }
 
-        store_group(b, g, &mut v);
-    }
+        // Leave every coefficient centered, |a| ≤ q/2. Barrett is elementwise, so doing it
+        // before the transpose back rather than in a pass over the stored block is the same
+        // work on the same values.
+        for slot in v.iter_mut() {
+            *slot = barrett(*slot, bm, round, q);
+        }
 
-    // Leaves every coefficient centered, |a| ≤ q/2.
-    barrett_block(b, bm, round, q);
+        transpose8(&mut v);
+        for j in 0..8 {
+            store_i16(b, base + 8 * g + j, v[j]);
+        }
+    }
 }
 
 /// In-place inverse negacyclic NTT of one 256-coefficient block, including the final scaling
 /// that undoes both the 1/256 and the Montgomery factor left by the pointwise step.
+///
+/// Blocked the same way as [`ntt_block`], and for the same reason — mirrored, since
+/// Gentleman-Sande runs the levels in the opposite order. Here it is the *last* two levels
+/// whose partners lie outside a group of eight vectors, so the first six (the three transposed
+/// ones and the three that follow, at len = 8, 16 and 32) are carried through in registers,
+/// interior Barrett passes included.
 ///
 /// # Safety
 ///
@@ -466,7 +543,13 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
     let bm = dup_n_s16(crt::barrett_m::<SECOND>());
     let round = dup_n_s16(1i16 << (BARRETT_SH - 1));
 
-    // Levels with len < 8, in transposed form: len = 1, then 2, then 4.
+    // Levels 0 to 5, one group of eight vectors at a time. The first three have len < 8 and are
+    // done transposed; the next three are vector pairs 1, 2 and 4 apart, all inside the group.
+    //
+    // Gentleman-Sande walks the ψ table downwards, so the flat `k` counter runs 255..128 over
+    // the len = 1 level, 127..64 over len = 2 and 63..32 over len = 4 (which is what the
+    // per-lane tables hold), then 31..16, 15..8 and 7..4 over the three vector-pair levels.
+    // Group `g` takes the g-th slice of each in that descending order.
     for g in 0..4 {
         let mut v = load_group(b, g);
 
@@ -483,11 +566,11 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
         for h in 0..2 {
             let (z, zq) = inv2::<SECOND>(2 * g + h);
             for i in 0..2 {
-                let base = 4 * h + i;
-                let (mut lo, mut hi) = (v[base], v[base + 2]);
+                let idx = 4 * h + i;
+                let (mut lo, mut hi) = (v[idx], v[idx + 2]);
                 gs_butterfly(&mut lo, &mut hi, z, zq, q);
-                v[base] = lo;
-                v[base + 2] = hi;
+                v[idx] = lo;
+                v[idx + 2] = hi;
             }
         }
 
@@ -506,22 +589,61 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
             v[i + 4] = hi;
         }
 
-        store_group(b, g, &mut v);
+        // Back to coefficient order for the three vector-pair levels.
+        transpose8(&mut v);
+
+        // Level 3 (len = 8): adjacent vectors, ψ entries 31 − 4g − r.
+        for r in 0..4 {
+            let (z, zq) = neg_zeta::<SECOND>(31 - 4 * g - r);
+            let (mut lo, mut hi) = (v[2 * r], v[2 * r + 1]);
+            gs_butterfly(&mut lo, &mut hi, z, zq, q);
+            v[2 * r] = lo;
+            v[2 * r + 1] = hi;
+        }
+
+        // Two more levels of doubling since the last re-centering.
+        for slot in v.iter_mut() {
+            *slot = barrett(*slot, bm, round, q);
+        }
+
+        // Level 4 (len = 16): pair i with i + 2, ψ entries 15 − 2g − h.
+        for h in 0..2 {
+            let (z, zq) = neg_zeta::<SECOND>(15 - 2 * g - h);
+            for i in 0..2 {
+                let idx = 4 * h + i;
+                let (mut lo, mut hi) = (v[idx], v[idx + 2]);
+                gs_butterfly(&mut lo, &mut hi, z, zq, q);
+                v[idx] = lo;
+                v[idx + 2] = hi;
+            }
+        }
+
+        // Level 5 (len = 32): pair i with i + 4, ψ entry 7 − g.
+        let (z, zq) = neg_zeta::<SECOND>(7 - g);
+        for i in 0..4 {
+            let (mut lo, mut hi) = (v[i], v[i + 4]);
+            gs_butterfly(&mut lo, &mut hi, z, zq, q);
+            v[i] = lo;
+            v[i + 4] = hi;
+        }
+
+        for slot in v.iter_mut() {
+            *slot = barrett(*slot, bm, round, q);
+        }
+
+        for j in 0..8 {
+            store_i16(b, 8 * g + j, v[j]);
+        }
     }
 
-    // Levels with len ≥ 8. `k` continues downward from where the transposed levels stopped:
-    // they consumed 128 + 64 + 32 = 224 of the 256 ψ entries.
-    let mut k = 32usize;
-    let mut half = 1usize;
-    let mut level = 3usize;
+    // Levels 6 and 7, whose halves are 8 and 16 vectors apart and so cross groups.
+    let mut k = 4usize;
+    let mut half = 8usize;
     while half < VECS {
         let mut start = 0usize;
         while start < VECS {
             k -= 1;
-            // The table entries are centered, so |ψ| ≤ q/2 and the negation cannot overflow.
-            let neg_zeta = crt::zeta::<SECOND>(k).wrapping_neg();
-            let z = dup_n_s16(neg_zeta);
-            let zq = dup_n_s16(neg_zeta.wrapping_mul(crt::qinv::<SECOND>()));
+            let (z, zq) = neg_zeta::<SECOND>(k);
             let mut i = start;
             while i < start + half {
                 let mut lo = load_i16(b, i);
@@ -533,11 +655,7 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
             }
             start += 2 * half;
         }
-        if level == 3 || level == 5 {
-            barrett_block(b, bm, round, q);
-        }
         half *= 2;
-        level += 1;
     }
 
     // One final Montgomery multiply undoes both the 1/256 and the Montgomery factor.
@@ -565,7 +683,8 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
 #[target_feature(enable = "neon")]
 fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
     elem: &[u16; RING_DEG],
-    b: &mut Block,
+    out: &mut [i16; 2 * RING_DEG],
+    base: usize,
 ) {
     let q = dup_n_s16(crt::q::<SECOND>());
     let bm = dup_n_s16(crt::barrett_m::<SECOND>());
@@ -576,10 +695,10 @@ fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
         // extension.
         let x = load_u16(elem, i);
         let x = if REDUCE { barrett(x, bm, round, q) } else { x };
-        store_i16(b, i, x);
+        store_i16(out, base + i, x);
     }
-    // The block is 256 `i16` and now holds centered residues.
-    ntt_block::<SECOND>(b);
+    // Vectors `base .. base + VECS` are 256 `i16` and now hold centered residues.
+    ntt_block::<SECOND, { 2 * RING_DEG }>(out, base);
 }
 
 /// Splits a ring element into both residue blocks and transforms each
@@ -594,19 +713,11 @@ fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
 #[inline]
 #[target_feature(enable = "neon")]
 fn from_ring_elem<const REDUCE: bool>(elem: &[u16; RING_DEG]) -> [i16; 2 * RING_DEG] {
+    // Each prime's transform runs in place in its own half of the output, so there is no
+    // scratch block to copy back out of.
     let mut out = [0i16; 2 * RING_DEG];
-    let mut b = [0i16; RING_DEG];
-
-    split_and_transform::<false, REDUCE>(elem, &mut b);
-    for i in 0..VECS {
-        store_i16(&mut out, i, load_i16(&b, i));
-    }
-
-    split_and_transform::<true, REDUCE>(elem, &mut b);
-    for i in 0..VECS {
-        store_i16(&mut out, VECS + i, load_i16(&b, i));
-    }
-
+    split_and_transform::<false, REDUCE>(elem, &mut out, 0);
+    split_and_transform::<true, REDUCE>(elem, &mut out, VECS);
     out
 }
 
@@ -759,6 +870,53 @@ pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
 mod test {
     use super::*;
 
+    // The forward transform runs four Cooley-Tukey levels between Barrett passes, which fits an
+    // `i16` lane only because the growth per level is `|a|·q/2^17 + q/2` rather than the flat
+    // 0.75q the crude budget in `crate::backend::crt` charges. That is a bound on all inputs,
+    // not a property of any particular one, so check it as such: propagate the bound itself
+    // through the schedule and confirm the largest value it permits still fits.
+    //
+    // This is the whole justification for the two-pass schedule, and it has only 3% of margin,
+    // so it is checked here rather than left to the KATs — which exercise one seed each and
+    // would not notice a lane that wrapped on some other input.
+    #[test]
+    fn forward_growth_fits_an_i16_lane() {
+        // The bound after `n` levels of Cooley-Tukey from a centered start. One level is
+        // `lo ± mont_mul(hi)`, and `|mont_mul(a)| ≤ |a|·q/2^17 + q/2` because the table's ψ are
+        // centered (`|ψ| ≤ q/2`) and the Montgomery quotient is an `i16`; both outputs of the
+        // butterfly are bounded by `|lo| + |mont_mul(hi)|`.
+        //
+        // Every run starts centered: `split_and_transform` Barrett-reduces the uniform input, a
+        // CBD secret is far smaller than q/2 to begin with, and the second run starts from the
+        // Barrett pass that closed the first.
+        fn after(q: f64, levels: usize) -> f64 {
+            let mut m = (q / 2.0).floor();
+            for _ in 0..levels {
+                m = m * (1.0 + q / 131072.0) + q / 2.0;
+            }
+            m
+        }
+
+        // Both runs of the schedule are four levels long, for both primes.
+        for q in [Q1 as f64, Q2 as f64] {
+            let m = after(q, 4);
+            assert!(
+                m <= i16::MAX as f64,
+                "four levels reach {m} for q = {q}, past an i16 lane"
+            );
+        }
+
+        // q₂ is what pins the run length at four: it is the larger prime, growth scales with q,
+        // and a fifth level would not fit. (q₁ would tolerate six, but the two transforms share
+        // one schedule.) This half of the test is the tripwire — if regenerating the tables or
+        // reordering the levels ever makes a fifth level fit for q₂, the schedule can and should
+        // get cheaper.
+        assert!(
+            after(Q2 as f64, 5) > i16::MAX as f64,
+            "five levels now fit for q₂; the schedule could be cheaper still"
+        );
+    }
+
     // The transposed levels are only correct if `transpose8` really does put coefficient block
     // `8g + m` in lane `m` — and if applying it twice gets back to coefficient order.
     #[allow(unsafe_code)]
@@ -777,7 +935,11 @@ mod test {
             for j in 0..8 {
                 store_i16(&mut probe, j, v[j]);
             }
-            store_group(&mut a, 0, &mut v);
+            // The transform's own way back to coefficient order: transpose again and store.
+            transpose8(&mut v);
+            for j in 0..8 {
+                store_i16(&mut a, j, v[j]);
+            }
         }
 
         // Vector `k` lane `m` — linear index 8k + m — must hold what was `v[m]` lane `k`.
