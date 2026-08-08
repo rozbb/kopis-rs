@@ -379,7 +379,8 @@ the coefficients' size: `g` is the *signed* reading of the stored bit pattern, a
 pass centres whatever that is. -/
 
 theorem split_and_transform_loop_red (iter : core.ops.range.Range Usize)
-    (elem : Array U16 256#usize) (b : Array I16 256#usize) (qv bm round : Vec128)
+    (elem : Array U16 256#usize) (out : Array I16 512#usize) (base : Usize)
+    (hbase : 8 * base.val + 256 ≤ 512) (qv bm round : Vec128)
     (q : ℕ) (M : ℤ) (g : ℕ → ℤ)
     (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hM : ∀ i < 8, (lane16 bm i).toInt = M)
     (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
@@ -387,11 +388,12 @@ theorem split_and_transform_loop_red (iter : core.ops.range.Range Usize)
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hend : iter.«end».val = 32) :
-    backend.neon.ntt.split_and_transform_loop true iter elem b qv bm round
-      ⦃ (r : Array I16 256#usize) => ∀ p < 256,
-          if 8 * iter.start.val ≤ p then
-            2 * |(r.val[p]!).val| < (q : ℤ) ∧ posZ q r p = ((g p : ℤ) : ZMod q)
-          else (r.val[p]!).val = (b.val[p]!).val ⦄ := by
+    backend.neon.ntt.split_and_transform_loop true iter elem out base qv bm round
+      ⦃ (r : Array I16 512#usize) => ∀ p < 512,
+          if fromVec base.val iter.start.val p then
+            2 * |(r.val[p]!).val| < (q : ℤ) ∧
+              posZ q r p = ((g (p - 8 * base.val) : ℤ) : ZMod q)
+          else (r.val[p]!).val = (out.val[p]!).val ⦄ := by
   unfold backend.neon.ntt.split_and_transform_loop
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -403,52 +405,66 @@ theorem split_and_transform_loop_red (iter : core.ops.range.Range Usize)
     apply WP.spec_bind (barrett_lane_spec x bm round qv (q : ℤ) M hQ hM hRnd hQpos hQlt hQodd
       hMpos hMlt hD)
     intro x1 hx1
-    obtain ⟨b1, hb1, hb1v⟩ := store_i16_val b iter.start x1 (by omega)
+    let* ⟨ i1, hi1 ⟩ ← Std.Usize.add_spec (x := base) (y := iter.start) (by scalar_tac)
+    have hi1v : i1.val = base.val + iter.start.val := by scalar_tac
+    obtain ⟨b1, hb1, hb1v⟩ := store_i16_gen out i1 x1 (by scalar_tac)
     rw [hb1, bind_tc_ok]
-    apply WP.spec_mono (split_and_transform_loop_red iter1 elem b1 qv bm round q M g hQ hM hRnd
-      hQpos hQlt hQodd hMpos hMlt hD hg (by rw [hend']; exact hend))
+    apply WP.spec_mono (split_and_transform_loop_red iter1 elem b1 base hbase qv bm round q M g
+      hQ hM hRnd hQpos hQlt hQodd hMpos hMlt hD hg (by rw [hend']; exact hend))
     intro r hr p hp
     have hrp := hr p hp
-    by_cases hge : 8 * iter.start.val ≤ p
+    by_cases hge : fromVec base.val iter.start.val p
     · rw [if_pos hge]
-      by_cases hge1 : 8 * iter1.start.val ≤ p
+      by_cases hge1 : fromVec base.val iter1.start.val p
       · rw [if_pos hge1] at hrp
         exact hrp
       · rw [if_neg hge1] at hrp
-        have hval : (r.val[p]!).val = (lane16 x1 (p - 8 * iter.start.val)).toInt := by
+        have hp' : p < 512 := by scalar_tac
+        have hs1 : iter1.start.val = iter.start.val + 1 := by scalar_tac
+        unfold fromVec at hge
+        have hlt8 : p < 8 * i1.val + 8 := by
+          by_contra hc
+          apply hge1
+          unfold fromVec
+          exact ⟨by omega, by omega⟩
+        have hval : (r.val[p]!).val = (lane16 x1 (p - 8 * i1.val)).toInt := by
           rw [hrp, hb1v p hp, if_pos (by omega)]
-        obtain ⟨hdvd, hbnd⟩ := hx1 (p - 8 * iter.start.val) (by omega)
+        obtain ⟨hdvd, hbnd⟩ := hx1 (p - 8 * i1.val) (by omega)
         refine ⟨by rw [hval]; exact hbnd, ?_⟩
         show posZ q r p = _
         unfold posZ
-        rw [hval, ← hg p hp,
-          show (elem.val[p]!).bv.toInt
-            = (lane16 x (p - 8 * iter.start.val)).toInt from by
-              rw [hxl (p - 8 * iter.start.val) (by omega),
-                show 8 * iter.start.val + (p - 8 * iter.start.val) = p from by omega]]
-        have hcast : (((lane16 x1 (p - 8 * iter.start.val)).toInt
-            - (lane16 x (p - 8 * iter.start.val)).toInt : ℤ) : ZMod q) = 0 :=
+        rw [hval, ← hg (p - 8 * base.val) (by omega),
+          show (elem.val[p - 8 * base.val]!).bv.toInt
+            = (lane16 x (p - 8 * i1.val)).toInt from by
+              rw [hxl (p - 8 * i1.val) (by omega),
+                show 8 * iter.start.val + (p - 8 * i1.val)
+                  = p - 8 * base.val from by omega]]
+        have hcast : (((lane16 x1 (p - 8 * i1.val)).toInt
+            - (lane16 x (p - 8 * i1.val)).toInt : ℤ) : ZMod q) = 0 :=
           (ZMod.intCast_zmod_eq_zero_iff_dvd _ q).mpr hdvd
         push_cast at hcast
         linear_combination hcast
     · rw [if_neg hge]
-      rw [if_neg (by omega)] at hrp
+      have hp' : p < 512 := by scalar_tac
+      unfold fromVec at hge
+      rw [if_neg (by unfold fromVec; omega)] at hrp
       rw [hrp, hb1v p hp, if_neg (by omega)]
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]
     refine (WP.spec_ok _).mpr (fun p hp => ?_)
-    rw [if_neg (by scalar_tac)]
+    rw [if_neg (by unfold fromVec; scalar_tac)]
 termination_by 32 - iter.start.val
 decreasing_by scalar_decr_tac
 
 theorem split_and_transform_loop_nored (iter : core.ops.range.Range Usize)
-    (elem : Array U16 256#usize) (b : Array I16 256#usize) (qv bm round : Vec128)
+    (elem : Array U16 256#usize) (out : Array I16 512#usize) (base : Usize)
+    (hbase : 8 * base.val + 256 ≤ 512) (qv bm round : Vec128)
     (g : ℕ → ℤ) (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hend : iter.«end».val = 32) :
-    backend.neon.ntt.split_and_transform_loop false iter elem b qv bm round
-      ⦃ (r : Array I16 256#usize) => ∀ p < 256,
-          if 8 * iter.start.val ≤ p then (r.val[p]!).val = g p
-          else (r.val[p]!).val = (b.val[p]!).val ⦄ := by
+    backend.neon.ntt.split_and_transform_loop false iter elem out base qv bm round
+      ⦃ (r : Array I16 512#usize) => ∀ p < 512,
+          if fromVec base.val iter.start.val p then (r.val[p]!).val = g (p - 8 * base.val)
+          else (r.val[p]!).val = (out.val[p]!).val ⦄ := by
   unfold backend.neon.ntt.split_and_transform_loop
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -457,46 +473,60 @@ theorem split_and_transform_loop_nored (iter : core.ops.range.Range Usize)
     have hi32 : iter.start.val < 32 := by omega
     obtain ⟨x, hx, hxl⟩ := load_u16_spec elem iter.start (by scalar_tac)
     rw [hx, bind_tc_ok, if_neg (by simp), bind_tc_ok]
-    obtain ⟨b1, hb1, hb1v⟩ := store_i16_val b iter.start x (by omega)
+    let* ⟨ i1, hi1 ⟩ ← Std.Usize.add_spec (x := base) (y := iter.start) (by scalar_tac)
+    have hi1v : i1.val = base.val + iter.start.val := by scalar_tac
+    obtain ⟨b1, hb1, hb1v⟩ := store_i16_gen out i1 x (by scalar_tac)
     rw [hb1, bind_tc_ok]
-    apply WP.spec_mono (split_and_transform_loop_nored iter1 elem b1 qv bm round g hg
+    apply WP.spec_mono (split_and_transform_loop_nored iter1 elem b1 base hbase qv bm round g hg
       (by rw [hend']; exact hend))
     intro r hr p hp
     have hrp := hr p hp
-    by_cases hge : 8 * iter.start.val ≤ p
+    have hp' : p < 512 := by scalar_tac
+    have hs1 : iter1.start.val = iter.start.val + 1 := by scalar_tac
+    by_cases hge : fromVec base.val iter.start.val p
     · rw [if_pos hge]
-      by_cases hge1 : 8 * iter1.start.val ≤ p
+      by_cases hge1 : fromVec base.val iter1.start.val p
       · rw [if_pos hge1] at hrp
         exact hrp
       · rw [if_neg hge1] at hrp
-        rw [hrp, hb1v p hp, if_pos (by omega), ← hg p hp,
-          hxl (p - 8 * iter.start.val) (by omega),
-          show 8 * iter.start.val + (p - 8 * iter.start.val) = p from by omega]
+        unfold fromVec at hge
+        have hlt8 : p < 8 * i1.val + 8 := by
+          by_contra hc
+          apply hge1
+          unfold fromVec
+          exact ⟨by omega, by omega⟩
+        rw [hrp, hb1v p hp, if_pos (by omega), ← hg (p - 8 * base.val) (by omega),
+          hxl (p - 8 * i1.val) (by omega),
+          show 8 * iter.start.val + (p - 8 * i1.val) = p - 8 * base.val from by omega]
     · rw [if_neg hge]
-      rw [if_neg (by omega)] at hrp
+      unfold fromVec at hge
+      rw [if_neg (by unfold fromVec; omega)] at hrp
       rw [hrp, hb1v p hp, if_neg (by omega)]
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]
     refine (WP.spec_ok _).mpr (fun p hp => ?_)
-    rw [if_neg (by scalar_tac)]
+    rw [if_neg (by unfold fromVec; scalar_tac)]
 termination_by 32 - iter.start.val
 decreasing_by scalar_decr_tac
 
 /-- **`split_and_transform`, with the reduction.**  The continuation `P` is whatever the caller
 wants of `ntt_block`'s result, so this serves both primes and both `NttOK` directions. -/
 theorem split_and_transform_walk (SECOND : Bool) (elem : Array U16 256#usize)
-    (b : Array I16 256#usize) (g : ℕ → ℤ) (q : ℕ) (M A0 : ℤ) (qc mc : I16)
+    (out : Array I16 512#usize) (base : Usize) (hbase : 8 * base.val + 256 ≤ 512)
+    (g : ℕ → ℤ) (q : ℕ) (M A0 : ℤ) (qc mc : I16)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hqc : backend.crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
     (hmc : backend.crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
     (hQpos : 0 < (q : ℤ)) (hQlt : (q : ℤ) < 2 ^ 14) (hQodd : ¬ (2 ∣ (q : ℤ)))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
-    (hA0 : 2 * A0 + 1 ≥ (q : ℤ)) (P : Array I16 256#usize → Prop)
-    (hnext : ∀ (bb : Array I16 256#usize),
-      BlockBnd bb A0 → (∀ c < 256, posZ q bb c = ((g c : ℤ) : ZMod q)) →
-      backend.neon.ntt.ntt_block SECOND bb ⦃ (r : Array I16 256#usize) => P r ⦄) :
-    backend.neon.ntt.split_and_transform SECOND true elem b
-      ⦃ (r : Array I16 256#usize) => P r ⦄ := by
+    (hA0 : 2 * A0 + 1 ≥ (q : ℤ)) (P : Array I16 512#usize → Prop)
+    (hnext : ∀ (bb : Array I16 512#usize),
+      (∀ p < 512, fromVec base.val 0 p → |(bb.val[p]!).val| ≤ A0) →
+      (∀ p < 512, ¬ fromVec base.val 0 p → (bb.val[p]!).val = (out.val[p]!).val) →
+      (∀ c < 256, posZ q bb (8 * base.val + c) = ((g c : ℤ) : ZMod q)) →
+      backend.neon.ntt.ntt_block SECOND bb base ⦃ (r : Array I16 512#usize) => P r ⦄) :
+    backend.neon.ntt.split_and_transform SECOND true elem out base
+      ⦃ (r : Array I16 512#usize) => P r ⦄ := by
   unfold backend.neon.ntt.split_and_transform
   rw [hqc, bind_tc_ok]
   obtain ⟨qv, hqv, hqvl⟩ := dup_n_s16_spec qc
@@ -517,127 +547,89 @@ theorem split_and_transform_walk (SECOND : Bool) (elem : Array U16 256#usize)
   have hM : ∀ j < 8, (lane16 bm j).toInt = M := fun j hj => by rw [hbml j hj]; exact hmcv
   have hRnd : ∀ j < 8, (lane16 rnd j).toInt = 2 ^ 10 := fun j hj => by
     rw [hrndl j hj]; decide
-  apply WP.spec_bind (split_and_transform_loop_red ⟨0#usize, 32#usize⟩ elem b qv bm rnd q M g
-    hQ hM hRnd hQpos hQlt hQodd hMpos hMlt hD hg rfl)
+  apply WP.spec_bind (split_and_transform_loop_red ⟨0#usize, 32#usize⟩ elem out base hbase
+    qv bm rnd q M g hQ hM hRnd hQpos hQlt hQodd hMpos hMlt hD hg rfl)
   intro b1 hb1
-  exact hnext b1 (fun j hj => by have := (hb1 j hj).1; omega) (fun c hc => (hb1 c hc).2)
+  refine hnext b1 (fun p hp hin => ?_) (fun p hp hout => ?_) (fun c hc => ?_)
+  · have := hb1 p hp
+    rw [if_pos (by unfold fromVec at hin ⊢; scalar_tac)] at this
+    have := this.1
+    omega
+  · have := hb1 p hp
+    rw [if_neg (by unfold fromVec at hout ⊢; scalar_tac)] at this
+    exact this
+  · have := hb1 (8 * base.val + c) (by scalar_tac)
+    rw [if_pos (by unfold fromVec; scalar_tac)] at this
+    have h2 := this.2
+    rwa [show 8 * base.val + c - 8 * base.val = c from by omega] at h2
+
+/-- What one `split_and_transform` call leaves in the window at `base`: centred, congruent to
+the eight-layer forward transform of the input view, and outside the window untouched. -/
+def HalfOK (q : ℕ) (A : ℤ) (ψ : ℕ → ZMod q) (g : ℕ → ℤ) (base : Usize)
+    (out r : Array I16 512#usize) : Prop :=
+  (∀ p < 512, fromVec base.val 0 p → |(r.val[p]!).val| ≤ A) ∧
+  (∀ p < 512, ¬ fromVec base.val 0 p → (r.val[p]!).val = (out.val[p]!).val) ∧
+  (∀ c < 256, posZ q r (8 * base.val + c)
+    = fwdAll q ψ (fun c => ((g c : ℤ) : ZMod q)) c) ∧
+  Kopis.CrtScheme.NttAlg.State ψ 256 1 1 (fun c => ((g c : ℤ) : ZMod q))
+    (fwdAll q ψ (fun c => ((g c : ℤ) : ZMod q)))
 
 open Kopis.CrtScheme.NttAlg in
 /-- `split_and_transform` at `q₁`, with the reduction. -/
-theorem split_and_transform_q1 (elem : Array U16 256#usize) (b : Array I16 256#usize)
+theorem split_and_transform_q1 (elem : Array U16 256#usize) (out : Array I16 512#usize)
+    (base : Usize) (hbase : 8 * base.val + 256 ≤ 512)
     (g : ℕ → ℤ) (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
-    backend.neon.ntt.split_and_transform false true elem b
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r 3840 ∧
-          (∀ c < 256, posZ 7681 r c
-            = fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681)) c) ∧
-          State zeta1 256 1 1 (fun c => ((g c : ℤ) : ZMod 7681))
-            (fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681))) ⦄ :=
-  split_and_transform_walk false elem b g 7681 17474 3840 backend.crt.Q1
+    backend.neon.ntt.split_and_transform false true elem out base
+      ⦃ (r : Array I16 512#usize) => HalfOK 7681 3840 zeta1 g base out r ⦄ :=
+  split_and_transform_walk false elem out base hbase g 7681 17474 3840 backend.crt.Q1
     backend.crt.Q1_BARRETT_M hg
     (by simp only [backend.crt.q, Bool.false_eq_true, if_false]) (by rw [q1_val]; norm_num)
     (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num)
-    (by norm_num) _ (fun bb hb hv => ntt_block_State_q1 bb _ hb hv)
+    (by norm_num) _ (fun bb hb hrest hv => by
+      apply WP.spec_mono (ntt_block_State_q1 bb base _
+        (show 8 * base.val + 256 ≤ (512#usize : Usize).val from hbase)
+        (fun p hp hin => hb p hp hin) hv)
+      rintro r ⟨hr1, hr2, hr3⟩
+      refine ⟨fun p hp hin => ?_, fun p hp hout => ?_, hr2, hr3⟩
+      · have := hr1 p hp
+        rwa [if_pos hin] at this
+      · have := hr1 p hp
+        rw [if_neg hout] at this
+        rw [this]
+        exact hrest p hp hout)
 
 open Kopis.CrtScheme.NttAlg in
 /-- `split_and_transform` at `q₂`, with the reduction. -/
-theorem split_and_transform_q2 (elem : Array U16 256#usize) (b : Array I16 256#usize)
+theorem split_and_transform_q2 (elem : Array U16 256#usize) (out : Array I16 512#usize)
+    (base : Usize) (hbase : 8 * base.val + 256 ≤ 512)
     (g : ℕ → ℤ) (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
-    backend.neon.ntt.split_and_transform true true elem b
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r 5376 ∧
-          (∀ c < 256, posZ 10753 r c
-            = fwdAll 10753 zeta2 (fun c => ((g c : ℤ) : ZMod 10753)) c) ∧
-          State zeta2 256 1 1 (fun c => ((g c : ℤ) : ZMod 10753))
-            (fwdAll 10753 zeta2 (fun c => ((g c : ℤ) : ZMod 10753))) ⦄ :=
-  split_and_transform_walk true elem b g 10753 12482 5376 backend.crt.Q2
+    backend.neon.ntt.split_and_transform true true elem out base
+      ⦃ (r : Array I16 512#usize) => HalfOK 10753 5376 zeta2 g base out r ⦄ :=
+  split_and_transform_walk true elem out base hbase g 10753 12482 5376 backend.crt.Q2
     backend.crt.Q2_BARRETT_M hg
     (by simp only [backend.crt.q, if_true]) (by rw [q2_val]; norm_num)
     (by simp only [backend.crt.barrett_m, if_true]) q2_m_val
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num)
-    (by norm_num) _ (fun bb hb hv => ntt_block_State_q2 bb _ hb hv)
-
-/-! ## `from_ring_elem`
-
-The two transformed blocks go into one `[i16; 512]`, `q₁` first then `q₂`: the `q₁` residues at
-positions `0 … 255` and the `q₂` residues at `256 … 511`, which is the layout
-`pointwise_mul_acc` and `reduce_invntt` both assume. -/
-
-theorem from_ring_elem_loop0_walk (iter : core.ops.range.Range Usize)
-    (out : Array I16 512#usize) (b : Array I16 256#usize) (hend : iter.«end».val = 32)
-    (hpre : ∀ t < 512, t < 8 * iter.start.val → (out.val[t]!).bv = (b.val[t]!).bv) :
-    backend.neon.ntt.from_ring_elem_loop0 iter out b
-      ⦃ (r : Array I16 512#usize) => ∀ t < 256, (r.val[t]!).bv = (b.val[t]!).bv ⦄ := by
-  unfold backend.neon.ntt.from_ring_elem_loop0
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]
-    simp only
-    have hi32 : iter.start.val < 32 := by omega
-    obtain ⟨v, hv, hvl⟩ := load_i16_spec b iter.start (by scalar_tac)
-    rw [hv, bind_tc_ok]
-    obtain ⟨out1, hout1, hout1v⟩ := store_i16_spec out iter.start v (by scalar_tac)
-    rw [hout1, bind_tc_ok]
-    exact from_ring_elem_loop0_walk iter1 out1 b (by rw [hend']; exact hend) (by
-      intro t ht hts
-      rw [hout1v t (by scalar_tac)]
-      by_cases hin : 8 * iter.start.val ≤ t ∧ t < 8 * iter.start.val + 8
-      · rw [if_pos hin, hvl (t - 8 * iter.start.val) (by omega),
-          show 8 * iter.start.val + (t - 8 * iter.start.val) = t from by omega]
-      · rw [if_neg hin]
-        exact hpre t ht (by omega))
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]
-    refine (WP.spec_ok _).mpr (fun t ht => ?_)
-    exact hpre t (by omega) (by scalar_tac)
-termination_by 32 - iter.start.val
-decreasing_by scalar_decr_tac
-
-theorem from_ring_elem_loop1_walk (iter : core.ops.range.Range Usize)
-    (out : Array I16 512#usize) (b b0 : Array I16 256#usize) (hend : iter.«end».val = 32)
-    (hlow : ∀ t < 256, (out.val[t]!).bv = (b0.val[t]!).bv)
-    (hpre : ∀ t < 512, 256 ≤ t → t < 256 + 8 * iter.start.val →
-      (out.val[t]!).bv = (b.val[t - 256]!).bv) :
-    backend.neon.ntt.from_ring_elem_loop1 32#usize iter out b
-      ⦃ (r : Array I16 512#usize) =>
-          (∀ t < 256, (r.val[t]!).bv = (b0.val[t]!).bv) ∧
-          (∀ t < 512, 256 ≤ t → (r.val[t]!).bv = (b.val[t - 256]!).bv) ⦄ := by
-  unfold backend.neon.ntt.from_ring_elem_loop1
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]
-    simp only
-    have hi32 : iter.start.val < 32 := by omega
-    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := 32#usize) (y := iter.start) (by scalar_tac)
-    have hi2v : i2.val = 32 + iter.start.val := by scalar_tac
-    obtain ⟨v, hv, hvl⟩ := load_i16_spec b iter.start (by scalar_tac)
-    rw [hv, bind_tc_ok]
-    obtain ⟨out1, hout1, hout1v⟩ := store_i16_spec out i2 v (by scalar_tac)
-    rw [hout1, bind_tc_ok]
-    exact from_ring_elem_loop1_walk iter1 out1 b b0 (by rw [hend']; exact hend)
-      (by
-        intro t ht
-        rw [hout1v t (by scalar_tac), if_neg (by omega)]
-        exact hlow t ht)
-      (by
-        intro t ht h256 hts
-        rw [hout1v t (by scalar_tac)]
-        by_cases hin : 8 * i2.val ≤ t ∧ t < 8 * i2.val + 8
-        · rw [if_pos hin, show t - 8 * i2.val = t - 256 - 8 * iter.start.val from by omega,
-            hvl (t - 256 - 8 * iter.start.val) (by omega),
-            show 8 * iter.start.val + (t - 256 - 8 * iter.start.val) = t - 256 from by omega]
-        · rw [if_neg hin]
-          exact hpre t ht h256 (by omega))
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]
-    refine (WP.spec_ok _).mpr ⟨hlow, fun t ht h256 => hpre t ht h256 (by scalar_tac)⟩
-termination_by 32 - iter.start.val
-decreasing_by scalar_decr_tac
+    (by norm_num) _ (fun bb hb hrest hv => by
+      apply WP.spec_mono (ntt_block_State_q2 bb base _
+        (show 8 * base.val + 256 ≤ (512#usize : Usize).val from hbase)
+        (fun p hp hin => hb p hp hin) hv)
+      rintro r ⟨hr1, hr2, hr3⟩
+      refine ⟨fun p hp hin => ?_, fun p hp hout => ?_, hr2, hr3⟩
+      · have := hr1 p hp
+        rwa [if_pos hin] at this
+      · have := hr1 p hp
+        rw [if_neg hout] at this
+        rw [this]
+        exact hrest p hp hout)
 
 /-! ## …and what `from_ring_elem` establishes
 
-`NttOK` is the NEON twin of AVX2's: both blocks bounded, and both leaf states reached. -/
+`NttOK` is the NEON twin of AVX2's: both blocks bounded, and both leaf states reached.
+`from_ring_elem` is now two `split_and_transform` calls into the same buffer — the first at
+vector 0, the second at vector `VECS` — so the only bookkeeping is that the second leaves the
+first's half alone. -/
 
 open Kopis.CrtScheme.NttAlg in
 /-- What one `from_ring_elem` call establishes about its output. -/
@@ -650,6 +642,37 @@ def NttOK (g : ℕ → ℤ) (ne : Array I16 512#usize) : Prop :=
     (fun c => (((ne.val[256 + c]!).val : ℤ) : ZMod 10753))
 
 open Kopis.CrtScheme.NttAlg in
+/-- The two halves, assembled.  Shared by the reducing and the non-reducing entry point: they
+differ only in which `split_and_transform` established each half. -/
+theorem NttOK_of_halves (g : ℕ → ℤ) (out b1 r : Array I16 512#usize)
+    (h1 : HalfOK 7681 3840 zeta1 g 0#usize out b1)
+    (h2 : HalfOK 10753 5376 zeta2 g 32#usize b1 r) :
+    NttOK g r := by
+  obtain ⟨hb1b, -, hb1v, hb1s⟩ := h1
+  obtain ⟨hrb, hrr, hrv, hrs⟩ := h2
+  have he1 : ∀ c < 256, (r.val[c]!).val = (b1.val[c]!).val := fun c hc =>
+    hrr c (by omega) (by unfold fromVec; scalar_tac)
+  refine ⟨fun c hc => by rw [he1 c hc]; exact hb1b c (by omega) (by unfold fromVec; scalar_tac),
+    fun c hc => hrb (256 + c) (by omega) (by unfold fromVec; scalar_tac), ?_, ?_⟩
+  · intro n hn r' hr'
+    show (((r.val[n * 1 + r']!).val : ℤ) : ZMod 7681) = _
+    rw [he1 (n * 1 + r') (by omega)]
+    have := hb1v (n * 1 + r') (by omega)
+    unfold posZ at this
+    rw [show (8 : ℕ) * (0#usize : Usize).val + (n * 1 + r') = n * 1 + r' from by scalar_tac]
+      at this
+    rw [this]
+    exact hb1s n hn r' hr'
+  · intro n hn r' hr'
+    show (((r.val[256 + (n * 1 + r')]!).val : ℤ) : ZMod 10753) = _
+    have := hrv (n * 1 + r') (by omega)
+    unfold posZ at this
+    rw [show (8 : ℕ) * (32#usize : Usize).val + (n * 1 + r') = 256 + (n * 1 + r')
+      from by scalar_tac] at this
+    rw [this]
+    exact hrs n hn r' hr'
+
+open Kopis.CrtScheme.NttAlg in
 theorem from_ring_elem_NttOK (elem : Array U16 256#usize) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
     backend.neon.ntt.from_ring_elem true elem
@@ -657,40 +680,12 @@ theorem from_ring_elem_NttOK (elem : Array U16 256#usize) (g : ℕ → ℤ)
   unfold backend.neon.ntt.from_ring_elem
   have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
     simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
-  apply WP.spec_bind (split_and_transform_q1 elem _ g hg)
-  rintro b1 ⟨hb1b, hb1v, hb1s⟩
+  apply WP.spec_bind (split_and_transform_q1 elem _ 0#usize (by scalar_tac) g hg)
+  intro b1 hb1
   rw [hvecs, bind_tc_ok]
-  apply WP.spec_bind (from_ring_elem_loop0_walk ⟨0#usize, 32#usize⟩ _ b1 rfl
-    (by intro t ht hts; scalar_tac))
-  intro out1 hout1
-  apply WP.spec_bind (split_and_transform_q2 elem b1 g hg)
-  rintro b2 ⟨hb2b, hb2v, hb2s⟩
-  apply WP.spec_mono (from_ring_elem_loop1_walk ⟨0#usize, 32#usize⟩ out1 b2 b1 rfl hout1
-    (by intro t ht h256 hts; scalar_tac))
-  rintro r ⟨hlow, hhigh⟩
-  have he1 : ∀ c < 256, (r.val[c]!).val = (b1.val[c]!).val := by
-    intro c hc; rw [show (r.val[c]!).val = (r.val[c]!).bv.toInt from rfl, hlow c hc]; rfl
-  have he2 : ∀ c < 256, (r.val[256 + c]!).val = (b2.val[c]!).val := by
-    intro c hc
-    rw [show (r.val[256 + c]!).val = (r.val[256 + c]!).bv.toInt from rfl,
-      hhigh (256 + c) (by omega) (by omega), show 256 + c - 256 = c from by omega]
-    rfl
-  refine ⟨fun c hc => by rw [he1 c hc]; exact hb1b c hc,
-    fun c hc => by rw [he2 c hc]; exact hb2b c hc, ?_, ?_⟩
-  · intro n hn r' hr'
-    show (((r.val[n * 1 + r']!).val : ℤ) : ZMod 7681) = _
-    rw [he1 (n * 1 + r') (by omega)]
-    have := hb1v (n * 1 + r') (by omega)
-    unfold posZ at this
-    rw [this]
-    exact hb1s n hn r' hr'
-  · intro n hn r' hr'
-    show (((r.val[256 + (n * 1 + r')]!).val : ℤ) : ZMod 10753) = _
-    rw [he2 (n * 1 + r') (by omega)]
-    have := hb2v (n * 1 + r') (by omega)
-    unfold posZ at this
-    rw [this]
-    exact hb2s n hn r' hr'
+  apply WP.spec_mono (split_and_transform_q2 elem b1 32#usize (by scalar_tac) g hg)
+  intro r hr
+  exact NttOK_of_halves g _ b1 r hb1 hr
 
 /-! ## `from_secret`: the same, without the reduction
 
@@ -698,15 +693,18 @@ theorem from_ring_elem_NttOK (elem : Array U16 256#usize) (g : ℕ → ℤ)
 are, being CBD samples stored as wrapping `u16`.  That is the one hypothesis these carry. -/
 
 theorem split_and_transform_nored_walk (SECOND : Bool) (elem : Array U16 256#usize)
-    (b : Array I16 256#usize) (g : ℕ → ℤ) (q : ℕ) (A0 : ℤ) (qc mc : I16)
+    (out : Array I16 512#usize) (base : Usize) (hbase : 8 * base.val + 256 ≤ 512)
+    (g : ℕ → ℤ) (q : ℕ) (A0 : ℤ) (qc mc : I16)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) (hgb : ∀ c < 256, |g c| ≤ A0)
     (hqc : backend.crt.q SECOND = ok qc) (hmc : backend.crt.barrett_m SECOND = ok mc)
-    (P : Array I16 256#usize → Prop)
-    (hnext : ∀ (bb : Array I16 256#usize),
-      BlockBnd bb A0 → (∀ c < 256, posZ q bb c = ((g c : ℤ) : ZMod q)) →
-      backend.neon.ntt.ntt_block SECOND bb ⦃ (r : Array I16 256#usize) => P r ⦄) :
-    backend.neon.ntt.split_and_transform SECOND false elem b
-      ⦃ (r : Array I16 256#usize) => P r ⦄ := by
+    (P : Array I16 512#usize → Prop)
+    (hnext : ∀ (bb : Array I16 512#usize),
+      (∀ p < 512, fromVec base.val 0 p → |(bb.val[p]!).val| ≤ A0) →
+      (∀ p < 512, ¬ fromVec base.val 0 p → (bb.val[p]!).val = (out.val[p]!).val) →
+      (∀ c < 256, posZ q bb (8 * base.val + c) = ((g c : ℤ) : ZMod q)) →
+      backend.neon.ntt.ntt_block SECOND bb base ⦃ (r : Array I16 512#usize) => P r ⦄) :
+    backend.neon.ntt.split_and_transform SECOND false elem out base
+      ⦃ (r : Array I16 512#usize) => P r ⦄ := by
   unfold backend.neon.ntt.split_and_transform
   rw [hqc, bind_tc_ok]
   obtain ⟨qv, hqv, hqvl⟩ := dup_n_s16_spec qc
@@ -722,14 +720,74 @@ theorem split_and_transform_nored_walk (SECOND : Bool) (elem : Array U16 256#usi
   have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
     simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
   rw [hvecs, bind_tc_ok]
-  apply WP.spec_bind (split_and_transform_loop_nored ⟨0#usize, 32#usize⟩ elem b qv bm rnd g hg rfl)
+  apply WP.spec_bind (split_and_transform_loop_nored ⟨0#usize, 32#usize⟩ elem out base hbase
+    qv bm rnd g hg rfl)
   intro b1 hb1
-  have hval : ∀ c < 256, (b1.val[c]!).val = g c := by
+  have hval : ∀ c < 256, (b1.val[8 * base.val + c]!).val = g c := by
     intro c hc
-    have h := hb1 c hc
-    rwa [if_pos (by scalar_tac)] at h
-  exact hnext b1 (fun j hj => by rw [hval j hj]; exact hgb j hj)
-    (fun c hc => by unfold posZ; rw [hval c hc])
+    have h := hb1 (8 * base.val + c) (by scalar_tac)
+    rw [if_pos (by unfold fromVec; scalar_tac),
+      show 8 * base.val + c - 8 * base.val = c from by omega] at h
+    exact h
+  refine hnext b1 (fun p hp hin => ?_) (fun p hp hout => ?_) (fun c hc => ?_)
+  · have h := hb1 p hp
+    rw [if_pos (by unfold fromVec at hin ⊢; scalar_tac)] at h
+    rw [h]
+    have := hgb (p - 8 * base.val) (by unfold fromVec at hin; omega)
+    exact this
+  · have h := hb1 p hp
+    rw [if_neg (by unfold fromVec at hout ⊢; scalar_tac)] at h
+    exact h
+  · unfold posZ
+    rw [hval c hc]
+
+open Kopis.CrtScheme.NttAlg in
+/-- `split_and_transform` at `q₁`, without the reduction. -/
+theorem split_and_transform_nored_q1 (elem : Array U16 256#usize) (out : Array I16 512#usize)
+    (base : Usize) (hbase : 8 * base.val + 256 ≤ 512) (g : ℕ → ℤ)
+    (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) (hgb : ∀ c < 256, |g c| ≤ 3840) :
+    backend.neon.ntt.split_and_transform false false elem out base
+      ⦃ (r : Array I16 512#usize) => HalfOK 7681 3840 zeta1 g base out r ⦄ :=
+  split_and_transform_nored_walk false elem out base hbase g 7681 3840 backend.crt.Q1
+    backend.crt.Q1_BARRETT_M hg hgb
+    (by simp only [backend.crt.q, Bool.false_eq_true, if_false])
+    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) _
+    (fun bb hb hrest hv => by
+      apply WP.spec_mono (ntt_block_State_q1 bb base _
+        (show 8 * base.val + 256 ≤ (512#usize : Usize).val from hbase)
+        (fun p hp hin => hb p hp hin) hv)
+      rintro r ⟨hr1, hr2, hr3⟩
+      refine ⟨fun p hp hin => ?_, fun p hp hout => ?_, hr2, hr3⟩
+      · have := hr1 p hp
+        rwa [if_pos hin] at this
+      · have := hr1 p hp
+        rw [if_neg hout] at this
+        rw [this]
+        exact hrest p hp hout)
+
+open Kopis.CrtScheme.NttAlg in
+/-- `split_and_transform` at `q₂`, without the reduction. -/
+theorem split_and_transform_nored_q2 (elem : Array U16 256#usize) (out : Array I16 512#usize)
+    (base : Usize) (hbase : 8 * base.val + 256 ≤ 512) (g : ℕ → ℤ)
+    (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) (hgb : ∀ c < 256, |g c| ≤ 5376) :
+    backend.neon.ntt.split_and_transform true false elem out base
+      ⦃ (r : Array I16 512#usize) => HalfOK 10753 5376 zeta2 g base out r ⦄ :=
+  split_and_transform_nored_walk true elem out base hbase g 10753 5376 backend.crt.Q2
+    backend.crt.Q2_BARRETT_M hg hgb
+    (by simp only [backend.crt.q, if_true])
+    (by simp only [backend.crt.barrett_m, if_true]) _
+    (fun bb hb hrest hv => by
+      apply WP.spec_mono (ntt_block_State_q2 bb base _
+        (show 8 * base.val + 256 ≤ (512#usize : Usize).val from hbase)
+        (fun p hp hin => hb p hp hin) hv)
+      rintro r ⟨hr1, hr2, hr3⟩
+      refine ⟨fun p hp hin => ?_, fun p hp hout => ?_, hr2, hr3⟩
+      · have := hr1 p hp
+        rwa [if_pos hin] at this
+      · have := hr1 p hp
+        rw [if_neg hout] at this
+        rw [this]
+        exact hrest p hp hout)
 
 open Kopis.CrtScheme.NttAlg in
 theorem from_ring_elem_NttOK_nored (elem : Array U16 256#usize) (g : ℕ → ℤ)
@@ -739,47 +797,13 @@ theorem from_ring_elem_NttOK_nored (elem : Array U16 256#usize) (g : ℕ → ℤ
   unfold backend.neon.ntt.from_ring_elem
   have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
     simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
-  apply WP.spec_bind (split_and_transform_nored_walk false elem _ g 7681 3840 backend.crt.Q1
-    backend.crt.Q1_BARRETT_M hg hgb
-    (by simp only [backend.crt.q, Bool.false_eq_true, if_false])
-    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) _
-    (fun bb hb hv => ntt_block_State_q1 bb _ hb hv))
-  rintro b1 ⟨hb1b, hb1v, hb1s⟩
+  apply WP.spec_bind (split_and_transform_nored_q1 elem _ 0#usize (by scalar_tac) g hg hgb)
+  intro b1 hb1
   rw [hvecs, bind_tc_ok]
-  apply WP.spec_bind (from_ring_elem_loop0_walk ⟨0#usize, 32#usize⟩ _ b1 rfl
-    (by intro t ht hts; scalar_tac))
-  intro out1 hout1
-  apply WP.spec_bind (split_and_transform_nored_walk true elem b1 g 10753 5376 backend.crt.Q2
-    backend.crt.Q2_BARRETT_M hg (fun c hc => le_trans (hgb c hc) (by norm_num))
-    (by simp only [backend.crt.q, if_true]) (by simp only [backend.crt.barrett_m, if_true]) _
-    (fun bb hb hv => ntt_block_State_q2 bb _ hb hv))
-  rintro b2 ⟨hb2b, hb2v, hb2s⟩
-  apply WP.spec_mono (from_ring_elem_loop1_walk ⟨0#usize, 32#usize⟩ out1 b2 b1 rfl hout1
-    (by intro t ht h256 hts; scalar_tac))
-  rintro r ⟨hlow, hhigh⟩
-  have he1 : ∀ c < 256, (r.val[c]!).val = (b1.val[c]!).val := by
-    intro c hc; rw [show (r.val[c]!).val = (r.val[c]!).bv.toInt from rfl, hlow c hc]; rfl
-  have he2 : ∀ c < 256, (r.val[256 + c]!).val = (b2.val[c]!).val := by
-    intro c hc
-    rw [show (r.val[256 + c]!).val = (r.val[256 + c]!).bv.toInt from rfl,
-      hhigh (256 + c) (by omega) (by omega), show 256 + c - 256 = c from by omega]
-    rfl
-  refine ⟨fun c hc => by rw [he1 c hc]; exact hb1b c hc,
-    fun c hc => by rw [he2 c hc]; exact hb2b c hc, ?_, ?_⟩
-  · intro n hn r' hr'
-    show (((r.val[n * 1 + r']!).val : ℤ) : ZMod 7681) = _
-    rw [he1 (n * 1 + r') (by omega)]
-    have := hb1v (n * 1 + r') (by omega)
-    unfold posZ at this
-    rw [this]
-    exact hb1s n hn r' hr'
-  · intro n hn r' hr'
-    show (((r.val[256 + (n * 1 + r')]!).val : ℤ) : ZMod 10753) = _
-    rw [he2 (n * 1 + r') (by omega)]
-    have := hb2v (n * 1 + r') (by omega)
-    unfold posZ at this
-    rw [this]
-    exact hb2s n hn r' hr'
+  apply WP.spec_mono (split_and_transform_nored_q2 elem b1 32#usize (by scalar_tac) g hg
+    (fun c hc => le_trans (hgb c hc) (by norm_num)))
+  intro r hr
+  exact NttOK_of_halves g _ b1 r hb1 hr
 
 /-! ## Two of the eight dispatch points -/
 

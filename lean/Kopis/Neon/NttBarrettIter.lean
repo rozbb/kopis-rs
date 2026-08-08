@@ -60,7 +60,12 @@ theorem sAt_setAtNat (s : Slice Vec128) (i : ℕ) (x : Vec128) (j : ℕ)
   · rw [Slice.getElem_Nat_setAtNat_ne s i j x ⟨Ne.symm h, by simpa [Slice.length] using hj'⟩,
       if_neg h]
 
-/-- **The transposed group's re-centring pass.**  Every vector of the group comes out with
+/-- The two re-centring passes inside the forward group loop are the same loop. -/
+theorem loop1_loop7_eq :
+    @backend.neon.ntt.ntt_block_loop1_loop7 = @backend.neon.ntt.ntt_block_loop1_loop2 := by
+  with_unfolding_all rfl
+
+/-- **The group's re-centring pass.**  Every vector of the group comes out with
 `2·|r| < q`, so `|r| ≤ (q−1)/2` — which is the bound the last two levels start from. -/
 theorem ntt_barrett_iter_bnd (iter : core.slice.iter.IterMut Vec128)
     (back : core.slice.iter.IterMut Vec128 → core.slice.iter.IterMut Vec128)
@@ -80,7 +85,7 @@ theorem ntt_barrett_iter_bnd (iter : core.slice.iter.IterMut Vec128)
       (_him : im.slice.val.length = 8) (j : ℕ) (_hge : iter.i ≤ j)
       (hb : j < (back im).slice.val.length) (hb' : j < im.slice.val.length),
         sAt (back im).slice j hb = sAt im.slice j hb') :
-    backend.neon.ntt.ntt_block_loop1_loop1 iter back qv bm round
+    backend.neon.ntt.ntt_block_loop1_loop2 iter back qv bm round
       ⦃ (r : core.slice.iter.IterMut Vec128 ×
              (core.slice.iter.IterMut Vec128 → core.slice.iter.IterMut Vec128)) =>
           r.1.slice.val.length = 8 ∧
@@ -88,7 +93,7 @@ theorem ntt_barrett_iter_bnd (iter : core.slice.iter.IterMut Vec128)
             (r.2 im).slice.val.length = 8 ∧
             ∀ (j : ℕ) (hj : j < (r.2 im).slice.val.length),
               VecBnd (sAt (r.2 im).slice j hj) ((Q - 1) / 2) ⦄ := by
-  unfold backend.neon.ntt.ntt_block_loop1_loop1
+  unfold backend.neon.ntt.ntt_block_loop1_loop2
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← CbdGeneric.iter_mut_next_spec
     obtain ⟨ho, hit2_slice, hit2_i, hnb_none, hnb_some⟩ := h_all

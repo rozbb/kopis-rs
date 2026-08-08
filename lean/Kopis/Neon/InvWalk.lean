@@ -25,6 +25,26 @@ set_option maxHeartbeats 1000000
 
 /-! ## The transposed levels, in the inverse direction -/
 
+
+/-- **`neg_zeta` broadcasts `−ζ(k)`, as a residue.**  The bound half is
+`Kopis/Neon/InvNttLevel.lean`'s; what is new is the twiddle the layer sees. -/
+theorem neg_zeta_val (SECOND : Bool) (q : ℕ) (Zb : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
+    (kk : Usize) (zi : I16) (hzie : backend.crt.zeta SECOND kk = ok zi) (hzib : |zi.val| ≤ Zb)
+    (hzv : ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val) (hZb : Zb ≤ 2 ^ 14)
+    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+    (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * (q : ℤ) - 1)) :
+    ∃ z zq : Vec128, backend.neon.ntt.neg_zeta SECOND kk = ok (z, zq) ∧
+      (∀ i < 8, |(lane16 z i).toInt| ≤ Zb) ∧
+      (∀ i < 8, (2 ^ 16 : ℤ) ∣ ((lane16 zq i).toInt * (q : ℤ) - (lane16 z i).toInt)) ∧
+      (∀ m < 8, laneZ q z m * Rinv = -(ζ kk.val)) := by
+  obtain ⟨z, zq, he, hzl, hbd, hzq⟩ :=
+    neg_zeta_spec SECOND (q : ℤ) Zb kk zi hzie hzib hZb qic hqinv hqinvu
+  refine ⟨z, zq, he, hbd, hzq, fun m hm => ?_⟩
+  unfold laneZ
+  rw [hzl m hm, ← hzv]
+  push_cast
+  ring
+
 /-- **The `len = 1` transposed level, as residues.**  Pairs `(2r, 2r+1)`, one fresh ψ per
 iteration from `inv1` at table position `4g + r`. -/
 theorem invntt_len1_val (SECOND : Bool) (qv : Vec128) (q : ℕ) (Zb B Bt : ℤ) (Rinv : ZMod q)
@@ -702,31 +722,12 @@ theorem invntt_start_val (SECOND : Bool) (b : Array I16 256#usize) (qv : Vec128)
     let* ⟨ k1, hk1 ⟩ ← Std.Usize.sub_spec (x := k) (y := 1#usize) (by scalar_tac)
     have hk1v : k1.val = 2 * nb - 1 - bIdx := by scalar_tac
     obtain ⟨zi, hzi, hzib, hzpsi⟩ := hzeta k1 (by omega)
-    rw [hzi, bind_tc_ok]
-    obtain ⟨nz, hnze, hnzv, hnzb⟩ := wrapping_neg_exact zi Zb hZb hzib
-    rw [hnze, bind_tc_ok]
-    obtain ⟨z, hze, hzl⟩ := dup_n_s16_spec nz
-    rw [hze, bind_tc_ok, hqinv, bind_tc_ok]
-    simp only [lift, bind_tc_ok]
-    obtain ⟨zq, hzqe, hzql⟩ := dup_n_s16_spec (core.num.I16.wrapping_mul nz qic)
-    rw [hzqe, bind_tc_ok]
-    have hzlv : ∀ i < 8, |(lane16 z i).toInt| ≤ Zb := by
-      intro i hi; rw [hzl i hi]; exact hnzb
-    have hzqlv : ∀ i < 8, (2 ^ 16 : ℤ) ∣ ((lane16 zq i).toInt * (q : ℤ) - (lane16 z i).toInt) := by
-      intro i hi
-      rw [hzl i hi, hzql i hi]
-      have h1 : ((core.num.I16.wrapping_mul nz qic).bv).toInt = tblZq nz.val qic.val := by
-        show ((nz.bv * qic.bv : BitVec 16)).toInt = _
-        rw [BitVec.toInt_mul]
-        rfl
-      rw [h1]
-      exact tblZq_mont nz.val qic.val (q : ℤ) hqinvu
+    obtain ⟨z, zq, hnz, hzlv, hzqlv, hzk'⟩ :=
+      neg_zeta_val SECOND q Zb Rinv ζ k1 zi hzi hzib hzpsi hZb qic hqinv hqinvu
+    rw [hnz, bind_tc_ok]
     have hzk : ∀ m < 8, laneZ q z m * Rinv = -(ζ (2 * nb - 1 - bIdx)) := by
       intro m hm
-      unfold laneZ
-      rw [hzl m hm, show (nz.bv.toInt : ℤ) = -zi.val from hnzv, ← hk1v, ← hzpsi]
-      push_cast
-      ring
+      rw [hzk' m hm, hk1v]
     apply WP.spec_bind (WP.spec_both
       (invntt_inner_bnd b qv z zq (q : ℤ) Zb B Bt C hQ hQpos hQlt hzlv hZb hzqlv hB0 hBZ hBt
         hfit hC1 hC2 half start start hhalf hfits (le_refl _) (by
@@ -815,232 +816,325 @@ theorem invntt_start_val (SECOND : Bool) (b : Array I16 256#usize) (qv : Vec128)
 termination_by 32 - start.val
 decreasing_by scalar_decr_tac
 
-/-! ## The five whole-vector inverse levels
+/-! ## Levels 3, 4 and 5, inverse direction, as residues
 
-`half = 1, 2, 4, 8, 16` with `m' = 8·half` and `nb = 32 / (2·half)`, re-centring after levels 3
-and 5 — the numbering `invntt_block` starts at 3.  The starting `k` is `2·nb` at each level, and
-`invntt_start_val` reports `nb`, which is the next level's `2·nb`. -/
+After the transpose back the group is in coefficient order again, and the last three levels it
+carries take a broadcast `−ζ` — indices `31 − 4g − r` and `15 − 2g − h`.  Level 5 is
+`invntt_len4_val` with a broadcast twiddle and needs nothing new. -/
 
-/-- The five whole-vector inverse layers, as a function of the view they start from. -/
-noncomputable def invH (q : ℕ) (ζ a : ℕ → ZMod q) : ℕ → ZMod q :=
-  gsLvl q ζ 1 128 (gsLvl q ζ 2 64 (gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a))))
-
-theorem invntt_horizontal_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round : Vec128)
-    (q : ℕ) (Zb M B0 T1 C1 Ar T2 C2 T3 C3 T4 C4 T5 C5 : ℤ) (Rinv : ZMod q) (ζ a0 : ℕ → ZMod q)
-    (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
-    (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hQpos : 0 < (q : ℤ))
-    (hQ14 : (q : ℤ) < 2 ^ 14) (hQodd : ¬ (2 ∣ (q : ℤ))) (hZb : Zb ≤ 2 ^ 14)
-    (hM : ∀ i < 8, (lane16 bm i).toInt = M) (hMpos : 0 < M) (hMlt : M < 2 ^ 15)
-    (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
-    (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
+theorem invntt_lvl3_val (SECOND : Bool) (qv : Vec128) (q : ℕ) (Zb B Bt : ℤ) (Rinv : ZMod q)
+    (ζ : ℕ → ZMod q) (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
+    (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hQpos : 0 < (q : ℤ)) (hQlt : (q : ℤ) ≤ 2 ^ 14)
+    (hZb : Zb ≤ 2 ^ 14)
+    (hB0 : 0 ≤ B) (hBZ : 2 * B * Zb < 2 ^ 15 * (q : ℤ))
+    (hBt : 2 * B * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Bt) (hfit : 2 * B ≤ 32767)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
         backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val)
     (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * (q : ℤ) - 1))
-    (hB0 : 0 ≤ B0) (hAr : 0 ≤ Ar) (hC2 : 0 ≤ C2) (hC4 : 0 ≤ C4)
-    (hreset : ((q : ℤ) - 1) / 2 ≤ Ar)
-    (l3 : GSLevel (q : ℤ) Zb B0 T1 C1) (l4 : GSLevel (q : ℤ) Zb Ar T2 C2)
-    (l5 : GSLevel (q : ℤ) Zb C2 T3 C3) (l6 : GSLevel (q : ℤ) Zb Ar T4 C4)
-    (l7 : GSLevel (q : ℤ) Zb C4 T5 C5)
+    (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
+    (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 4)
+    (hv : ∀ j (hj : j < 8), pend1 iter.start.val j → VecBnd (vAt v j hj) B) :
+    backend.neon.ntt.invntt_block_loop0_loop4 SECOND iter qv g v
+      ⦃ (r : Array Vec128 8#usize) => ∀ j (hj : j < 8), ∀ m < 8,
+          if 2 * iter.start.val ≤ j then
+            (if j % 2 = 0 then
+              laneZ q (vAt r j hj) m = laneZ q (vAt v (2 * (j / 2)) (by omega)) m
+                + laneZ q (vAt v (2 * (j / 2) + 1) (by omega)) m
+            else
+              laneZ q (vAt r j hj) m = -(ζ (31 - (4 * g.val + j / 2)))
+                * (laneZ q (vAt v (2 * (j / 2)) (by omega)) m
+                    - laneZ q (vAt v (2 * (j / 2) + 1) (by omega)) m))
+          else laneZ q (vAt r j hj) m = laneZ q (vAt v j hj) m ⦄ := by
+  unfold backend.neon.ntt.invntt_block_loop0_loop4
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]
+    simp only
+    have hr4 : iter.start.val < 4 := by omega
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := g) (by scalar_tac)
+    let* ⟨ i0, hi0 ⟩ ← Std.Usize.sub_spec (x := 31#usize) (y := i) (by scalar_tac)
+    let* ⟨ i1, hi1 ⟩ ← Std.Usize.sub_spec (x := i0) (y := iter.start) (by scalar_tac)
+    have hi1v : i1.val = 31 - (4 * g.val + iter.start.val) := by scalar_tac
+    obtain ⟨zi, hzie, hzib, hzv⟩ := hzeta i1 (by scalar_tac)
+    obtain ⟨z, zq, hzt, hz, hzq, hzpsi⟩ :=
+      neg_zeta_val SECOND q Zb Rinv ζ i1 zi hzie hzib hzv hZb qic hqinv hqinvu
+    rw [hzt, bind_tc_ok]
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.mul_spec (x := 2#usize) (y := iter.start) (by scalar_tac)
+    have hi2v : i2.val = 2 * iter.start.val := by scalar_tac
+    let* ⟨ lo, hlo ⟩ ← Array.index_usize_spec v i2 (by scalar_tac)
+    have hloe : lo = vAt v i2.val (by omega) := by rw [hlo]; rfl
+    let* ⟨ i3, hi3 ⟩ ← Std.Usize.add_spec (x := i2) (y := 1#usize) (by scalar_tac)
+    have hi3v : i3.val = i2.val + 1 := by scalar_tac
+    let* ⟨ hiv, hhi ⟩ ← Array.index_usize_spec v i3 (by scalar_tac)
+    have hhie : hiv = vAt v i3.val (by omega) := by rw [hhi]; rfl
+    apply WP.spec_bind (WP.spec_both
+      (gs_butterfly_spec lo hiv z zq qv (q : ℤ) Zb B Bt hQ hQpos hQlt hz hZb hzq
+        (by rw [hloe]; exact hv _ (by omega) ⟨by omega, by omega⟩)
+        (by rw [hhie]; exact hv _ (by omega) ⟨by omega, by omega⟩)
+        hB0 hBZ hBt hfit)
+      (gs_butterfly_val lo hiv z zq qv q Zb B Bt Rinv hR hQ hQpos hQlt hz hZb hzq
+        (by rw [hloe]; exact hv _ (by omega) ⟨by omega, by omega⟩)
+        (by rw [hhie]; exact hv _ (by omega) ⟨by omega, by omega⟩)
+        hB0 hBZ hBt hfit))
+    rintro ⟨lo1, hi1'⟩ ⟨⟨hlo1b, hhi1b, -⟩, hbutval⟩
+    show (do let v1 ← Array.update v i2 lo1
+             let i4 ← i2 + 1#usize
+             let a ← Array.update v1 i4 hi1'
+             backend.neon.ntt.invntt_block_loop0_loop4 SECOND iter1 qv g a)
+        ⦃ (r : Array Vec128 8#usize) => ∀ j (hj : j < 8), ∀ m < 8,
+            if 2 * iter.start.val ≤ j then
+              (if j % 2 = 0 then
+                laneZ q (vAt r j hj) m = laneZ q (vAt v (2 * (j / 2)) (by omega)) m
+                  + laneZ q (vAt v (2 * (j / 2) + 1) (by omega)) m
+              else
+                laneZ q (vAt r j hj) m = -(ζ (31 - (4 * g.val + j / 2)))
+                  * (laneZ q (vAt v (2 * (j / 2)) (by omega)) m
+                      - laneZ q (vAt v (2 * (j / 2) + 1) (by omega)) m))
+            else laneZ q (vAt r j hj) m = laneZ q (vAt v j hj) m ⦄
+    let* ⟨ v1, hv1 ⟩ ← Array.update_spec
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i2) (y := 1#usize) (by scalar_tac)
+    have hi4v : i4.val = i2.val + 1 := by scalar_tac
+    let* ⟨ a, ha ⟩ ← Array.update_spec
+    have hav : ∀ j (hj : j < 8), vAt a j hj =
+        if j = i4.val then hi1' else if j = i2.val then lo1 else vAt v j hj := by
+      intro j hj
+      rw [ha, vAt_set, hv1, vAt_set]
+    have havZ : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt a j hj) m =
+        if j = i4.val then laneZ q hi1' m
+        else if j = i2.val then laneZ q lo1 m else laneZ q (vAt v j hj) m := by
+      intro j hj m hm
+      rw [hav j hj]
+      split
+      · rfl
+      · split <;> rfl
+    apply WP.spec_mono (invntt_lvl3_val SECOND qv q Zb B Bt Rinv ζ hR hQ hQpos hQlt hZb hB0 hBZ
+      hBt hfit hzeta qic hqinv hqinvu g hg a iter1 (by rw [hend']; exact hend) (by
+        intro j hj hpend
+        rw [hav j hj, if_neg (by unfold pend1 at hpend; omega),
+          if_neg (by unfold pend1 at hpend; omega)]
+        exact hv j hj (by unfold pend1 at hpend ⊢; omega)))
+    intro r hr j hj m hm
+    have hrj := hr j hj m hm
+    have hlo1v : laneZ q lo1 m = laneZ q (vAt v i2.val (by omega)) m
+        + laneZ q (vAt v i3.val (by omega)) m := by
+      have hb := (hbutval m hm).1
+      rw [hloe, hhie] at hb
+      exact hb
+    have hhi1v : laneZ q hi1' m = -(ζ i1.val)
+        * (laneZ q (vAt v i2.val (by omega)) m - laneZ q (vAt v i3.val (by omega)) m) := by
+      have hb := (hbutval m hm).2
+      rw [hzpsi m hm, hloe, hhie] at hb
+      exact hb
+    by_cases hge : 2 * iter.start.val ≤ j
+    · rw [if_pos hge]
+      by_cases hnext : 2 * iter1.start.val ≤ j
+      · rw [if_pos hnext] at hrj
+        by_cases hpar : j % 2 = 0
+        · rw [if_pos hpar] at hrj ⊢
+          rw [hrj, havZ (2 * (j / 2)) (by omega) m hm, havZ (2 * (j / 2) + 1) (by omega) m hm,
+            if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+        · rw [if_neg hpar] at hrj ⊢
+          rw [hrj, havZ (2 * (j / 2)) (by omega) m hm, havZ (2 * (j / 2) + 1) (by omega) m hm,
+            if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
+      · rw [if_neg hnext] at hrj
+        rw [hrj, havZ j hj m hm]
+        by_cases hpar : j % 2 = 0
+        · rw [if_pos hpar, if_neg (by omega), if_pos (by omega), hlo1v,
+            vAt_congr v (by omega) (by omega) (show i2.val = 2 * (j / 2) from by omega),
+            vAt_congr v (by omega) (by omega) (show i3.val = 2 * (j / 2) + 1 from by omega)]
+        · rw [if_neg hpar, if_pos (by omega), hhi1v,
+            vAt_congr v (by omega) (by omega) (show i2.val = 2 * (j / 2) from by omega),
+            vAt_congr v (by omega) (by omega) (show i3.val = 2 * (j / 2) + 1 from by omega),
+            show i1.val = 31 - (4 * g.val + j / 2) from by omega]
+    · rw [if_neg hge]
+      rw [if_neg (by omega)] at hrj
+      rw [hrj, havZ j hj m hm, if_neg (by omega), if_neg (by omega)]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]
+    refine (WP.spec_ok _).mpr (fun j hj m hm => ?_)
+    rw [if_neg (by omega)]
+termination_by iter.«end».val - iter.start.val
+decreasing_by scalar_decr_tac
+
+theorem invntt_lvl4_val (SECOND : Bool) (qv : Vec128) (q : ℕ) (Zb B Bt C : ℤ)
+    (Rinv : ZMod q) (ζ : ℕ → ZMod q) (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
+    (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hQpos : 0 < (q : ℤ)) (hQlt : (q : ℤ) ≤ 2 ^ 14)
+    (hZb : Zb ≤ 2 ^ 14)
+    (hB0 : 0 ≤ B) (hBZ : 2 * B * Zb < 2 ^ 15 * (q : ℤ))
+    (hBt : 2 * B * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Bt) (hfit : 2 * B ≤ 32767)
+    (hC1 : 2 * B ≤ C) (hC2 : Bt ≤ C)
+    (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
+        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+        ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val)
+    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+    (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * (q : ℤ) - 1))
+    (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
+    (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 2)
+    (hv : ∀ j (hj : j < 8), 4 * iter.start.val ≤ j → VecBnd (vAt v j hj) B) :
+    backend.neon.ntt.invntt_block_loop0_loop6 SECOND iter qv g v
+      ⦃ (r : Array Vec128 8#usize) => ∀ j (hj : j < 8), ∀ m < 8,
+          if 4 * iter.start.val ≤ j then
+            (if j % 4 < 2 then
+              laneZ q (vAt r j hj) m = laneZ q (vAt v (4 * (j / 4) + j % 2) (by omega)) m
+                + laneZ q (vAt v (4 * (j / 4) + j % 2 + 2) (by omega)) m
+            else
+              laneZ q (vAt r j hj) m = -(ζ (15 - (2 * g.val + j / 4)))
+                * (laneZ q (vAt v (4 * (j / 4) + j % 2) (by omega)) m
+                    - laneZ q (vAt v (4 * (j / 4) + j % 2 + 2) (by omega)) m))
+          else laneZ q (vAt r j hj) m = laneZ q (vAt v j hj) m ⦄ := by
+  unfold backend.neon.ntt.invntt_block_loop0_loop6
+  by_cases hlt : iter.start.val < iter.«end».val
+  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
+    rw [ho]
+    simp only
+    have hh2 : iter.start.val < 2 := by omega
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 2#usize) (y := g) (by scalar_tac)
+    let* ⟨ i0, hi0 ⟩ ← Std.Usize.sub_spec (x := 15#usize) (y := i) (by scalar_tac)
+    let* ⟨ i1, hi1 ⟩ ← Std.Usize.sub_spec (x := i0) (y := iter.start) (by scalar_tac)
+    have hi1v : i1.val = 15 - (2 * g.val + iter.start.val) := by scalar_tac
+    obtain ⟨zi, hzie, hzib, hzv⟩ := hzeta i1 (by scalar_tac)
+    obtain ⟨z, zq, hzt, hz, hzq, hzpsi⟩ :=
+      neg_zeta_val SECOND q Zb Rinv ζ i1 zi hzie hzib hzv hZb qic hqinv hqinvu
+    rw [hzt, bind_tc_ok, invntt_loop0_loop6_loop0_eq]
+    apply WP.spec_bind (WP.spec_both
+      (invntt_len2_bnd qv z zq (q : ℤ) Zb B Bt C hQ hQpos hQlt hz hZb hzq hB0 hBZ hBt hfit
+        hC1 hC2 v iter.start hh2 ⟨0#usize, 2#usize⟩ rfl (by
+          intro j hj hpend
+          exact hv j hj (by unfold pend2 at hpend; scalar_tac)))
+      (invntt_len2_val qv z zq q Zb B Bt Rinv (fun _ => -(ζ i1.val)) hR (fun m hm => hzpsi m hm) hQ hQpos
+        hQlt hz hZb hzq hB0 hBZ hBt hfit v iter.start hh2 ⟨0#usize, 2#usize⟩ rfl (by
+          intro j hj hpend
+          exact hv j hj (by unfold pend2 at hpend; scalar_tac))))
+    rintro v1 ⟨hv1b, hv1v⟩
+    have hz0 : ((⟨0#usize, 2#usize⟩ : core.ops.range.Range Usize)).start.val = 0 := by scalar_tac
+    simp only [hz0, Nat.add_zero] at hv1v
+    apply WP.spec_mono (invntt_lvl4_val SECOND qv q Zb B Bt C Rinv ζ hR hQ hQpos hQlt hZb
+      hB0 hBZ hBt hfit hC1 hC2 hzeta qic hqinv hqinvu g hg v1 iter1 (by rw [hend']; exact hend) (by
+        intro j hj hge
+        have h := hv1b j hj
+        rw [if_neg (by unfold pend2; omega)] at h
+        rw [h]
+        exact hv j hj (by omega)))
+    intro r hr j hj m hm
+    have hrj := hr j hj m hm
+    have hvj := hv1v j hj m hm
+    by_cases hge : 4 * iter.start.val ≤ j
+    · rw [if_pos hge]
+      by_cases hnext : 4 * iter1.start.val ≤ j
+      · rw [if_pos hnext] at hrj
+        have hp1 := hv1v (4 * (j / 4) + j % 2) (by omega) m hm
+        have hp2 := hv1v (4 * (j / 4) + j % 2 + 2) (by omega) m hm
+        rw [if_neg (by omega), if_neg (by omega)] at hp1
+        rw [if_neg (by omega), if_neg (by omega)] at hp2
+        by_cases hpar : j % 4 < 2
+        · rw [if_pos hpar] at hrj ⊢
+          rw [hrj, hp1, hp2]
+        · rw [if_neg hpar] at hrj ⊢
+          rw [hrj, hp1, hp2]
+      · rw [if_neg hnext] at hrj
+        rw [hrj]
+        have hjq : j / 4 = iter.start.val := by omega
+        have hpsi : -(ζ i1.val) = -(ζ (15 - (2 * g.val + j / 4))) := by rw [hi1v, hjq]
+        by_cases hpar : j % 4 < 2
+        · rw [if_pos hpar]
+          rw [if_pos (show 4 * iter.start.val ≤ j ∧ j < 4 * iter.start.val + 2 from
+            ⟨by omega, by omega⟩)] at hvj
+          rw [hvj]
+        · rw [if_neg hpar]
+          rw [if_neg (show ¬ (4 * iter.start.val ≤ j ∧ j < 4 * iter.start.val + 2) from
+              by omega),
+            if_pos (show 4 * iter.start.val + 2 ≤ j ∧ j < 4 * iter.start.val + 4 from
+              ⟨by omega, by omega⟩)] at hvj
+          rw [hvj, hpsi]
+    · rw [if_neg hge]
+      rw [if_neg (by omega)] at hrj
+      rw [if_neg (by omega), if_neg (by omega)] at hvj
+      rw [hrj, hvj]
+  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
+    rw [hnone]
+    refine (WP.spec_ok _).mpr (fun j hj m hm => ?_)
+    rw [if_neg (by omega)]
+termination_by iter.«end».val - iter.start.val
+decreasing_by scalar_decr_tac
+
+/-! ## The two whole-vector inverse levels
+
+`half = 8` then `half = 16`, with `m' = 8·half` and `nb = 32 / (2·half)`.  Both of the schedule's
+last two reductions have already happened inside the group, so there is no re-centring pass here.
+The starting `k` is `2·nb` at each level, and `invntt_start_val` reports `nb`, which is the next
+level's `2·nb`. -/
+
+/-- The two whole-vector inverse layers, as a function of the view they start from. -/
+noncomputable def invH (q : ℕ) (ζ a : ℕ → ZMod q) : ℕ → ZMod q :=
+  gsLvl q ζ 1 128 (gsLvl q ζ 2 64 a)
+
+theorem invntt_horizontal_val (SECOND : Bool) (b : Array I16 256#usize) (qv : Vec128)
+    (q : ℕ) (Zb B0 T6 C6 T7 C7 : ℤ) (Rinv : ZMod q) (ζ a0 : ℕ → ZMod q)
+    (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
+    (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hQpos : 0 < (q : ℤ))
+    (hQ14 : (q : ℤ) < 2 ^ 14) (hZb : Zb ≤ 2 ^ 14)
+    (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
+        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+        ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val)
+    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+    (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * (q : ℤ) - 1))
+    (hB0 : 0 ≤ B0) (hC6 : 0 ≤ C6)
+    (l6 : GSLevel (q : ℤ) Zb B0 T6 C6) (l7 : GSLevel (q : ℤ) Zb C6 T7 C7)
     (hb : BlockBnd b B0) (hf : ∀ c < 256, posZ q b c = a0 c) :
-    backend.neon.ntt.invntt_block_loop1 SECOND b qv bm round 32#usize 1#usize 3#usize
+    backend.neon.ntt.invntt_block_loop1 SECOND b qv 4#usize 8#usize
       ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄ := by
+          BlockBnd r C7 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄ := by
   have hQ14' : (q : ℤ) ≤ 2 ^ 14 := by omega
   have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
     simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
-  -- a residue-preserving Barrett pass
-  have hbar : ∀ (x y : Array I16 256#usize), (∀ j < 256,
-      (q : ℤ) ∣ ((y.val[j]!).val - (x.val[j]!).val)) →
-      ∀ c < 256, posZ q y c = posZ q x c := by
-    intro x y hd c hc
-    have hcast : (((y.val[c]!).val - (x.val[c]!).val : ℤ) : ZMod q) = 0 :=
-      (ZMod.intCast_zmod_eq_zero_iff_dvd _ q).mpr (hd c hc)
-    push_cast at hcast
-    unfold posZ
-    linear_combination hcast
-
-  -- level 3: half = 1, nb = 16
-  unfold backend.neon.ntt.invntt_block_loop1
-  rw [hvecs, bind_tc_ok, if_pos (show (1#usize : Usize) < 32#usize by decide)]
-  apply WP.spec_bind (invntt_start_val SECOND b qv q Zb B0 T1 C1 Rinv ζ a0 16 0 hR hQ hQpos
-    hQ14' hZb (by omega) l3.bz l3.bt l3.fit l3.c1 l3.c2 hzeta qic hqinv hqinvu
-    32#usize 32#usize 1#usize 0#usize rfl (by scalar_tac) (by scalar_tac) (by scalar_tac)
-    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb p hp)
-    (by intro c hc; rw [hf c hc, if_neg (by scalar_tac)]))
-  rintro ⟨b1, k1⟩ ⟨hsb1, hvb1, hkb1⟩
-  have hvb1n : ∀ c < 256, posZ q b1 c = gsLvl q ζ 16 8 a0 c := by
-    intro c hc
-    have h := hvb1 c hc
-    rwa [show (8 : ℕ) * (1#usize : Usize).val = 8 from by scalar_tac] at h
-  show (do let b2 ← if (3#usize : Usize) = 3#usize
-                    then backend.neon.ntt.barrett_block b1 bm round qv
-                    else if (3#usize : Usize) = 5#usize
-                    then backend.neon.ntt.barrett_block b1 bm round qv
-                    else ok b1
-           let half1 ← (1#usize : Usize) * 2#usize
-           let level1 ← (3#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b2 qv bm round k1 half1 level1)
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [if_pos rfl]
-  apply WP.spec_bind (barrett_block_spec b1 bm round qv (q : ℤ) M hQ hM hRnd hQpos hQ14 hQodd
-    hMpos hMlt hD)
-  rintro b1r ⟨hrb1, hrres1⟩
-  show (do let half1 ← (1#usize : Usize) * 2#usize
-           let level1 ← (3#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b1r qv bm round k1 half1 level1)
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [show (1#usize : Usize) * 2#usize = ok 2#usize from
-      usize_mul_two _ _ (by scalar_tac), bind_tc_ok,
-    usize_add_one' (3#usize) (4#usize) (by scalar_tac), bind_tc_ok]
-  have hb1r : BlockBnd b1r Ar := hrb1.mono hreset
-  have hvb1r : ∀ c < 256, posZ q b1r c = gsLvl q ζ 16 8 a0 c := by
-    intro c hc; rw [hbar b1 b1r hrres1 c hc]; exact hvb1n c hc
-  have hk1 : k1 = 16#usize := UScalar.eq_of_val_eq (by scalar_tac)
-  subst hk1
-
-  -- level 4: half = 2, nb = 8
-  unfold backend.neon.ntt.invntt_block_loop1
-  rw [hvecs, bind_tc_ok, if_pos (show (2#usize : Usize) < 32#usize by decide)]
-  apply WP.spec_bind (invntt_start_val SECOND b1r qv q Zb Ar T2 C2 Rinv ζ (gsLvl q ζ 16 8 a0)
-    8 0 hR hQ hQpos hQ14' hZb (by omega) l4.bz l4.bt l4.fit l4.c1 l4.c2 hzeta qic hqinv hqinvu
-    32#usize 16#usize 2#usize 0#usize rfl (by scalar_tac) (by scalar_tac) (by scalar_tac)
-    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb1r p hp)
-    (by intro c hc; rw [hvb1r c hc, if_neg (by scalar_tac)]))
-  rintro ⟨b2, k2⟩ ⟨hsb2, hvb2, hkb2⟩
-  have hvb2n : ∀ c < 256, posZ q b2 c = gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0) c := by
-    intro c hc
-    have h := hvb2 c hc
-    rwa [show (8 : ℕ) * (2#usize : Usize).val = 16 from by scalar_tac] at h
-  show (do let b2' ← if (4#usize : Usize) = 3#usize
-                     then backend.neon.ntt.barrett_block b2 bm round qv
-                     else if (4#usize : Usize) = 5#usize
-                     then backend.neon.ntt.barrett_block b2 bm round qv
-                     else ok b2
-           let half1 ← (2#usize : Usize) * 2#usize
-           let level1 ← (4#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b2' qv bm round k2 half1 level1)
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [if_neg (by decide), if_neg (by decide), bind_tc_ok]
-  rw [show (2#usize : Usize) * 2#usize = ok 4#usize from
-      usize_mul_two _ _ (by scalar_tac), bind_tc_ok,
-    usize_add_one' (4#usize) (5#usize) (by scalar_tac), bind_tc_ok]
-  have hb2 : BlockBnd b2 C2 := blockBnd_of_inv_start hsb2
-  have hk2 : k2 = 8#usize := UScalar.eq_of_val_eq (by scalar_tac)
-  subst hk2
-
-  -- level 5: half = 4, nb = 4
-  unfold backend.neon.ntt.invntt_block_loop1
-  rw [hvecs, bind_tc_ok, if_pos (show (4#usize : Usize) < 32#usize by decide)]
-  apply WP.spec_bind (invntt_start_val SECOND b2 qv q Zb C2 T3 C3 Rinv ζ
-    (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0)) 4 0 hR hQ hQpos hQ14' hZb (by omega) l5.bz l5.bt
-    l5.fit l5.c1 l5.c2 hzeta qic hqinv hqinvu
-    32#usize 8#usize 4#usize 0#usize rfl (by scalar_tac) (by scalar_tac) (by scalar_tac)
-    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb2 p hp)
-    (by intro c hc; rw [hvb2n c hc, if_neg (by scalar_tac)]))
-  rintro ⟨b3, k3⟩ ⟨hsb3, hvb3, hkb3⟩
-  have hvb3n : ∀ c < 256, posZ q b3 c
-      = gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0)) c := by
-    intro c hc
-    have h := hvb3 c hc
-    rwa [show (8 : ℕ) * (4#usize : Usize).val = 32 from by scalar_tac] at h
-  show (do let b2' ← if (5#usize : Usize) = 3#usize
-                     then backend.neon.ntt.barrett_block b3 bm round qv
-                     else if (5#usize : Usize) = 5#usize
-                     then backend.neon.ntt.barrett_block b3 bm round qv
-                     else ok b3
-           let half1 ← (4#usize : Usize) * 2#usize
-           let level1 ← (5#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b2' qv bm round k3 half1 level1)
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [if_neg (by decide), if_pos rfl]
-  apply WP.spec_bind (barrett_block_spec b3 bm round qv (q : ℤ) M hQ hM hRnd hQpos hQ14 hQodd
-    hMpos hMlt hD)
-  rintro b3r ⟨hrb3, hrres3⟩
-  show (do let half1 ← (4#usize : Usize) * 2#usize
-           let level1 ← (5#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b3r qv bm round k3 half1 level1)
-      ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [show (4#usize : Usize) * 2#usize = ok 8#usize from
-      usize_mul_two _ _ (by scalar_tac), bind_tc_ok,
-    usize_add_one' (5#usize) (6#usize) (by scalar_tac), bind_tc_ok]
-  have hb3r : BlockBnd b3r Ar := hrb3.mono hreset
-  have hvb3r : ∀ c < 256, posZ q b3r c
-      = gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0)) c := by
-    intro c hc; rw [hbar b3 b3r hrres3 c hc]; exact hvb3n c hc
-  have hk3 : k3 = 4#usize := UScalar.eq_of_val_eq (by scalar_tac)
-  subst hk3
 
   -- level 6: half = 8, nb = 2
   unfold backend.neon.ntt.invntt_block_loop1
   rw [hvecs, bind_tc_ok, if_pos (show (8#usize : Usize) < 32#usize by decide)]
-  apply WP.spec_bind (invntt_start_val SECOND b3r qv q Zb Ar T4 C4 Rinv ζ
-    (gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0))) 2 0 hR hQ hQpos hQ14' hZb (by omega)
-    l6.bz l6.bt l6.fit l6.c1 l6.c2 hzeta qic hqinv hqinvu
+  apply WP.spec_bind (invntt_start_val SECOND b qv q Zb B0 T6 C6 Rinv ζ a0
+    2 0 hR hQ hQpos hQ14' hZb (by omega) l6.bz l6.bt l6.fit l6.c1 l6.c2 hzeta qic hqinv hqinvu
     32#usize 4#usize 8#usize 0#usize rfl (by scalar_tac) (by scalar_tac) (by scalar_tac)
-    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb3r p hp)
-    (by intro c hc; rw [hvb3r c hc, if_neg (by scalar_tac)]))
-  rintro ⟨b4, k4⟩ ⟨hsb4, hvb4, hkb4⟩
-  have hvb4n : ∀ c < 256, posZ q b4 c
-      = gsLvl q ζ 2 64 (gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0))) c := by
+    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb p hp)
+    (by intro c hc; rw [hf c hc, if_neg (by scalar_tac)]))
+  rintro ⟨b1, k1⟩ ⟨hsb1, hvb1, hkb1⟩
+  have hvb1n : ∀ c < 256, posZ q b1 c = gsLvl q ζ 2 64 a0 c := by
     intro c hc
-    have h := hvb4 c hc
+    have h := hvb1 c hc
     rwa [show (8 : ℕ) * (8#usize : Usize).val = 64 from by scalar_tac] at h
-  show (do let b2' ← if (6#usize : Usize) = 3#usize
-                     then backend.neon.ntt.barrett_block b4 bm round qv
-                     else if (6#usize : Usize) = 5#usize
-                     then backend.neon.ntt.barrett_block b4 bm round qv
-                     else ok b4
-           let half1 ← (8#usize : Usize) * 2#usize
-           let level1 ← (6#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b2' qv bm round k4 half1 level1)
+  show (do let half1 ← (8#usize : Usize) * 2#usize
+           backend.neon.ntt.invntt_block_loop1 SECOND b1 qv k1 half1)
       ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [if_neg (by decide), if_neg (by decide), bind_tc_ok]
+          BlockBnd r C7 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
   rw [show (8#usize : Usize) * 2#usize = ok 16#usize from
-      usize_mul_two _ _ (by scalar_tac), bind_tc_ok,
-    usize_add_one' (6#usize) (7#usize) (by scalar_tac), bind_tc_ok]
-  have hb4 : BlockBnd b4 C4 := blockBnd_of_inv_start hsb4
-  have hk4 : k4 = 2#usize := UScalar.eq_of_val_eq (by scalar_tac)
-  subst hk4
+      usize_mul_two _ _ (by scalar_tac), bind_tc_ok]
+  have hb1 : BlockBnd b1 C6 := blockBnd_of_inv_start hsb1
+  have hk1 : k1 = 2#usize := UScalar.eq_of_val_eq (by scalar_tac)
+  subst hk1
 
   -- level 7: half = 16, nb = 1
   unfold backend.neon.ntt.invntt_block_loop1
   rw [hvecs, bind_tc_ok, if_pos (show (16#usize : Usize) < 32#usize by decide)]
-  apply WP.spec_bind (invntt_start_val SECOND b4 qv q Zb C4 T5 C5 Rinv ζ
-    (gsLvl q ζ 2 64 (gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 a0)))) 1 0 hR hQ hQpos
-    hQ14' hZb (by omega) l7.bz l7.bt l7.fit l7.c1 l7.c2 hzeta qic hqinv hqinvu
+  apply WP.spec_bind (invntt_start_val SECOND b1 qv q Zb C6 T7 C7 Rinv ζ (gsLvl q ζ 2 64 a0)
+    1 0 hR hQ hQpos hQ14' hZb (by omega) l7.bz l7.bt l7.fit l7.c1 l7.c2 hzeta qic hqinv hqinvu
     32#usize 2#usize 16#usize 0#usize rfl (by scalar_tac) (by scalar_tac) (by scalar_tac)
-    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb4 p hp)
-    (by intro c hc; rw [hvb4n c hc, if_neg (by scalar_tac)]))
-  rintro ⟨b5, k5⟩ ⟨hsb5, hvb5, hkb5⟩
-  have hvb5n : ∀ c < 256, posZ q b5 c = invH q ζ a0 c := by
+    (by scalar_tac) (by scalar_tac) (by omega) (by omega) (fun p hp _ => hb1 p hp)
+    (by intro c hc; rw [hvb1n c hc, if_neg (by scalar_tac)]))
+  rintro ⟨b2, k2⟩ ⟨hsb2, hvb2, hkb2⟩
+  have hvb2n : ∀ c < 256, posZ q b2 c = invH q ζ a0 c := by
     intro c hc
-    have h := hvb5 c hc
+    have h := hvb2 c hc
     rwa [show (8 : ℕ) * (16#usize : Usize).val = 128 from by scalar_tac] at h
-  show (do let b2' ← if (7#usize : Usize) = 3#usize
-                     then backend.neon.ntt.barrett_block b5 bm round qv
-                     else if (7#usize : Usize) = 5#usize
-                     then backend.neon.ntt.barrett_block b5 bm round qv
-                     else ok b5
-           let half1 ← (16#usize : Usize) * 2#usize
-           let level1 ← (7#usize : Usize) + 1#usize
-           backend.neon.ntt.invntt_block_loop1 SECOND b2' qv bm round k5 half1 level1)
+  show (do let half1 ← (16#usize : Usize) * 2#usize
+           backend.neon.ntt.invntt_block_loop1 SECOND b2 qv k2 half1)
       ⦃ (r : Array I16 256#usize) =>
-          BlockBnd r C5 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
-  rw [if_neg (by decide), if_neg (by decide), bind_tc_ok]
+          BlockBnd r C7 ∧ ∀ c < 256, posZ q r c = invH q ζ a0 c ⦄
   rw [show (16#usize : Usize) * 2#usize = ok 32#usize from
-      usize_mul_two _ _ (by scalar_tac), bind_tc_ok,
-    usize_add_one' (7#usize) (8#usize) (by scalar_tac), bind_tc_ok]
+      usize_mul_two _ _ (by scalar_tac), bind_tc_ok]
   unfold backend.neon.ntt.invntt_block_loop1
   rw [hvecs, bind_tc_ok, if_neg (by decide)]
-  exact (WP.spec_ok _).mpr ⟨blockBnd_of_inv_start hsb5, hvb5n⟩
+  exact (WP.spec_ok _).mpr ⟨blockBnd_of_inv_start hsb2, hvb2n⟩
 
 /-! ## The three inverse transposed layers, in coefficient coordinates
 
@@ -1290,20 +1384,74 @@ theorem invntt_barrett_iter_val (iter : core.slice.iter.IterMut Vec128)
     exact hback_writes im him j (by rw [hback_len im him] at hj; omega) hj m hm
 
 
-/-! ## The four transposed groups, inverse direction -/
+/-! ## The four groups, inverse direction
+
+Six levels per group: the three transposed ones, a transpose back, and the three vector pairings
+that still fit inside eight vectors, with a re-centring pass after the second, the fourth and the
+sixth. -/
 
 /-- The three transposed inverse layers, as a function of the view they start from. -/
 noncomputable def invT (q : ℕ) (ζ a0 : ℕ → ZMod q) : ℕ → ZMod q :=
-  gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0))
+  gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8
+    (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))))
 
+/-! ## The three inverse layers the group carries *after* the transpose back
+
+Coefficient order again, so lane `m` of vector `j` is coefficient `64g + 8j + m`, and the ζ
+index of a Gentleman-Sande layer, `2·nb − 1 − b`, comes out as `31 − 4g − j/2`, `15 − 2g − j/4`
+and `7 − g` — exactly the `neg_zeta` arguments the Rust computes. -/
+
+theorem gsLvl_lvl3 (q : ℕ) (ζ a0 : ℕ → ZMod q) (g j m : ℕ) (_hj : j < 8) (hm : m < 8) :
+    gsLvl q ζ 16 8 a0 (64 * g + 8 * j + m) =
+      if j % 2 = 0 then a0 (64 * g + 8 * j + m) + a0 (64 * g + 8 * j + m + 8)
+      else (-(ζ (31 - (4 * g + j / 2))))
+          * (a0 (64 * g + 8 * j + m - 8) - a0 (64 * g + 8 * j + m)) := by
+  unfold gsLvl
+  rw [show (64 * g + 8 * j + m) % (2 * 8) = (8 * j + m) % 16 from by omega,
+    show 2 * 16 - 1 - (64 * g + 8 * j + m) / (2 * 8) = 31 - (4 * g + j / 2) from by omega]
+  by_cases h : j % 2 = 0
+  · rw [if_pos (by omega), if_pos h]
+  · rw [if_neg (by omega), if_neg h]
+
+theorem gsLvl_lvl4 (q : ℕ) (ζ a0 : ℕ → ZMod q) (g j m : ℕ) (_hj : j < 8) (hm : m < 8) :
+    gsLvl q ζ 8 16 a0 (64 * g + 8 * j + m) =
+      if j % 4 < 2 then a0 (64 * g + 8 * j + m) + a0 (64 * g + 8 * j + m + 16)
+      else (-(ζ (15 - (2 * g + j / 4))))
+          * (a0 (64 * g + 8 * j + m - 16) - a0 (64 * g + 8 * j + m)) := by
+  unfold gsLvl
+  rw [show (64 * g + 8 * j + m) % (2 * 16) = (8 * j + m) % 32 from by omega,
+    show 2 * 8 - 1 - (64 * g + 8 * j + m) / (2 * 16) = 15 - (2 * g + j / 4) from by omega]
+  by_cases h : j % 4 < 2
+  · rw [if_pos (by omega), if_pos h]
+  · rw [if_neg (by omega), if_neg h]
+
+theorem gsLvl_lvl5 (q : ℕ) (ζ a0 : ℕ → ZMod q) (g j m : ℕ) (hj : j < 8) (hm : m < 8) :
+    gsLvl q ζ 4 32 a0 (64 * g + 8 * j + m) =
+      if j < 4 then a0 (64 * g + 8 * j + m) + a0 (64 * g + 8 * j + m + 32)
+      else (-(ζ (7 - g))) * (a0 (64 * g + 8 * j + m - 32) - a0 (64 * g + 8 * j + m)) := by
+  unfold gsLvl
+  rw [show (64 * g + 8 * j + m) % (2 * 32) = 8 * j + m from by omega,
+    show 2 * 4 - 1 - (64 * g + 8 * j + m) / (2 * 32) = 7 - g from by omega]
+  by_cases h : j < 4
+  · rw [if_pos (by omega), if_pos h]
+  · rw [if_neg (by omega), if_neg h]
+
+set_option maxRecDepth 8000 in
+set_option maxHeartbeats 16000000 in
 theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round : Vec128)
-    (q : ℕ) (Zb M Ain T1 C1 T2 C2 Ar T4 C3 : ℤ) (Rinv : ZMod q) (ζ a0 : ℕ → ZMod q)
+    (q : ℕ) (Zb M Ain T0 C0 T1 C1 Ar T2 C2 T3 C3 T4 C4 T5 C5 : ℤ) (Rinv : ZMod q)
+    (ζ a0 : ℕ → ZMod q)
     (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
     (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hQpos : 0 < (q : ℤ))
     (hQ14 : (q : ℤ) < 2 ^ 14) (hQodd : ¬ (2 ∣ (q : ℤ))) (hZb : Zb ≤ 2 ^ 14)
     (hM : ∀ i < 8, (lane16 bm i).toInt = M) (hMpos : 0 < M) (hMlt : M < 2 ^ 15)
     (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
     (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
+    (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
+        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+        ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val)
+    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+    (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * (q : ℤ) - 1))
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
         backend.neon.ntt.inv4 SECOND kk = ok (z, zq) ∧ PsiOk z zq (q : ℤ) Zb ∧
         ∀ m < 8, laneZ q z m * Rinv = -(ζ (63 - (8 * kk.val + m))))
@@ -1315,16 +1463,19 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
         backend.neon.ntt.inv1 SECOND kk = ok (z, zq) ∧ PsiOk z zq (q : ℤ) Zb ∧
         ∀ m < 8, laneZ q z m * Rinv
           = -(ζ (255 - (32 * (kk.val / 4) + 4 * m + kk.val % 4))))
-    (hAin : 0 ≤ Ain) (hC1 : 0 ≤ C1) (hAr : 0 ≤ Ar) (hreset : ((q : ℤ) - 1) / 2 ≤ Ar)
-    (g1 : GSLevel (q : ℤ) Zb Ain T1 C1) (g2 : GSLevel (q : ℤ) Zb C1 T2 C2) (hCB : C1 ≤ C2)
-    (g4 : GSLevel (q : ℤ) Zb Ar T4 C3)
+    (hAin : 0 ≤ Ain) (hC0 : 0 ≤ C0) (hAr : 0 ≤ Ar) (hC2 : 0 ≤ C2) (hC4 : 0 ≤ C4)
+    (hreset : ((q : ℤ) - 1) / 2 ≤ Ar)
+    (g0 : GSLevel (q : ℤ) Zb Ain T0 C0) (g1 : GSLevel (q : ℤ) Zb C0 T1 C1) (hCB01 : C0 ≤ C1)
+    (g2 : GSLevel (q : ℤ) Zb Ar T2 C2) (g3 : GSLevel (q : ℤ) Zb C2 T3 C3)
+    (g4 : GSLevel (q : ℤ) Zb Ar T4 C4) (g5 : GSLevel (q : ℤ) Zb C4 T5 C5)
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 4)
     (hb : ∀ p < 256, 64 * iter.start.val ≤ p → |(b.val[p]!).val| ≤ Ain)
     (hva : ∀ c < 256, posZ q b c =
         if c < 64 * iter.start.val then invT q ζ a0 c else a0 c) :
     backend.neon.ntt.invntt_block_loop0 SECOND iter b qv bm round
       ⦃ (r : Array I16 256#usize) =>
-          (∀ p < 256, if 64 * iter.start.val ≤ p then |(r.val[p]!).val| ≤ C3
+          (∀ p < 256, if 64 * iter.start.val ≤ p then
+              |(r.val[p]!).val| ≤ ((q : ℤ) - 1) / 2
             else (r.val[p]!).val = (b.val[p]!).val) ∧
           (∀ c < 256, posZ q r c = invT q ζ a0 c) ⦄ := by
   unfold backend.neon.ntt.invntt_block_loop0
@@ -1350,19 +1501,19 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       exact this
     -- `len = 1`
     apply WP.spec_bind (WP.spec_both
-      (invntt_len1_bnd SECOND qv (q : ℤ) Zb Ain T1 C1 hQ hQpos (by omega) hZb
-        hAin g1.bz g1.bt g1.fit g1.c1 g1.c2 (fun kk hkk => by
+      (invntt_len1_bnd SECOND qv (q : ℤ) Zb Ain T0 C0 hQ hQpos (by omega) hZb
+        hAin g0.bz g0.bt g0.fit g0.c1 g0.c2 (fun kk hkk => by
           obtain ⟨z, zq, he, hp, -⟩ := htbl1 kk hkk
           exact ⟨z, zq, he, hp.1, hp.2⟩)
         g hgi v ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hvb j hj))
-      (invntt_len1_val SECOND qv q Zb Ain T1 Rinv
+      (invntt_len1_val SECOND qv q Zb Ain T0 Rinv
         (fun kk m => -(ζ (255 - (32 * (kk / 4) + 4 * m + kk % 4)))) hR hQ hQpos (by omega) hZb
-        hAin g1.bz g1.bt g1.fit (fun kk hkk => by
+        hAin g0.bz g0.bt g0.fit (fun kk hkk => by
           obtain ⟨z, zq, he, hp, hv⟩ := htbl1 kk hkk
           exact ⟨z, zq, he, hp.1, hp.2, hv⟩)
         g hgi v ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hvb j hj)))
     rintro v0 ⟨hv0, hv0v⟩
-    have hv0b : ∀ j (hj : j < 8), VecBnd (vAt v0 j hj) C1 := by
+    have hv0b : ∀ j (hj : j < 8), VecBnd (vAt v0 j hj) C0 := by
       intro j hj
       have := hv0 j hj
       rw [if_pos (by unfold pend1; scalar_tac)] at this
@@ -1392,19 +1543,19 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
           show 64 * g.val + 8 * m + (2 * (k / 2) + 1) = 64 * g.val + 8 * m + k from by omega]
     -- `len = 2`
     apply WP.spec_bind (WP.spec_both
-      (invntt_len2_outer_bnd SECOND qv (q : ℤ) Zb C1 T2 C2 hQ hQpos (by omega) hZb
-        hC1 g2.bz g2.bt g2.fit g2.c1 g2.c2 hCB (fun kk hkk => by
+      (invntt_len2_outer_bnd SECOND qv (q : ℤ) Zb C0 T1 C1 hQ hQpos (by omega) hZb
+        hC0 g1.bz g1.bt g1.fit g1.c1 g1.c2 hCB01 (fun kk hkk => by
           obtain ⟨z, zq, he, hp, -⟩ := htbl2 kk hkk
           exact ⟨z, zq, he, hp.1, hp.2⟩)
         g hgi v0 ⟨0#usize, 2#usize⟩ rfl (fun j hj _ => hv0b j hj))
-      (invntt_len2_outer_val SECOND qv q Zb C1 T2 C2 Rinv
+      (invntt_len2_outer_val SECOND qv q Zb C0 T1 C1 Rinv
         (fun kk m => -(ζ (127 - (16 * (kk / 2) + 2 * m + kk % 2)))) hR hQ hQpos (by omega) hZb
-        hC1 g2.bz g2.bt g2.fit g2.c1 g2.c2 (fun kk hkk => by
+        hC0 g1.bz g1.bt g1.fit g1.c1 g1.c2 (fun kk hkk => by
           obtain ⟨z, zq, he, hp, hv⟩ := htbl2 kk hkk
           exact ⟨z, zq, he, hp.1, hp.2, hv⟩)
         g hgi v0 ⟨0#usize, 2#usize⟩ rfl (fun j hj _ => hv0b j hj)))
     rintro v1 ⟨hv1, hv1v⟩
-    have hv1b : ∀ j (hj : j < 8), VecBnd (vAt v1 j hj) C2 := by
+    have hv1b : ∀ j (hj : j < 8), VecBnd (vAt v1 j hj) C1 := by
       intro j hj
       have := hv1 j hj
       rw [if_pos (by scalar_tac)] at this
@@ -1464,64 +1615,48 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     rintro ⟨im, bk⟩ ⟨⟨him_len, hbk⟩, hbkv⟩
     obtain ⟨hbk_len, hbk_bnd⟩ := hbk im him_len
     obtain ⟨z4, zq4, hz4e, ⟨hz4, hzq4⟩, hz4v⟩ := htbl4 g hgi
-    show (do let (z, zq) ← backend.neon.ntt.inv4 SECOND g
-             let v3 ← backend.neon.ntt.invntt_block_loop0_loop3
-                        { start := 0#usize, «end» := 4#usize } qv (to_back (imb (bk im))) z zq
-             let (b1, _) ← backend.neon.ntt.store_group b g v3
-             backend.neon.ntt.invntt_block_loop0 SECOND iter1 b1 qv bm round)
-        ⦃ (r : Array I16 256#usize) =>
-            (∀ p < 256, if 64 * g.val ≤ p then |(r.val[p]!).val| ≤ C3
-              else (r.val[p]!).val = (b.val[p]!).val) ∧
-            (∀ c < 256, posZ q r c = invT q ζ a0 c) ⦄
-    rw [hz4e, bind_tc_ok]
-    show (do let v3 ← backend.neon.ntt.invntt_block_loop0_loop3
-                        { start := 0#usize, «end» := 4#usize } qv (to_back (imb (bk im))) z4 zq4
-             let (b1, _) ← backend.neon.ntt.store_group b g v3
-             backend.neon.ntt.invntt_block_loop0 SECOND iter1 b1 qv bm round)
-        ⦃ (r : Array I16 256#usize) =>
-            (∀ p < 256, if 64 * g.val ≤ p then |(r.val[p]!).val| ≤ C3
-              else (r.val[p]!).val = (b.val[p]!).val) ∧
-            (∀ c < 256, posZ q r c = invT q ζ a0 c) ⦄
+    apply WP.spec_bind (show backend.neon.ntt.inv4 SECOND g
+        ⦃ (p : Vec128 × Vec128) => p.1 = z4 ∧ p.2 = zq4 ⦄ from by
+      rw [hz4e]; exact (WP.spec_ok _).mpr ⟨rfl, rfl⟩)
+    rintro ⟨z, zq⟩ ⟨rfl, rfl⟩
     set a := to_back (imb (bk im)) with ha_def
     have ha_val : a.val = (bk im).slice.val := by
       rw [ha_def, hi2_back, hto_back]
       exact Std.Array.from_slice_val _ _ (by rw [hbk_len]; simp)
+    have haeq : ∀ j (hj : j < 8), ∃ hjb : j < (bk im).slice.val.length,
+        vAt a j hj = sAt (bk im).slice j hjb := by
+      intro j hj
+      refine ⟨by rw [hbk_len]; omega, ?_⟩
+      unfold vAt sAt
+      exact List.getElem_of_eq ha_val _
     have hab : ∀ j (hj : j < 8), VecBnd (vAt a j hj) Ar := by
       intro j hj
-      have hjb : j < (bk im).slice.val.length := by rw [hbk_len]; omega
-      have := hbk_bnd j hjb
-      have heq : vAt a j hj = sAt (bk im).slice j hjb := by
-        unfold vAt sAt
-        exact List.getElem_of_eq ha_val _
+      obtain ⟨hjb, heq⟩ := haeq j hj
       rw [heq]
-      exact this.mono hreset
+      exact (hbk_bnd j hjb).mono hreset
     have haZ : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt a j hj) m
         = gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0) (64 * g.val + 8 * m + j) := by
       intro j hj m hm
-      have hjb : j < (bk im).slice.val.length := by rw [hbk_len]; omega
-      have heq : vAt a j hj = sAt (bk im).slice j hjb := by
-        unfold vAt sAt
-        exact List.getElem_of_eq ha_val _
+      obtain ⟨hjb, heq⟩ := haeq j hj
       rw [heq]
       exact hbkv im him_len j hjb m hm
-    -- `len = 4`
+    -- level 2, `len = 4`
     apply WP.spec_bind (WP.spec_both
-      (invntt_len4_bnd qv z4 zq4 (q : ℤ) Zb Ar T4 C3 hQ hQpos (by omega) hz4 hZb hzq4
-        hAr g4.bz g4.bt g4.fit g4.c1 g4.c2 a ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hab j hj))
-      (invntt_len4_val qv z4 zq4 q Zb Ar T4 Rinv (fun m => -(ζ (63 - (8 * g.val + m)))) hR
-        (fun m hm => hz4v m hm) hQ hQpos (by omega) hz4 hZb hzq4 hAr g4.bz g4.bt g4.fit
+      (invntt_len4_bnd qv z zq (q : ℤ) Zb Ar T2 C2 hQ hQpos (by omega) hz4 hZb hzq4
+        hAr g2.bz g2.bt g2.fit g2.c1 g2.c2 a ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hab j hj))
+      (invntt_len4_val qv z zq q Zb Ar T2 Rinv (fun m => -(ζ (63 - (8 * g.val + m)))) hR
+        (fun m hm => hz4v m hm) hQ hQpos (by omega) hz4 hZb hzq4 hAr g2.bz g2.bt g2.fit
         a ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hab j hj)))
     rintro v3 ⟨hv3, hv3v⟩
-    have hv3b : ∀ j (hj : j < 8), VecBnd (vAt v3 j hj) C3 := by
+    have hv3b : ∀ j (hj : j < 8), VecBnd (vAt v3 j hj) C2 := by
       intro j hj
       have := hv3 j hj
       rw [if_pos (by unfold pend4; scalar_tac)] at this
       exact this
-    have hv3Z : ∀ k (hk : k < 8), ∀ m < 8,
-        laneZ q (vAt v3 k hk) m = invT q ζ a0 (64 * g.val + 8 * m + k) := by
+    have hv3Z : ∀ k (hk : k < 8), ∀ m < 8, laneZ q (vAt v3 k hk) m
+        = gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)) (64 * g.val + 8 * m + k) := by
       intro k hk m hm
       have h := hv3v k hk m hm
-      unfold invT
       rw [gsLvl_group4 q ζ (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)) g.val m k hm hk]
       by_cases hk4 : k < 4
       · rw [if_pos (show ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
@@ -1536,44 +1671,349 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
         rw [h, if_neg hk4, haZ (k % 4) (by omega) m hm, haZ (k % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * m + k % 4 = 64 * g.val + 8 * m + k - 4 from by omega,
           show 64 * g.val + 8 * m + (k % 4 + 4) = 64 * g.val + 8 * m + k from by omega]
-    -- store the group back
-    apply WP.spec_bind (store_group_spec b g hgi v3)
-    rintro ⟨b1, unused⟩ hb1
-    show backend.neon.ntt.invntt_block_loop0 SECOND iter1 b1 qv bm round
-        ⦃ (r : Array I16 256#usize) =>
-            (∀ p < 256, if 64 * g.val ≤ p then |(r.val[p]!).val| ≤ C3
-              else (r.val[p]!).val = (b.val[p]!).val) ∧
-            (∀ c < 256, posZ q r c = invT q ζ a0 c) ⦄
-    have hb1Z : ∀ c < 256, posZ q b1 c =
+    -- back to coefficient order
+    apply WP.spec_bind (WP.spec_both (transpose8_bnd v3 C2 hv3b)
+      (transpose8_val v3 q (fun k m =>
+        gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)) (64 * g.val + 8 * m + k)) hv3Z))
+    rintro v4 ⟨hv4b, hv4Z⟩
+    -- level 3
+    apply WP.spec_bind (WP.spec_both
+      (invntt_lvl3_bnd SECOND qv (q : ℤ) Zb C2 T3 C3 hQ hQpos (by omega) hZb
+        hC2 g3.bz g3.bt g3.fit g3.c1 g3.c2 (fun kk hkk => by
+          obtain ⟨zi, h1, h2, -⟩ := hzeta kk hkk
+          exact ⟨zi, h1, h2⟩) qic hqinv hqinvu
+        g hgi v4 ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hv4b j hj))
+      (invntt_lvl3_val SECOND qv q Zb C2 T3 Rinv ζ hR hQ hQpos (by omega) hZb
+        hC2 g3.bz g3.bt g3.fit hzeta qic hqinv hqinvu
+        g hgi v4 ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hv4b j hj)))
+    rintro v5 ⟨hv5, hv5v⟩
+    have hv5b : ∀ j (hj : j < 8), VecBnd (vAt v5 j hj) C3 := by
+      intro j hj
+      have := hv5 j hj
+      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      exact this
+    have hv5Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt v5 j hj) m
+        = gsLvl q ζ 16 8 (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))
+            (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      have h := hv5v j hj m hm
+      rw [if_pos (show 2 * ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
+        from by scalar_tac)] at h
+      rw [gsLvl_lvl3 q ζ _ g.val j m hj hm]
+      by_cases hpar : j % 2 = 0
+      · rw [if_pos hpar] at h
+        rw [h, if_pos hpar, hv4Z (2 * (j / 2)) (by omega) m hm,
+          hv4Z (2 * (j / 2) + 1) (by omega) m hm,
+          show 64 * g.val + 8 * (2 * (j / 2)) + m = 64 * g.val + 8 * j + m from by omega,
+          show 64 * g.val + 8 * (2 * (j / 2) + 1) + m
+            = 64 * g.val + 8 * j + m + 8 from by omega]
+      · rw [if_neg hpar] at h
+        rw [h, if_neg hpar, hv4Z (2 * (j / 2)) (by omega) m hm,
+          hv4Z (2 * (j / 2) + 1) (by omega) m hm,
+          show 64 * g.val + 8 * (2 * (j / 2)) + m = 64 * g.val + 8 * j + m - 8 from by omega,
+          show 64 * g.val + 8 * (2 * (j / 2) + 1) + m
+            = 64 * g.val + 8 * j + m from by omega]
+    -- the second re-centring pass
+    let* ⟨ s2, to_back2, hs2_val, hto_back2 ⟩ ← Array.to_slice_mut_spec
+    let* ⟨ iter3, imb3, hi3_slice, hi3_zero, hi3_back ⟩ ← iter_mut_spec
+    have hs2_len : s2.val.length = 8 := by rw [hs2_val]; have := v5.property; scalar_tac
+    have hi3_len : iter3.slice.val.length = 8 := by rw [hi3_slice]; exact hs2_len
+    have hi3Z : ∀ (j : ℕ) (hj : j < iter3.slice.val.length), ∀ m < 8,
+        laneZ q (sAt iter3.slice j hj) m
+          = gsLvl q ζ 16 8 (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))
+              (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      have hjv : j < 8 := by omega
+      have heq : sAt iter3.slice j hj = vAt v5 j hjv := by
+        unfold sAt vAt
+        exact List.getElem_of_eq (by rw [hi3_slice, hs2_val]) _
+      rw [heq]
+      exact hv5Z j hjv m hm
+    rw [invntt_loop0_loop5_eq]
+    apply WP.spec_bind (WP.spec_both
+      (invntt_barrett_iter_bnd iter3 (fun im1 => im1) bm round qv (q : ℤ) M hQ hM hRnd
+        hQpos hQ14 hQodd hMpos hMlt hD hi3_len (by rw [hi3_zero]; omega)
+        (fun im him => him)
+        (fun im him j hj hbnd => absurd hj (by rw [hi3_zero]; omega))
+        (fun im him j _ hbnd hbnd' => rfl))
+      (invntt_barrett_iter_val iter3 (fun im1 => im1) bm round qv q M
+        (fun j m => gsLvl q ζ 16 8 (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))
+          (64 * g.val + 8 * j + m)) hQ hM hRnd
+        hQpos hQ14 hQodd hMpos hMlt hD hi3_len (by rw [hi3_zero]; omega) hi3Z
+        (fun im him => him)
+        (fun im him j hj hbnd m hm => absurd hj (by rw [hi3_zero]; omega))
+        (fun im him j _ hbnd hbnd' => rfl)))
+    rintro ⟨im2, bk2⟩ ⟨⟨him2_len, hbk2⟩, hbk2v⟩
+    obtain ⟨hbk2_len, hbk2_bnd⟩ := hbk2 im2 him2_len
+    set a2 := to_back2 (imb3 (bk2 im2)) with ha2_def
+    have ha2_val : a2.val = (bk2 im2).slice.val := by
+      rw [ha2_def, hi3_back, hto_back2]
+      exact Std.Array.from_slice_val _ _ (by rw [hbk2_len]; simp)
+    have ha2eq : ∀ j (hj : j < 8), ∃ hjb : j < (bk2 im2).slice.val.length,
+        vAt a2 j hj = sAt (bk2 im2).slice j hjb := by
+      intro j hj
+      refine ⟨by rw [hbk2_len]; omega, ?_⟩
+      unfold vAt sAt
+      exact List.getElem_of_eq ha2_val _
+    have ha2b : ∀ j (hj : j < 8), VecBnd (vAt a2 j hj) Ar := by
+      intro j hj
+      obtain ⟨hjb, heq⟩ := ha2eq j hj
+      rw [heq]
+      exact (hbk2_bnd j hjb).mono hreset
+    have ha2Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt a2 j hj) m
+        = gsLvl q ζ 16 8 (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))
+            (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      obtain ⟨hjb, heq⟩ := ha2eq j hj
+      rw [heq]
+      exact hbk2v im2 him2_len j hjb m hm
+    -- level 4
+    apply WP.spec_bind (WP.spec_both
+      (invntt_lvl4_bnd SECOND qv (q : ℤ) Zb Ar T4 C4 hQ hQpos (by omega) hZb
+        hAr g4.bz g4.bt g4.fit g4.c1 g4.c2 (by have h := g4.c1; omega) (fun kk hkk => by
+          obtain ⟨zi, h1, h2, -⟩ := hzeta kk hkk
+          exact ⟨zi, h1, h2⟩) qic hqinv hqinvu
+        g hgi a2 ⟨0#usize, 2#usize⟩ rfl (fun j hj _ => ha2b j hj))
+      (invntt_lvl4_val SECOND qv q Zb Ar T4 C4 Rinv ζ hR hQ hQpos (by omega) hZb
+        hAr g4.bz g4.bt g4.fit g4.c1 g4.c2 hzeta qic hqinv hqinvu
+        g hgi a2 ⟨0#usize, 2#usize⟩ rfl (fun j hj _ => ha2b j hj)))
+    rintro v6 ⟨hv6, hv6v⟩
+    have hv6b : ∀ j (hj : j < 8), VecBnd (vAt v6 j hj) C4 := by
+      intro j hj
+      have := hv6 j hj
+      rw [if_pos (by scalar_tac)] at this
+      exact this
+    have hv6Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt v6 j hj) m
+        = gsLvl q ζ 8 16 (gsLvl q ζ 16 8 (gsLvl q ζ 32 4
+            (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))) (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      have h := hv6v j hj m hm
+      rw [if_pos (show 4 * ((⟨0#usize, 2#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
+        from by scalar_tac)] at h
+      rw [gsLvl_lvl4 q ζ _ g.val j m hj hm]
+      by_cases hj2 : j % 4 < 2
+      · rw [if_pos hj2] at h
+        rw [h, if_pos hj2, ha2Z (4 * (j / 4) + j % 2) (by omega) m hm,
+          ha2Z (4 * (j / 4) + j % 2 + 2) (by omega) m hm,
+          show 64 * g.val + 8 * (4 * (j / 4) + j % 2) + m
+            = 64 * g.val + 8 * j + m from by omega,
+          show 64 * g.val + 8 * (4 * (j / 4) + j % 2 + 2) + m
+            = 64 * g.val + 8 * j + m + 16 from by omega]
+      · rw [if_neg hj2] at h
+        rw [h, if_neg hj2, ha2Z (4 * (j / 4) + j % 2) (by omega) m hm,
+          ha2Z (4 * (j / 4) + j % 2 + 2) (by omega) m hm,
+          show 64 * g.val + 8 * (4 * (j / 4) + j % 2) + m
+            = 64 * g.val + 8 * j + m - 16 from by omega,
+          show 64 * g.val + 8 * (4 * (j / 4) + j % 2 + 2) + m
+            = 64 * g.val + 8 * j + m from by omega]
+    -- level 5
+    let* ⟨ i7, hi7 ⟩ ← Std.Usize.sub_spec (x := 7#usize) (y := g) (by scalar_tac)
+    obtain ⟨zi7, hzie7, hzib7, hzv7⟩ := hzeta i7 (by scalar_tac)
+    obtain ⟨z5, zq5, hnz5, hz5b, hzq5b, hz5v⟩ :=
+      neg_zeta_val SECOND q Zb Rinv ζ i7 zi7 hzie7 hzib7 hzv7 hZb qic hqinv hqinvu
+    rw [hnz5, bind_tc_ok, invntt_loop0_loop7_eq]
+    apply WP.spec_bind (WP.spec_both
+      (invntt_len4_bnd qv z5 zq5 (q : ℤ) Zb C4 T5 C5 hQ hQpos (by omega) hz5b hZb hzq5b
+        hC4 g5.bz g5.bt g5.fit g5.c1 g5.c2 v6 ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hv6b j hj))
+      (invntt_len4_val qv z5 zq5 q Zb C4 T5 Rinv (fun _ => -(ζ i7.val)) hR
+        (fun m hm => hz5v m hm) hQ hQpos (by omega) hz5b hZb hzq5b hC4 g5.bz g5.bt g5.fit
+        v6 ⟨0#usize, 4#usize⟩ rfl (fun j hj _ => hv6b j hj)))
+    rintro v7 ⟨hv7, hv7v⟩
+    have hv7b : ∀ j (hj : j < 8), VecBnd (vAt v7 j hj) C5 := by
+      intro j hj
+      have := hv7 j hj
+      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      exact this
+    have hv7Z : ∀ j (hj : j < 8), ∀ m < 8,
+        laneZ q (vAt v7 j hj) m = invT q ζ a0 (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      have h := hv7v j hj m hm
+      unfold invT
+      rw [gsLvl_lvl5 q ζ _ g.val j m hj hm,
+        show 7 - g.val = i7.val from by scalar_tac]
+      by_cases hj4 : j < 4
+      · rw [if_pos (show ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
+              ∧ j < 4 from ⟨by scalar_tac, hj4⟩)] at h
+        rw [h, if_pos hj4, hv6Z (j % 4) (by omega) m hm, hv6Z (j % 4 + 4) (by omega) m hm,
+          show 64 * g.val + 8 * (j % 4) + m = 64 * g.val + 8 * j + m from by omega,
+          show 64 * g.val + 8 * (j % 4 + 4) + m
+            = 64 * g.val + 8 * j + m + 32 from by omega]
+      · rw [if_neg (show ¬ (((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
+              ∧ j < 4) from by scalar_tac),
+          if_pos (show 4 + ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
+              ∧ j < 8 from ⟨by scalar_tac, hj⟩)] at h
+        rw [h, if_neg hj4, hv6Z (j % 4) (by omega) m hm, hv6Z (j % 4 + 4) (by omega) m hm,
+          show 64 * g.val + 8 * (j % 4) + m = 64 * g.val + 8 * j + m - 32 from by omega,
+          show 64 * g.val + 8 * (j % 4 + 4) + m = 64 * g.val + 8 * j + m from by omega]
+    -- the third re-centring pass
+    let* ⟨ s3, to_back3, hs3_val, hto_back3 ⟩ ← Array.to_slice_mut_spec
+    let* ⟨ iter4, imb4, hi4_slice, hi4_zero, hi4_back ⟩ ← iter_mut_spec
+    have hs3_len : s3.val.length = 8 := by rw [hs3_val]; have := v7.property; scalar_tac
+    have hi4_len : iter4.slice.val.length = 8 := by rw [hi4_slice]; exact hs3_len
+    have hi4Z : ∀ (j : ℕ) (hj : j < iter4.slice.val.length), ∀ m < 8,
+        laneZ q (sAt iter4.slice j hj) m = invT q ζ a0 (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      have hjv : j < 8 := by omega
+      have heq : sAt iter4.slice j hj = vAt v7 j hjv := by
+        unfold sAt vAt
+        exact List.getElem_of_eq (by rw [hi4_slice, hs3_val]) _
+      rw [heq]
+      exact hv7Z j hjv m hm
+    rw [invntt_loop0_loop8_eq]
+    apply WP.spec_bind (WP.spec_both
+      (invntt_barrett_iter_bnd iter4 (fun im1 => im1) bm round qv (q : ℤ) M hQ hM hRnd
+        hQpos hQ14 hQodd hMpos hMlt hD hi4_len (by rw [hi4_zero]; omega)
+        (fun im him => him)
+        (fun im him j hj hbnd => absurd hj (by rw [hi4_zero]; omega))
+        (fun im him j _ hbnd hbnd' => rfl))
+      (invntt_barrett_iter_val iter4 (fun im1 => im1) bm round qv q M
+        (fun j m => invT q ζ a0 (64 * g.val + 8 * j + m)) hQ hM hRnd
+        hQpos hQ14 hQodd hMpos hMlt hD hi4_len (by rw [hi4_zero]; omega) hi4Z
+        (fun im him => him)
+        (fun im him j hj hbnd m hm => absurd hj (by rw [hi4_zero]; omega))
+        (fun im him j _ hbnd hbnd' => rfl)))
+    rintro ⟨im3, bk3⟩ ⟨⟨him3_len, hbk3⟩, hbk3v⟩
+    obtain ⟨hbk3_len, hbk3_bnd⟩ := hbk3 im3 him3_len
+    -- the eight stores
+    let* ⟨ i8, hi8 ⟩ ← Std.Usize.mul_spec (x := 8#usize) (y := g) (by scalar_tac)
+    have hi8v : i8.val = 8 * g.val := by scalar_tac
+    set a3 := to_back3 (imb4 (bk3 im3)) with ha3_def
+    have ha3_val : a3.val = (bk3 im3).slice.val := by
+      rw [ha3_def, hi4_back, hto_back3]
+      exact Std.Array.from_slice_val _ _ (by rw [hbk3_len]; simp)
+    have ha3eq : ∀ j (hj : j < 8), ∃ hjb : j < (bk3 im3).slice.val.length,
+        vAt a3 j hj = sAt (bk3 im3).slice j hjb := by
+      intro j hj
+      refine ⟨by rw [hbk3_len]; omega, ?_⟩
+      unfold vAt sAt
+      exact List.getElem_of_eq ha3_val _
+    have ha3b : ∀ j (hj : j < 8), VecBnd (vAt a3 j hj) (((q : ℤ) - 1) / 2) := by
+      intro j hj
+      obtain ⟨hjb, heq⟩ := ha3eq j hj
+      rw [heq]
+      exact hbk3_bnd j hjb
+    have ha3Z : ∀ j (hj : j < 8), ∀ m < 8,
+        laneZ q (vAt a3 j hj) m = invT q ζ a0 (64 * g.val + 8 * j + m) := by
+      intro j hj m hm
+      obtain ⟨hjb, heq⟩ := ha3eq j hj
+      rw [heq]
+      exact hbk3v im3 him3_len j hjb m hm
+    have hstore : ∀ (ju : Usize) (hju : ju.val < 8) (bb : Array I16 256#usize) (idx : Usize)
+        (hidx : idx.val = 8 * g.val + ju.val),
+        ∃ bb', store_i16 bb idx (vAt a3 ju.val hju) = ok bb' ∧ ∀ p < 256,
+          (bb'.val[p]!).val =
+            if 8 * idx.val ≤ p ∧ p < 8 * idx.val + 8 then
+              (lane16 (vAt a3 ju.val hju) (p - 8 * idx.val)).toInt
+            else (bb.val[p]!).val := fun ju hju bb idx hidx =>
+      store_i16_val bb idx (vAt a3 ju.val hju) (by omega)
+    have hv0e : ∀ (j : Usize) (hj : j.val < 8),
+        Array.index_usize a3 j = ok (vAt a3 j.val hj) := by
+      intro j hj
+      obtain ⟨w, hw⟩ := WP.spec_imp_exists (Array.index_usize_spec a3 j (by scalar_tac))
+      rw [hw.1]
+      congr 1
+      rw [hw.2]
+      rfl
+    rw [hv0e 0#usize (by decide), bind_tc_ok]
+    obtain ⟨b1, hb1e, hb1v⟩ := hstore 0#usize (by decide) b i8 (by scalar_tac)
+    rw [hb1e, bind_tc_ok]
+    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := i8) (y := 1#usize) (by scalar_tac)
+    rw [hv0e 1#usize (by decide), bind_tc_ok]
+    obtain ⟨b2, hb2e, hb2v⟩ := hstore 1#usize (by decide) b1 j1 (by scalar_tac)
+    rw [hb2e, bind_tc_ok]
+    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := i8) (y := 2#usize) (by scalar_tac)
+    rw [hv0e 2#usize (by decide), bind_tc_ok]
+    obtain ⟨b3, hb3e, hb3v⟩ := hstore 2#usize (by decide) b2 j2 (by scalar_tac)
+    rw [hb3e, bind_tc_ok]
+    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := i8) (y := 3#usize) (by scalar_tac)
+    rw [hv0e 3#usize (by decide), bind_tc_ok]
+    obtain ⟨b4, hb4e, hb4v⟩ := hstore 3#usize (by decide) b3 j3 (by scalar_tac)
+    rw [hb4e, bind_tc_ok]
+    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := i8) (y := 4#usize) (by scalar_tac)
+    rw [hv0e 4#usize (by decide), bind_tc_ok]
+    obtain ⟨b5, hb5e, hb5v⟩ := hstore 4#usize (by decide) b4 j4 (by scalar_tac)
+    rw [hb5e, bind_tc_ok]
+    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := i8) (y := 5#usize) (by scalar_tac)
+    rw [hv0e 5#usize (by decide), bind_tc_ok]
+    obtain ⟨b6, hb6e, hb6v⟩ := hstore 5#usize (by decide) b5 j5 (by scalar_tac)
+    rw [hb6e, bind_tc_ok]
+    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := i8) (y := 6#usize) (by scalar_tac)
+    rw [hv0e 6#usize (by decide), bind_tc_ok]
+    obtain ⟨b7, hb7e, hb7v⟩ := hstore 6#usize (by decide) b6 j6 (by scalar_tac)
+    rw [hb7e, bind_tc_ok]
+    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := i8) (y := 7#usize) (by scalar_tac)
+    rw [hv0e 7#usize (by decide), bind_tc_ok]
+    obtain ⟨b8, hb8e, hb8v⟩ := hstore 7#usize (by decide) b7 j7 (by scalar_tac)
+    rw [hb8e, bind_tc_ok]
+    have hb8lane : ∀ p < 256, ∀ (hd : (p - 64 * g.val) / 8 < 8),
+        64 * g.val ≤ p → p < 64 * g.val + 64 →
+        (b8.val[p]!).val
+          = (lane16 (vAt a3 ((p - 64 * g.val) / 8) hd) ((p - 64 * g.val) % 8)).toInt := by
+      intro p hp hd hlo hhi
+      have e8 := hb8v p hp
+      have e7 := hb7v p hp
+      have e6 := hb6v p hp
+      have e5 := hb5v p hp
+      have e4 := hb4v p hp
+      have e3 := hb3v p hp
+      have e2 := hb2v p hp
+      have e1 := hb1v p hp
+      rcases show (p - 64 * g.val) / 8 = 0 ∨ (p - 64 * g.val) / 8 = 1 ∨ (p - 64 * g.val) / 8 = 2
+          ∨ (p - 64 * g.val) / 8 = 3 ∨ (p - 64 * g.val) / 8 = 4 ∨ (p - 64 * g.val) / 8 = 5
+          ∨ (p - 64 * g.val) / 8 = 6 ∨ (p - 64 * g.val) / 8 = 7 from by omega with
+        h | h | h | h | h | h | h | h <;>
+      simp only [h] <;>
+      [ (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
+          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
+          e2, if_neg (by omega), e1, if_pos (by omega)]);
+        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
+          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
+          e2, if_pos (by omega)]);
+        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
+          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_pos (by omega)]);
+        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
+          e5, if_neg (by omega), e4, if_pos (by omega)]);
+        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
+          e5, if_pos (by omega)]);
+        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_pos (by omega)]);
+        (rw [e8, if_neg (by omega), e7, if_pos (by omega)]);
+        (rw [e8, if_pos (by omega)]) ] <;>
+      congr 2 <;> omega
+    have hb8rest : ∀ p < 256, ¬ (64 * g.val ≤ p ∧ p < 64 * g.val + 64) →
+        (b8.val[p]!).val = (b.val[p]!).val := by
+      intro p hp hout
+      rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+        if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+        hb3v p hp, if_neg (by omega), hb2v p hp, if_neg (by omega), hb1v p hp,
+        if_neg (by omega)]
+    have hb8Z : ∀ c < 256, posZ q b8 c =
         if c < 64 * g.val + 64 then invT q ζ a0 c else a0 c := by
       intro c hc
-      have h := hb1 c hc
       unfold posZ
-      rw [h]
       by_cases hin : 64 * g.val ≤ c ∧ c < 64 * g.val + 64
-      · rw [if_pos hin, if_pos (by omega)]
-        have := hv3Z ((c - 64 * g.val) % 8) (by omega) ((c - 64 * g.val) / 8) (by omega)
+      · rw [hb8lane c hc (by omega) hin.1 hin.2, if_pos (by omega)]
+        have := ha3Z ((c - 64 * g.val) / 8) (by omega) ((c - 64 * g.val) % 8) (by omega)
         unfold laneZ at this
         rw [this, show 64 * g.val + 8 * ((c - 64 * g.val) / 8) + (c - 64 * g.val) % 8 = c
           from by omega]
-      · rw [if_neg hin]
+      · rw [hb8rest c hc hin]
         have := hva c hc
         unfold posZ at this
         rw [this]
         by_cases hbelow : c < 64 * g.val
         · rw [if_pos hbelow, if_pos (by omega)]
         · rw [if_neg hbelow, if_neg (by omega)]
-    apply WP.spec_mono (invntt_group_val SECOND b1 qv bm round q Zb M Ain T1 C1 T2 C2 Ar T4 C3
-      Rinv ζ a0 hR hQ hQpos hQ14 hQodd hZb hM hMpos hMlt hD hRnd htbl4 htbl2 htbl1 hAin hC1 hAr
-      hreset g1 g2 hCB g4 iter1 (by rw [hend']; exact hend) (by
+    -- and the remaining groups
+    apply WP.spec_mono (invntt_group_val SECOND b8 qv bm round q Zb M Ain T0 C0 T1 C1 Ar
+      T2 C2 T3 C3 T4 C4 T5 C5 Rinv ζ a0 hR hQ hQpos hQ14 hQodd hZb hM hMpos hMlt hD hRnd
+      hzeta qic hqinv hqinvu htbl4 htbl2 htbl1 hAin hC0 hAr hC2 hC4 hreset g0 g1 hCB01 g2 g3
+      g4 g5 iter1 (by rw [hend']; exact hend) (by
         intro p hp hge
-        have := hb1 p hp
-        rw [if_neg (by scalar_tac)] at this
-        rw [this]
+        rw [hb8rest p hp (by omega)]
         exact hb p hp (by omega))
       (by
         intro c hc
-        rw [hb1Z c hc]
+        rw [hb8Z c hc]
         by_cases hbelow : c < 64 * g.val + 64
         · rw [if_pos hbelow, if_pos (by omega)]
         · rw [if_neg hbelow, if_neg (by omega)]))
@@ -1586,17 +2026,11 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       · rw [if_pos hge1] at hrp
         exact hrp
       · rw [if_neg hge1] at hrp
-        rw [hrp]
-        have := hb1 p hp
-        rw [if_pos (by scalar_tac)] at this
-        rw [this]
-        exact hv3b _ (by omega) _ (by omega)
+        rw [hrp, hb8lane p hp (by omega) (by omega) (by omega)]
+        exact ha3b _ (by omega) _ (by omega)
     · rw [if_neg hge]
       rw [if_neg (by omega)] at hrp
-      rw [hrp]
-      have := hb1 p hp
-      rw [if_neg (by scalar_tac)] at this
-      exact this
+      rw [hrp, hb8rest p hp (by omega)]
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]
     have hs4' : 4 ≤ iter.start.val := by scalar_tac
@@ -1699,7 +2133,7 @@ the same composition `invntt_block_bnd` makes, with the value chain riding along
 noncomputable def invAllRaw (q : ℕ) (ζ a0 : ℕ → ZMod q) : ℕ → ZMod q := invH q ζ (invT q ζ a0)
 
 theorem invntt_block_val (SECOND : Bool) (b : Array I16 256#usize)
-    (q : ℕ) (Zb M Ain T1 C1 T2 C2 Ar Tlo Clo Thi Chi Bt : ℤ) (Rinv : ZMod q)
+    (q : ℕ) (Zb M Ain T0 C0 T1 C1 Ar Tlo Clo Thi Chi Bt : ℤ) (Rinv : ZMod q)
     (ζ a0 : ℕ → ZMod q)
     (qc mc rc sc qic : I16)
     (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
@@ -1725,9 +2159,9 @@ theorem invntt_block_val (SECOND : Bool) (b : Array I16 256#usize)
         backend.neon.ntt.inv1 SECOND kk = ok (z, zq) ∧ PsiOk z zq (q : ℤ) Zb ∧
         ∀ m < 8, laneZ q z m * Rinv
           = -(ζ (255 - (32 * (kk.val / 4) + 4 * m + kk.val % 4))))
-    (hAinz : 0 ≤ Ain) (hC1z : 0 ≤ C1)
+    (hAinz : 0 ≤ Ain) (hC0z : 0 ≤ C0)
     (hArz : 0 ≤ Ar) (hCloz : 0 ≤ Clo) (hreset : ((q : ℤ) - 1) / 2 ≤ Ar)
-    (g1 : GSLevel (q : ℤ) Zb Ain T1 C1) (g2 : GSLevel (q : ℤ) Zb C1 T2 C2) (hCB1 : C1 ≤ C2)
+    (g0 : GSLevel (q : ℤ) Zb Ain T0 C0) (g1 : GSLevel (q : ℤ) Zb C0 T1 C1) (hCB01 : C0 ≤ C1)
     (glo : GSLevel (q : ℤ) Zb Ar Tlo Clo) (ghi : GSLevel (q : ℤ) Zb Clo Thi Chi)
     (hCB : Clo ≤ Chi)
     (hBZ : Chi * Zb < 2 ^ 15 * (q : ℤ)) (hBt : Chi * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Bt)
@@ -1753,20 +2187,23 @@ theorem invntt_block_val (SECOND : Bool) (b : Array I16 256#usize)
     intro i hi; rw [hbml i hi]; exact hmv
   have hRv : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10 := by
     intro i hi; rw [hrl i hi]; exact hrcv
-  -- the four transposed groups
-  apply WP.spec_bind (invntt_group_val SECOND b qv bm round q Zb M Ain T1 C1 T2 C2 Ar Tlo Clo
-    Rinv ζ a0 hR hQv hQpos hQ14 hQodd hZb hMv hMpos hMlt hD hRv htbl4 htbl2 htbl1 hAinz hC1z
-    hArz hreset g1 g2 hCB1 glo ⟨0#usize, 4#usize⟩ rfl (fun p hp _ => hb p hp)
+  -- the four groups: levels 0 to 5
+  apply WP.spec_bind (invntt_group_val SECOND b qv bm round q Zb M Ain T0 C0 T1 C1 Ar
+    Tlo Clo Thi Chi Tlo Clo Thi Chi
+    Rinv ζ a0 hR hQv hQpos hQ14 hQodd hZb hMv hMpos hMlt hD hRv hzeta qic hqi hqiu
+    htbl4 htbl2 htbl1 hAinz hC0z hArz hCloz hCloz hreset g0 g1 hCB01 glo ghi glo ghi
+    ⟨0#usize, 4#usize⟩ rfl (fun p hp _ => hb p hp)
     (by intro c hc; rw [hf c hc, if_neg (by scalar_tac)]))
   rintro b1 ⟨hb1, hb1v⟩
-  have hb1' : BlockBnd b1 Clo := by
+  have hb1' : BlockBnd b1 Ar := by
     intro p hp
     have h := hb1 p hp
-    rwa [if_pos (by scalar_tac)] at h
-  -- the five whole-vector levels
-  apply WP.spec_bind (invntt_horizontal_val SECOND b1 qv bm round q Zb M Clo Thi Chi Ar Tlo Clo
-    Thi Chi Tlo Clo Thi Chi Rinv ζ (invT q ζ a0) hR hQv hQpos hQ14 hQodd hZb hMv hMpos hMlt hD
-    hRv hzeta qic hqi hqiu hCloz hArz hCloz hCloz hreset ghi glo ghi glo ghi hb1' hb1v)
+    rw [if_pos (by scalar_tac)] at h
+    exact le_trans h hreset
+  -- levels 6 and 7, which cross groups
+  apply WP.spec_bind (invntt_horizontal_val SECOND b1 qv q Zb Ar Tlo Clo Thi Chi
+    Rinv ζ (invT q ζ a0) hR hQv hQpos hQ14 hZb hzeta qic hqi hqiu hArz hCloz glo ghi
+    hb1' hb1v)
   rintro b2 ⟨hb2, hb2v⟩
   -- and the final scaling
   rw [hsc, bind_tc_ok]
@@ -1818,22 +2255,24 @@ theorem invAll_State {q : ℕ} (ζ : ℕ → ZMod q)
   have h2 : State ζ 64 4 (2 * (2 * c)) f (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a)) :=
     State_gs hsq hpair (by norm_num) (by norm_num) ⟨6, by norm_num⟩ h1
       (gsLvl_hbut q ζ 64 2 _ (by norm_num))
-  have h3 : State ζ 32 8 (2 * (2 * (2 * c))) f (invT q ζ a) :=
+  have h3 : State ζ 32 8 (2 * (2 * (2 * c))) f
+      (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a))) :=
     State_gs hsq hpair (by norm_num) (by norm_num) ⟨5, by norm_num⟩ h2
       (gsLvl_hbut q ζ 32 4 _ (by norm_num))
-  have h4 : State ζ 16 16 (2 * (2 * (2 * (2 * c)))) f (gsLvl q ζ 16 8 (invT q ζ a)) :=
+  have h4 : State ζ 16 16 (2 * (2 * (2 * (2 * c)))) f
+      (gsLvl q ζ 16 8 (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a)))) :=
     State_gs hsq hpair (by norm_num) (by norm_num) ⟨4, by norm_num⟩ h3
       (gsLvl_hbut q ζ 16 8 _ (by norm_num))
   have h5 : State ζ 8 32 (2 * (2 * (2 * (2 * (2 * c))))) f
-      (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 (invT q ζ a))) :=
+      (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 (gsLvl q ζ 32 4
+        (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a))))) :=
     State_gs hsq hpair (by norm_num) (by norm_num) ⟨3, by norm_num⟩ h4
       (gsLvl_hbut q ζ 8 16 _ (by norm_num))
-  have h6 : State ζ 4 64 (2 * (2 * (2 * (2 * (2 * (2 * c)))))) f
-      (gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 (invT q ζ a)))) :=
+  have h6 : State ζ 4 64 (2 * (2 * (2 * (2 * (2 * (2 * c)))))) f (invT q ζ a) :=
     State_gs hsq hpair (by norm_num) (by norm_num) ⟨2, by norm_num⟩ h5
       (gsLvl_hbut q ζ 4 32 _ (by norm_num))
   have h7 : State ζ 2 128 (2 * (2 * (2 * (2 * (2 * (2 * (2 * c))))))) f
-      (gsLvl q ζ 2 64 (gsLvl q ζ 4 32 (gsLvl q ζ 8 16 (gsLvl q ζ 16 8 (invT q ζ a))))) :=
+      (gsLvl q ζ 2 64 (invT q ζ a)) :=
     State_gs hsq hpair (by norm_num) (by norm_num) ⟨1, by norm_num⟩ h6
       (gsLvl_hbut q ζ 2 64 _ (by norm_num))
   have h8 : State ζ 1 256 (2 * (2 * (2 * (2 * (2 * (2 * (2 * (2 * c)))))))) f

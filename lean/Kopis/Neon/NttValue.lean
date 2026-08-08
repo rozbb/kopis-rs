@@ -27,8 +27,9 @@ set_option maxHeartbeats 1000000
 /-- Lane `i` of a vector, as a residue. -/
 noncomputable def laneZ (q : ℕ) (v : Vec128) (i : ℕ) : ZMod q := (((lane16 v i).toInt : ℤ) : ZMod q)
 
-/-- Array position `p` of a block, as a residue. -/
-noncomputable def posZ (q : ℕ) (b : Array I16 256#usize) (p : ℕ) : ZMod q :=
+/-- Array position `p` of a block, as a residue.  Stated for an arbitrary array length, because
+the forward transform's block is a window inside a longer buffer. -/
+noncomputable def posZ (q : ℕ) {N : Usize} (b : Array I16 N) (p : ℕ) : ZMod q :=
   (((b.val[p]!).val : ℤ) : ZMod q)
 
 /-- **The Montgomery divisibility, read in `ZMod q`.**  `t·2¹⁶ ≡ x·z` becomes `t = z·R⁻¹·x`. -/
@@ -115,17 +116,19 @@ theorem gs_butterfly_val (lo hi z zq qv : Vec128) (q : ℕ) (Zb B Bt : ℤ) (Rin
 
 /-! ## Loads and stores, as residues -/
 
-theorem load_posZ (q : ℕ) (b : Array I16 256#usize) (i : Usize) (hi : i.val < 32) :
+theorem load_posZ (q : ℕ) {N : Usize} (b : Array I16 N) (i : Usize)
+    (hi : 8 * i.val + 8 ≤ N.val) :
     ∃ c, load_i16 b i = ok c ∧ ∀ m < 8, laneZ q c m = posZ q b (8 * i.val + m) := by
-  obtain ⟨c, hc, h⟩ := load_i16_val b i hi
+  obtain ⟨c, hc, h⟩ := load_i16_gen b i hi
   exact ⟨c, hc, fun m hm => by unfold laneZ posZ; rw [h m hm]⟩
 
-theorem store_posZ (q : ℕ) (b : Array I16 256#usize) (i : Usize) (v : Vec128) (hi : i.val < 32) :
-    ∃ b', store_i16 b i v = ok b' ∧ ∀ p < 256,
+theorem store_posZ (q : ℕ) {N : Usize} (b : Array I16 N) (i : Usize) (v : Vec128)
+    (hi : 8 * i.val + 8 ≤ N.val) :
+    ∃ b', store_i16 b i v = ok b' ∧ ∀ p < N.val,
       posZ q b' p =
         if 8 * i.val ≤ p ∧ p < 8 * i.val + 8 then laneZ q v (p - 8 * i.val)
         else posZ q b p := by
-  obtain ⟨b', hb', h⟩ := store_i16_val b i v hi
+  obtain ⟨b', hb', h⟩ := store_i16_gen b i v hi
   refine ⟨b', hb', fun p hp => ?_⟩
   unfold posZ laneZ
   rw [h p hp]

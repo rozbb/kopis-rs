@@ -1,29 +1,24 @@
 /-
   # Kopis/Neon/NttGrowth.lean — how big a lane gets (plan phase F3).
 
-  `src/backend/neon/ntt.rs` re-centres after forward levels 3 and 6 plus a final pass — runs of
-  3, 3 and 2 Cooley-Tukey levels — and says so:
+  `src/backend/neon/ntt.rs` re-centres the forward transform after levels 3 and 7 — two runs of
+  four Cooley-Tukey levels — and the inverse after levels 2, 4 and 6.  Both reductions of the
+  forward transform now happen to a group that is already in registers, so there is no
+  whole-block pass left to state.
 
-  > which the crude 0.75q-per-level budget in `crate::backend::crt` covers … Note this forward
-  > schedule does *not* match AVX2's, which re-centers after levels 3 and 7 and rests on a
-  > sharper, table-dependent bound — growth bounds do not transfer between the two backends.
+  A four-level run does *not* fit the crude 0.75q-per-level budget in `crate::backend::crt`, and
+  that is the point of stating the growth of a butterfly in the *compounding* form the sharp
+  Montgomery bound gives — `2¹⁶·|t| ≤ B·Zb + 2¹⁵·q`.  A level maps `|a|` to
+  `|a|·(1 + q/2^17) + q/2` rather than to `|a| + 0.75q`, so from a centered start four levels
+  reach 2.95q of the 3.05q an `i16` lane holds for `q₂ = 10753`.  `Kopis/Avx2/NttGrowth.lean`
+  still does not port — AVX2's bound is table-dependent where this one is not — but the *shape*
+  of the argument is now the same on both backends, and for the same reason.
 
-  `NEON_VERIFICATION_PLAN.md` §2(c) says the same thing from the other side: this is *easier* to
-  mechanize than AVX2's phase F3, and `Kopis/Avx2/NttGrowth.lean` does not port.  It does not
-  port because AVX2's four-level run needs the growth of a level to be shown proportional to the
-  bound already reached — the levels compound, and four flat `+0.75q` steps would overflow.  A
-  three-level run does not need that: three flat steps from `q/2` reach `2.75q`, inside the
-  `3.05q` an `i16` lane holds for `q₂ = 10753`, with room to spare.
+  This file states that growth once and leaves the arithmetic of instantiating it to the caller.
 
-  So this file states the growth of one butterfly, once, in the *compounding* form the sharp
-  Montgomery bound gives — `2¹⁶·|t| ≤ B·Zb + 2¹⁵·q` — and leaves the arithmetic of instantiating
-  it to the caller.  That form is strictly stronger than the crude budget and costs nothing extra
-  to state, so the file does not commit to which of the two the schedule is checked against; §F3
-  of the plan says the crude one suffices here, and the numbers above are why.
-
-  What is here: the two bound predicates, the load/store bridge between a block and its vectors,
-  the Montgomery and butterfly bounds, and `barrett_block`, which is what re-centres a whole
-  block to `|r| < q/2` between runs.
+  What is here: the bound predicates, the load/store bridge between a block and its vectors, and
+  the Montgomery and butterfly bounds.  The re-centring pass itself is a loop over the eight
+  vectors of a group, and lives with the group loop in `Kopis/Neon/NttBarrettIter.lean`.
 -/
 import Kopis.Neon.NttReduce
 
@@ -43,22 +38,57 @@ def VecBnd (v : Vec128) (B : ℤ) : Prop := ∀ i < 8, |(lane16 v i).toInt| ≤ 
 /-- Every `i16` of the block has magnitude at most `B`. -/
 def BlockBnd (b : Array I16 256#usize) (B : ℤ) : Prop := ∀ j < 256, |(b.val[j]!).val| ≤ B
 
+/-- Every `i16` of the 256-coefficient residue block that starts at vector `base` of `b` has
+magnitude at most `B`.
+
+The forward transform runs in place inside a larger buffer — `split_and_transform` hands
+`ntt_block` the whole `[i16; 512]` and the vector index its prime's half starts at — so its
+statements are about a window, not about a whole array.  `BlockBnd` is the `base = 0`,
+`N = 256` case and is what the inverse transform, which still owns a block outright, uses. -/
+def BlockBndAt {N : Usize} (b : Array I16 N) (base : ℕ) (B : ℤ) : Prop :=
+  ∀ j < 256, |(b.val[8 * base + j]!).val| ≤ B
+
 theorem VecBnd.mono {v : Vec128} {B B' : ℤ} (h : VecBnd v B) (hle : B ≤ B') : VecBnd v B' :=
   fun i hi => le_trans (h i hi) hle
 
 theorem BlockBnd.mono {b : Array I16 256#usize} {B B' : ℤ} (h : BlockBnd b B) (hle : B ≤ B') :
     BlockBnd b B' := fun j hj => le_trans (h j hj) hle
 
+theorem BlockBndAt.mono {N : Usize} {b : Array I16 N} {base : ℕ} {B B' : ℤ}
+    (h : BlockBndAt b base B) (hle : B ≤ B') : BlockBndAt b base B' :=
+  fun j hj => le_trans (h j hj) hle
+
 /-! ## A block and its thirty-two vectors
 
 `load_i16 b i` reads `b[8i .. 8i+8]` and `store_i16 b i v` writes it back; everything below moves
-between the two views through these. -/
+between the two views through these.  Both are stated for an arbitrary array length, because the
+forward transform's window sits inside a longer buffer; `load_i16_val` / `store_i16_val` are the
+whole-block instances the inverse transform uses. -/
+
+/-- A load reads eight consecutive `i16` of the array. -/
+theorem load_i16_gen {N : Usize} (b : Array I16 N) (i : Usize) (hi : 8 * i.val + 8 ≤ N.val) :
+    ∃ c, load_i16 b i = ok c ∧ ∀ k < 8, (lane16 c k).toInt = (b.val[8 * i.val + k]!).val := by
+  obtain ⟨c, hc, h⟩ := load_i16_spec b i (by omega)
+  exact ⟨c, hc, fun k hk => by rw [h k hk]; rfl⟩
+
+/-- A store replaces eight consecutive `i16` and leaves the rest of the array alone. -/
+theorem store_i16_gen {N : Usize} (b : Array I16 N) (i : Usize) (v : Vec128)
+    (hi : 8 * i.val + 8 ≤ N.val) :
+    ∃ b', store_i16 b i v = ok b' ∧ ∀ j < N.val,
+      (b'.val[j]!).val =
+        if 8 * i.val ≤ j ∧ j < 8 * i.val + 8 then (lane16 v (j - 8 * i.val)).toInt
+        else (b.val[j]!).val := by
+  obtain ⟨b', hb', h⟩ := store_i16_spec b i v (by omega)
+  refine ⟨b', hb', fun j hj => ?_⟩
+  have hj' := h j hj
+  show ((b'.val[j]!) : I16).bv.toInt = _
+  rw [hj']
+  split <;> rfl
 
 /-- A load reads eight consecutive `i16` of the block. -/
 theorem load_i16_val (b : Array I16 256#usize) (i : Usize) (hi : i.val < 32) :
-    ∃ c, load_i16 b i = ok c ∧ ∀ k < 8, (lane16 c k).toInt = (b.val[8 * i.val + k]!).val := by
-  obtain ⟨c, hc, h⟩ := load_i16_spec b i (by scalar_tac)
-  exact ⟨c, hc, fun k hk => by rw [h k hk]; rfl⟩
+    ∃ c, load_i16 b i = ok c ∧ ∀ k < 8, (lane16 c k).toInt = (b.val[8 * i.val + k]!).val :=
+  load_i16_gen b i (by scalar_tac)
 
 /-- A store replaces eight consecutive `i16` and leaves the rest alone. -/
 theorem store_i16_val (b : Array I16 256#usize) (i : Usize) (v : Vec128) (hi : i.val < 32) :
@@ -66,12 +96,8 @@ theorem store_i16_val (b : Array I16 256#usize) (i : Usize) (v : Vec128) (hi : i
       (b'.val[j]!).val =
         if 8 * i.val ≤ j ∧ j < 8 * i.val + 8 then (lane16 v (j - 8 * i.val)).toInt
         else (b.val[j]!).val := by
-  obtain ⟨b', hb', h⟩ := store_i16_spec b i v (by scalar_tac)
-  refine ⟨b', hb', fun j hj => ?_⟩
-  have hj' := h j (by scalar_tac)
-  show ((b'.val[j]!) : I16).bv.toInt = _
-  rw [hj']
-  split <;> rfl
+  obtain ⟨b', hb', h⟩ := store_i16_gen b i v (by scalar_tac)
+  exact ⟨b', hb', fun j hj => h j (by scalar_tac)⟩
 
 /-! ## The Montgomery multiply, as a bound
 
@@ -179,90 +205,5 @@ theorem gs_butterfly_bnd (lo hi z zq qv : Vec128) (Q Zb B Bt : ℤ)
     (by omega) hBZ hBt)
   rintro t ⟨htb, -⟩
   exact (WP.spec_ok _).mpr ⟨hlb, htb⟩
-
-/-! ## `barrett_block`
-
-The pass that re-centres a whole block between runs of levels.  After it, every `i16` of the
-block is congruent to what it was mod `q` and strictly inside `±q/2` — which is the state the
-next run of Cooley-Tukey levels starts from, and hence the `B = (q−1)/2` the schedule is checked
-against. -/
-
-theorem barrett_block_loop_spec (b : Array I16 256#usize) (m round qv : Vec128) (Q M : ℤ)
-    (hQ : ∀ i < 8, (lane16 qv i).toInt = Q) (hM : ∀ i < 8, (lane16 m i).toInt = M)
-    (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
-    (hQpos : 0 < Q) (hQlt : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
-    (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)
-    (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 32) :
-    backend.neon.ntt.barrett_block_loop iter b m round qv
-      ⦃ (r : Array I16 256#usize) => ∀ j < 256,
-          if j < 8 * iter.start.val then (r.val[j]!).val = (b.val[j]!).val
-          else Q ∣ ((r.val[j]!).val - (b.val[j]!).val) ∧ 2 * |(r.val[j]!).val| < Q ⦄ := by
-  unfold backend.neon.ntt.barrett_block_loop
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]
-    simp only
-    have hi32 : iter.start.val < 32 := by omega
-    obtain ⟨vec, hvec, hvecl⟩ := load_i16_val b iter.start hi32
-    rw [hvec, bind_tc_ok]
-    apply WP.spec_bind (barrett_lane_spec vec m round qv Q M hQ hM hRnd hQpos hQlt hQodd hMpos
-      hMlt hD)
-    intro red hred
-    obtain ⟨b1, hb1, hb1v⟩ := store_i16_val b iter.start red hi32
-    rw [hb1, bind_tc_ok]
-    apply WP.spec_mono (barrett_block_loop_spec b1 m round qv Q M hQ hM hRnd hQpos hQlt hQodd
-      hMpos hMlt hD iter1 (by rw [hend']; exact hend))
-    intro r hr j hj
-    have hrj := hr j hj
-    by_cases hg : j < 8 * iter.start.val
-    · rw [if_pos hg]
-      rw [if_pos (by omega)] at hrj
-      rw [hrj, hb1v j hj, if_neg (by omega)]
-    · rw [if_neg hg]
-      by_cases hin : j < 8 * iter1.start.val
-      · rw [if_pos hin] at hrj
-        rw [hrj, hb1v j hj, if_pos (by omega)]
-        have hk : j - 8 * iter.start.val < 8 := by omega
-        obtain ⟨hdvd, hbnd⟩ := hred (j - 8 * iter.start.val) hk
-        rw [hvecl _ hk, show 8 * iter.start.val + (j - 8 * iter.start.val) = j from by omega]
-          at hdvd
-        exact ⟨hdvd, hbnd⟩
-      · rw [if_neg hin] at hrj
-        rw [hb1v j hj, if_neg (by omega)] at hrj
-        exact hrj
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]
-    refine (WP.spec_ok _).mpr (fun j hj => ?_)
-    rw [if_pos (by omega)]
-termination_by iter.«end».val - iter.start.val
-decreasing_by scalar_decr_tac
-
-/-- **`barrett_block` re-centres a block.**  Every coefficient keeps its residue mod `q` and ends
-strictly inside `±q/2`. -/
-theorem barrett_block_spec (b : Array I16 256#usize) (m round qv : Vec128) (Q M : ℤ)
-    (hQ : ∀ i < 8, (lane16 qv i).toInt = Q) (hM : ∀ i < 8, (lane16 m i).toInt = M)
-    (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
-    (hQpos : 0 < Q) (hQlt : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
-    (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047) :
-    backend.neon.ntt.barrett_block b m round qv
-      ⦃ (r : Array I16 256#usize) => BlockBnd r ((Q - 1) / 2) ∧ ∀ j < 256,
-          Q ∣ ((r.val[j]!).val - (b.val[j]!).val) ⦄ := by
-  unfold backend.neon.ntt.barrett_block
-  have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
-    simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
-  rw [hvecs, bind_tc_ok]
-  apply WP.spec_mono (barrett_block_loop_spec b m round qv Q M hQ hM hRnd hQpos hQlt hQodd hMpos
-    hMlt hD ⟨0#usize, 32#usize⟩ rfl)
-  intro r hr
-  constructor
-  · intro j hj
-    have := hr j hj
-    rw [if_neg (by simp)] at this
-    obtain ⟨-, hb⟩ := this
-    omega
-  · intro j hj
-    have := hr j hj
-    rw [if_neg (by simp)] at this
-    exact this.1
 
 end Kopis.Neon
