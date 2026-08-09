@@ -225,6 +225,7 @@ fn pad_block<const RATE: usize, const DS: u8, const S: usize>(
 ///
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
+#[allow(clippy::manual_div_ceil)] // See comment below about div_ceil
 pub(crate) fn xof4<const RATE: usize, const DS: u8, const S: usize, const N: usize>(
     prefix: &[u8; 32],
     suffixes: &[[u8; S]; 4],
