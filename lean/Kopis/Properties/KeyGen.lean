@@ -20,14 +20,14 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
               toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes seed)).1 ∧
               SecretBounded S ((MU.val / 2 : ℕ) : ℤ)) ∧
           arrayToBytes ksk.z = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.1 ∧
-          pkStructBytes ksk.pke_pk p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.1 ∧
-          arrayToBytes ksk.hash_pke_pk = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.2 ∧
-          (∃ Amat : Mat L L, ksk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
-              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes ksk.pke_pk.matrix_seed) ∧
+          pkStructBytes ksk.kem_pk.pke_pk p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.1 ∧
+          arrayToBytes ksk.kem_pk.hash_pke_pk = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.2 ∧
+          (∃ Amat : Mat L L, ksk.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
+              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes ksk.kem_pk.pke_pk.matrix_seed) ∧
               UniformBounded Amat) ∧
-          (∃ V : Mat L 1#usize, ksk.pke_pk.vec_ntt = nttFwdU V ∧
+          (∃ V : Mat L 1#usize, ksk.kem_pk.pke_pk.vec_ntt = nttFwdU V ∧
               UniformBounded V ∧
-              vecBytesFlat ksk.pke_pk = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) ⦄ := by
+              vecBytesFlat ksk.kem_pk.pke_pk = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) ⦄ := by
   unfold kem.KemSecretKey.expand_from_seed
   -- `let*` splits each bundled existential into its witness followed by its conjuncts, so the
   -- pattern names 4 tuple components + 15 postcondition parts; regroup them to rebuild the

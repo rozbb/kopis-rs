@@ -35,8 +35,8 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     -- the coefficient data the stored NTT-domain key material denotes
     (S : Mat L 1#usize) (V : Mat L 1#usize) (Amat : Mat L L)
     (hskfwd : sk.pke_sk = nttFwdS S)
-    (hpkvecfwd : sk.pke_pk.vec_ntt = nttFwdU V)
-    (hpkmatfwd : sk.pke_pk.mat_a_ntt = nttFwdU Amat)
+    (hpkvecfwd : sk.kem_pk.pke_pk.vec_ntt = nttFwdU V)
+    (hpkmatfwd : sk.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hsk : toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p sk_seed).1)
     (hskbnd : SecretBounded S ((MU.val / 2 : ℕ) : ℤ))
     (hz : arrayToBytes sk.z = (Spec.Kopis.ExpandDecapKey p sk_seed).2.1)
@@ -49,7 +49,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
-    (hpkh : arrayToBytes sk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
+    (hpkh : arrayToBytes sk.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.decap MU T sk ciphertext
       ⦃ (r : Array U8 32#usize) =>
           arrayToBytes r
@@ -79,18 +79,18 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     (by rcases hMU with h | h | h <;> rw [h] <;> norm_num) hlenct hsk
   -- FO XOF: k / rprime windows from the 64-byte squeeze
   step*
-  have habs : hasherAbsorbed hasher2 = randomness.val ++ sk.hash_pke_pk.val := by
+  have habs : hasherAbsorbed hasher2 = randomness.val ++ sk.kem_pk.hash_pke_pk.val := by
     rw [hasher2_post, hasher1_post, hasher_post, s_post, s1_post]; simp [Array.to_slice]
-  have hrm0 : readerModel xof = (5#u8, randomness.val ++ sk.hash_pke_pk.val) := by
+  have hrm0 : readerModel xof = (5#u8, randomness.val ++ sk.kem_pk.hash_pke_pk.val) := by
     rw [xof_post1, habs]
-  have hrm1 : readerModel xof1 = (5#u8, randomness.val ++ sk.hash_pke_pk.val) := by
+  have hrm1 : readerModel xof1 = (5#u8, randomness.val ++ sk.kem_pk.hash_pke_pk.val) := by
     rw [xof1_post4, hrm0]
   have hs2len : s2.length = 32 := by
     rw [Slice.length, s2_post1]; simp
   have hs4len : s4.length = 32 := by
     rw [Slice.length, s4_post1]; simp
   have hoff1 : readerOffset xof1 = 32 := by rw [xof1_post3, xof_post2, hs2len]
-  set b := turboSHAKE256 (arrayToBytes randomness ‖ arrayToBytes sk.hash_pke_pk) DOMSEP_FO 64 with hb
+  set b := turboSHAKE256 (arrayToBytes randomness ‖ arrayToBytes sk.kem_pk.hash_pke_pk) DOMSEP_FO 64 with hb
   have hkbytes : s3.val.map (·.bv) = (Spec.slice b 0 32 (by omega)).toList := by
     rw [xof1_post2, hrm0, xof_post2, hs2len]
     dsimp only
@@ -116,7 +116,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   have hrclen : reconstructed_ct.length = Spec.Kopis.ctSize p := by
     rw [reconstructed_ct_post2, hrvv]
   -- re-encrypt with (msg = randomness, coins = rprime)
-  let* ⟨reconstructed_ct1, hrc1len, hrc1eq⟩ ← encrypt_deterministic_spec MU T sk.pke_pk randomness
+  let* ⟨reconstructed_ct1, hrc1len, hrc1eq⟩ ← encrypt_deterministic_spec MU T sk.kem_pk.pke_pk randomness
     (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hfit hrclen
     pk_bytes V Amat hpkvecfwd hpkmatfwd hpkvec hpkvecbnd hpkmat hpkmatbnd
   -- reject hash  turboSHAKE256 (z ‖ c) DOMSEP_NOREJECT 32
@@ -131,7 +131,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   have hpkh_rel : (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2
       = turboSHAKE256 (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.1 DOMSEP_PKHASH 32 := by
     simp only [Spec.Kopis.ExpandDecapKey]
-  have hpkh2 : (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2 = arrayToBytes sk.hash_pke_pk := by
+  have hpkh2 : (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2 = arrayToBytes sk.kem_pk.hash_pke_pk := by
     rw [hpkh_rel, ← hpk, ← hpkh]
   -- `b` matches the spec's `turboSHAKE256 (randomness ‖ pkh)` (bridged at the list level to
   -- avoid the `𝔹 32` vs `𝔹 ↑32#usize` size-index mismatch)

@@ -56,6 +56,14 @@ What each backend *assumes* is not identical, and is deliberately not here — i
 Read that file for the backend you care about; in particular, an accelerated build assumes the
 semantics of every SIMD instruction it uses, which the portable build does not.
 
+One more decoding note. Names like `RustKopisSerial.impls.kopis512.KemSecretKey2` are
+namespaces, not types: the trailing digit is the const generic `ℓ`, monomorphized by the
+extraction. Rust declares these methods on `impl KemSecretKey<2>`, and charon mangles the
+const argument onto the name to keep the three variants' impl blocks apart, so
+`KemSecretKey2`/`3`/`4` are Kopis-512/768/1024. The values they act on still have the
+generic type — `RustKopisSerial.kem.KemSecretKey 2#usize` — and only the path is
+specialized.
+
 The proof files under `Kopis/Properties/` do *not* follow this convention — they `open`
 everything, because they are dense tactic scripts where the terseness pays. This file is
 the one written to be read.
@@ -181,8 +189,8 @@ The `2#usize`/`10#usize`-style literals are the Rust const generics `ℓ` and `�
 
 /-! ### §3.1 Key generation — `expand_from_seed` matches `ExpandDecapKey`
 
-`KemSecretKey::expand_from_seed` is what `Kopis512SecretKey::expand_from_seed`
-and (via a random seed) `Kopis512SecretKey::generate` call. The conjuncts below say
+`KemSecretKey::expand_from_seed` is what `KemSecretKey::<2>::from_seed`
+and (via a random seed) `KemSecretKey::<2>::generate_from_rng` call. The conjuncts below say
 that the *observable* components of the resulting key are the corresponding components
 of the spec's `ExpandDecapKey`: the implicit-rejection seed `z`, the serialized public
 key, and its hash.
@@ -228,8 +236,8 @@ theorem kopis512_keygen (seed : Array U8 32#usize) :
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
           Properties.arrayToBytes ksk.z = z ∧
-          Properties.pkStructBytes ksk.pke_pk .Kopis_512 rfl = pk ∧
-          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
+          Properties.pkStructBytes ksk.kem_pk.pke_pk .Kopis_512 rfl = pk ∧
+          Properties.arrayToBytes ksk.kem_pk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 2#usize 10#usize seed
     .Kopis_512 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide) (by decide))
   rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
@@ -246,8 +254,8 @@ theorem kopis768_keygen (seed : Array U8 32#usize) :
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
           Properties.arrayToBytes ksk.z = z ∧
-          Properties.pkStructBytes ksk.pke_pk .Kopis_768 rfl = pk ∧
-          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
+          Properties.pkStructBytes ksk.kem_pk.pke_pk .Kopis_768 rfl = pk ∧
+          Properties.arrayToBytes ksk.kem_pk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 3#usize 8#usize seed
     .Kopis_768 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide) (by decide))
   rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
@@ -264,8 +272,8 @@ theorem kopis1024_keygen (seed : Array U8 32#usize) :
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
           Properties.arrayToBytes ksk.z = z ∧
-          Properties.pkStructBytes ksk.pke_pk .Kopis_1024 rfl = pk ∧
-          Properties.arrayToBytes ksk.hash_pke_pk = pkHash ⦄ := by
+          Properties.pkStructBytes ksk.kem_pk.pke_pk .Kopis_1024 rfl = pk ∧
+          Properties.arrayToBytes ksk.kem_pk.hash_pke_pk = pkHash ⦄ := by
   apply Aeneas.Std.WP.spec_mono (Kopis.Properties.expand_from_seed_spec 4#usize 6#usize seed
     .Kopis_1024 rfl rfl (by decide) (by decide) (by scalar_tac) (by decide) (by decide))
   rintro ksk ⟨⟨_S, _hSfwd, _hSvec, _hSbnd⟩, hz, hpkb, hhash,
@@ -287,9 +295,9 @@ deserialization. Of course, this should not matter, but you have to prove that. 
 /-- **Kopis-512: key-gen → public key → encapsulate matches `KemEncap`.** -/
 theorem kopis512_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
-        let kpk ← RustKopisSerial.impls.kopis512.Kopis512SecretKey.public_key ksk
-        RustKopisSerial.impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (ct : Array U8 736#usize) (ss : RustKopisSerial.impls.SharedSecret) =>
+        let kpk ← RustKopisSerial.impls.kopis512.KemSecretKey2.public_key ksk
+        RustKopisSerial.impls.kopis512.KemPublicKey2.encapsulate_deterministic kpk randomness)
+      ⦃ (ct : Array U8 736#usize) (ss : RustKopisSerial.kem.SharedSecret) =>
           -- the spec's encapsulation, with its two components named
           let specRes   := Spec.Kopis.KemEncap .Kopis_512 (Properties.arrayToBytes randomness)
                           (Spec.Kopis.SkToPk .Kopis_512 (Properties.arrayToBytes seed))
@@ -302,9 +310,9 @@ theorem kopis512_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
 /-- **Kopis-768: key-gen → public key → encapsulate matches `KemEncap`.** -/
 theorem kopis768_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
-        let kpk ← RustKopisSerial.impls.kopis768.Kopis768SecretKey.public_key ksk
-        RustKopisSerial.impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (ct : Array U8 1088#usize) (ss : RustKopisSerial.impls.SharedSecret) =>
+        let kpk ← RustKopisSerial.impls.kopis768.KemSecretKey3.public_key ksk
+        RustKopisSerial.impls.kopis768.KemPublicKey3.encapsulate_deterministic kpk randomness)
+      ⦃ (ct : Array U8 1088#usize) (ss : RustKopisSerial.kem.SharedSecret) =>
           -- the spec's encapsulation, with its two components named
           let specRes   := Spec.Kopis.KemEncap .Kopis_768 (Properties.arrayToBytes randomness)
                           (Spec.Kopis.SkToPk .Kopis_768 (Properties.arrayToBytes seed))
@@ -317,9 +325,9 @@ theorem kopis768_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
 /-- **Kopis-1024: key-gen → public key → encapsulate matches `KemEncap`.** -/
 theorem kopis1024_keygen_then_encapsulate (seed randomness : Array U8 32#usize) :
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
-        let kpk ← RustKopisSerial.impls.kopis1024.Kopis1024SecretKey.public_key ksk
-        RustKopisSerial.impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (ct : Array U8 1472#usize) (ss : RustKopisSerial.impls.SharedSecret) =>
+        let kpk ← RustKopisSerial.impls.kopis1024.KemSecretKey4.public_key ksk
+        RustKopisSerial.impls.kopis1024.KemPublicKey4.encapsulate_deterministic kpk randomness)
+      ⦃ (ct : Array U8 1472#usize) (ss : RustKopisSerial.kem.SharedSecret) =>
           -- the spec's encapsulation, with its two components named
           let specRes   := Spec.Kopis.KemEncap .Kopis_1024 (Properties.arrayToBytes randomness)
                           (Spec.Kopis.SkToPk .Kopis_1024 (Properties.arrayToBytes seed))
@@ -345,9 +353,9 @@ The `let` block names the spec's two components for the same reason as in §3.2.
 /-- **Kopis-512: parse a received public key, then encapsulate to it.** -/
 theorem kopis512_from_bytes_then_encapsulate (pk_bytes : Array U8 672#usize)
     (randomness : Array U8 32#usize) :
-    (do let kpk ← RustKopisSerial.impls.kopis512.Kopis512PublicKey.from_bytes pk_bytes
-        RustKopisSerial.impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (ct : Array U8 736#usize) (ss : RustKopisSerial.impls.SharedSecret) =>
+    (do let kpk ← RustKopisSerial.impls.kopis512.KemPublicKey2.from_bytes pk_bytes
+        RustKopisSerial.impls.kopis512.KemPublicKey2.encapsulate_deterministic kpk randomness)
+      ⦃ (ct : Array U8 736#usize) (ss : RustKopisSerial.kem.SharedSecret) =>
           -- the spec's encapsulation, with its two components named
           let spec   := Spec.Kopis.KemEncap .Kopis_512 (Properties.arrayToBytes randomness)
                           (Properties.arrayToBytes pk_bytes)
@@ -360,9 +368,9 @@ theorem kopis512_from_bytes_then_encapsulate (pk_bytes : Array U8 672#usize)
 /-- **Kopis-768: parse a received public key, then encapsulate to it.** -/
 theorem kopis768_from_bytes_then_encapsulate (pk_bytes : Array U8 992#usize)
     (randomness : Array U8 32#usize) :
-    (do let kpk ← RustKopisSerial.impls.kopis768.Kopis768PublicKey.from_bytes pk_bytes
-        RustKopisSerial.impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (ct : Array U8 1088#usize) (ss : RustKopisSerial.impls.SharedSecret) =>
+    (do let kpk ← RustKopisSerial.impls.kopis768.KemPublicKey3.from_bytes pk_bytes
+        RustKopisSerial.impls.kopis768.KemPublicKey3.encapsulate_deterministic kpk randomness)
+      ⦃ (ct : Array U8 1088#usize) (ss : RustKopisSerial.kem.SharedSecret) =>
           -- the spec's encapsulation, with its two components named
           let spec   := Spec.Kopis.KemEncap .Kopis_768 (Properties.arrayToBytes randomness)
                           (Properties.arrayToBytes pk_bytes)
@@ -375,9 +383,9 @@ theorem kopis768_from_bytes_then_encapsulate (pk_bytes : Array U8 992#usize)
 /-- **Kopis-1024: parse a received public key, then encapsulate to it.** -/
 theorem kopis1024_from_bytes_then_encapsulate (pk_bytes : Array U8 1312#usize)
     (randomness : Array U8 32#usize) :
-    (do let kpk ← RustKopisSerial.impls.kopis1024.Kopis1024PublicKey.from_bytes pk_bytes
-        RustKopisSerial.impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (ct : Array U8 1472#usize) (ss : RustKopisSerial.impls.SharedSecret) =>
+    (do let kpk ← RustKopisSerial.impls.kopis1024.KemPublicKey4.from_bytes pk_bytes
+        RustKopisSerial.impls.kopis1024.KemPublicKey4.encapsulate_deterministic kpk randomness)
+      ⦃ (ct : Array U8 1472#usize) (ss : RustKopisSerial.kem.SharedSecret) =>
           -- the spec's encapsulation, with its two components named
           let spec   := Spec.Kopis.KemEncap .Kopis_1024 (Properties.arrayToBytes randomness)
                           (Properties.arrayToBytes pk_bytes)
@@ -398,8 +406,8 @@ must yield the pseudorandom `z`-derived secret rather than an error or a leak. -
 /-- **Kopis-512: key-gen → decapsulate an arbitrary ciphertext matches `KemDecap`.** -/
 theorem kopis512_keygen_then_decapsulate (seed : Array U8 32#usize) (ek : Array U8 736#usize) :
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
-        RustKopisSerial.impls.kopis512.Kopis512SecretKey.decapsulate ksk ek)
-      ⦃ (r : RustKopisSerial.impls.SharedSecret) =>
+        RustKopisSerial.impls.kopis512.KemSecretKey2.decapsulate ksk ek)
+      ⦃ (r : RustKopisSerial.kem.SharedSecret) =>
           Properties.arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_512 (Properties.arrayToBytes seed)
                 (Properties.arrayToBytes ek) ⦄ :=
@@ -408,8 +416,8 @@ theorem kopis512_keygen_then_decapsulate (seed : Array U8 32#usize) (ek : Array 
 /-- **Kopis-768: key-gen → decapsulate an arbitrary ciphertext matches `KemDecap`.** -/
 theorem kopis768_keygen_then_decapsulate (seed : Array U8 32#usize) (ek : Array U8 1088#usize) :
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
-        RustKopisSerial.impls.kopis768.Kopis768SecretKey.decapsulate ksk ek)
-      ⦃ (r : RustKopisSerial.impls.SharedSecret) =>
+        RustKopisSerial.impls.kopis768.KemSecretKey3.decapsulate ksk ek)
+      ⦃ (r : RustKopisSerial.kem.SharedSecret) =>
           Properties.arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_768 (Properties.arrayToBytes seed)
                 (Properties.arrayToBytes ek) ⦄ :=
@@ -418,8 +426,8 @@ theorem kopis768_keygen_then_decapsulate (seed : Array U8 32#usize) (ek : Array 
 /-- **Kopis-1024: key-gen → decapsulate an arbitrary ciphertext matches `KemDecap`.** -/
 theorem kopis1024_keygen_then_decapsulate (seed : Array U8 32#usize) (ek : Array U8 1472#usize) :
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
-        RustKopisSerial.impls.kopis1024.Kopis1024SecretKey.decapsulate ksk ek)
-      ⦃ (r : RustKopisSerial.impls.SharedSecret) =>
+        RustKopisSerial.impls.kopis1024.KemSecretKey4.decapsulate ksk ek)
+      ⦃ (r : RustKopisSerial.kem.SharedSecret) =>
           Properties.arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_1024 (Properties.arrayToBytes seed)
                 (Properties.arrayToBytes ek) ⦄ :=
@@ -445,7 +453,8 @@ No `sorry` is in the closure, and the check fails the build if one reappears. -/
 
 A verification claim is only as useful as its boundary. This one does not cover:
 
-**Randomness.** `Kopis512SecretKey::generate` and `Kopis512PublicKey::encapsulate`
+**Randomness.** `KemSecretKey::<2>::generate_from_rng` and
+`KemPublicKey::<2>::encapsulate_with_rng`
 draw from a caller-supplied `CryptoRng`. The theorems in §3 cover the deterministic
 cores those wrappers call (`expand_from_seed`, `encapsulate_deterministic`) as
 functions of the seed / randomness they are handed. Nothing here says anything

@@ -17,7 +17,7 @@ computation, leaving only the public-key/secret-key ↔ `ExpandDecapKey` corresp
 
 /-- **Kopis-512 `encapsulate_deterministic` matches `KemEncap`.** -/
 theorem kopis512_encapsulate_deterministic_spec
-    (self : impls.kopis512.Kopis512PublicKey) (randomness : Array U8 32#usize)
+    (self : kem.KemPublicKey 2#usize) (randomness : Array U8 32#usize)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_512))
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 2#usize 1#usize) (Amat : Mat 2#usize 2#usize)
@@ -32,13 +32,13 @@ theorem kopis512_encapsulate_deterministic_spec
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
-    impls.kopis512.Kopis512PublicKey.encapsulate_deterministic self randomness
-      ⦃ (r : Array U8 736#usize × impls.SharedSecret) =>
+    impls.kopis512.KemPublicKey2.encapsulate_deterministic self randomness
+      ⦃ (r : Array U8 736#usize × kem.SharedSecret) =>
           arrayToBytes r.1
             = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl) pk_bytes).2
           ∧ arrayToBytes r.2
             = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl) pk_bytes).1 ⦄ := by
-  unfold impls.kopis512.Kopis512PublicKey.encapsulate_deterministic
+  unfold impls.kopis512.KemPublicKey2.encapsulate_deterministic
   let* ⟨s, back, hs_val, hback⟩ ← Array.to_slice_mut_spec
   have hlenout : s.length = Spec.Kopis.ctSize .Kopis_512 := by
     rw [Slice.length, hs_val]
@@ -57,7 +57,7 @@ theorem kopis512_encapsulate_deterministic_spec
 
 /-- **Kopis-512 `decapsulate` matches `KemDecap`.** -/
 theorem kopis512_decapsulate_spec
-    (self : impls.kopis512.Kopis512SecretKey) (encapsulated_key : Array U8 736#usize)
+    (self : kem.KemSecretKey 2#usize) (encapsulated_key : Array U8 736#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_512))
     (S : Mat 2#usize 1#usize) (hskfwd : self.pke_sk = nttFwdS S)
     (hsk : toVector13 S = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).1)
@@ -66,8 +66,8 @@ theorem kopis512_decapsulate_spec
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).2.2.1)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 2#usize 1#usize) (Amat : Mat 2#usize 2#usize)
-    (hpkvecfwd : self.pke_pk.vec_ntt = nttFwdU V)
-    (hpkmatfwd : self.pke_pk.mat_a_ntt = nttFwdU Amat)
+    (hpkvecfwd : self.kem_pk.pke_pk.vec_ntt = nttFwdU V)
+    (hpkmatfwd : self.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
@@ -76,12 +76,12 @@ theorem kopis512_decapsulate_spec
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
-    (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
-    impls.kopis512.Kopis512SecretKey.decapsulate self encapsulated_key
-      ⦃ (r : impls.SharedSecret) =>
+    (hpkh : arrayToBytes self.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
+    impls.kopis512.KemSecretKey2.decapsulate self encapsulated_key
+      ⦃ (r : kem.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_512 sk_seed ((arrayToBytes encapsulated_key).cast rfl) ⦄ := by
-  unfold impls.kopis512.Kopis512SecretKey.decapsulate
+  unfold impls.kopis512.KemSecretKey2.decapsulate
   rw [show (lift (Array.to_slice encapsulated_key) : Result (Slice U8))
       = ok (Array.to_slice encapsulated_key) from rfl, bind_tc_ok]
   have hlenct : (Array.to_slice encapsulated_key).length = Spec.Kopis.ctSize .Kopis_512 := by
@@ -97,7 +97,7 @@ theorem kopis512_decapsulate_spec
 
 /-- **Kopis-768 `encapsulate_deterministic` matches `KemEncap`.** -/
 theorem kopis768_encapsulate_deterministic_spec
-    (self : impls.kopis768.Kopis768PublicKey) (randomness : Array U8 32#usize)
+    (self : kem.KemPublicKey 3#usize) (randomness : Array U8 32#usize)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_768))
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 3#usize 1#usize) (Amat : Mat 3#usize 3#usize)
@@ -112,13 +112,13 @@ theorem kopis768_encapsulate_deterministic_spec
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
-    impls.kopis768.Kopis768PublicKey.encapsulate_deterministic self randomness
-      ⦃ (r : Array U8 1088#usize × impls.SharedSecret) =>
+    impls.kopis768.KemPublicKey3.encapsulate_deterministic self randomness
+      ⦃ (r : Array U8 1088#usize × kem.SharedSecret) =>
           arrayToBytes r.1
             = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl) pk_bytes).2
           ∧ arrayToBytes r.2
             = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl) pk_bytes).1 ⦄ := by
-  unfold impls.kopis768.Kopis768PublicKey.encapsulate_deterministic
+  unfold impls.kopis768.KemPublicKey3.encapsulate_deterministic
   let* ⟨s, back, hs_val, hback⟩ ← Array.to_slice_mut_spec
   have hlenout : s.length = Spec.Kopis.ctSize .Kopis_768 := by
     rw [Slice.length, hs_val]
@@ -137,7 +137,7 @@ theorem kopis768_encapsulate_deterministic_spec
 
 /-- **Kopis-768 `decapsulate` matches `KemDecap`.** -/
 theorem kopis768_decapsulate_spec
-    (self : impls.kopis768.Kopis768SecretKey) (encapsulated_key : Array U8 1088#usize)
+    (self : kem.KemSecretKey 3#usize) (encapsulated_key : Array U8 1088#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_768))
     (S : Mat 3#usize 1#usize) (hskfwd : self.pke_sk = nttFwdS S)
     (hsk : toVector13 S = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).1)
@@ -146,8 +146,8 @@ theorem kopis768_decapsulate_spec
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).2.2.1)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 3#usize 1#usize) (Amat : Mat 3#usize 3#usize)
-    (hpkvecfwd : self.pke_pk.vec_ntt = nttFwdU V)
-    (hpkmatfwd : self.pke_pk.mat_a_ntt = nttFwdU Amat)
+    (hpkvecfwd : self.kem_pk.pke_pk.vec_ntt = nttFwdU V)
+    (hpkmatfwd : self.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
@@ -156,12 +156,12 @@ theorem kopis768_decapsulate_spec
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
-    (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
-    impls.kopis768.Kopis768SecretKey.decapsulate self encapsulated_key
-      ⦃ (r : impls.SharedSecret) =>
+    (hpkh : arrayToBytes self.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
+    impls.kopis768.KemSecretKey3.decapsulate self encapsulated_key
+      ⦃ (r : kem.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_768 sk_seed ((arrayToBytes encapsulated_key).cast rfl) ⦄ := by
-  unfold impls.kopis768.Kopis768SecretKey.decapsulate
+  unfold impls.kopis768.KemSecretKey3.decapsulate
   rw [show (lift (Array.to_slice encapsulated_key) : Result (Slice U8))
       = ok (Array.to_slice encapsulated_key) from rfl, bind_tc_ok]
   have hlenct : (Array.to_slice encapsulated_key).length = Spec.Kopis.ctSize .Kopis_768 := by
@@ -177,7 +177,7 @@ theorem kopis768_decapsulate_spec
 
 /-- **Kopis-1024 `encapsulate_deterministic` matches `KemEncap`.** -/
 theorem kopis1024_encapsulate_deterministic_spec
-    (self : impls.kopis1024.Kopis1024PublicKey) (randomness : Array U8 32#usize)
+    (self : kem.KemPublicKey 4#usize) (randomness : Array U8 32#usize)
     (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_1024))
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 4#usize 1#usize) (Amat : Mat 4#usize 4#usize)
@@ -192,13 +192,13 @@ theorem kopis1024_encapsulate_deterministic_spec
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
-    impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic self randomness
-      ⦃ (r : Array U8 1472#usize × impls.SharedSecret) =>
+    impls.kopis1024.KemPublicKey4.encapsulate_deterministic self randomness
+      ⦃ (r : Array U8 1472#usize × kem.SharedSecret) =>
           arrayToBytes r.1
             = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl) pk_bytes).2
           ∧ arrayToBytes r.2
             = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl) pk_bytes).1 ⦄ := by
-  unfold impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic
+  unfold impls.kopis1024.KemPublicKey4.encapsulate_deterministic
   let* ⟨s, back, hs_val, hback⟩ ← Array.to_slice_mut_spec
   have hlenout : s.length = Spec.Kopis.ctSize .Kopis_1024 := by
     rw [Slice.length, hs_val]
@@ -217,7 +217,7 @@ theorem kopis1024_encapsulate_deterministic_spec
 
 /-- **Kopis-1024 `decapsulate` matches `KemDecap`.** -/
 theorem kopis1024_decapsulate_spec
-    (self : impls.kopis1024.Kopis1024SecretKey) (encapsulated_key : Array U8 1472#usize)
+    (self : kem.KemSecretKey 4#usize) (encapsulated_key : Array U8 1472#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_1024))
     (S : Mat 4#usize 1#usize) (hskfwd : self.pke_sk = nttFwdS S)
     (hsk : toVector13 S = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).1)
@@ -226,8 +226,8 @@ theorem kopis1024_decapsulate_spec
     (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).2.2.1)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 4#usize 1#usize) (Amat : Mat 4#usize 4#usize)
-    (hpkvecfwd : self.pke_pk.vec_ntt = nttFwdU V)
-    (hpkmatfwd : self.pke_pk.mat_a_ntt = nttFwdU Amat)
+    (hpkvecfwd : self.kem_pk.pke_pk.vec_ntt = nttFwdU V)
+    (hpkmatfwd : self.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
@@ -236,12 +236,12 @@ theorem kopis1024_decapsulate_spec
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
-    (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
-    impls.kopis1024.Kopis1024SecretKey.decapsulate self encapsulated_key
-      ⦃ (r : impls.SharedSecret) =>
+    (hpkh : arrayToBytes self.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
+    impls.kopis1024.KemSecretKey4.decapsulate self encapsulated_key
+      ⦃ (r : kem.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_1024 sk_seed ((arrayToBytes encapsulated_key).cast rfl) ⦄ := by
-  unfold impls.kopis1024.Kopis1024SecretKey.decapsulate
+  unfold impls.kopis1024.KemSecretKey4.decapsulate
   rw [show (lift (Array.to_slice encapsulated_key) : Result (Slice U8))
       = ok (Array.to_slice encapsulated_key) from rfl, bind_tc_ok]
   have hlenct : (Array.to_slice encapsulated_key).length = Spec.Kopis.ctSize .Kopis_1024 := by

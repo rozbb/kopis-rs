@@ -54,7 +54,7 @@ theorem pkStructBytes_eq_of_parts {L : Usize} (pk : pke.PkePublicKey L)
 parsed key is what the audited spec reads out of the received byte string — including
 the cached hash, which is `turboSHAKE256` of those bytes. -/
 theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 672) :
-    kem.KemPublicKey.from_bytes 2#usize bytes
+    kem.KemPublicKey.from_bytes_inner 2#usize bytes
       ⦃ (kpk : kem.KemPublicKey 2#usize) =>
           (∃ V : Mat 2#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
@@ -70,7 +70,7 @@ theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 6
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 672 hlen) DOMSEP_PKHASH 32 ⦄ := by
-  unfold kem.KemPublicKey.from_bytes
+  unfold kem.KemPublicKey.from_bytes_inner
   let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
     pke_from_bytes_spec (L := 2#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
@@ -91,14 +91,14 @@ spec's `KemEncap` applied to those bytes.  Nothing constrains the input, so a ma
 or adversarially chosen public key is covered too — the composite still cannot panic. -/
 theorem kopis512_from_bytes_encap_spec (pk_bytes : Array U8 672#usize)
     (randomness : Array U8 32#usize) :
-    (do let kpk ← impls.kopis512.Kopis512PublicKey.from_bytes pk_bytes
-        impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 736#usize × impls.SharedSecret) =>
+    (do let kpk ← impls.kopis512.KemPublicKey2.from_bytes pk_bytes
+        impls.kopis512.KemPublicKey2.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 736#usize × kem.SharedSecret) =>
           arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
-  unfold impls.kopis512.Kopis512PublicKey.from_bytes
+  unfold impls.kopis512.KemPublicKey2.from_bytes
   rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
     bind_tc_ok]
   set s := Array.to_slice pk_bytes with hsdef
@@ -122,7 +122,7 @@ theorem kopis512_from_bytes_encap_spec (pk_bytes : Array U8 672#usize)
 parsed key is what the audited spec reads out of the received byte string — including
 the cached hash, which is `turboSHAKE256` of those bytes. -/
 theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 992) :
-    kem.KemPublicKey.from_bytes 3#usize bytes
+    kem.KemPublicKey.from_bytes_inner 3#usize bytes
       ⦃ (kpk : kem.KemPublicKey 3#usize) =>
           (∃ V : Mat 3#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
@@ -138,7 +138,7 @@ theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 9
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 992 hlen) DOMSEP_PKHASH 32 ⦄ := by
-  unfold kem.KemPublicKey.from_bytes
+  unfold kem.KemPublicKey.from_bytes_inner
   let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
     pke_from_bytes_spec (L := 3#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
@@ -159,14 +159,14 @@ spec's `KemEncap` applied to those bytes.  Nothing constrains the input, so a ma
 or adversarially chosen public key is covered too — the composite still cannot panic. -/
 theorem kopis768_from_bytes_encap_spec (pk_bytes : Array U8 992#usize)
     (randomness : Array U8 32#usize) :
-    (do let kpk ← impls.kopis768.Kopis768PublicKey.from_bytes pk_bytes
-        impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1088#usize × impls.SharedSecret) =>
+    (do let kpk ← impls.kopis768.KemPublicKey3.from_bytes pk_bytes
+        impls.kopis768.KemPublicKey3.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1088#usize × kem.SharedSecret) =>
           arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
-  unfold impls.kopis768.Kopis768PublicKey.from_bytes
+  unfold impls.kopis768.KemPublicKey3.from_bytes
   rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
     bind_tc_ok]
   set s := Array.to_slice pk_bytes with hsdef
@@ -190,7 +190,7 @@ theorem kopis768_from_bytes_encap_spec (pk_bytes : Array U8 992#usize)
 parsed key is what the audited spec reads out of the received byte string — including
 the cached hash, which is `turboSHAKE256` of those bytes. -/
 theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 1312) :
-    kem.KemPublicKey.from_bytes 4#usize bytes
+    kem.KemPublicKey.from_bytes_inner 4#usize bytes
       ⦃ (kpk : kem.KemPublicKey 4#usize) =>
           (∃ V : Mat 4#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
@@ -206,7 +206,7 @@ theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 1312 hlen) DOMSEP_PKHASH 32 ⦄ := by
-  unfold kem.KemPublicKey.from_bytes
+  unfold kem.KemPublicKey.from_bytes_inner
   let* ⟨ pke_pk, V, hvfwd, hvec, hvecbnd, hseed, Am, hmfwd, hmat, hmatbnd, hvecbytes ⟩ ←
     pke_from_bytes_spec (L := 4#usize) bytes
     (by rw [hlen]; rfl) (by scalar_tac)
@@ -227,14 +227,14 @@ spec's `KemEncap` applied to those bytes.  Nothing constrains the input, so a ma
 or adversarially chosen public key is covered too — the composite still cannot panic. -/
 theorem kopis1024_from_bytes_encap_spec (pk_bytes : Array U8 1312#usize)
     (randomness : Array U8 32#usize) :
-    (do let kpk ← impls.kopis1024.Kopis1024PublicKey.from_bytes pk_bytes
-        impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1472#usize × impls.SharedSecret) =>
+    (do let kpk ← impls.kopis1024.KemPublicKey4.from_bytes pk_bytes
+        impls.kopis1024.KemPublicKey4.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1472#usize × kem.SharedSecret) =>
           arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
-  unfold impls.kopis1024.Kopis1024PublicKey.from_bytes
+  unfold impls.kopis1024.KemPublicKey4.from_bytes
   rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
     bind_tc_ok]
   set s := Array.to_slice pk_bytes with hsdef

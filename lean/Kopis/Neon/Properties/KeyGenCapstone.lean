@@ -21,53 +21,53 @@ the decapsulation wrappers: for a secret key produced by `expand_from_seed` from
 /-- **Kopis-512: key-gen then decapsulate matches `KemDecap` (fully unconditional).** -/
 theorem kopis512_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 736#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
-        impls.kopis512.Kopis512SecretKey.decapsulate ksk ek)
-      ⦃ (r : impls.SharedSecret) =>
+        impls.kopis512.KemSecretKey2.decapsulate ksk ek)
+      ⦃ (r : kem.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_512 (skBytes seed) ((arrayToBytes ek).cast rfl) ⦄ := by
   let* ⟨ksk, S, hSfwd, hSvec, hSbnd, hz, hpkb, hhash,
         Am, hAfwd, hAmat, hAbnd, V, hVfwd, hVbnd, hVbytes⟩ ← expand_from_seed_spec 2#usize 10#usize seed .Kopis_512
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-  exact kopis512_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.pke_pk .Kopis_512 rfl)
+  exact kopis512_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.kem_pk.pke_pk .Kopis_512 rfl)
     S hSfwd hSvec hSbnd hz hpkb
     V Am hVfwd hAfwd
-    (keygen_hpkvec ksk.pke_pk V .Kopis_512 rfl (by decide) hVbytes) hVbnd
-    (keygen_hpkmat ksk.pke_pk Am .Kopis_512 rfl (by decide) hAmat) hAbnd
-    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_512 rfl (skBytes seed) hhash hpkb)
+    (keygen_hpkvec ksk.kem_pk.pke_pk V .Kopis_512 rfl (by decide) hVbytes) hVbnd
+    (keygen_hpkmat ksk.kem_pk.pke_pk Am .Kopis_512 rfl (by decide) hAmat) hAbnd
+    (keygen_hpkh ksk.kem_pk.pke_pk ksk.kem_pk.hash_pke_pk .Kopis_512 rfl (skBytes seed) hhash hpkb)
 
 /-- **Kopis-768: key-gen then decapsulate matches `KemDecap` (fully unconditional).** -/
 theorem kopis768_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 1088#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
-        impls.kopis768.Kopis768SecretKey.decapsulate ksk ek)
-      ⦃ (r : impls.SharedSecret) =>
+        impls.kopis768.KemSecretKey3.decapsulate ksk ek)
+      ⦃ (r : kem.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_768 (skBytes seed) ((arrayToBytes ek).cast rfl) ⦄ := by
   let* ⟨ksk, S, hSfwd, hSvec, hSbnd, hz, hpkb, hhash,
         Am, hAfwd, hAmat, hAbnd, V, hVfwd, hVbnd, hVbytes⟩ ← expand_from_seed_spec 3#usize 8#usize seed .Kopis_768
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-  exact kopis768_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.pke_pk .Kopis_768 rfl)
+  exact kopis768_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.kem_pk.pke_pk .Kopis_768 rfl)
     S hSfwd hSvec hSbnd hz hpkb
     V Am hVfwd hAfwd
-    (keygen_hpkvec ksk.pke_pk V .Kopis_768 rfl (by decide) hVbytes) hVbnd
-    (keygen_hpkmat ksk.pke_pk Am .Kopis_768 rfl (by decide) hAmat) hAbnd
-    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_768 rfl (skBytes seed) hhash hpkb)
+    (keygen_hpkvec ksk.kem_pk.pke_pk V .Kopis_768 rfl (by decide) hVbytes) hVbnd
+    (keygen_hpkmat ksk.kem_pk.pke_pk Am .Kopis_768 rfl (by decide) hAmat) hAbnd
+    (keygen_hpkh ksk.kem_pk.pke_pk ksk.kem_pk.hash_pke_pk .Kopis_768 rfl (skBytes seed) hhash hpkb)
 
 /-- **Kopis-1024: key-gen then decapsulate matches `KemDecap` (fully unconditional).** -/
 theorem kopis1024_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 1472#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
-        impls.kopis1024.Kopis1024SecretKey.decapsulate ksk ek)
-      ⦃ (r : impls.SharedSecret) =>
+        impls.kopis1024.KemSecretKey4.decapsulate ksk ek)
+      ⦃ (r : kem.SharedSecret) =>
           arrayToBytes r
             = Spec.Kopis.KemDecap .Kopis_1024 (skBytes seed) ((arrayToBytes ek).cast rfl) ⦄ := by
   let* ⟨ksk, S, hSfwd, hSvec, hSbnd, hz, hpkb, hhash,
         Am, hAfwd, hAmat, hAbnd, V, hVfwd, hVbnd, hVbytes⟩ ← expand_from_seed_spec 4#usize 6#usize seed .Kopis_1024
     rfl rfl (by decide) (by decide) (by scalar_tac) (by decide)
-  exact kopis1024_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.pke_pk .Kopis_1024 rfl)
+  exact kopis1024_decapsulate_spec ksk ek (skBytes seed) (pkStructBytes ksk.kem_pk.pke_pk .Kopis_1024 rfl)
     S hSfwd hSvec hSbnd hz hpkb
     V Am hVfwd hAfwd
-    (keygen_hpkvec ksk.pke_pk V .Kopis_1024 rfl (by decide) hVbytes) hVbnd
-    (keygen_hpkmat ksk.pke_pk Am .Kopis_1024 rfl (by decide) hAmat) hAbnd
-    (keygen_hpkh ksk.pke_pk ksk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) hhash hpkb)
+    (keygen_hpkvec ksk.kem_pk.pke_pk V .Kopis_1024 rfl (by decide) hVbytes) hVbnd
+    (keygen_hpkmat ksk.kem_pk.pke_pk Am .Kopis_1024 rfl (by decide) hAmat) hAbnd
+    (keygen_hpkh ksk.kem_pk.pke_pk ksk.kem_pk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) hhash hpkb)
 
 
 @[step]
@@ -117,16 +117,6 @@ theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
   subst ha hnm ha1 hnm1
   rfl
 
-theorem public_key_spec {L : Usize} (self : kem.KemSecretKey L) :
-    kem.KemSecretKey.public_key self
-      ⦃ (kpk : kem.KemPublicKey L) =>
-          kpk.pke_pk = self.pke_pk ∧ kpk.hash_pke_pk = self.hash_pke_pk ⦄ := by
-  unfold kem.KemSecretKey.public_key
-  let* ⟨ppk, hppk⟩ ← pke_pk_clone_spec self.pke_pk
-  first
-    | exact ⟨hppk, rfl⟩
-    | exact hppk
-
 /-- `SkToPk` unfolds definitionally to the public-key component of `ExpandDecapKey`. Proved
 here (cheaply, by `rfl`) *before* the local-irreducible attribute below, so the
 `keygen_encap` composites can bridge the two forms by rewriting with this equation rather than
@@ -144,21 +134,20 @@ theorem skToPk_eq (p : Spec.Kopis.ParameterSet) (sk : 𝔹 32) :
 attribute [local irreducible]
   Spec.Kopis.SkToPk Spec.Kopis.KemEncap Spec.Kopis.ExpandDecapKey
 
-/-- Kopis-512 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
-theorem kopis512_public_key_spec (self : impls.kopis512.Kopis512SecretKey) :
-    impls.kopis512.Kopis512SecretKey.public_key self
-      ⦃ (kpk : impls.kopis512.Kopis512PublicKey) =>
-          kpk.pke_pk = self.pke_pk ∧ kpk.hash_pke_pk = self.hash_pke_pk ⦄ := by
-  unfold impls.kopis512.Kopis512SecretKey.public_key
-  let* ⟨kpk, hv, hh⟩ ← public_key_spec self
-  exact ⟨hv, hh⟩
+/-- Kopis-512 `public_key` (the impls wrapper) hands back the stored `kem_pk`. -/
+theorem kopis512_public_key_spec (self : kem.KemSecretKey 2#usize) :
+    impls.kopis512.KemSecretKey2.public_key self
+      ⦃ (kpk : kem.KemPublicKey 2#usize) =>
+          kpk.pke_pk = self.kem_pk.pke_pk ∧ kpk.hash_pke_pk = self.kem_pk.hash_pke_pk ⦄ := by
+  unfold impls.kopis512.KemSecretKey2.public_key
+  exact ⟨rfl, rfl⟩
 
 /-- **Kopis-512: key-gen → derive public key → encapsulate matches `KemEncap` (unconditional).** -/
 theorem kopis512_keygen_encap_spec (seed randomness : Array U8 32#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
-        let kpk ← impls.kopis512.Kopis512SecretKey.public_key ksk
-        impls.kopis512.Kopis512PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 736#usize × impls.SharedSecret) =>
+        let kpk ← impls.kopis512.KemSecretKey2.public_key ksk
+        impls.kopis512.KemPublicKey2.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 736#usize × kem.SharedSecret) =>
           arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_512 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
@@ -185,21 +174,20 @@ theorem kopis512_keygen_encap_spec (seed randomness : Array U8 32#usize) :
   have hE := congrArg (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)) hpk3
   exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
 
-/-- Kopis-768 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
-theorem kopis768_public_key_spec (self : impls.kopis768.Kopis768SecretKey) :
-    impls.kopis768.Kopis768SecretKey.public_key self
-      ⦃ (kpk : impls.kopis768.Kopis768PublicKey) =>
-          kpk.pke_pk = self.pke_pk ∧ kpk.hash_pke_pk = self.hash_pke_pk ⦄ := by
-  unfold impls.kopis768.Kopis768SecretKey.public_key
-  let* ⟨kpk, hv, hh⟩ ← public_key_spec self
-  exact ⟨hv, hh⟩
+/-- Kopis-768 `public_key` (the impls wrapper) hands back the stored `kem_pk`. -/
+theorem kopis768_public_key_spec (self : kem.KemSecretKey 3#usize) :
+    impls.kopis768.KemSecretKey3.public_key self
+      ⦃ (kpk : kem.KemPublicKey 3#usize) =>
+          kpk.pke_pk = self.kem_pk.pke_pk ∧ kpk.hash_pke_pk = self.kem_pk.hash_pke_pk ⦄ := by
+  unfold impls.kopis768.KemSecretKey3.public_key
+  exact ⟨rfl, rfl⟩
 
 /-- **Kopis-768: key-gen → derive public key → encapsulate matches `KemEncap` (unconditional).** -/
 theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
-        let kpk ← impls.kopis768.Kopis768SecretKey.public_key ksk
-        impls.kopis768.Kopis768PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1088#usize × impls.SharedSecret) =>
+        let kpk ← impls.kopis768.KemSecretKey3.public_key ksk
+        impls.kopis768.KemPublicKey3.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1088#usize × kem.SharedSecret) =>
           arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_768 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
@@ -223,21 +211,20 @@ theorem kopis768_keygen_encap_spec (seed randomness : Array U8 32#usize) :
   have hE := congrArg (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)) hpk3
   exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
 
-/-- Kopis-1024 `public_key` (the impls wrapper) copies `pke_pk`/`hash_pke_pk`. -/
-theorem kopis1024_public_key_spec (self : impls.kopis1024.Kopis1024SecretKey) :
-    impls.kopis1024.Kopis1024SecretKey.public_key self
-      ⦃ (kpk : impls.kopis1024.Kopis1024PublicKey) =>
-          kpk.pke_pk = self.pke_pk ∧ kpk.hash_pke_pk = self.hash_pke_pk ⦄ := by
-  unfold impls.kopis1024.Kopis1024SecretKey.public_key
-  let* ⟨kpk, hv, hh⟩ ← public_key_spec self
-  exact ⟨hv, hh⟩
+/-- Kopis-1024 `public_key` (the impls wrapper) hands back the stored `kem_pk`. -/
+theorem kopis1024_public_key_spec (self : kem.KemSecretKey 4#usize) :
+    impls.kopis1024.KemSecretKey4.public_key self
+      ⦃ (kpk : kem.KemPublicKey 4#usize) =>
+          kpk.pke_pk = self.kem_pk.pke_pk ∧ kpk.hash_pke_pk = self.kem_pk.hash_pke_pk ⦄ := by
+  unfold impls.kopis1024.KemSecretKey4.public_key
+  exact ⟨rfl, rfl⟩
 
 /-- **Kopis-1024: key-gen → derive public key → encapsulate matches `KemEncap` (unconditional).** -/
 theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
-        let kpk ← impls.kopis1024.Kopis1024SecretKey.public_key ksk
-        impls.kopis1024.Kopis1024PublicKey.encapsulate_deterministic kpk randomness)
-      ⦃ (r : Array U8 1472#usize × impls.SharedSecret) =>
+        let kpk ← impls.kopis1024.KemSecretKey4.public_key ksk
+        impls.kopis1024.KemPublicKey4.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1472#usize × kem.SharedSecret) =>
           arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               (Spec.Kopis.SkToPk .Kopis_1024 (skBytes seed))).2
           ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
