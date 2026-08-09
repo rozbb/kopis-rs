@@ -5486,7 +5486,7 @@ def backend.avx2.keccak.pad_block
   Array.update bytes3 i1 i3
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 0:
-    Source: 'src/backend/avx2/keccak.rs', lines 263:4-277:5 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 264:4-278:5 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop0
   {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
@@ -5515,7 +5515,7 @@ def backend.avx2.keccak.xof4_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 2:
-    Source: 'src/backend/avx2/keccak.rs', lines 282:8-287:9 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 283:8-288:9 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop1_loop0
   {RATE : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5549,7 +5549,7 @@ def backend.avx2.keccak.xof4_loop1_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 1:
-    Source: 'src/backend/avx2/keccak.rs', lines 278:4-290:5 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 279:4-291:5 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop1
   {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
@@ -5572,7 +5572,7 @@ def backend.avx2.keccak.xof4_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 4:
-    Source: 'src/backend/avx2/keccak.rs', lines 306:8-319:9 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 307:8-320:9 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop2_loop0
   {N : Std.Usize} (out : Array (Array Std.U8 N) 4#usize)
@@ -5615,7 +5615,7 @@ def backend.avx2.keccak.xof4_loop2_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 7:
-    Source: 'src/backend/avx2/keccak.rs', lines 331:16-333:17 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 332:16-334:17 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop2_loop1_loop0_loop0
   {N : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5639,7 +5639,7 @@ def backend.avx2.keccak.xof4_loop2_loop1_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 6:
-    Source: 'src/backend/avx2/keccak.rs', lines 327:12-334:13 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 328:12-335:13 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop2_loop1_loop0
   {N : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5663,7 +5663,7 @@ def backend.avx2.keccak.xof4_loop2_loop1_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 5:
-    Source: 'src/backend/avx2/keccak.rs', lines 323:8-336:9 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 324:8-337:9 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop2_loop1
   {N : Std.Usize} (out : Array (Array Std.U8 N) 4#usize)
@@ -5685,7 +5685,7 @@ def backend.avx2.keccak.xof4_loop2_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]: loop 3:
-    Source: 'src/backend/avx2/keccak.rs', lines 294:4-339:5 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 295:4-340:5 -/
 @[rust_loop]
 def backend.avx2.keccak.xof4_loop2
   (RATE : Std.Usize) {N : Std.Usize} (out : Array (Array Std.U8 N) 4#usize)
@@ -5709,7 +5709,7 @@ def backend.avx2.keccak.xof4_loop2
 partial_fixpoint
 
 /-- [kopis::backend::avx2::keccak::xof4]:
-    Source: 'src/backend/avx2/keccak.rs', lines 228:0-340:1 -/
+    Source: 'src/backend/avx2/keccak.rs', lines 229:0-341:1 -/
 def backend.avx2.keccak.xof4
   (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize} {N : Std.Usize}
   (prefix1 : Array Std.U8 32#usize) (suffixes : Array (Array Std.U8 S) 4#usize)
