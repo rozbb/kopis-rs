@@ -51,7 +51,8 @@ case "${BACKEND}" in
     serial)
         # Serial benches
 
-        RUST_SERIAL_FLAGS='--cfg kopis_backend="serial" --cfg keccak_backend="soft"'
+        RUST_SERIAL_FLAGS="--cfg kopis_backend=\"serial\" --cfg keccak_backend=\"soft\" \
+            --cfg mlkem_selkie_backend=\"scalar\" --cfg sha3_selkie_backend=\"scalar\""
         C_SERIAL_FLAGS="-DMY_ASSEMBLER_IS_TOO_OLD_FOR_AVX"
 
         set_filtered_bench_args "${SERIAL_FILTER}" "$@"

@@ -138,6 +138,33 @@ bench_libcrux_variant!(
     libcrux_ml_kem::mlkem1024
 );
 
+fn selkie_mlkem768(c: &mut Criterion) {
+    use mlkem_selkie::mlkem768;
+
+    let kg_randomness = [0u8; 64];
+    let encap_randomness = [0u8; 32];
+
+    // Generate an ML-KEM-768 decapsulation key from OS entropy (`getrandom`).
+    let sk = mlkem768::DecapsulationKey::generate_derand(&kg_randomness);
+    let pk = sk.encapsulation_key().clone();
+    let (_, ct) = pk.encapsulate_derand(&encap_randomness);
+
+    let input = (sk, pk, ct);
+    let mut group = c.benchmark_group("selkie_mlkem768");
+
+    group.bench_function("keygen-derand", |b| {
+        b.iter_with_large_drop(|| mlkem768::DecapsulationKey::generate_derand(&kg_randomness));
+    });
+
+    group.bench_with_input("encap-derand", &input, |b, (_, pk, _)| {
+        b.iter_with_large_drop(|| pk.encapsulate_derand(&encap_randomness));
+    });
+
+    group.bench_with_input("decap", &input, |b, (sk, _, ct)| {
+        b.iter_with_large_drop(|| sk.decapsulate(ct));
+    });
+}
+
 // libcrux exposes its AVX2 backend only on x86, so these are absent on AArch64 — where they would
 // not merely be filtered out at run time but fail to compile.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -194,6 +221,7 @@ fn graviola_mlkem768(c: &mut Criterion) {
 }
 
 criterion_group!(kopis_benches, kopis512, kopis768, kopis1024);
+criterion_group!(selkie_benches, selkie_mlkem768);
 criterion_group!(
     awslc_benches,
     awslc_mlkem512,
@@ -230,5 +258,6 @@ criterion_main!(
     kopis_benches,
     libcrux_serial_benches,
     graviola_benches,
-    awslc_benches
+    awslc_benches,
+    selkie_benches
 );
