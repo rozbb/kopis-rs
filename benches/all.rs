@@ -7,25 +7,9 @@ use criterion::{Criterion, criterion_group, criterion_main};
 // Only the graviola benchmark needs batched iteration.
 use criterion::BatchSize;
 
-// Every benchmark below drives `bench_with_input` off a fixture built once, outside the timing
-// loop. Criterion passes that fixture through `black_box` before it invokes the closure (see
-// `routine.rs`), which is what stops the loop-invariant work here — key expansion, matrix setup,
-// hashing of fixed inputs — from being folded out of the measurement. Wrapping the individual
-// fields in `black_box` as well was measured to make no difference.
-//
-// Every one of them uses `iter_with_large_drop` rather than `iter`, and that is not a formatting
-// preference. These routines return whole KEM keys — 16 KB for an unpacked kopis-768 secret key,
-// 26 KB at kopis-1024 — and `iter` both moves that value out of the timing closure and drops it
-// on the clock. The move is the expensive half: measured on an M1, `iter` reported 23.7 us for a
-// kopis-768 key expansion that takes 11.6 us, and the overhead scales with the returned type, so
-// it fell hardest on kopis (16 KB, `ZeroizeOnDrop`), mildly on graviola (7 KB, has a `Drop`) and
-// not at all on aws-lc-rs, whose `DecapsulationKey` is a 16-byte handle over `EVP_PKEY`. Under
-// `iter` the comparison was partly a comparison of return-type shapes.
-//
-// `iter_with_large_drop` collects the outputs and drops them after the clock stops, which removes
-// both. It is not free either — it writes each iteration to a fresh slot in a ~1 MB batch instead
-// of reusing one buffer, and at kopis-1024's 26 KB key that cache pressure cancels out the
-// deferred drop — but it is the documented tool for the job and it is applied uniformly.
+// We use `iter_with_large_drop` everywhere because some of these backends do zeroization
+// and some do not. We even the playing field by not including `drop()` time in our
+// benchmarks.
 
 macro_rules! bench_kopis_variant {
     ($bench_name:ident, $privkey_name:ident) => {
@@ -126,6 +110,39 @@ macro_rules! bench_awslc_variant {
     };
 }
 
+macro_rules! bench_selkie_variant {
+    ($bench_name:ident, $level:ident) => {
+        fn $bench_name(c: &mut Criterion) {
+            use mlkem_selkie::$level as base_mod;
+
+            let kg_randomness = [0u8; 64];
+            let encap_randomness = [0u8; 32];
+
+            // Generate an ML-KEM-768 decapsulation key from OS entropy (`getrandom`).
+            let sk = base_mod::DecapsulationKey::generate_derand(&kg_randomness);
+            let pk = sk.encapsulation_key().clone();
+            let (_, ct) = pk.encapsulate_derand(&encap_randomness);
+
+            let input = (sk, pk, ct);
+            let mut group = c.benchmark_group(stringify!($bench_name));
+
+            group.bench_function("keygen-derand", |b| {
+                b.iter_with_large_drop(|| {
+                    base_mod::DecapsulationKey::generate_derand(&kg_randomness)
+                });
+            });
+
+            group.bench_with_input("encap-derand", &input, |b, (_, pk, _)| {
+                b.iter_with_large_drop(|| pk.encapsulate_derand(&encap_randomness));
+            });
+
+            group.bench_with_input("decap", &input, |b, (sk, _, ct)| {
+                b.iter_with_large_drop(|| sk.decapsulate(ct));
+            });
+        }
+    };
+}
+
 bench_kopis_variant!(kopis512, Kopis512SecretKey);
 bench_kopis_variant!(kopis768, Kopis768SecretKey);
 bench_kopis_variant!(kopis1024, Kopis1024SecretKey);
@@ -137,33 +154,6 @@ bench_libcrux_variant!(
     portable,
     libcrux_ml_kem::mlkem1024
 );
-
-fn selkie_mlkem768(c: &mut Criterion) {
-    use mlkem_selkie::mlkem768;
-
-    let kg_randomness = [0u8; 64];
-    let encap_randomness = [0u8; 32];
-
-    // Generate an ML-KEM-768 decapsulation key from OS entropy (`getrandom`).
-    let sk = mlkem768::DecapsulationKey::generate_derand(&kg_randomness);
-    let pk = sk.encapsulation_key().clone();
-    let (_, ct) = pk.encapsulate_derand(&encap_randomness);
-
-    let input = (sk, pk, ct);
-    let mut group = c.benchmark_group("selkie_mlkem768");
-
-    group.bench_function("keygen-derand", |b| {
-        b.iter_with_large_drop(|| mlkem768::DecapsulationKey::generate_derand(&kg_randomness));
-    });
-
-    group.bench_with_input("encap-derand", &input, |b, (_, pk, _)| {
-        b.iter_with_large_drop(|| pk.encapsulate_derand(&encap_randomness));
-    });
-
-    group.bench_with_input("decap", &input, |b, (sk, _, ct)| {
-        b.iter_with_large_drop(|| sk.decapsulate(ct));
-    });
-}
 
 // libcrux exposes its AVX2 backend only on x86, so these are absent on AArch64 — where they would
 // not merely be filtered out at run time but fail to compile.
@@ -177,6 +167,10 @@ bench_libcrux_variant!(libcrux_avx2_mlkem1024, avx2, libcrux_ml_kem::mlkem1024);
 bench_awslc_variant!(awslc_mlkem512, ML_KEM_512);
 bench_awslc_variant!(awslc_mlkem768, ML_KEM_768);
 bench_awslc_variant!(awslc_mlkem1024, ML_KEM_1024);
+
+bench_selkie_variant!(selkie_mlkem512, mlkem512);
+bench_selkie_variant!(selkie_mlkem768, mlkem768);
+bench_selkie_variant!(selkie_mlkem1024, mlkem1024);
 
 // graviola has hand-written ML-KEM assembly for both x86_64 (AVX2) and AArch64 (NEON), behind one
 // portable API, so this benchmark builds and runs on either.
@@ -221,7 +215,6 @@ fn graviola_mlkem768(c: &mut Criterion) {
 }
 
 criterion_group!(kopis_benches, kopis512, kopis768, kopis1024);
-criterion_group!(selkie_benches, selkie_mlkem768);
 criterion_group!(
     awslc_benches,
     awslc_mlkem512,
@@ -233,6 +226,12 @@ criterion_group!(
     libcrux_serial_mlkem512,
     libcrux_serial_mlkem768,
     libcrux_serial_mlkem1024
+);
+criterion_group!(
+    selkie_benches,
+    selkie_mlkem512,
+    selkie_mlkem768,
+    selkie_mlkem1024
 );
 
 criterion_group!(graviola_benches, graviola_mlkem768);
