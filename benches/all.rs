@@ -192,9 +192,9 @@ fn graviola_mlkem768(c: &mut Criterion) {
         b.iter_with_large_drop(|| DecapKey::keygen_internal(kg_randomness))
     });
 
-    // `encaps_internal` consumes the `EncapKey`, so each iteration needs a fresh one. That clone
-    // copies ~5.8 KB of unpacked key material, which is setup rather than encapsulation work, so
-    // `iter_batched` keeps it out of the measurement.
+    // We have to use iter_batched because we need to clone pk (around 6kB) on every
+    // iteration, since encaps_internal consumes. We'd like to measure the encap without
+    // the clone, hence iter_batched.
     group.bench_with_input(
         "encap-derand",
         &input,
