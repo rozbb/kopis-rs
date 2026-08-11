@@ -38,6 +38,7 @@ DISPLAY_NAMES = {
     "libcrux_avx2": r"\textsf{libcrux}",
     "awslc": r"\textsf{aws-lc-rs}",
     "graviola": r"\textsf{graviola}",
+    "selkie": r"\textsf{selkie}",
 }
 
 # Rows are emitted in this order; libraries not listed here follow, sorted.

@@ -249,7 +249,8 @@ criterion_main!(
     libcrux_serial_benches,
     libcrux_avx2_benches,
     graviola_benches,
-    awslc_benches
+    awslc_benches,
+    selkie_benches
 );
 
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
