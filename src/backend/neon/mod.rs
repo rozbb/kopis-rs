@@ -14,10 +14,12 @@
 //! [`keccak`] is a two-way TurboSHAKE: two independent sponges, one per 64-bit lane, which is the
 //! shape Kopis samples in (ℓ² independent XOF calls for the matrix, ℓ more for the secret). It is
 //! the counterpart of the AVX2 backend's four-way version, narrower only because a `uint64x2_t`
-//! holds two 64-bit lanes to a `Vec256`'s four. Unlike the rest of this module it is *conditional*:
-//! it needs the ARMv8.2 SHA3 extension to be worth using at all, so `build.rs` compiles it only
-//! when the target has that feature, and [`crate::sample`] falls back to the scalar sponge when it
-//! does not. Its own docs make the case.
+//! holds two 64-bit lanes to a `Vec256`'s four. It needs the ARMv8.2 SHA3 extension to be worth
+//! using at all — its own docs make the case — and it is enough of what this backend is for that
+//! the extension is a condition on the *whole* module: `build.rs` compiles the NEON backend only
+//! for targets that have it, and everything else falls back to the portable serial code. So
+//! there is exactly one NEON configuration, the `+sha3` one, and no target gets a half-built
+//! version of it.
 //!
 //! # Safety
 //!
@@ -28,8 +30,10 @@
 //!   instructions [`keccak`] uses). Every function that uses them carries
 //!   `#[target_feature(enable = "neon")]`, so calling one from outside is unsafe: the caller must
 //!   know the CPU has NEON. On AArch64 that is unconditional (NEON is baseline), and [`available`]
-//!   is what states it; every entry point is reached through a call site guarded by it. Within the
-//!   backend, where every function carries the attribute, the calls are safe.
+//!   is what states it; every entry point is reached through a call site guarded by it. FEAT_SHA3
+//!   is not baseline, which is why it is a *build-time* condition on the whole module rather than
+//!   something [`available`] could check. Within the backend, where every function carries the
+//!   attribute, the calls are safe.
 //! * Unaligned loads and stores over fixed-size arrays. These are [`intrinsics`]' memory
 //!   accessors, which take an array or slice reference and an index and bounds-check it, so
 //!   [`ntt`], [`ser`], [`sample`] and [`keccak`] contain no `unsafe` and no raw pointers at all.
@@ -49,9 +53,8 @@
 
 mod cpu;
 mod intrinsics;
-#[cfg(all(test, kopis_neon_sha3))]
+#[cfg(test)]
 mod intrinsics_vectors;
-#[cfg(kopis_neon_sha3)]
 pub(crate) mod keccak;
 pub(crate) mod ntt;
 pub(crate) mod sample;

@@ -92,22 +92,29 @@ declarations: serial=348  neon=516  shared-name=348
   reaching into the NEON backend from a shared name : 8
 ```
 
-Those eight are exactly the runtime-dispatch points, and they are the work list for the
-twin stack:
+Those are exactly the runtime-dispatch points, and they are the work list for the twin stack.
+**The counts above were recorded before the backend became `+sha3`-only** (see the operating
+note below); `sample.gen_secret_from_seed_loop` stopped reaching into the backend with that
+change, so the list is now seven:
 
 ```
 arithmetic.ntt.NttElem.from_uniform          arithmetic.ring_arith.RingElem.deserialize
 arithmetic.ntt.NttElem.from_secret           sample.gen_matrix_from_seed
 arithmetic.ntt.pointwise_mul_acc             sample.gen_secret_from_seed
-arithmetic.ntt.reduce_invntt_to_ring_elem    sample.gen_secret_from_seed_loop
+arithmetic.ntt.reduce_invntt_to_ring_elem
 ```
 
-Two more than AVX2's six, and the extra two are the batched XOF: `gen_matrix_from_seed` and
+One more than AVX2's six, and the extra one is the batched XOF: `gen_matrix_from_seed` and
 `gen_secret_from_seed` divert to `backend::neon::sample`, which drives the two-way TurboSHAKE.
 AVX2 has the same shape, but its `sample.gen_matrix_from_seed` was already counted in its six.
-`gen_secret_from_seed_loop` is the odd one — NEON keeps a *second* dispatch inside the portable
-loop, for the `MU` values whose fields straddle byte boundaries, which AVX2 has no counterpart
-for because its four-lane batch has already returned by then.
+The eighth used to be `gen_secret_from_seed_loop`: NEON kept a *second* dispatch inside the
+portable loop, for the `MU` values whose fields straddle byte boundaries, because on a NEON
+target without FEAT_SHA3 the batch above did not exist and the loop still ran. With the backend
+requiring the extension the batch always returns first, exactly as AVX2's does, so the inner
+dispatch was dead and is gone; the loop declaration remains, but it is now the portable one and
+shares its name honestly. Re-run the extraction and the declaration diff to refresh the numbers,
+and the NEON `CbdDispatch`/`GenSecretTop` obligations should collapse onto the shape AVX2 already
+has.
 
 ## 4. Operating notes
 
@@ -119,10 +126,14 @@ carries full MIR for that target, so nothing special is needed beyond
 `rustup target add aarch64-unknown-linux-gnu`. (This stopped being a *difference* from AVX2 on
 2026-08-07: the AVX2 extraction now names `x86_64-unknown-linux-gnu` explicitly too, so that
 neither vector extraction depends on what the host happens to be. It remains an addition over
-the AVX2 plan as written.) The `+sha3` is not optional — without it
-`build.rs` drops `backend::neon::keccak` and the batched samplers, and the extraction silently
-covers a *different, smaller* backend. **A NEON build without FEAT_SHA3 is therefore not covered
-by any of this**, and closing that would mean a fourth extraction.
+the AVX2 plan as written.) The `+sha3` is not optional, and as of this change it is not optional
+for the *crate* either: `build.rs` compiles the NEON backend only for targets that enable both
+`neon` and `sha3`, and an AArch64 target without FEAT_SHA3 gets the portable serial backend —
+which is already extracted and proved. So there is exactly one NEON build, the one this plan is
+about, and no uncovered smaller variant. (Previously the extension gated only
+`backend::neon::keccak` and the batched samplers, so a NEON build without it was a different,
+smaller backend that none of this covered, and closing that would have meant a fourth
+extraction.)
 
 **Isolate aeneas failures with `--start-from`.** A whole-crate aeneas run takes about two
 minutes; `charon cargo … --start-from 'kopis::backend::neon::ntt::invntt_block'` plus aeneas on

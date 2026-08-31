@@ -1,4 +1,4 @@
-//! NEON sampling: centered-binomial sampling, and batched XOF expansion where it is available.
+//! NEON sampling: centered-binomial sampling, and batched XOF expansion.
 //!
 //! Two things happen here. The first is the centered-binomial step: turning each `MU`-bit field
 //! of the XOF bytes into `popcount(low half) − popcount(high half)`, which is ordinary bit work
@@ -15,9 +15,9 @@
 //! unpack the results. The bytes each element sees are unchanged, so the sampled values are
 //! identical to the serial code's.
 //!
-//! That half exists only when the target has the ARMv8.2 SHA3 extension — see [`super::keccak`]
-//! for why, and `build.rs` for how it is decided. Without it, this module is just the CBD step,
-//! as it was before, and [`crate::sample`] drives the scalar sponge itself.
+//! That half is why the backend requires the ARMv8.2 SHA3 extension — see [`super::keccak`] for
+//! the argument, and `build.rs` for how the decision is made. Targets without it get the portable
+//! code, which drives the scalar sponge itself.
 
 use crate::{arithmetic::RingElem, consts::RING_DEG};
 
@@ -26,23 +26,18 @@ use super::intrinsics::{
 };
 use super::ser;
 
-#[cfg(kopis_neon_sha3)]
 use super::keccak::{WAYS, xof2};
-#[cfg(kopis_neon_sha3)]
 use crate::{
     arithmetic::Matrix,
     consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU},
 };
 
 /// TurboSHAKE128's rate, used for matrix expansion
-#[cfg(kopis_neon_sha3)]
 const RATE_128: usize = 168;
 /// TurboSHAKE256's rate, used for secret expansion
-#[cfg(kopis_neon_sha3)]
 const RATE_256: usize = 136;
 
 /// Bytes of XOF output one matrix entry consumes: 256 coefficients at 13 bits
-#[cfg(kopis_neon_sha3)]
 const MATRIX_ELEM_BYTES: usize = RING_DEG * 13 / 8;
 
 /// Population count of each 16-bit lane, valid when the value fits in the low byte.
@@ -72,7 +67,7 @@ fn popcount_small(v: Vec128) -> Vec128 {
 ///
 /// Requires NEON. `buf.len()` must be `RING_DEG * MU / 8`, and `MU` must be even and in `2..=13`.
 #[target_feature(enable = "neon")]
-pub(crate) fn cbd_lanes<const MU: usize>(buf: &[u8]) -> RingElem {
+fn cbd_lanes<const MU: usize>(buf: &[u8]) -> RingElem {
     let fields = ser::deserialize(buf, MU);
 
     let half_mask = dup_n_u16((1u16 << (MU / 2)) - 1);
@@ -100,7 +95,6 @@ pub(crate) fn cbd_lanes<const MU: usize>(buf: &[u8]) -> RingElem {
 // batch, so the iterator form would need `enumerate()` and read worse, not better. The AVX2
 // sibling writes it this way too, there for extraction reasons.
 #[allow(clippy::needless_range_loop)]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L, L> {
     let mut mat = Matrix::default();
@@ -142,7 +136,6 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
 /// # Safety
 ///
 /// Requires NEON and the SHA3 extension.
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
     seed: &[u8; 32],
@@ -167,7 +160,6 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
 ///
 // `needless_range_loop`: see `gen_matrix_from_seed` above.
 #[allow(clippy::needless_range_loop)]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 fn secret<const L: usize, const MU: usize, const N: usize>(seed: &[u8; 32]) -> Matrix<L, 1> {
     let mut secret = Matrix::default();
@@ -243,7 +235,6 @@ mod test {
     // Batching two XOF lanes must not disturb which bytes each element is derived from. Check
     // against the definition — TurboSHAKE128 over `seed || i || j` — rather than against the
     // serial function, which the dispatcher has already diverted.
-    #[cfg(kopis_neon_sha3)]
     #[test]
     fn gen_matrix_matches_definition() {
         use turboshake::CTurboShake128;
@@ -282,7 +273,6 @@ mod test {
     }
 
     // Likewise for the secret vector, against TurboSHAKE256 over `seed || i`
-    #[cfg(kopis_neon_sha3)]
     #[test]
     fn gen_secret_matches_definition() {
         use turboshake::CTurboShake256;

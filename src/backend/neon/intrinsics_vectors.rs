@@ -14,13 +14,14 @@
 //! What this does not do: it is a test, not a proof. Agreement on ~1000 inputs per operation is
 //! evidence that the axiom is right everywhere, not a demonstration of it.
 //!
-//! # Why this is compiled only with the SHA3 extension
+//! # One interface, one recorded file
 //!
-//! Four of the wrappers are FEAT_SHA3 instructions and six more exist only to serve them, so on a
-//! target without the extension there is no single input set that covers the interface. Gating
-//! the whole module on `kopis_neon_sha3` keeps the recorded file one file rather than two, and
-//! matches the extraction's own scope: `../extract_rust_to_lean.sh` extracts the NEON backend
-//! with `-C target-feature=+sha3`, so the `+sha3` build is the one the proofs are about.
+//! Four of the wrappers are FEAT_SHA3 instructions and six more exist only to serve them, so the
+//! recorded file only makes sense for a `+sha3` build. That is the only build there is: the
+//! backend as a whole is compiled only where `build.rs` confirmed the extension, so the interface
+//! this replays never varies and the vectors stay one file rather than two. It matches the
+//! extraction's own scope too — `../extract_rust_to_lean.sh` extracts the NEON backend with
+//! `-C target-feature=+sha3`, so the `+sha3` build is the one the proofs are about.
 //! `aarch64-apple-darwin` enables `sha3` by default, so a plain `cargo test` on Apple silicon
 //! runs this.
 //!
@@ -656,7 +657,7 @@ fn vectors_match_this_cpu() {
     if !super::available() {
         return;
     }
-    // SAFETY: guarded by the `available()` check above, and this module is compiled only when
+    // SAFETY: guarded by the `available()` check above; the backend is compiled only when
     // `build.rs` confirmed the SHA3 extension for the target.
     let produced = unsafe { build() };
     let path = vectors_path();

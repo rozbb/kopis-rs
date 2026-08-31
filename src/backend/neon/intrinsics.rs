@@ -98,9 +98,8 @@ pub(crate) fn dup_n_u32(a: u32) -> Vec128 {
 
 /// `dup.2d`: both 64-bit lanes set to `a`
 ///
-/// Only [`super::keccak`] works in 64-bit lanes, so this exists on the same condition it does.
+/// Only [`super::keccak`] works in 64-bit lanes.
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon")]
 pub(crate) fn dup_n_u64(a: u64) -> Vec128 {
     Vec128(vreinterpretq_u8_u64(vdupq_n_u64(a)))
@@ -112,7 +111,6 @@ pub(crate) fn dup_n_u64(a: u64) -> Vec128 {
 /// single instruction, because building a vector from two scalars has no single-instruction form.
 /// Its meaning is still exactly one equation, which is what the axiom needs.
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon")]
 pub(crate) fn set_u64x2(lo: u64, hi: u64) -> Vec128 {
     Vec128(vreinterpretq_u8_u64(vcombine_u64(
@@ -134,10 +132,8 @@ pub(crate) fn and(a: Vec128, b: Vec128) -> Vec128 {
 
 /// `eor.16b`: bitwise exclusive or of all 128 bits
 ///
-/// Only Keccak's ι step needs a plain xor — the NTT never does — so this exists on the same
-/// condition [`super::keccak`] does.
+/// Only Keccak's ι step needs a plain xor; the NTT never does.
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon")]
 pub(crate) fn eor(a: Vec128, b: Vec128) -> Vec128 {
     Vec128(veorq_u8(a.0, b.0))
@@ -441,13 +437,13 @@ pub(crate) fn tbl1_u8(table: Vec128, idx: Vec128) -> Vec128 {
 // ---------------------------------------------------------------------------------------
 // FEAT_SHA3
 //
-// Compiled only where `build.rs` has confirmed the ARMv8.2 SHA3 extension for the target, which
-// is the same condition under which `super::keccak` — their only caller — exists at all.
+// The four instructions `super::keccak` is built around. `build.rs` compiles this backend only
+// where it has confirmed the ARMv8.2 SHA3 extension for the target, so they are always available
+// here; a target without the extension gets the portable code instead.
 // ---------------------------------------------------------------------------------------
 
 /// `eor3.16b`: bitwise exclusive or of all three arguments, over all 128 bits
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 pub(crate) fn eor3(a: Vec128, b: Vec128, c: Vec128) -> Vec128 {
     Vec128(vreinterpretq_u8_u64(veor3q_u64(
@@ -463,7 +459,6 @@ pub(crate) fn eor3(a: Vec128, b: Vec128, c: Vec128) -> Vec128 {
 /// `B[x] ^ (~B[x+1] & B[x+2])`, so it is `bcax(B[x], B[x+2], B[x+1])` with the last two
 /// arguments swapped relative to the reading order of the formula.
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 pub(crate) fn bcax(a: Vec128, b: Vec128, c: Vec128) -> Vec128 {
     Vec128(vreinterpretq_u8_u64(vbcaxq_u64(
@@ -475,7 +470,6 @@ pub(crate) fn bcax(a: Vec128, b: Vec128, c: Vec128) -> Vec128 {
 
 /// `rax1.2d`: 2 lanes of `a ^ rotl(b, 1)`, the 64-bit rotate being Keccak's θ mixing step
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 pub(crate) fn rax1(a: Vec128, b: Vec128) -> Vec128 {
     Vec128(vreinterpretq_u8_u64(vrax1q_u64(
@@ -489,7 +483,6 @@ pub(crate) fn rax1(a: Vec128, b: Vec128) -> Vec128 {
 /// A *right* rotation, so a left rotation by `r` — which is how ρ is defined — is this with
 /// `IMM = (64 − r) % 64`.
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon,sha3")]
 pub(crate) fn xar<const IMM: i32>(a: Vec128, b: Vec128) -> Vec128 {
     Vec128(vreinterpretq_u8_u64(vxarq_u64::<IMM>(
@@ -582,10 +575,9 @@ pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
 
 /// Stores 16 bytes at `dst[offset ..]`
 ///
-/// Only [`super::keccak`] writes bytes through a vector, so this exists on the same condition it
-/// does; everything else stores whole `u16` or `i32` vectors.
+/// Only [`super::keccak`] writes bytes through a vector; everything else stores whole `u16` or
+/// `i32` vectors.
 #[inline]
-#[cfg(kopis_neon_sha3)]
 #[target_feature(enable = "neon")]
 pub(crate) fn store_u8x16(dst: &mut [u8], offset: usize, v: Vec128) {
     assert!(offset + 16 <= dst.len());

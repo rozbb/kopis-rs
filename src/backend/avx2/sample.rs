@@ -8,7 +8,7 @@
 
 use crate::{
     arithmetic::{Matrix, RingElem},
-    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, 13, RING_DEG},
+    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, RING_DEG},
 };
 
 use super::intrinsics::{
@@ -120,10 +120,8 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
         for lane in 0..4 {
             let entry = first + lane;
             if entry < entries {
-                mat.0[entry / L][entry % L] = RingElem(ser::deserialize(
-                    &bufs[lane][..MATRIX_ELEM_BYTES],
-                    13,
-                ));
+                mat.0[entry / L][entry % L] =
+                    RingElem(ser::deserialize(&bufs[lane][..MATRIX_ELEM_BYTES], 13));
             }
         }
 

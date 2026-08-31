@@ -97,18 +97,21 @@ public matrix is ℓ² independent XOF calls differing only in a two-byte index,
 `uint64x2_t` holds two 64-bit lanes to a `Vec256`'s four — which also wastes fewer lanes on the
 batch sizes Kopis uses, since ℓ = 2 fills a two-lane batch exactly.
 
-The NEON version is conditional. It is written against the ARMv8.2 SHA3 extension, whose four
-instructions are Keccak steps rather than general bit tricks (`eor3` for θ's column fold, `rax1`
-for its neighbour mixing, `xar` for θ's per-lane xor fused with ρ's rotation, `bcax` for χ), and
-that is what makes it worth doing: scalar AArch64 gets its rotates free in the second operand,
-so a plain-NEON two-way permutation does not clearly beat two scalar sponges. `build.rs` emits
-`kopis_neon_sha3` when the target has the feature — `aarch64-apple-darwin` does by default —
-and without it the crate falls back to the scalar sponge. The decision is made at build time
-rather than by a runtime probe because the crate is `no_std` and `core` has no AArch64 feature
-detection.
+The NEON version is written against the ARMv8.2 SHA3 extension, whose four instructions are
+Keccak steps rather than general bit tricks (`eor3` for θ's column fold, `rax1` for its
+neighbour mixing, `xar` for θ's per-lane xor fused with ρ's rotation, `bcax` for χ), and that is
+what makes it worth doing: scalar AArch64 gets its rotates free in the second operand, so a
+plain-NEON two-way permutation does not clearly beat two scalar sponges. Since that is the bulk
+of what the backend buys, the extension is a requirement for the **whole** NEON backend rather
+than for this file alone: `build.rs` compiles it only when the target has both `neon` and
+`sha3` — `aarch64-apple-darwin` has both by default — and an AArch64 target without the
+extension gets the portable serial backend instead. There is therefore exactly one NEON
+configuration to build, test, and prove. The decision is made at build time rather than by a
+runtime probe because the crate is `no_std` and `core` has no AArch64 feature detection.
 
-Serial builds, AArch64 targets without the extension, and every other TurboSHAKE call in the
-crate still go through the [`turboshake`](https://crates.io/crates/turboshake) crate. Both
+Serial builds — which is what AArch64 targets without the extension get — and every other
+TurboSHAKE call in the crate still go through the
+[`turboshake`](https://crates.io/crates/turboshake) crate. Both
 batched versions are checked against it byte for byte by `keccak::test::matches_scalar`, and the
 batched samplers against the definition of the XOF by `gen_matrix_matches_definition` and
 `gen_secret_matches_definition`.
@@ -119,7 +122,9 @@ Verification* section.
 
 By default there is nothing to configure: on x86 targets both backends are compiled and the
 AVX2 one is selected at first use by a CPUID check, so the binary still runs on machines
-without AVX2. On every other target only the serial backend exists.
+without AVX2. On AArch64 targets that enable `neon` and `sha3` with a hardfloat ABI the NEON
+backend is compiled in and always used, since both features are confirmed at build time. On
+every other target only the serial backend exists.
 
 The choice can be forced with the `kopis_backend` cfg:
 
@@ -129,13 +134,17 @@ RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
 
 # AVX2 unconditionally, with no runtime check and no fallback
 RUSTFLAGS='--cfg kopis_backend="avx2"' cargo build
+
+# likewise NEON; needs +sha3, which aarch64-apple-darwin has by default
+RUSTFLAGS='--cfg kopis_backend="neon"' cargo build
 ```
 
 `avx2` makes the build script verify that AVX2 really is available for the target — the target
 must be x86, and either `avx2` must be in the enabled target features (`-C target-feature=+avx2`,
-`-C target-cpu=native`) or the build must be a native one on a CPU that reports AVX2. If it is
-not, the build fails with an explanatory panic rather than producing a binary that would fault
-at run time.
+`-C target-cpu=native`) or the build must be a native one on a CPU that reports AVX2. `neon`
+does the same for AArch64: the target must enable both `neon` and `sha3` and must not use the
+softfloat ABI. If the check fails, the build fails with an explanatory panic rather than
+producing a binary that would fault at run time.
 
 # Formal Verification
 

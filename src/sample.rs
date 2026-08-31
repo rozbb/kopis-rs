@@ -89,12 +89,11 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
         return unsafe { crate::backend::avx2::sample::gen_secret_from_seed::<L, MU>(seed) };
     }
 
-    // The same, two lanes at a time, where NEON has the SHA3 extension to make it worthwhile.
-    #[cfg(kopis_neon_sha3)]
+    // The same, two lanes at a time, on NEON.
+    #[cfg(kopis_neon)]
     #[allow(unsafe_code)]
     if crate::backend::neon_available() {
-        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON, and this arm is
-        // compiled only when `build.rs` confirmed the SHA3 extension for the target.
+        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
         return unsafe { crate::backend::neon::sample::gen_secret_from_seed::<L, MU>(seed) };
     }
 
@@ -104,7 +103,8 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
     let mut backing_buf = [0u8; RING_DEG * MAX_MU / 8];
     let buf = &mut backing_buf[..RING_DEG * MU / 8];
 
-    // Sample the secret using the Centered Binomial Distribution
+    // Sample the secret using the Centered Binomial Distribution. Both vector backends have
+    // returned above, so this is the portable path and needs no dispatch of its own.
     for i in 0..L {
         let mut hasher = CTurboShake256::<DOMSEP_GENSEC>::default();
         hasher.update(seed);
@@ -112,13 +112,7 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
         let mut reader = hasher.finalize_xof();
         reader.read(buf);
 
-        #[cfg(kopis_neon)]
-        #[allow(unsafe_code)]
-        if !MU.is_multiple_of(8) && crate::backend::neon_available() {
-            // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
-            secret.0[i][0] = unsafe { crate::backend::neon::sample::cbd_lanes::<MU>(buf) };
-            continue;
-        }
+        cbd::<MU>(buf, &mut secret.0[i][0]);
     }
 
     secret
@@ -137,11 +131,10 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
     }
 
     // Two to a vector on NEON, where a `uint64x2_t` holds two 64-bit lanes to a `Vec256`'s four.
-    #[cfg(kopis_neon_sha3)]
+    #[cfg(kopis_neon)]
     #[allow(unsafe_code)]
     if crate::backend::neon_available() {
-        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON, and this arm is
-        // compiled only when `build.rs` confirmed the SHA3 extension for the target.
+        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
         return unsafe { crate::backend::neon::sample::gen_matrix_from_seed::<L>(seed) };
     }
 

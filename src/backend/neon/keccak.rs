@@ -30,9 +30,10 @@
 //! for round against the `turboshake` crate's scalar sponge that works out to roughly 1.7x per
 //! lane, measured; the rest of the win is the batching, which halves the number of permutations.
 //!
-//! [`crate::sample`] keeps the scalar sponge for targets without the extension; `build.rs`
-//! decides which, at build time, because the crate is `no_std` and `core` has no AArch64
-//! run-time feature detection.
+//! Because this is the bulk of what the NEON backend buys, the extension is a condition on the
+//! whole backend rather than on this module alone: `build.rs` decides at build time — the crate
+//! is `no_std` and `core` has no AArch64 run-time feature detection — and a target without it
+//! gets the portable serial code, scalar sponge included.
 //!
 //! # Scope
 //!
