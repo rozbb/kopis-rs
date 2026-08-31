@@ -1,13 +1,7 @@
 /// The degree of the polynomial ring over Z/qZ
 pub(crate) const RING_DEG: usize = 256;
 
-// Key for the following constants:
-//   * L is the dimension of the vectors/matrices we use.
-//     E.g., a secret in Kopis-512 is an element of R_q^2
-//   * MODULUS_T_BITS is the modulus for some ciphertext values.
-//     E.g., the c values in Kopis-512 are in R_3
-//   * MU is roughly the width of the binomial distribution we sample from.
-//     E.g., in Kopis-512, we sample from a binomial distribution with width 10
+// The parameters ℓ, t, and μ from the spec
 
 pub(crate) const KOPIS512_L: usize = 2;
 pub(crate) const KOPIS512_T: usize = 3;

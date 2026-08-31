@@ -1,8 +1,7 @@
 //! Serialization and deserialization routines for ring elements
 
-/// Fast specialization of `deserialize` for the 13-bit case (matrix expansion), which is
-/// by far the hottest width. Processes a whole 13-byte group into 8 coefficients with
-/// fixed shifts and no per-element branching, so it vectorizes well.
+/// Deserializes a bytestring to a [u13; 256] (each entry lives in the lower 13 bits of
+/// the `u16`)
 pub(crate) fn deserialize_13(bytes: &[u8; 13 * 256 / 8]) -> [u16; 256] {
     let mut out = [0u16; 256];
     // 256 coeffs = 32 groups of 8, each group packed into 13 bytes.
@@ -23,9 +22,8 @@ pub(crate) fn deserialize_13(bytes: &[u8; 13 * 256 / 8]) -> [u16; 256] {
     out
 }
 
-/// Fast specialization of `deserialize_generic` for the 10-bit case
-/// (ciphertext/public-key vector unpacking). Processes a 5-byte group into 4 coefficients
-/// with fixed shifts.
+/// Deserializes a bytestring to a `[u10; 256]` (each entry lives in the lower 10 bits of
+/// the `u16`)
 pub(crate) fn deserialize_10(bytes: &[u8; 10 * 256 / 8]) -> [u16; 256] {
     let mut out = [0u16; 256];
     // 256 coeffs = 64 groups of 4, each group packed into 5 bytes.
@@ -75,9 +73,7 @@ pub(crate) fn deserialize_generic<const N: usize>(bytes: &[u8], bits_per_elem: u
     out
 }
 
-/// Fast specialization of `serialize` for the 10-bit case (ciphertext/public-key vector
-/// packing), which is by far the hottest serialization width. Packs each 4-coefficient
-/// group into 5 bytes with fixed shifts and no per-element branching.
+/// Serializes a `u10` array into a bytestring
 pub(crate) fn serialize_10(data: &[u16; 256], out_buf: &mut [u8; 10 * 256 / 8]) {
     // 256 coeffs = 64 groups of 4, each group packed into 5 bytes.
     for g in 0..64 {
@@ -94,9 +90,7 @@ pub(crate) fn serialize_10(data: &[u16; 256], out_buf: &mut [u8; 10 * 256 / 8]) 
     }
 }
 
-// Algorithm 10, POLN2BS
-/// Serializes the given u16 array into a bitstring. Every element of the array has `bits_per_elem`
-/// bits (must be ≤ 13), encoded in the lower bits of the word.
+/// Serializes a `un` array into a bytestring, where `n = bits_per_elem`
 pub(crate) fn serialize(data: &[u16], out_buf: &mut [u8], bits_per_elem: usize) {
     assert_eq!(out_buf.len(), bits_per_elem * data.len() / 8);
 
