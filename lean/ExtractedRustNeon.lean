@@ -1281,9 +1281,9 @@ def ser.serialize_10
   := do
   ser.serialize_10_loop { start := 0#usize, «end» := 64#usize } data out_buf
 
-/-- [kopis::consts::MODULUS_P_BITS]
+/-- [kopis::consts::10]
     Source: 'src/consts.rs', lines 4:0-4:44 -/
-@[global_simps, irreducible] def consts.MODULUS_P_BITS : Std.Usize := 10#usize
+@[global_simps, irreducible] def consts.10 : Std.Usize := 10#usize
 
 /-- [kopis::arithmetic::ring_arith::{kopis::arithmetic::ring_arith::RingElem}::serialize]:
     Source: 'src/arithmetic/ring_arith.rs', lines 80:4-90:5 -/
@@ -1296,7 +1296,7 @@ def arithmetic.ring_arith.RingElem.serialize
   let i ← bits_per_elem * consts.RING_DEG
   let right_val ← i / 8#usize
   massert (left_val = right_val)
-  if bits_per_elem = consts.MODULUS_P_BITS
+  if bits_per_elem = consts.10
   then
     let (r, try_from_back) ←
       core.array.TryFromMutArraySlice.try_from 320#usize out_buf
@@ -1934,7 +1934,7 @@ def arithmetic.ring_arith.RingElem.deserialize
         let a ← ser.deserialize_13 arr
         ok a
       else
-        if bits_per_elem = consts.MODULUS_P_BITS
+        if bits_per_elem = consts.10
         then
           let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
           let arr ←
@@ -1952,7 +1952,7 @@ def arithmetic.ring_arith.RingElem.deserialize
       let a ← ser.deserialize_13 arr
       ok a
     else
-      if bits_per_elem = consts.MODULUS_P_BITS
+      if bits_per_elem = consts.10
       then
         let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
         let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
@@ -6503,7 +6503,7 @@ structure kem.KemSecretKey (L : Std.Usize) where
     Source: 'src/pke.rs', lines 133:0-136:1
     Visibility: public -/
 def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
-  let i ← L * consts.MODULUS_P_BITS
+  let i ← L * consts.10
   let i1 ← i * consts.RING_DEG
   let i2 ← i1 / 8#usize
   let i3 ← T * consts.RING_DEG
@@ -6536,7 +6536,7 @@ def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
     Visibility: public -/
 @[global_simps, irreducible]
 def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
-  let i ← L * consts.MODULUS_P_BITS
+  let i ← L * consts.10
   let i1 ← i * consts.RING_DEG
   let i2 ← i1 / 8#usize
   32#usize + i2
@@ -6775,7 +6775,7 @@ def pke.PkeSecretKey.Insts.CoreOpsDropDrop.drop
     Source: 'src/pke.rs', lines 16:0-16:63 -/
 @[global_simps, irreducible]
 def pke.H1_VAL : Result Std.U16 := do
-  let i ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
+  let i ← consts.MODULUS_Q_BITS - consts.10
   let i1 ← i - 1#usize
   1#u16 <<< i1
 
@@ -6798,7 +6798,7 @@ def pke.expand_decap_key_loop
     let (a1, index_mut_back) ← Array.index_mut_usize vec_bytes i
     let (s, to_slice_mut_back) ← lift (Array.to_slice_mut a1)
     let s1 ←
-      arithmetic.ring_arith.RingElem.serialize re s consts.MODULUS_P_BITS
+      arithmetic.ring_arith.RingElem.serialize re s consts.10
     let a2 := to_slice_mut_back s1
     let a3 := index_mut_back a2
     pke.expand_decap_key_loop iter1 b a3
@@ -6842,7 +6842,7 @@ def pke.expand_decap_key
   let prod ← arithmetic.ntt.NttMatrix.mul_transpose mat_a_ntt vec_s_ntt
   let i1 ← pke.H1_VAL
   let prod1 ← arithmetic.matrix_arith.Matrix.wrapping_add_to_all prod i1
-  let i2 ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
+  let i2 ← consts.MODULUS_Q_BITS - consts.10
   let prod2 ← arithmetic.matrix_arith.Matrix.shift_right prod1 i2
   let vec_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix prod2
   let a := Array.repeat 320#usize 0#u8
@@ -6996,7 +6996,7 @@ def impls.kopis1024.KemSecretKey4.public_key
     Source: 'src/pke.rs', lines 20:0-20:63 -/
 @[global_simps, irreducible]
 def pke.PK_VEC_ELEM_BYTES : Result Std.Usize := do
-  let i ← consts.MODULUS_P_BITS * consts.RING_DEG
+  let i ← consts.10 * consts.RING_DEG
   i / 8#usize
 
 /-- [kopis::pke::{kopis::pke::PkePublicKey<L>}::serialize]: loop 0:
@@ -7191,29 +7191,29 @@ def pke.encrypt_deterministic
   let prod ← arithmetic.ntt.NttMatrix.mul pk.mat_a_ntt sprime_ntt
   let i ← pke.H1_VAL
   let prod1 ← arithmetic.matrix_arith.Matrix.wrapping_add_to_all prod i
-  let i1 ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
+  let i1 ← consts.MODULUS_Q_BITS - consts.10
   let prod2 ← arithmetic.matrix_arith.Matrix.shift_right prod1 i1
   let vprime ← arithmetic.ntt.NttMatrix.mul_transpose pk.vec_ntt sprime_ntt
   let a ← Array.index_usize vprime 0#usize
   let vprime1 ← Array.index_usize a 0#usize
   let s ← lift (Array.to_slice msg)
   let a1 ← ser.deserialize_generic 256#usize s 1#usize
-  let i2 ← consts.MODULUS_P_BITS - 1#usize
+  let i2 ← consts.10 - 1#usize
   let msg_polyn ← arithmetic.ring_arith.RingElem.shift_left a1 i2
   let c ←
     SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub vprime1
       msg_polyn
   let c1 ← arithmetic.ring_arith.RingElem.wrapping_add_to_all c i
-  let i3 ← consts.MODULUS_P_BITS - T
+  let i3 ← consts.10 - T
   let c2 ← arithmetic.ring_arith.RingElem.shift_right c1 i3
-  let i4 ← L * consts.MODULUS_P_BITS
+  let i4 ← L * consts.10
   let i5 ← i4 * consts.RING_DEG
   let i6 ← i5 / 8#usize
   let ((bprime_buf, c_buf), split_at_mut_back) ←
     core.slice.Slice.split_at_mut out_buf i6
   let bprime_buf1 ←
     arithmetic.matrix_arith.Matrix.serialize prod2 bprime_buf
-      consts.MODULUS_P_BITS
+      consts.10
   let c_buf1 ← arithmetic.ring_arith.RingElem.serialize c2 c_buf T
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
@@ -7365,7 +7365,7 @@ def pke.decrypt
   let left_val := Slice.len ciphertext
   let right_val ← pke.ciphertext_len L T
   massert (left_val = right_val)
-  let i ← L * consts.MODULUS_P_BITS
+  let i ← L * consts.10
   let i1 ← i * consts.RING_DEG
   let i2 ← i1 / 8#usize
   let (bprime_bytes, c_bytes) ← core.slice.Slice.split_at ciphertext i2
@@ -7373,25 +7373,25 @@ def pke.decrypt
     arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize bprime_bytes
   let bprime_ntt ← arithmetic.ntt.NttMatrix.from_uniform_matrix bprime
   let c ← arithmetic.ring_arith.RingElem.deserialize c_bytes T
-  let i3 ← consts.MODULUS_P_BITS - T
+  let i3 ← consts.10 - T
   let c1 ← arithmetic.ring_arith.RingElem.shift_left c i3
   let v ← arithmetic.ntt.NttMatrix.mul_transpose bprime_ntt sk
   let a ← Array.index_usize v 0#usize
   let v1 ← Array.index_usize a 0#usize
   let mprime ←
     SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub v1 c1
-  let i4 ← consts.MODULUS_P_BITS - 2#usize
+  let i4 ← consts.10 - 2#usize
   let i5 ← 1#u16 <<< i4
   let i6 ← i3 - 1#usize
   let i7 ← 1#u16 <<< i6
   let i8 ← i5 - i7
-  let i9 ← consts.MODULUS_Q_BITS - consts.MODULUS_P_BITS
+  let i9 ← consts.MODULUS_Q_BITS - consts.10
   let i10 ← i9 - 1#usize
   let i11 ← 1#u16 <<< i10
   let h2_val ← i8 + i11
   let mprime1 ←
     arithmetic.ring_arith.RingElem.wrapping_add_to_all mprime h2_val
-  let i12 ← consts.MODULUS_P_BITS - 1#usize
+  let i12 ← consts.10 - 1#usize
   let mprime2 ← arithmetic.ring_arith.RingElem.shift_right mprime1 i12
   let m := Array.repeat 32#usize 0#u8
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut m)
@@ -7629,7 +7629,7 @@ def pke.PkePublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
 def pke.max_ciphertext_len : Result Std.Usize := do
   let i ← consts.MAX_T * consts.RING_DEG
   let i1 ← i / 8#usize
-  let i2 ← consts.MAX_L * consts.MODULUS_P_BITS
+  let i2 ← consts.MAX_L * consts.10
   let i3 ← i2 * consts.RING_DEG
   let i4 ← i3 / 8#usize
   i1 + i4

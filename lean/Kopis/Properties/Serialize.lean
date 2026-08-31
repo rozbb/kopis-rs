@@ -360,7 +360,7 @@ private theorem streamNat_window (bytes : Slice U8) (B r : ℕ) (hr : r ≤ 7) :
       `core.slice.index.SliceIndexRangeUsizeSlice`). Bridge `arr.val = bytes.val` at the end.
 
   (3) from_bytes_spec: unfold `RingElem.deserialize`; `simp only [consts.RING_DEG,
-      consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]`; step scalar mul/div; discharge the
+      consts.MODULUS_Q_BITS, consts.10]`; step scalar mul/div; discharge the
       `massert` (both sides = 416 from `hlen`); take the `13 = 13` branch; resolve
       `try_from 416`/`unwrap` (lengths match ⇒ array with `.val = bytes.val`); then
       `apply WP.spec_bind (deserialize_13_spec bytes arr <arr.val=bytes.val> hlen416)`

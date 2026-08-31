@@ -79,7 +79,7 @@ PATCHES = [
     exact streamNat_lt _ _ _"""),
     ("Ntt.lean",
      """  unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
+  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac
@@ -157,8 +157,8 @@ PATCHES = [
   have hne13' : n#usize ≠ consts.MODULUS_Q_BITS := by
     simp only [consts.MODULUS_Q_BITS]
     intro h; exact hne13 (by have := congrArg UScalar.val h; simpa using this)
-  have hne10' : n#usize ≠ consts.MODULUS_P_BITS := by
-    simp only [consts.MODULUS_P_BITS]
+  have hne10' : n#usize ≠ consts.10 := by
+    simp only [consts.10]
     intro h; exact hne10 (by have := congrArg UScalar.val h; simpa using this)
   rw [if_neg hne13', if_neg hne10']
   -- delegate to the generic decoder and thread the postcondition through `ok a`
@@ -179,7 +179,7 @@ PATCHES = [
     # Dispatch point at width 10 (`RingElem::deserialize`, the ciphertext/public-key width).
     ("DeserializeVec.lean",
      """  unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
+  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac

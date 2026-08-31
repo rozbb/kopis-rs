@@ -2,7 +2,7 @@
 
 use crate::{
     arithmetic::{Matrix, RingElem},
-    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, MODULUS_Q_BITS, RING_DEG},
+    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, RING_DEG},
 };
 
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
@@ -180,7 +180,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
     // Our output is a matrix of ring elements
     let mut mat = Matrix::default();
     // For each ring element we need to sample the same number of bytes
-    let mut buf = [0u8; RING_DEG * MODULUS_Q_BITS / 8];
+    let mut buf = [0u8; RING_DEG * 13 / 8];
 
     // Construct the matrix entries
     for i in 0..L {
@@ -191,7 +191,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
             hasher.update(&[j as u8]);
             let mut reader = hasher.finalize_xof();
             reader.read(&mut buf);
-            mat.0[i][j] = RingElem::deserialize(&buf, MODULUS_Q_BITS);
+            mat.0[i][j] = RingElem::deserialize(&buf, 13);
         }
     }
 

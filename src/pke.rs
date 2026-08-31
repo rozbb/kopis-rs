@@ -2,9 +2,7 @@
 
 use crate::{
     arithmetic::{Matrix, NttMatrix, RingElem},
-    consts::{
-        DOMSEP_KGEXPAND, DOMSEP_PKHASH, MAX_L, MAX_T, MODULUS_P_BITS, MODULUS_Q_BITS, RING_DEG,
-    },
+    consts::{DOMSEP_KGEXPAND, DOMSEP_PKHASH, MAX_L, MAX_T, RING_DEG},
     sample::{gen_matrix_from_seed, gen_secret_from_seed},
     ser::deserialize_generic,
 };
@@ -13,11 +11,11 @@ use turboshake::CTurboShake256;
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-const H1_VAL: u16 = 1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1);
+const H1_VAL: u16 = 1 << (13 - 10 - 1);
 
 /// The serialized length of one public-vector ring element: an element of `R_p`, packed at
-/// `MODULUS_P_BITS` (10) bits per coefficient, i.e. 320 bytes.
-const PK_VEC_ELEM_BYTES: usize = MODULUS_P_BITS * RING_DEG / 8;
+/// `10` (10) bits per coefficient, i.e. 320 bytes.
+const PK_VEC_ELEM_BYTES: usize = 10 * RING_DEG / 8;
 
 /// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form, NTT domain).
 ///
@@ -52,7 +50,7 @@ pub struct PkePublicKey<const L: usize> {
 }
 
 impl<const L: usize> PkePublicKey<L> {
-    pub const SERIALIZED_LEN: usize = 32 + L * MODULUS_P_BITS * RING_DEG / 8;
+    pub const SERIALIZED_LEN: usize = 32 + L * 10 * RING_DEG / 8;
 
     /// Serializes this public key to a byte string. `out_buf` MUST have length SERIALIZED_LEN
     // Explicit index loop (not `.iter().enumerate()`) to stay friendly to the aeneas extractor.
@@ -125,14 +123,14 @@ impl<const L: usize> PkePublicKey<L> {
 /// choices, for a message that is 32-bytes.
 pub const fn max_ciphertext_len() -> usize {
     // b' is in R^l_P and c is in R_T
-    MAX_T * RING_DEG / 8 + MAX_L * MODULUS_P_BITS * RING_DEG / 8
+    MAX_T * RING_DEG / 8 + MAX_L * 10 * RING_DEG / 8
 }
 
 /// The length of a ciphertext (PKE or KEM, since they're the same) for a given parameter choice,
 /// for a message that is 32-bytes.
 pub const fn ciphertext_len<const L: usize, const T: usize>() -> usize {
     // b' is in R^l_P and c is in R_T
-    L * MODULUS_P_BITS * RING_DEG / 8 + T * RING_DEG / 8
+    L * 10 * RING_DEG / 8 + T * RING_DEG / 8
 }
 
 /// Expands a 32-byte secret key into the full decapsulation key components.
@@ -171,7 +169,7 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
     let b = {
         let mut prod = mat_a_ntt.mul_transpose(&vec_s_ntt);
         prod.wrapping_add_to_all(H1_VAL);
-        prod.shift_right(MODULUS_Q_BITS - MODULUS_P_BITS);
+        prod.shift_right(13 - 10);
         prod
     };
 
@@ -188,7 +186,7 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
     // Pack b into its serialized bytes; we keep those, not the structured vector.
     let mut vec_bytes = [[0u8; PK_VEC_ELEM_BYTES]; L];
     for i in 0..L {
-        b.0[i][0].serialize(&mut vec_bytes[i], MODULUS_P_BITS);
+        b.0[i][0].serialize(&mut vec_bytes[i], 10);
     }
 
     let pk = PkePublicKey {
@@ -210,23 +208,22 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
 ) -> [u8; 32] {
     assert_eq!(ciphertext.len(), ciphertext_len::<L, T>());
     // b' is in R^l_P and c is in R_T
-    let (bprime_bytes, c_bytes) = ciphertext.split_at(L * MODULUS_P_BITS * RING_DEG / 8);
+    let (bprime_bytes, c_bytes) = ciphertext.split_at(L * 10 * RING_DEG / 8);
 
     let bprime: Matrix<L, 1> = Matrix::deserialize_10(bprime_bytes);
     let bprime_ntt = NttMatrix::from_uniform_matrix(&bprime);
 
     let mut c = RingElem::deserialize(c_bytes, T);
-    c.shift_left(MODULUS_P_BITS - T);
+    c.shift_left(10 - T);
 
     let v = bprime_ntt.mul_transpose(&sk.0);
     let v = v.0[0][0];
 
     // Compute v - c + h₂
     let mut mprime = &v - &c;
-    let h2_val = (1 << (MODULUS_P_BITS - 2)) - (1 << (MODULUS_P_BITS - T - 1))
-        + (1 << (MODULUS_Q_BITS - MODULUS_P_BITS - 1));
+    let h2_val = (1 << (10 - 2)) - (1 << (10 - T - 1)) + (1 << (13 - 10 - 1));
     mprime.wrapping_add_to_all(h2_val);
-    mprime.shift_right(MODULUS_P_BITS - 1);
+    mprime.shift_right(10 - 1);
 
     let mut m = [0u8; 32];
     mprime.serialize(&mut m, 1);
@@ -249,7 +246,7 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
     let bprime = {
         let mut prod = pk.mat_a_ntt.mul(&sprime_ntt);
         prod.wrapping_add_to_all(H1_VAL);
-        prod.shift_right(MODULUS_Q_BITS - MODULUS_P_BITS);
+        prod.shift_right(13 - 10);
         prod
     };
 
@@ -257,16 +254,16 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
     let vprime = vprime.0[0][0];
 
     let mut msg_polyn = RingElem(deserialize_generic(msg, 1));
-    msg_polyn.shift_left(MODULUS_P_BITS - 1);
+    msg_polyn.shift_left(10 - 1);
 
     // Compute v' - mp + h₁
     let mut c = &vprime - &msg_polyn;
     c.wrapping_add_to_all(H1_VAL);
-    c.shift_right(MODULUS_P_BITS - T);
+    c.shift_right(10 - T);
 
     // b' is in R^l_P and c is in R_T
-    let (bprime_buf, c_buf) = out_buf.split_at_mut(L * MODULUS_P_BITS * RING_DEG / 8);
-    bprime.serialize(bprime_buf, MODULUS_P_BITS);
+    let (bprime_buf, c_buf) = out_buf.split_at_mut(L * 10 * RING_DEG / 8);
+    bprime.serialize(bprime_buf, 10);
     c.serialize(c_buf, T);
 }
 
@@ -288,7 +285,7 @@ mod test {
     // Helper function that encrypts and decrypts a random 32-byte message
     fn test_enc_dec<const L: usize, const T: usize, const MU: usize>() {
         let mut rng = rand::rng();
-        let mut backing_buf = [0u8; MAX_T * RING_DEG / 8 + MAX_L * MODULUS_P_BITS * RING_DEG / 8];
+        let mut backing_buf = [0u8; MAX_T * RING_DEG / 8 + MAX_L * 10 * RING_DEG / 8];
 
         for _ in 0..100 {
             // Generate a random secret key seed and expand it
@@ -300,7 +297,7 @@ mod test {
             let mut msg = [0u8; 32];
             rng.fill_bytes(&mut enc_seed);
             rng.fill_bytes(&mut msg);
-            let ct_buf = &mut backing_buf[..T * RING_DEG / 8 + L * MODULUS_P_BITS * RING_DEG / 8];
+            let ct_buf = &mut backing_buf[..T * RING_DEG / 8 + L * 10 * RING_DEG / 8];
 
             encrypt_deterministic::<L, MU, T>(&pk, &msg, &enc_seed, ct_buf);
             let recovered_msg = decrypt::<L, T>(&sk, ct_buf);

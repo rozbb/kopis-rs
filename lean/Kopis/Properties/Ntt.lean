@@ -454,7 +454,7 @@ private theorem ntt_ringElem_deser10_raw (bytes : Slice U8) (hlen : bytes.length
       ⦃ (r : arithmetic.ring_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 10 ⦄ := by
   unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
+  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac

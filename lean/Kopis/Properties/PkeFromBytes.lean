@@ -174,7 +174,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
   have hb0 : L.val * 10 ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit
   have e32 : (32#usize).val = 32 := rfl
   unfold pke.PkePublicKey.from_bytes pke.PkePublicKey.SERIALIZED_LEN
-  simp only [consts.MODULUS_P_BITS, consts.RING_DEG]
+  simp only [consts.10, consts.RING_DEG]
   -- SERIALIZED_LEN = 32 + L·10·256/8 = 32 + L·320
   let* ⟨ i0, hi0 ⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) hb0
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (x := i0) (y := 256#usize) (by rw [hi0]; exact hfit)

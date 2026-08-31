@@ -25,7 +25,7 @@ impl RingElem {
     /// Creates a random ring element
     #[cfg(test)]
     pub(crate) fn rand(rng: &mut impl rand_core::CryptoRng) -> Self {
-        let modulus = 1 << crate::consts::MODULUS_Q_BITS as u32;
+        let modulus = 1u32 << 13;
 
         let mut result = [0; RING_DEG];
         result.iter_mut().for_each(|coeff| {
@@ -63,10 +63,10 @@ impl RingElem {
         }
 
         // Specialize based on bits_per_elem. unwraps are okay because of the check above
-        if bits_per_elem == crate::consts::MODULUS_Q_BITS {
+        if bits_per_elem == 13 {
             let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();
             RingElem(crate::ser::deserialize_13(arr))
-        } else if bits_per_elem == crate::consts::MODULUS_P_BITS {
+        } else if bits_per_elem == 10 {
             let arr: &[u8; 10 * RING_DEG / 8] = bytes.try_into().unwrap();
             RingElem(crate::ser::deserialize_10(arr))
         } else {
@@ -81,7 +81,7 @@ impl RingElem {
         assert_eq!(out_buf.len(), bits_per_elem * RING_DEG / 8);
 
         // Specialize based on bits_per_elem. unwrap is okay because of the check above
-        if bits_per_elem == crate::consts::MODULUS_P_BITS {
+        if bits_per_elem == 10 {
             let arr: &mut [u8; 10 * RING_DEG / 8] = out_buf.try_into().unwrap();
             crate::ser::serialize_10(&self.0, arr)
         } else {

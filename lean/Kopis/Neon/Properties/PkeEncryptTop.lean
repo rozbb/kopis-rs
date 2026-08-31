@@ -61,7 +61,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     simp only [Spec.Kopis.ctSize, hℓ, ht]; ring
   have hb2560 : L.val * 10 * 256 = L.val * 2560 := by ring
   have hlenmax : out_buf.length ≤ Usize.max := by have := out_buf.property; simpa [Slice.length] using this
-  simp only [pke.ciphertext_len, consts.MODULUS_P_BITS, consts.RING_DEG]
+  simp only [pke.ciphertext_len, consts.10, consts.RING_DEG]
   -- evaluate ciphertext_len = L*320 + T*32
   let* ⟨n0, hn0⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) (by scalar_tac)
   let* ⟨n1, hn1⟩ ← Std.Usize.mul_spec (x := n0) (y := 256#usize) (by rw [hn0]; scalar_tac)
@@ -99,7 +99,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
           * toRingElem ((vec_sprime.val[jj]!).val[k]!) := by
     intro i hi k hk; exact hprod0 i hi k hk
   -- H1_VAL = 4
-  simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
+  simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.10]
   let* ⟨e0, he0, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
   have he0v : e0.val = 3 := by scalar_tac
   let* ⟨e1, he1, _⟩ ← Std.Usize.sub_spec (x := e0) (y := 1#usize) (by scalar_tac)

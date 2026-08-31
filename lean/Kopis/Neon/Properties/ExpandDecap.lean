@@ -100,7 +100,7 @@ theorem expand_decap_key_loop_spec {L : Usize}
     let* ⟨ s, to_slice_mut_back, hs_val, hs_back ⟩ ← Array.to_slice_mut_spec a1
     have hslen : s.val.length = 32 * 10 := by
       have h : a1.val.length = 320 := a1.property; rw [hs_val]; omega
-    simp only [consts.MODULUS_P_BITS]
+    simp only [consts.10]
     let* ⟨ s1, hs1len, hs1eq ⟩ ← ring_serialize_spec re s 10#usize 10 rfl ⟨by norm_num, by norm_num⟩ hslen
     have hs1val : s1.val.length = 320 := by have := hs1len; simp only [Slice.length] at this; omega
     have ha2val : (to_slice_mut_back s1).val = s1.val := by
@@ -343,7 +343,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
         toRingElem ((mat_a.val[ii]!).val[j]!) * toRingElem ((vec_s.val[ii]!).val[k]!) := by
     intro j hj k hk; exact hprod0 j hj k hk
   -- H1_VAL = 4, Q_BITS - P_BITS = 3, computed via the scalar step specs
-  simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.MODULUS_P_BITS]
+  simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.10]
   let* ⟨j0, hj0, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
   have hj0v : j0.val = 3 := by scalar_tac
   let* ⟨j1, hj1, _⟩ ← Std.Usize.sub_spec (x := j0) (y := 1#usize) (by scalar_tac)

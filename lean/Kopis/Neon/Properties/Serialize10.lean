@@ -5,7 +5,7 @@
   # Kopis/Properties/Serialize10.lean — the branchless 10-bit serializer.
 
   `RingElem::serialize` dispatches to `ser::serialize_10` when `bits_per_elem` is
-  `MODULUS_P_BITS`, which is the hot width (public-key and ciphertext vectors).  That
+  `10`, which is the hot width (public-key and ciphertext vectors).  That
   fast path packs four coefficients into five bytes with fixed shifts instead of running
   the generic sliding-window serializer.
 

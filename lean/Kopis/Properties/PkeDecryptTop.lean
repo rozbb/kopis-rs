@@ -72,7 +72,7 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     simp only [Spec.Kopis.ctSize, hℓ, ht]; ring
   have hlenmax : ciphertext.length ≤ Usize.max := by
     have := ciphertext.property; simpa [Slice.length] using this
-  simp only [pke.ciphertext_len, consts.MODULUS_P_BITS, consts.MODULUS_Q_BITS, consts.RING_DEG]
+  simp only [pke.ciphertext_len, consts.10, consts.MODULUS_Q_BITS, consts.RING_DEG]
   let* ⟨n0, hn0⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) (by scalar_tac)
   let* ⟨n1, hn1⟩ ← Std.Usize.mul_spec (x := n0) (y := 256#usize) (by rw [hn0]; scalar_tac)
   let* ⟨n2, hn2⟩ ← Std.Usize.div_spec

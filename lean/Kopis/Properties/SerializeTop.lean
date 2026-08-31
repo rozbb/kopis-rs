@@ -73,11 +73,11 @@ theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n :
     have : Slice.len out = i1 := by scalar_tac
     simp only [massert, if_pos this], bind_tc_ok]
   have hslen : (Array.to_slice re).val.length = 256 := by rw [Array.val_to_slice]; exact re.property
-  by_cases hfast : bits = consts.MODULUS_P_BITS
+  by_cases hfast : bits = consts.10
   · -- the branchless 10-bit fast path
     simp only [hfast, reduceIte]
     have hn10 : n = 10 := by
-      rw [← hn, hfast]; simp [consts.MODULUS_P_BITS]
+      rw [← hn, hfast]; simp [consts.10]
     have houtlen : out.val.length = 320 := by rw [hlen, hn10]
     have hlenu : Slice.len out = 320#usize :=
       UScalar.eq_of_val_eq (by rw [Slice.len_val]; exact houtlen)

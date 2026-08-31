@@ -31,7 +31,7 @@ use super::keccak::{WAYS, xof2};
 #[cfg(kopis_neon_sha3)]
 use crate::{
     arithmetic::Matrix,
-    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, MODULUS_Q_BITS},
+    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU},
 };
 
 /// TurboSHAKE128's rate, used for matrix expansion
@@ -43,7 +43,7 @@ const RATE_256: usize = 136;
 
 /// Bytes of XOF output one matrix entry consumes: 256 coefficients at 13 bits
 #[cfg(kopis_neon_sha3)]
-const MATRIX_ELEM_BYTES: usize = RING_DEG * MODULUS_Q_BITS / 8;
+const MATRIX_ELEM_BYTES: usize = RING_DEG * 13 / 8;
 
 /// Population count of each 16-bit lane, valid when the value fits in the low byte.
 ///
@@ -127,8 +127,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
         for lane in 0..WAYS {
             let entry = first + lane;
             if entry < entries {
-                mat.0[entry / L][entry % L] =
-                    RingElem(ser::deserialize(&bufs[lane], MODULUS_Q_BITS));
+                mat.0[entry / L][entry % L] = RingElem(ser::deserialize(&bufs[lane], 13));
             }
         }
 
@@ -266,7 +265,7 @@ mod test {
                     hasher.update(&[i as u8]);
                     hasher.update(&[j as u8]);
                     hasher.finalize_xof().read(&mut buf);
-                    let expected = RingElem::deserialize(&buf, MODULUS_Q_BITS);
+                    let expected = RingElem::deserialize(&buf, 13);
                     assert_eq!(actual.0[i][j], expected, "L = {L}, entry ({i}, {j})");
                 }
             }

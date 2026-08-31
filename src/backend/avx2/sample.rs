@@ -8,7 +8,7 @@
 
 use crate::{
     arithmetic::{Matrix, RingElem},
-    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, MODULUS_Q_BITS, RING_DEG},
+    consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU, 13, RING_DEG},
 };
 
 use super::intrinsics::{
@@ -23,7 +23,7 @@ const RATE_128: usize = 168;
 const RATE_256: usize = 136;
 
 /// Bytes of XOF output one matrix entry consumes: 256 coefficients at 13 bits
-const MATRIX_ELEM_BYTES: usize = RING_DEG * MODULUS_Q_BITS / 8;
+const MATRIX_ELEM_BYTES: usize = RING_DEG * 13 / 8;
 
 /// Popcounts of the values 0..16, duplicated across both 128-bit halves so `vpshufb` can look
 /// up each half independently
@@ -122,7 +122,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
             if entry < entries {
                 mat.0[entry / L][entry % L] = RingElem(ser::deserialize(
                     &bufs[lane][..MATRIX_ELEM_BYTES],
-                    MODULUS_Q_BITS,
+                    13,
                 ));
             }
         }
@@ -241,7 +241,7 @@ mod test {
                     hasher.update(&[i as u8]);
                     hasher.update(&[j as u8]);
                     hasher.finalize_xof().read(&mut buf);
-                    let expected = RingElem::deserialize(&buf, MODULUS_Q_BITS);
+                    let expected = RingElem::deserialize(&buf, 13);
                     assert_eq!(actual.0[i][j], expected, "L = {L}, entry ({i}, {j})");
                 }
             }
