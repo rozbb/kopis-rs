@@ -6,49 +6,6 @@ import Aeneas
 import Spec.Defs
 import Spec.TurboSHAKE.Spec
 
-/-!
-# Kopis (a Module-LWR Key-Encapsulation Mechanism)
-
-Based on: `kopis-spec.md` (the Kopis KEM specification bundled in this branch).
-
-Kopis strongly resembles ML-KEM (FIPS 203), but with three deliberate departures,
-each of which is reflected in this mechanization:
-
-1. **No NTT.** Kopis works over `R = ℤ[X]/(X²⁵⁶ + 1)` and its residue rings
-   `Rn = R/2ⁿR` directly. Polynomial multiplication is the schoolbook negacyclic
-   convolution (`Polynomial.mul`), not a pointwise product in an NTT domain.
-2. **TurboSHAKE everywhere.** Every symmetric primitive (key expansion, matrix
-   generation, secret generation, the public-key hash, and the Fujisaki–Okamoto
-   hash) is a TurboSHAKE128/256 call (RFC 9861), replacing ML-KEM's SHA-3/SHAKE.
-3. **Rounding, not noise.** Kopis is a Learning-With-Rounding scheme: instead of
-   adding a sampled error polynomial to a lattice point, it deterministically
-   rounds (`RoundToR10`, `RoundToRt`, `RoundToR1`), i.e. adds a fixed rounding
-   constant and right-shifts.
-
-## Mechanization notes
-
-- **Ring elements.** `Rn` (coefficients mod `2ⁿ`) is `Polynomial (2^n)` =
-  `Vector (ZMod (2^n)) 256`. The coefficient at index `i` is the coefficient of
-  `Xⁱ`. `.val` on a `ZMod (2^n)` gives the canonical representative in `[0, 2ⁿ)`,
-  matching the spec's "canonical coefficients".
-- **Negacyclic multiplication.** `X²⁵⁶ = -1`, so a product `aᵢ·bⱼ` lands in
-  coefficient `(i+j) mod 256` with sign `-1` exactly when `i + j ≥ 256`.
-- **Shifts.** `Polynomial.shiftRight`/`shiftLeft` act coefficient-wise on the
-  canonical representatives; left shift wraps mod `2ⁿ` (spec §"Mathematical
-  Definitions").
-- **`as`.** The spec's `r as Rn'` (natural injection/projection) is
-  `Polynomial.coerce`: take each canonical coefficient and reduce it mod `2ⁿ'`.
-  When `n' > n` this is exact (injection); when `n' < n` it quotients (projection).
-- **`serialize`/`deserialize`** are the bit-packing of `d`-bit coefficients,
-  identical in structure to ML-KEM's ByteEncode/ByteDecode but with modulus `2ᵈ`
-  for any `d` (Kopis needs `d = 13 > 12`, outside ML-KEM's range).
-- **`GenSecret`** implements the spec's `bit_slice`/`hamming` centered-binomial
-  sampling; with `η = μ/2` this is exactly ML-KEM's SamplePolyCBD_η.
-- **TurboSHAKE argument order.** The Lean `turboSHAKE*` takes `(msg, D, outLen)`;
-  the spec writes `TurboSHAKE(M, L, D)`. Calls below pass them in Lean order.
-- **Parameters** are carried by a `ParameterSet` (Kopis-512/768/1024).
--/
-
 namespace Spec.Kopis
 
 open Aeneas.Notations.SRRange
@@ -206,8 +163,7 @@ def PolyMatrix.update {m ℓ : ℕ} (M : PolyMatrix m ℓ) (i j : ℕ) (val : Po
     (hi : i < ℓ := by get_elem_tactic) (_ : j < ℓ := by get_elem_tactic) : PolyMatrix m ℓ :=
   Matrix.updateRow M ⟨i, hi⟩ (fun col => if col = j then val else M ⟨i, hi⟩ col)
 
-/-- Matrix–vector product `A · v` using negacyclic polynomial multiplication
-(no NTT). -/
+/-- Matrix–vector product `A · v` using negacyclic polynomial multiplication. -/
 def matVecMul {m ℓ : ℕ} (A : PolyMatrix m ℓ) (v : PolyVector m ℓ) : PolyVector m ℓ := Id.run do
   let mut w := PolyVector.zero m ℓ
   for hi : i in [0:ℓ] do
@@ -225,10 +181,9 @@ def innerProduct {m ℓ : ℕ} (v w : PolyVector m ℓ) : Polynomial m := Id.run
 /-! ## Serialization (spec §"Auxiliary Functions")
 
 `serialize(n, r)` packs the `n`-bit canonical coefficients of `r`, LSB-first,
-into `32·n` bytes; `deserialize` inverts it.  Structurally identical to ML-KEM's
-ByteEncode/ByteDecode, but for arbitrary bit-width `n` (Kopis uses `n = 13`). -/
+into `32·n` bytes; `deserialize` inverts it. -/
 
-/-- `serialize(n, r) : [u8; 32·n]`. -/
+/-- `serialize_elem(n, r) : [u8; 32·n]`. -/
 def serialize (n : ℕ) (r : Polynomial (2 ^ n)) : 𝔹 (32 * n) := Id.run do
   let mut b := Vector.replicate (8 * (32 * n)) false
   for hi : i in [0:256] do
@@ -239,7 +194,7 @@ def serialize (n : ℕ) (r : Polynomial (2 ^ n)) : 𝔹 (32 * n) := Id.run do
       a := a / 2
   pure (bitsToBytes b)
 
-/-- `deserialize(n, bytes) : Rn`. -/
+/-- `deserialize_elem(n, bytes) : Rn`. -/
 def deserialize (n : ℕ) (B : 𝔹 (32 * n)) : Polynomial (2 ^ n) := Id.run do
   let b := bytesToBits B
   let mut F := Polynomial.zero (2 ^ n)
@@ -353,10 +308,9 @@ def RoundToRt (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ t) :=
   let h := Polynomial.const (2 ^ 10) 4
   ((r + h).shiftRight (10 - t)).coerce (2 ^ t)
 
-/-- `RoundToR1(r : R10) : R1` — add `2⁸ - 2⁹⁻ᵗ + 4`, shift right by 9, project to
-`R1` (spec: `h2 = 2⁸ - 2^(10-t-1) + 4`, and `10 - t - 1 = 9 - t`). -/
+/-- `RoundToR1(r : R10) : R1` — add `2⁸ - 2⁹⁻ᵗ + 4`, shift right by 9, project to `R1`. -/
 def RoundToR1 (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ 1) :=
-  let c : ZMod (2 ^ 10) := ((2 ^ 8 - 2 ^ (9 - t) + 4 : ℕ) : ZMod (2 ^ 10))
+  let c : ZMod (2 ^ 10) := ((2 ^ 8 - 2 ^ (10 - t - 1) + 4 : ℕ) : ZMod (2 ^ 10))
   let h := Polynomial.const (2 ^ 10) c
   ((r + h).shiftRight 9).coerce (2 ^ 1)
 
@@ -368,9 +322,9 @@ secret vector and public key, and hashes the public key. -/
 def ExpandDecapKey (p : ParameterSet) (sk : 𝔹 32) :
     PolyVector (2 ^ 13) (ℓ p) × 𝔹 32 × 𝔹 (pkSize p) × 𝔹 32 :=
   let randomness := turboSHAKE256 (sk ‖ #v[(ℓ p : Byte)]) DOMSEP_KGEXPAND 96
-  let mat_seed    := slice randomness 0 32
+  let mat_seed := slice randomness 0 32
   let secret_seed := slice randomness 32 32
-  let z           := slice randomness 64 32
+  let z := slice randomness 64 32
   let mat_A := GenMat (ℓ p) mat_seed
   let vec_s := GenSecret (ℓ p) (μ p) secret_seed
   let vec_b := RoundToR10 (ℓ p) (matVecMul (Matrix.transpose mat_A) vec_s)
@@ -385,15 +339,15 @@ def SkToPk (p : ParameterSet) (sk : 𝔹 32) : 𝔹 (pkSize p) :=
   let (_, _, pk, _) := ExpandDecapKey p sk
   pk
 
-/-- `PkeEncrypt(seed, pk, msg) : [u8; CT_SIZE]`. IND-CPA encryption of the 32-byte
+/-- `PkeEncrypt(randomness, pk, msg) : [u8; CT_SIZE]`. IND-CPA encryption of the 32-byte
 `msg` (decoded to an `R1` element) under `pk`, with LWR rounding. -/
-def PkeEncrypt (p : ParameterSet) (seed : 𝔹 32) (pk : 𝔹 (pkSize p)) (msg : 𝔹 32) :
+def PkeEncrypt (p : ParameterSet) (randomness : 𝔹 32) (pk : 𝔹 (pkSize p)) (msg : 𝔹 32) :
     𝔹 (ctSize p) :=
   let vec_b := PolyVector.deserialize (ℓ := ℓ p) 10 (slice pk 0 (32 * 10 * ℓ p) (by simp [pkSize]))
   let mat_seed := slice pk (32 * 10 * ℓ p) 32 (by simp [pkSize])
   let m := deserialize 1 msg
   let mat_A := GenMat (ℓ p) mat_seed
-  let vec_sprime := GenSecret (ℓ p) (μ p) seed
+  let vec_sprime := GenSecret (ℓ p) (μ p) randomness
   let vec_bprime := RoundToR10 (ℓ p) (matVecMul mat_A vec_sprime)
   let vprime := innerProduct vec_b (vec_sprime.coerce (2 ^ 10))
   let cm := RoundToRt (t p) (vprime - ((m.coerce (2 ^ 10)).shiftLeft 9))

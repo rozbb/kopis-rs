@@ -78,12 +78,12 @@ rm kopis.llbc
 # charon has to run rustc for `aarch64-unknown-linux-gnu` rather than the host. Nothing else
 # about the run differs — the sysroot charon builds carries full MIR for that target too.
 #
-# `-C target-feature=+sha3` is not optional. `build.rs` gates the two-way TurboSHAKE
-# (`backend::neon::keccak`, and the batched samplers that drive it) on the ARMv8.2 SHA3
-# extension, so without it the extraction would silently cover a *different*, smaller backend.
-# `aarch64-apple-darwin` — every Apple silicon core — enables `sha3` by default, so this is the
-# configuration that actually ships; a generic AArch64 target without the extension gets the
-# scalar sponge, and that variant is NOT covered by this extraction or the proofs built on it.
+# `-C target-feature=+sha3` is not optional: `build.rs` compiles the NEON backend only for
+# targets that enable both `neon` and `sha3`, so `--cfg kopis_backend="neon"` without it is a
+# hard build error rather than a quietly smaller backend. `aarch64-apple-darwin` — every Apple
+# silicon core — enables `sha3` by default, so this is the configuration that actually ships,
+# and it is the only NEON configuration there is: a generic AArch64 target without the extension
+# gets the portable serial backend, which `ExtractedRustSerial.lean` already covers.
 #
 # One module is kept opaque, which aeneas emits as axioms:
 #

@@ -89,7 +89,7 @@ open Spec.Utils
 private def bytes32 (seed : Byte) : 𝔹 32 := Vector.ofFn fun i => (seed + 7 * (i.val : Byte))
 
 /-- One KeyGen → Encap → Decap round-trip for parameter set `p`. -/
-private def roundTrip (label : String) (p : ParameterSet) (skSeed rSeed : Byte) : IO Unit := do
+private def encapDecap (label : String) (p : ParameterSet) (skSeed rSeed : Byte) : IO Unit := do
   let t0 ← IO.monoMsNow
   let sk := bytes32 skSeed
   let pk := SkToPk p sk
@@ -101,10 +101,10 @@ private def roundTrip (label : String) (p : ParameterSet) (skSeed rSeed : Byte) 
   IO.println s!"  {label} round-trip: {t1 - t0} ms  ss: OK"
 
 def runKopisTests : IO Unit := do
-  IO.println "=== Kopis KEM round-trip tests ==="
-  roundTrip "Kopis-512 " .Kopis_512  0x11 0x22
-  roundTrip "Kopis-768 " .Kopis_768  0x33 0x44
-  roundTrip "Kopis-1024" .Kopis_1024 0x55 0x66
+  IO.println "=== Kopis KEM encap-decap round-trip tests ==="
+  encapDecap "Kopis-512 " .Kopis_512  0x11 0x22
+  encapDecap "Kopis-768 " .Kopis_768  0x33 0x44
+  encapDecap "Kopis-1024" .Kopis_1024 0x55 0x66
   IO.println "ALL OK"
 
 /-! ## Known-answer tests from external `.jsonl` vectors
