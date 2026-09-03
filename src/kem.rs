@@ -12,7 +12,7 @@ use turboshake::CTurboShake256;
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-/// A public key for the IND-CCA-secure Kopis KEM scheme
+/// A public key for the Kopis KEM
 #[derive(Clone)]
 pub struct KemPublicKey<const L: usize> {
     /// The PKE public key
@@ -48,7 +48,6 @@ pub struct SharedSecret([u8; 32]);
 
 impl SharedSecret {
     /// Returns the shared secret as a slice
-    #[inline]
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
@@ -60,14 +59,9 @@ impl ConstantTimeEq for SharedSecret {
     }
 }
 
-/// A secret key for the IND-CCA-secure Kopis KEM scheme.
-///
-/// The canonical secret key is a 32-byte seed. This struct stores the expanded form for
-/// efficiency (avoiding re-expansion on every decapsulation).
-///
-/// The secret components (`seed`, `z`, and `pke_sk`) are zeroed from memory when the key is
-/// dropped. The remaining fields (`pke_pk`, `hash_pke_pk`) are public values, so they are left
-/// untouched.
+/// A secret key for the Kopis KEM
+// This struct stores the expanded form for efficiency (avoiding re-expansion on every
+// decapsulation).
 #[derive(ZeroizeOnDrop)]
 pub struct KemSecretKey<const L: usize> {
     /// The 32-byte seed (the canonical secret key, used for serialization)
@@ -77,12 +71,12 @@ pub struct KemSecretKey<const L: usize> {
     /// The PKE secret key (expanded from seed)
     pke_sk: PkeSecretKey<L>,
     /// The KEM public key corresponding to this secret key
-    #[zeroize(skip)]
+    #[zeroize(skip)] // Skip the expensive zeroization since kem_pk is public
     pub(crate) kem_pk: KemPublicKey<L>,
 }
 
 impl<const L: usize> KemSecretKey<L> {
-    /// Construct a secret key from a 32-byte seed by expanding it via `ExpandDecapKey`.
+    /// Expands a secret key from its 32-byte seed form
     pub(crate) fn expand_from_seed<const MU: usize>(seed: &[u8; 32]) -> KemSecretKey<L> {
         let (pke_sk, z, pke_pk, hash_pke_pk) = expand_decap_key::<L, MU>(seed);
         let kem_pk = KemPublicKey {
@@ -98,7 +92,7 @@ impl<const L: usize> KemSecretKey<L> {
         }
     }
 
-    /// Generate a fresh secret key
+    /// Generates a fresh secret key
     pub(crate) fn generate_inner<const MU: usize>(rng: &mut impl CryptoRng) -> KemSecretKey<L> {
         let mut seed = [0u8; 32];
         rng.fill_bytes(&mut seed);
@@ -108,17 +102,13 @@ impl<const L: usize> KemSecretKey<L> {
         out
     }
 
-    /// Returns the seed that produced this secret key.
-    ///
-    /// This seed **is** the complete long-term secret key — it is the canonical
-    /// serialized form, and anyone holding it can re-derive the full key with
-    /// [`Self::expand_from_seed`]. Handle it with the same care as the key itself.
+    /// Returns the seed that produced this expanded secret key
     pub fn seed(&self) -> &[u8; 32] {
         &self.seed
     }
 }
 
-/// Encapsulate a shared secret to the given public key using the given `randomness`.
+/// Encapsulates a shared secret to the given public key using the given `randomness`.
 /// Returns the shared secret. `out_buf` MUST have length `ciphertext_len::<L, T>()`.
 pub(crate) fn encap_deterministic<const L: usize, const MU: usize, const T: usize>(
     randomness: &[u8; 32],
@@ -130,7 +120,7 @@ pub(crate) fn encap_deterministic<const L: usize, const MU: usize, const T: usiz
         hash_pke_pk,
     } = kem_pk;
 
-    // k || r = TurboSHAKE256()
+    // k || r = TurboSHAKE256(randomness || pkh, 64, DOMSEP_FO)
     let mut k = [0u8; 32];
     let mut r = [0u8; 32];
 
@@ -161,7 +151,7 @@ pub fn decap<const L: usize, const MU: usize, const T: usize>(
     // randomness = PkeDecrypt(sk, c)
     let randomness = pke::decrypt::<L, T>(&sk.pke_sk, ciphertext);
 
-    // k || rprime = TurboSHAKE256()
+    // k || rprime = TurboSHAKE256(randomness || pkh, 64, DOMSEP_FO)
     let mut k = [0u8; 32];
     let mut rprime = [0u8; 32];
 
@@ -202,20 +192,22 @@ mod test {
     use subtle::ConstantTimeEq;
 
     #[test]
-    fn kopis512_cca_kem() {
+    fn kopis512_kem_roundtrip() {
         test_encap_decap::<KOPIS512_L, KOPIS512_MU, KOPIS512_T>();
     }
 
     #[test]
-    fn kopis768_cca_kem() {
+    fn kopis768_kem_rountrip() {
         test_encap_decap::<KOPIS768_L, KOPIS768_MU, KOPIS768_T>();
     }
 
     #[test]
-    fn kopis1024_cca_kem() {
+    fn kopis1024_kem_roundtrip() {
         test_encap_decap::<KOPIS1024_L, KOPIS1024_MU, KOPIS1024_T>();
     }
 
+    /// Tests that shared secrets of honest KEM exchanges are equal, and mauled
+    /// ciphertexts yield unequal shared secrets
     fn test_encap_decap<const L: usize, const MU: usize, const T: usize>() {
         let mut rng = rand::rng();
         let mut backing_buf = [0u8; max_ciphertext_len()];

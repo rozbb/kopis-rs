@@ -461,10 +461,6 @@ functions of the seed / randomness they are handed. Nothing here says anything
 about the quality of the RNG, and nothing checks that the wrappers pass the random
 bytes through faithfully.
 
-**Nothing about public-key deserialization** — this gap is now closed, by
-the three parse-then-encapsulate theorems in
-§3.2b.
-
 **Trivial accessors.** `SecretKey::seed`, `SharedSecret::as_bytes` and similar
 getters have no theorems.
 

@@ -264,13 +264,8 @@ pub(crate) type Acc = [i32; 2 * RING_DEG];
 pub(crate) const ACC_ZERO: Acc = [0i32; 2 * RING_DEG];
 
 impl NttElem {
-    /// Forward-transforms a ring element whose coefficients are plain values in [0, 2^13),
-    /// e.g. an element of the uniform matrix A (13 bits) or a rounded vector (10 bits).
-    ///
-    /// The `< 2^13` bound on every coefficient is a precondition, not a checked one: it is
-    /// what keeps the forward transform's intermediate values inside an i32 and the final
-    /// product inside the exactness bound. It is discharged at each call site by the Lean
-    /// correspondence proof rather than by a per-coefficient runtime check.
+    /// Forward-transforms a ring element to the NTT domain. The coefficients MUST be in
+    /// [0, 2^13).
     pub(crate) fn from_uniform(elem: &RingElem) -> Self {
         #[cfg(kopis_avx2)]
         #[allow(unsafe_code)]

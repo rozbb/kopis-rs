@@ -13,46 +13,35 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 const H1_VAL: u16 = 1 << (13 - 10 - 1);
 
-/// The serialized length of one public-vector ring element: an element of `R_p`, packed at
-/// `10` (10) bits per coefficient, i.e. 320 bytes.
+/// The serialized length of one public-vector ring element: an element of `R10`, packed
+/// at `10` bits per coefficient, i.e. 320 bytes.
 const PK_VEC_ELEM_BYTES: usize = 10 * RING_DEG / 8;
 
-/// A secret key for the IND-CPA-secure Kopis PKE scheme (expanded form, NTT domain).
-///
-/// This wraps the secret vector `s`, so it zeroes itself from memory when dropped. Note that
-/// `s` is stored in the NTT domain, which is an invertible linear image of the coefficient
-/// form, so it is exactly as sensitive and must be zeroed just the same.
+/// A secret key for the Kopis PKE scheme (expanded form, NTT domain).
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub(crate) struct PkeSecretKey<const L: usize>(NttMatrix<L, 1>);
 
-/// A public key for the IND-CPA-secure Kopis PKE scheme.
-///
-/// The key stores its own serialized form (`vec_bytes` followed by `matrix_seed` is exactly
-/// what `serialize` emits and `from_bytes` reads) alongside the NTT-domain data the encryptor
-/// needs. It deliberately does *not* keep the structured `Matrix<L, 1>` public vector: that was
-/// held only to be serializable, and the packed bytes serve that purpose with no reconstruction.
+/// A public key for the Kopis PKE scheme
 #[derive(Clone)]
 pub struct PkePublicKey<const L: usize> {
-    /// The seed used to generate `mat_a_ntt`; also the 32-byte tail of the serialization.
+    /// The seed used to generate `mat_a` and thus `mat_a_ntt`
     matrix_seed: [u8; 32],
-    /// The expanded public matrix, in NTT form. Precomputed here so that repeated encryptions
+    /// The expanded public matrix `mat_a`, in NTT form. Precomputed here so that repeated encryptions
     /// (e.g. every encapsulation and every FO re-encryption during decapsulation) don't have to
-    /// re-run the XOF that derives it from `matrix_seed`, nor re-transform it. This mirrors the
-    /// "unpacked" public-key form used by other KEM implementations. It is never serialized:
-    /// `serialize` writes only `vec_bytes || matrix_seed`, and `from_bytes` re-derives it.
+    /// re-run the XOF that derives it from `matrix_seed`, nor re-transform it.
     mat_a_ntt: NttMatrix<L, L>,
-    /// The serialized public vector `b`: `L` ring elements of `R_p`, each packed to 10 bits
-    /// (`PK_VEC_ELEM_BYTES` bytes). This is the head of the wire serialization, held directly so
-    /// serialization is a copy rather than a re-encode of a structured vector.
-    vec_bytes: [[u8; PK_VEC_ELEM_BYTES]; L],
     /// The public vector in NTT form, precomputed for the inner product in every encryption.
     vec_ntt: NttMatrix<L, 1>,
+    /// The serialized public vector. Stored here so that `vec_ntt` doesn't have to be
+    /// repeatedly converted on `Self::serialize`
+    vec_bytes: [[u8; PK_VEC_ELEM_BYTES]; L],
 }
 
 impl<const L: usize> PkePublicKey<L> {
     pub const SERIALIZED_LEN: usize = 32 + L * 10 * RING_DEG / 8;
 
-    /// Serializes this public key to a byte string. `out_buf` MUST have length SERIALIZED_LEN
+    /// Serializes this public key to a byte string. `out_buf` MUST have length
+    /// `Self::SERIALIZED_LEN`
     // Explicit index loop (not `.iter().enumerate()`) to stay friendly to the aeneas extractor.
     #[allow(clippy::needless_range_loop)]
     pub(crate) fn serialize(&self, out_buf: &mut [u8]) {
@@ -122,30 +111,30 @@ impl<const L: usize> PkePublicKey<L> {
 /// The maximum length of a ciphertext (PKE or KEM, since they're the same), for all parameter
 /// choices, for a message that is 32-bytes.
 pub const fn max_ciphertext_len() -> usize {
-    // b' is in R^l_P and c is in R_T
-    MAX_T * RING_DEG / 8 + MAX_L * 10 * RING_DEG / 8
+    // b' is in R10^ℓ and c is in R_T
+    MAX_L * 10 * RING_DEG / 8 + MAX_T * RING_DEG / 8
 }
 
 /// The length of a ciphertext (PKE or KEM, since they're the same) for a given parameter choice,
-/// for a message that is 32-bytes.
+/// for a message that is 32-bytes
 pub const fn ciphertext_len<const L: usize, const T: usize>() -> usize {
-    // b' is in R^l_P and c is in R_T
+    // b' is in R10^ℓ and c is in R_T
     L * 10 * RING_DEG / 8 + T * RING_DEG / 8
 }
 
 /// Expands a 32-byte secret key into the full decapsulation key components.
 ///
 /// Returns (vec_s, z, pk, pkh) where:
-/// - vec_s is the secret vector (as PkeSecretKey)
-/// - z is 32 bytes used for rejection in decapsulation
-/// - pk is the public key
-/// - pkh is the hash of the public key
+/// - `vec_s` is the secret vector
+/// - `z` is 32 bytes used for rejection in decapsulation
+/// - `pk` is the public key
+/// - `pkh` is the hash of the public key
 // `needless_range_loop`: explicit index loop kept for aeneas-extraction friendliness.
 #[allow(clippy::needless_range_loop)]
 pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
     sk: &[u8; 32],
 ) -> (PkeSecretKey<L>, [u8; 32], PkePublicKey<L>, [u8; 32]) {
-    // mat_seed || secret_seed || r = TurboSHAKE256(sk || L, 96, DOMSEP_KGEXPAND)
+    // mat_seed || secret_seed || r = TurboSHAKE256(sk || ℓ, 96, DOMSEP_KGEXPAND)
     let mut mat_seed = [0u8; 32];
     let mut secret_seed = [0u8; 32];
     let mut z = [0u8; 32];
@@ -165,7 +154,7 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
     let mat_a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
     let vec_s_ntt = NttMatrix::from_secret_matrix(&vec_s);
 
-    // vec_b = RoundToR10(transpose(mat_A) * vec_s)
+    // vec_b = CompressToR10(transpose(mat_A) * vec_s)
     let b = {
         let mut prod = mat_a_ntt.mul_transpose(&vec_s_ntt);
         prod.wrapping_add_to_all(H1_VAL);
@@ -173,14 +162,7 @@ pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
         prod
     };
 
-    // After the rounding shift, b's coefficients are 10-bit values *plus mod-2^16 garbage in
-    // bits 10-12* (the product's bits 13-15, shifted down). That is still fine to transform as
-    // uniform: `from_uniform_matrix` only needs coefficients < 2^13, and the NTT exactness
-    // bound already assumes 8191-magnitude operands. The garbage contributes only multiples of
-    // 2^10 to v' during encryption, which never reach the low 10 bits that ciphertext
-    // serialization keeps — so encryptions under this cached (dirty) form are bit-identical to
-    // ones under the clean form `from_bytes` builds (where `deserialize_10` masks to 10 bits),
-    // which the FO re-encryption equality check relies on.
+    // b was shifted by 3, so each coeff is < 2^13, as required by from_uniform_matrix
     let vec_ntt = NttMatrix::from_uniform_matrix(&b);
 
     // Pack b into its serialized bytes; we keep those, not the structured vector.
@@ -230,8 +212,8 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
     m
 }
 
-/// Encrypts a message with a given public key and randomness (`coins`).
-/// `out_buf` MUST have length `ciphertext_len::<L, T>()`.
+/// Encrypts a message with a given public key and randomness. `out_buf` MUST have length
+/// `ciphertext_len::<L, T>()`.
 pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: usize>(
     pk: &PkePublicKey<L>,
     msg: &[u8; 32],
@@ -285,7 +267,7 @@ mod test {
     // Helper function that encrypts and decrypts a random 32-byte message
     fn test_enc_dec<const L: usize, const T: usize, const MU: usize>() {
         let mut rng = rand::rng();
-        let mut backing_buf = [0u8; MAX_T * RING_DEG / 8 + MAX_L * 10 * RING_DEG / 8];
+        let mut backing_buf = [0u8; max_ciphertext_len()];
 
         for _ in 0..100 {
             // Generate a random secret key seed and expand it
@@ -293,13 +275,15 @@ mod test {
             rng.fill_bytes(&mut sk_seed);
             let (sk, _, pk, _) = expand_decap_key::<L, MU>(&sk_seed);
 
+            // Encrypt a random message
             let mut enc_seed = [0u8; 32];
             let mut msg = [0u8; 32];
             rng.fill_bytes(&mut enc_seed);
             rng.fill_bytes(&mut msg);
             let ct_buf = &mut backing_buf[..T * RING_DEG / 8 + L * 10 * RING_DEG / 8];
-
             encrypt_deterministic::<L, MU, T>(&pk, &msg, &enc_seed, ct_buf);
+
+            // Decrypt and check equality
             let recovered_msg = decrypt::<L, T>(&sk, ct_buf);
             assert_eq!(msg, recovered_msg);
         }

@@ -120,7 +120,6 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
 
 /// Uses a random seed to generate a uniform matrix in R^{ℓ×ℓ}.
 ///
-/// For each element (i,j), we compute TurboSHAKE128(seed || i || j, 256*13/8, DOMSEP_GENMAT).
 pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L, L> {
     // The ℓ² entries are independent XOF calls, so they batch four to a vector.
     #[cfg(kopis_avx2)]
@@ -146,10 +145,12 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
     // Construct the matrix entries
     for i in 0..L {
         for j in 0..L {
+            // A[i][j] = TurboSHAKE128(seed || i || j, 256*13/8, DOMSEP_GENMAT).
             let mut hasher = CTurboShake128::<DOMSEP_GENMAT>::default();
             hasher.update(seed);
             hasher.update(&[i as u8]);
             hasher.update(&[j as u8]);
+
             let mut reader = hasher.finalize_xof();
             reader.read(&mut buf);
             mat.0[i][j] = RingElem::deserialize(&buf, 13);
