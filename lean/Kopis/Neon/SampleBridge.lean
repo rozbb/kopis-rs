@@ -180,7 +180,7 @@ theorem gen_matrix_from_seed_loop0_loop1_spec {L : Std.Usize}
       have hsllen : (Std.Array.to_slice buf).length = 32 * 13 := by
         simp only [Slice.length, Std.Array.to_slice, hblen]
       let* ⟨ re, hre ⟩ ← Kopis.Neon.deserialize_streamNat (Std.Array.to_slice buf) 13
-        (by omega) (by omega) hsllen consts.MODULUS_Q_BITS (by simp [consts.MODULUS_Q_BITS])
+        (by omega) (by omega) hsllen 13#usize (by simp)
       let* ⟨ q, hq ⟩ ← Std.Usize.div_spec
       let* ⟨ m, hm ⟩ ← Std.Usize.rem_spec
       have hentv : entry.val = first.val + iter.start.val := hentry

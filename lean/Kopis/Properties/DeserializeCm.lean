@@ -276,11 +276,9 @@ theorem ringElem_deserialize_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n
   rw [show massert (Slice.len bytes = rv) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
   -- neither the 13-bit nor the 10-bit fast path: take the generic else-branch
-  have hne13' : n#usize ≠ consts.MODULUS_Q_BITS := by
-    simp only [consts.MODULUS_Q_BITS]
+  have hne13' : n#usize ≠ 13#usize := by
     intro h; exact hne13 (by have := congrArg UScalar.val h; simpa using this)
-  have hne10' : n#usize ≠ consts.10 := by
-    simp only [consts.10]
+  have hne10' : n#usize ≠ 10#usize := by
     intro h; exact hne10 (by have := congrArg UScalar.val h; simpa using this)
   rw [if_neg hne13', if_neg hne10']
   -- delegate to the generic decoder and thread the postcondition through `ok a`

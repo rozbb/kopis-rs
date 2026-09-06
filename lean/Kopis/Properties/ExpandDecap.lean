@@ -94,7 +94,6 @@ theorem expand_decap_key_loop_spec {L : Usize}
     let* ⟨ s, to_slice_mut_back, hs_val, hs_back ⟩ ← Array.to_slice_mut_spec a1
     have hslen : s.val.length = 32 * 10 := by
       have h : a1.val.length = 320 := a1.property; rw [hs_val]; omega
-    simp only [consts.10]
     let* ⟨ s1, hs1len, hs1eq ⟩ ← ring_serialize_spec re s 10#usize 10 rfl ⟨by norm_num, by norm_num⟩ hslen
     have hs1val : s1.val.length = 320 := by have := hs1len; simp only [Slice.length] at this; omega
     have ha2val : (to_slice_mut_back s1).val = s1.val := by
@@ -330,17 +329,10 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
       toRingElem ((prod.val[j]!).val[k]!) = ∑ ii ∈ Finset.range L.val,
         toRingElem ((mat_a.val[ii]!).val[j]!) * toRingElem ((vec_s.val[ii]!).val[k]!) := by
     intro j hj k hk; exact hprod0 j hj k hk
-  -- H1_VAL = 4, Q_BITS - P_BITS = 3, computed via the scalar step specs
-  simp only [pke.H1_VAL, consts.MODULUS_Q_BITS, consts.10]
-  let* ⟨j0, hj0, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
-  have hj0v : j0.val = 3 := by scalar_tac
-  let* ⟨j1, hj1, _⟩ ← Std.Usize.sub_spec (x := j0) (y := 1#usize) (by scalar_tac)
-  have hj1v : j1.val = 2 := by scalar_tac
-  let* ⟨x16, hx16, _⟩ ← Std.U16.ShiftLeft_spec 1#u16 j1 (by scalar_tac)
-  have hx4 : x16 = 4#u16 := by
-    apply UScalar.eq_of_val_eq; rw [hx16, hj1v]
-    simp [Nat.shiftLeft_eq, U16.size, U16.numBits]
-  subst hx4
+  -- `H1_VAL = 1 << (13 - 10 - 1)` is a closed term (the shift amount is now `i32` arithmetic
+  -- on literals), so evaluate it rather than stepping it.
+  have hH1 : pke.H1_VAL = ok 4#u16 := by unfold pke.H1_VAL; rfl
+  simp only [hH1, bind_tc_ok]
   let* ⟨prod1, hprod1⟩ ← matrix_wrapping_add_to_all_spec prod 4#u16
   let* ⟨j2, hj2, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
   have hj2v : j2.val = 3 := by scalar_tac

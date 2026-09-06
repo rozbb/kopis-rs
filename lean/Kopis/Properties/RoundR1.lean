@@ -34,8 +34,10 @@ theorem roundR1_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Poly
     simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
       Vector.getElem_replicate, ZMod.val_add, hcv]
   unfold Spec.Kopis.RoundToR1
-  simp only [Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map,
-    hcoeff, ZMod.val_natCast, ← hC]
+  -- the spec writes the exponent as `10 - t - 1`; on `ℕ` that is `9 - t`, which is how `C` reads
+  have hst : 10 - t - 1 = 9 - t := by omega
+  simp only [hst, Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight,
+    Vector.getElem_map, hcoeff, ZMod.val_natCast, ← hC]
   rw [Nat.mod_eq_of_lt (lt_of_lt_of_le hlt (by norm_num : (2:ℕ)^1 ≤ 2^10)), Nat.mod_eq_of_lt hlt]
 
 /-- **`RoundToR1` physical bridge.**  The 16-bit physical rounding

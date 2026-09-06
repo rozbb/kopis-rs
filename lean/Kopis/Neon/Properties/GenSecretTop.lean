@@ -61,13 +61,13 @@ def toVector13 {L : Usize} (secret : arithmetic.matrix_arith.Matrix L 1#usize) :
 
 /-- **Outer loop spec.**  Fills rows `[iter.start, L)` of the secret column with their
 CBD samples. -/
-theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize) (b : Bool)
+theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
     (iter : core.ops.range.Range Usize) (seed : Array U8 32#usize)
     (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice U8)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuflen : buf.val.length = 32 * MU.val)
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    sample.gen_secret_from_seed_loop MU b iter seed secret buf
+    sample.gen_secret_from_seed_loop MU iter seed secret buf
       ⦃ (result : arithmetic.matrix_arith.Matrix L 1#usize) =>
           ∀ (a : ℕ) (_ : a < L.val),
             toRingElem13 ((result.val[a]!).val[0]!)
@@ -80,112 +80,55 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize) (b : Bool)
     rw [ho]; simp only
     have hi_lt : iter.start.val < L.val := by scalar_tac
     step*
-    case h1 =>
-      have habs : hasherAbsorbed hasher2 = seed.val ++ [UScalar.cast .U8 iter.start] := by
-        rw [hasher2_post, hasher1_post, hasher_post, s_post, s1_post, i1_post]; rfl
-      have hbuf1_len : buf1.val.length = 32 * MU.val := by
-        rw [← Slice.length, __post1, Slice.length, hbuflen]
-      have hbridge : sliceToBytes buf1 (32 * MU.val) hbuf1_len
-          = turboSHAKE256 (arrayToBytes seed ‖ #v[((iter.start.val : ℕ) : Byte)])
-              DOMSEP_GENSEC (32 * MU.val) := by
-        apply Vector.toList_inj.mp
-        rw [reader_post1] at __post2
-        dsimp only at __post2
-        rw [reader_post2, Nat.zero_add, List.drop_zero] at __post2
-        rw [habs] at __post2
-        have hbuflen' : buf.length = 32 * MU.val := by rw [Slice.length]; exact hbuflen
-        have hsl : (sliceToBytes buf1 (32 * MU.val) hbuf1_len).toList = buf1.val.map (·.bv) := by
-          apply List.ext_getElem
-          · simp only [sliceToBytes, Vector.toList_length, List.length_map, hbuf1_len]
-          · intro q h1 h2
-            simp only [sliceToBytes, Vector.getElem_toList, Vector.getElem_ofFn, List.getElem_map]
-        rw [hsl, __post2, hbuflen', turboSHAKE256_u8concat]
-        simp only [cast_u8_bv, domsep_gensec_bv]
-      rw [Kopis.Neon.neon_cbd_eq buf1 MU (Std.Array.repeat 256#usize 0#u16)
-        hMU hbuf1_len]
-      let* ⟨ re1, hre1 ⟩ ← cbd_spec MU buf1 (Std.Array.repeat 256#usize 0#u16) hMU hbuf1_len
-      let* ⟨ a, index_mut_back, a_post1, a_post2 ⟩ ←
-        Array.index_mut_usize_spec secret iter.start
-          (by have := secret.property; scalar_tac)
-      let* ⟨ a1, a1_post ⟩ ← Array.update_spec
-      have hrow_eq : toRingElem13 re1
-          = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
-        cbd_row_eq_genSecret L MU.val (arrayToBytes seed) buf1 re1 iter.start.val hi_lt
-          hbuf1_len hbridge hre1
-      have h_start_new : iter1.start.val ≤ L.val := by rw [hstart']; scalar_tac
-      have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
-      apply WP.spec_mono
-        (gen_secret_from_seed_loop_spec MU _ iter1 seed (index_mut_back a1) buf1
-          hMU hbuf1_len h_start_new h_end_new)
-      rintro r hr a ha
-      rw [hr a ha, hstart']
-      have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
-          (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
-        rw [Std.Array.set_val_eq]
-        show (arr.val.set 0 v)[0]! = v
-        rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
-      have hml : iter.start.val < secret.val.length := by have := secret.property; omega
-      have hM : (index_mut_back a1).val[a]!
-          = if a = iter.start.val then a1 else secret.val[a]! := by
-        rw [a_post2, Std.Array.set_val_eq, getElem!_list_set _ _ _ _ hml]
-      by_cases h1 : iter.start.val + 1 ≤ a
-      · rw [if_pos h1, if_pos (by omega)]
-      · rw [if_neg h1]
-        by_cases h2 : iter.start.val ≤ a
-        · have ha_eq : a = iter.start.val := by omega
-          rw [if_pos h2, hM, if_pos ha_eq, a1_post, harr0, hrow_eq, ha_eq,
-            getElem!_pos _ iter.start.val hi_lt]
-        · rw [if_neg h2, hM, if_neg (by omega : ¬ a = iter.start.val)]
-    all_goals
-      have habs : hasherAbsorbed hasher2 = seed.val ++ [UScalar.cast .U8 iter.start] := by
-        rw [hasher2_post, hasher1_post, hasher_post, s_post, s1_post, i1_post]; rfl
-      have hbuf1_len : buf1.val.length = 32 * MU.val := by
-        rw [← Slice.length, __post1, Slice.length, hbuflen]
-      have hbridge : sliceToBytes buf1 (32 * MU.val) hbuf1_len
-          = turboSHAKE256 (arrayToBytes seed ‖ #v[((iter.start.val : ℕ) : Byte)])
-              DOMSEP_GENSEC (32 * MU.val) := by
-        apply Vector.toList_inj.mp
-        rw [reader_post1] at __post2
-        dsimp only at __post2
-        rw [reader_post2, Nat.zero_add, List.drop_zero] at __post2
-        rw [habs] at __post2
-        have hbuflen' : buf.length = 32 * MU.val := by rw [Slice.length]; exact hbuflen
-        have hsl : (sliceToBytes buf1 (32 * MU.val) hbuf1_len).toList = buf1.val.map (·.bv) := by
-          apply List.ext_getElem
-          · simp only [sliceToBytes, Vector.toList_length, List.length_map, hbuf1_len]
-          · intro q h1 h2
-            simp only [sliceToBytes, Vector.getElem_toList, Vector.getElem_ofFn, List.getElem_map]
-        rw [hsl, __post2, hbuflen', turboSHAKE256_u8concat]
-        simp only [cast_u8_bv, domsep_gensec_bv]
-      let* ⟨ re1, hre1 ⟩ ← cbd_spec MU buf1 re hMU hbuf1_len
-      have hrow_eq : toRingElem13 re1
-          = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
-        cbd_row_eq_genSecret L MU.val (arrayToBytes seed) buf1 re1 iter.start.val hi_lt
-          hbuf1_len hbridge hre1
-      have h_start_new : iter1.start.val ≤ L.val := by rw [hstart']; scalar_tac
-      have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
-      apply WP.spec_mono
-        (gen_secret_from_seed_loop_spec MU _ iter1 seed (index_mut_back (index_mut_back1 re1)) buf1
-          hMU hbuf1_len h_start_new h_end_new)
-      rintro r hr a ha
-      rw [hr a ha, hstart']
-      have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
-          (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
-        rw [Std.Array.set_val_eq]
-        show (arr.val.set 0 v)[0]! = v
-        rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
-      have hml : iter.start.val < secret.val.length := by have := secret.property; omega
-      have hM : (index_mut_back (index_mut_back1 re1)).val[a]!
-          = if a = iter.start.val then (index_mut_back1 re1) else secret.val[a]! := by
-        rw [a_post2, Std.Array.set_val_eq, getElem!_list_set _ _ _ _ hml]
-      by_cases h1 : iter.start.val + 1 ≤ a
-      · rw [if_pos h1, if_pos (by omega)]
-      · rw [if_neg h1]
-        by_cases h2 : iter.start.val ≤ a
-        · have ha_eq : a = iter.start.val := by omega
-          rw [if_pos h2, hM, if_pos ha_eq, re_post2, harr0, hrow_eq, ha_eq,
-            getElem!_pos _ iter.start.val hi_lt]
-        · rw [if_neg h2, hM, if_neg (by omega : ¬ a = iter.start.val)]
+    have habs : hasherAbsorbed hasher2 = seed.val ++ [UScalar.cast .U8 iter.start] := by
+      rw [hasher2_post, hasher1_post, hasher_post, s_post, s1_post, i1_post]; rfl
+    have hbuf1_len : buf1.val.length = 32 * MU.val := by
+      rw [← Slice.length, __post1, Slice.length, hbuflen]
+    have hbridge : sliceToBytes buf1 (32 * MU.val) hbuf1_len
+        = turboSHAKE256 (arrayToBytes seed ‖ #v[((iter.start.val : ℕ) : Byte)])
+            DOMSEP_GENSEC (32 * MU.val) := by
+      apply Vector.toList_inj.mp
+      rw [reader_post1] at __post2
+      dsimp only at __post2
+      rw [reader_post2, Nat.zero_add, List.drop_zero] at __post2
+      rw [habs] at __post2
+      have hbuflen' : buf.length = 32 * MU.val := by rw [Slice.length]; exact hbuflen
+      have hsl : (sliceToBytes buf1 (32 * MU.val) hbuf1_len).toList = buf1.val.map (·.bv) := by
+        apply List.ext_getElem
+        · simp only [sliceToBytes, Vector.toList_length, List.length_map, hbuf1_len]
+        · intro q h1 h2
+          simp only [sliceToBytes, Vector.getElem_toList, Vector.getElem_ofFn, List.getElem_map]
+      rw [hsl, __post2, hbuflen', turboSHAKE256_u8concat]
+      simp only [cast_u8_bv, domsep_gensec_bv]
+    let* ⟨ re1, hre1 ⟩ ← cbd_spec MU buf1 re hMU hbuf1_len
+    have hrow_eq : toRingElem13 re1
+        = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
+      cbd_row_eq_genSecret L MU.val (arrayToBytes seed) buf1 re1 iter.start.val hi_lt
+        hbuf1_len hbridge hre1
+    have h_start_new : iter1.start.val ≤ L.val := by rw [hstart']; scalar_tac
+    have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
+    apply WP.spec_mono
+      (gen_secret_from_seed_loop_spec MU iter1 seed (index_mut_back (index_mut_back1 re1)) buf1
+        hMU hbuf1_len h_start_new h_end_new)
+    rintro r hr a ha
+    rw [hr a ha, hstart']
+    have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
+        (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
+      rw [Std.Array.set_val_eq]
+      show (arr.val.set 0 v)[0]! = v
+      rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
+    have hml : iter.start.val < secret.val.length := by have := secret.property; omega
+    have hM : (index_mut_back (index_mut_back1 re1)).val[a]!
+        = if a = iter.start.val then (index_mut_back1 re1) else secret.val[a]! := by
+      rw [a_post2, Std.Array.set_val_eq, getElem!_list_set _ _ _ _ hml]
+    by_cases h1 : iter.start.val + 1 ≤ a
+    · rw [if_pos h1, if_pos (by omega)]
+    · rw [if_neg h1]
+      by_cases h2 : iter.start.val ≤ a
+      · have ha_eq : a = iter.start.val := by omega
+        rw [if_pos h2, hM, if_pos ha_eq, re_post2, harr0, hrow_eq, ha_eq,
+          getElem!_pos _ iter.start.val hi_lt]
+      · rw [if_neg h2, hM, if_neg (by omega : ¬ a = iter.start.val)]
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]; simp only [WP.spec_ok]
     intro a ha
@@ -231,7 +174,7 @@ theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
   rw [if_pos (show i1.val ≤ (Array.repeat 320#usize 0#u8).to_slice.length by rw [h320, hi1v]; omega)]
   simp only [bind_tc_ok]
   apply WP.spec_mono
-    (gen_secret_from_seed_loop_spec MU _ { start := 0#usize, «end» := L } seed _ _ hMU ?buflen
+    (gen_secret_from_seed_loop_spec MU { start := 0#usize, «end» := L } seed _ _ hMU ?buflen
       (by simp) rfl)
   case buflen =>
     show (List.slice 0 i1.val (Array.repeat 320#usize 0#u8).to_slice.val).length = 32 * MU.val
@@ -252,14 +195,14 @@ theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
 /-- **Outer loop, magnitude version.**  Every coefficient of every row of the secret column,
 as a small-signed `u16`, has magnitude `≤ μ/2`.  Same skeleton as `gen_secret_from_seed_loop_spec`
 with the SHAKE/`cbdVal` value reasoning stripped, using `cbd_bd`. -/
-theorem gen_secret_from_seed_loop_bd {L : Usize} (MU : Usize) (b : Bool)
+theorem gen_secret_from_seed_loop_bd {L : Usize} (MU : Usize)
     (iter : core.ops.range.Range Usize) (seed : Array U8 32#usize)
     (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice U8)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuflen : buf.val.length = 32 * MU.val) (hend : iter.«end».val = L.val)
     (hsec : ∀ a (_ha : a < L.val) c (_hc : c < 256),
         smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
-    sample.gen_secret_from_seed_loop MU b iter seed secret buf
+    sample.gen_secret_from_seed_loop MU iter seed secret buf
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
@@ -269,62 +212,30 @@ theorem gen_secret_from_seed_loop_bd {L : Usize} (MU : Usize) (b : Bool)
     rw [ho]; simp only
     have hi_lt : iter.start.val < L.val := by scalar_tac
     step*
-    case h1 =>
-      have hbuf1_len : buf1.val.length = 32 * MU.val := by
-        rw [← Slice.length, __post1, Slice.length, hbuflen]
-      rw [Kopis.Neon.neon_cbd_eq buf1 MU (Std.Array.repeat 256#usize 0#u16)
-        hMU hbuf1_len]
-      let* ⟨ re1, hre1 ⟩ ← cbd_bd MU buf1 (Std.Array.repeat 256#usize 0#u16) hMU hbuf1_len
-      let* ⟨ a, index_mut_back, a_post1, a_post2 ⟩ ←
-        Array.index_mut_usize_spec secret iter.start
-          (by have := secret.property; scalar_tac)
-      let* ⟨ a1, a1_post ⟩ ← Array.update_spec
-      have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
-      have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
-          (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
-        rw [Std.Array.set_val_eq]
-        show (arr.val.set 0 v)[0]! = v
-        rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
-      have hml : iter.start.val < secret.val.length := by have := secret.property; omega
-      apply WP.spec_mono
-        (gen_secret_from_seed_loop_bd MU _ iter1 seed (index_mut_back a1) buf1
-          hMU hbuf1_len h_end_new ?_)
-      · rintro r hr a ha c hc; exact hr a ha c hc
-      · intro a ha c hc
-        have hM : (index_mut_back a1).val[a]!
-            = if a = iter.start.val then a1 else secret.val[a]! := by
-          rw [a_post2, Std.Array.set_val_eq, getElem!_list_set _ _ _ _ hml]
-        rw [hM]
-        by_cases hai : a = iter.start.val
-        · rw [if_pos hai, a1_post, harr0]
-          exact hre1 c hc
-        · rw [if_neg hai]
-          exact hsec a ha c hc
-    all_goals
-      have hbuf1_len : buf1.val.length = 32 * MU.val := by
-        rw [← Slice.length, __post1, Slice.length, hbuflen]
-      let* ⟨ re1, hre1 ⟩ ← cbd_bd MU buf1 re hMU hbuf1_len
-      have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
-      have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
-          (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
-        rw [Std.Array.set_val_eq]
-        show (arr.val.set 0 v)[0]! = v
-        rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
-      have hml : iter.start.val < secret.val.length := by have := secret.property; omega
-      apply WP.spec_mono
-        (gen_secret_from_seed_loop_bd MU _ iter1 seed (index_mut_back (index_mut_back1 re1)) buf1
-          hMU hbuf1_len h_end_new ?_)
-      · rintro r hr a ha c hc; exact hr a ha c hc
-      · intro a ha c hc
-        have hM : (index_mut_back (index_mut_back1 re1)).val[a]!
-            = if a = iter.start.val then (index_mut_back1 re1) else secret.val[a]! := by
-          rw [a_post2, Std.Array.set_val_eq, getElem!_list_set _ _ _ _ hml]
-        rw [hM]
-        by_cases hai : a = iter.start.val
-        · rw [if_pos hai, re_post2, harr0]
-          exact hre1 c hc
-        · rw [if_neg hai]
-          exact hsec a ha c hc
+    have hbuf1_len : buf1.val.length = 32 * MU.val := by
+      rw [← Slice.length, __post1, Slice.length, hbuflen]
+    let* ⟨ re1, hre1 ⟩ ← cbd_bd MU buf1 re hMU hbuf1_len
+    have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
+    have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
+        (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
+      rw [Std.Array.set_val_eq]
+      show (arr.val.set 0 v)[0]! = v
+      rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
+    have hml : iter.start.val < secret.val.length := by have := secret.property; omega
+    apply WP.spec_mono
+      (gen_secret_from_seed_loop_bd MU iter1 seed (index_mut_back (index_mut_back1 re1)) buf1
+        hMU hbuf1_len h_end_new ?sec')
+    · rintro r hr a ha c hc; exact hr a ha c hc
+    · intro a ha c hc
+      have hM : (index_mut_back (index_mut_back1 re1)).val[a]!
+          = if a = iter.start.val then (index_mut_back1 re1) else secret.val[a]! := by
+        rw [a_post2, Std.Array.set_val_eq, getElem!_list_set _ _ _ _ hml]
+      rw [hM]
+      by_cases hai : a = iter.start.val
+      · rw [if_pos hai, re_post2, harr0]
+        exact hre1 c hc
+      · rw [if_neg hai]
+        exact hsec a ha c hc
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]; simp only [WP.spec_ok]
     exact hsec
@@ -368,7 +279,7 @@ theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
   rw [if_pos (show i1.val ≤ (Array.repeat 320#usize 0#u8).to_slice.length by rw [h320, hi1v]; omega)]
   simp only [bind_tc_ok]
   apply WP.spec_mono
-    (gen_secret_from_seed_loop_bd MU _ { start := 0#usize, «end» := L } seed _ _ hMU ?buflen rfl ?sec)
+    (gen_secret_from_seed_loop_bd MU { start := 0#usize, «end» := L } seed _ _ hMU ?buflen rfl ?sec)
   · intro r hr; exact hr
   case buflen =>
     show (List.slice 0 i1.val (Array.repeat 320#usize 0#u8).to_slice.val).length = 32 * MU.val

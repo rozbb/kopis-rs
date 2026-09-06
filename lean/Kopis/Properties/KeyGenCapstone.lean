@@ -99,6 +99,7 @@ theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
   unfold pke.PkePublicKey.Insts.CoreCloneClone.clone
   let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec core.clone.CloneU8 self.matrix_seed (by intro x _; rfl)
   let* ⟨nm, hnm⟩ ← ntt_matrix_clone_spec self.mat_a_ntt
+  let* ⟨nm1, hnm1⟩ ← ntt_matrix_clone_spec self.vec_ntt
   let* ⟨a1, ha1⟩ ← core.array.CloneArray.clone_spec
     (core.clone.CloneArray 320#usize core.clone.CloneU8) self.vec_bytes (by
     intro x _
@@ -107,8 +108,7 @@ theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
       Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
         core.clone.CloneU8 x (fun y _ => rfl))
     rw [hx', ← hxx'])
-  let* ⟨nm1, hnm1⟩ ← ntt_matrix_clone_spec self.vec_ntt
-  subst ha hnm ha1 hnm1
+  subst ha hnm hnm1 ha1
   rfl
 
 /-- `SkToPk` unfolds definitionally to the public-key component of `ExpandDecapKey`. Proved

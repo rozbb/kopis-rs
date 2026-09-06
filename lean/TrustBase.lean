@@ -57,8 +57,8 @@ constant-time is a claim about compiled machine code and is out of scope for thi
 entirely.
 
 **(c) Opaque arithmetic intrinsics (2 assumptions).** `U8.count_ones_spec` and
-`U32.count_ones_spec` give the meaning of Rust's popcount intrinsics —
-`RustKopisSerial.core.num.U8.count_ones` and `RustKopisSerial.core.num.U32.count_ones` are
+`U16.count_ones_spec` give the meaning of Rust's popcount intrinsics —
+`RustKopisSerial.core.num.U8.count_ones` and `RustKopisSerial.core.num.U16.count_ones` are
 intrinsics that aeneas leaves opaque, carrying no definition to unfold, so their meaning has to
 be assumed.
 
@@ -95,7 +95,7 @@ build if one ever reappears. Do not re-add an exemption for it. -/
 def serialAudited : List String :=
   ["Aeneas.Std.core.fmt.Formatter",
    "Classical.choice",
-   "Kopis.Properties.U32.count_ones_spec",
+   "Kopis.Properties.U16.count_ones_spec",
    "Kopis.Properties.U8.count_ones_spec",
    "Kopis.Properties.conditional_select_array_u8_spec",
    "Kopis.Properties.ct_eq_slice_u8_spec",
@@ -109,7 +109,7 @@ def serialAudited : List String :=
    "RustKopisSerial.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisSerial.U8.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisSerial.U8.Insts.SubtleConstantTimeEq.ct_eq",
-   "RustKopisSerial.core.num.U32.count_ones",
+   "RustKopisSerial.core.num.U16.count_ones",
    "RustKopisSerial.core.num.U8.count_ones",
    "RustKopisSerial.subtle.Choice",
    "RustKopisSerial.turboshake.TurboShake",
@@ -165,9 +165,9 @@ by `cargo test` on an AVX2 host, not silently believed.
 neither needs to: every dispatch point is proved on both branches. That is the whole of feature
 detection's contribution to the trust base.
 
-**(g) Popcount, twice more.** `CbdGeneric.U{8,32}.count_ones_spec` are the same assumption as (c),
+**(g) Popcount, twice more.** `CbdGeneric.U{8,16}.count_ones_spec` are the same assumption as (c),
 for the copy of the portable sampler that `Kopis/Avx2/CbdGeneric.lean` carries; the extracted
-`RustKopisAvx2.core.num.U{8,32}.count_ones` are different opaque constants from the serial ones,
+`RustKopisAvx2.core.num.U{8,16}.count_ones` are different opaque constants from the serial ones,
 so they are genuinely new for this backend.
 
 Everything else in the list below is the portable backend's list with `RustKopisSerial` renamed to
@@ -178,9 +178,9 @@ list, and the exact-match check below fails the build if it ever appears. -/
 def avx2Audited : List String :=
   ["Aeneas.Std.core.fmt.Formatter",
    "Classical.choice",
-   "Kopis.Avx2.CbdGeneric.U32.count_ones_spec",
+   "Kopis.Avx2.CbdGeneric.U16.count_ones_spec",
    "Kopis.Avx2.CbdGeneric.U8.count_ones_spec",
-   "Kopis.Avx2.Properties.U32.count_ones_spec",
+   "Kopis.Avx2.Properties.U16.count_ones_spec",
    "Kopis.Avx2.Properties.U8.count_ones_spec",
    "Kopis.Avx2.Properties.conditional_select_array_u8_spec",
    "Kopis.Avx2.Properties.ct_eq_slice_u8_spec",
@@ -301,7 +301,7 @@ def avx2Audited : List String :=
    "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi16",
    "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi32",
    "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi64",
-   "RustKopisAvx2.core.num.U32.count_ones",
+   "RustKopisAvx2.core.num.U16.count_ones",
    "RustKopisAvx2.core.num.U8.count_ones",
    "RustKopisAvx2.core.ops.range.RangeInclusive.contains",
    "RustKopisAvx2.subtle.Choice",
@@ -375,11 +375,11 @@ calls it once, to turn a byte count into a word count, and the assumption is exa
 def neonAudited : List String :=
   ["Aeneas.Std.core.fmt.Formatter",
    "Classical.choice",
-   "Kopis.Neon.CbdGeneric.U32.count_ones_spec",
+   "Kopis.Neon.CbdGeneric.U16.count_ones_spec",
    "Kopis.Neon.CbdGeneric.U8.count_ones_spec",
    "Kopis.Neon.I16.wrapping_neg_spec",
    "Kopis.Neon.Keccak.Usize.div_ceil_spec",
-   "Kopis.Neon.Properties.U32.count_ones_spec",
+   "Kopis.Neon.Properties.U16.count_ones_spec",
    "Kopis.Neon.Properties.U8.count_ones_spec",
    "Kopis.Neon.Properties.conditional_select_array_u8_spec",
    "Kopis.Neon.Properties.ct_eq_slice_u8_spec",
@@ -490,7 +490,7 @@ def neonAudited : List String :=
    "RustKopisNeon.backend.neon.intrinsics.xar",
    "RustKopisNeon.backend.neon.intrinsics.xtn_pair_32",
    "RustKopisNeon.core.num.I16.wrapping_neg",
-   "RustKopisNeon.core.num.U32.count_ones",
+   "RustKopisNeon.core.num.U16.count_ones",
    "RustKopisNeon.core.num.U8.count_ones",
    "RustKopisNeon.core.num.Usize.div_ceil",
    "RustKopisNeon.core.ops.range.RangeInclusive.contains",

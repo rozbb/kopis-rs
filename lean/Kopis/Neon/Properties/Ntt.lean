@@ -347,7 +347,6 @@ private theorem ntt_gen_matrix_loop0_loop0_bd {L : Usize} (iter : core.ops.range
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hj_lt : iter.start.val < L.val := by rw [← hend]; exact hlt
-    simp only [consts.MODULUS_Q_BITS]
     step*
     have hs3 : s3.length = 416 := by rw [Slice.length, s3_post1]; exact buf.property
     have hs4 : s4.val.length = 416 := by rw [← Slice.length, __post1, hs3]

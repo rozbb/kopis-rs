@@ -6,14 +6,15 @@
   indices — which makes it the one loop in this region that needs the `IterMut` framing rather
   than another instance of `NttTransposed.lean`'s shape.
 
-  ## The framing, and the one place it differs from `CbdGeneric.lean`'s
+  ## The framing, and the one place it differs from the scalar `IterMut` proofs
 
-  `Kopis/Neon/CbdGeneric.lean`'s `cbd_loop3_spec` is the model: an `IterMut` loop is specified by
-  three predicates on the accumulated `back` closure — it preserves the length, it has already
-  written the entries below `iter.i`, and it leaves the entries at or above `iter.i` alone.  The
-  induction threads those three through each step, extending `back` with one more write.
+  `Kopis/Properties/RingArith.lean`'s `shift_right_loop_spec` is the model: an `IterMut` loop is
+  specified by three predicates on the accumulated `back` closure — it preserves the length, it
+  has already written the entries below `iter.i`, and it leaves the entries at or above `iter.i`
+  alone.  The induction threads those three through each step, extending `back` with one more
+  write.
 
-  What does not transfer is the *indexing*.  `cbd_loop3_spec` writes `slice.val[j]!`, which needs
+  What does not transfer is the *indexing*.  That proof writes `slice.val[j]!`, which needs
   `Inhabited`, and `Vec128` has none — it is an opaque extracted type and Lean has no proof it is
   inhabited, since every axiom producing a `Vec128` already takes one as an argument.  So the
   predicates below are stated through `sAt`, a bounds-carrying accessor in the style of `vAt`,

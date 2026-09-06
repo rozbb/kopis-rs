@@ -64,7 +64,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   unfold kem.decap
   have hct : Spec.Kopis.ctSize p = L.val * 320 + T.val * 32 := by
     simp only [Spec.Kopis.ctSize, hℓ, ht]; ring
-  simp only [pke.ciphertext_len, consts.10, consts.RING_DEG]
+  simp only [pke.ciphertext_len, consts.RING_DEG]
   let* ⟨n0, hn0⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) (by scalar_tac)
   let* ⟨n1, hn1⟩ ← Std.Usize.mul_spec (x := n0) (y := 256#usize) (by rw [hn0]; scalar_tac)
   let* ⟨n2, hn2⟩ ← Std.Usize.div_spec

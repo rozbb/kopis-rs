@@ -294,7 +294,7 @@ theorem ringElem_deserialize_10_spec (bytes : Slice U8) (hlen : bytes.length = 3
     arithmetic.ring_arith.RingElem.deserialize bytes 10#usize
       ⦃ (r : RingElem) => toPolyN 10 r = Spec.Kopis.deserialize 10 (sliceToBytes bytes (32 * 10) hlen) ⦄ := by
   unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
+  simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac

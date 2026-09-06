@@ -138,8 +138,13 @@ def patch_secret_loop(t: str) -> str:
     return "".join(out)
 
 
+# `patch_secret_loop` used to live in this table under "GenSecretTop.lean".  It rewrote the
+# serial `gen_secret_from_seed_loop` proof around a NEON-only `cbd_lanes` dispatch that used to
+# sit *inside* that loop (`if !MU.is_multiple_of(8) && neon_available()`).  `src/sample.rs` no
+# longer has it: the whole function dispatches once at the top, so the loop body is portable-only
+# and the serial proof applies to it unchanged, exactly as it does on AVX2.  The function is kept
+# below because nothing else references it and deleting it is a separate change.
 POST_TRANSFORMS = {
-    "GenSecretTop.lean": patch_secret_loop,
     "NttCrtElem.lean": lambda t: bridge._apply(_ELEM, t, "NttCrtElem"),
     "NttCrtMul.lean": lambda t: bridge._apply(_MUL, t, "NttCrtMul"),
     "NttBridge.lean": lambda t: bridge._apply(_BRIDGE, t, "NttBridge"),

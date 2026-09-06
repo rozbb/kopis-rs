@@ -306,7 +306,7 @@ private theorem ntt_from_bytes_raw (bytes : Slice U8) (hlen : bytes.length = 32 
       ⦃ (r : arithmetic.ring_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 13 ⦄ := by
   unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS]
+  simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*
   have hb : bytes.len = 416#usize := by scalar_tac
@@ -339,7 +339,6 @@ private theorem ntt_gen_matrix_loop0_loop0_bd {L : Usize} (iter : core.ops.range
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hj_lt : iter.start.val < L.val := by rw [← hend]; exact hlt
-    simp only [consts.MODULUS_Q_BITS]
     step*
     have hs3 : s3.length = 416 := by rw [Slice.length, s3_post1]; exact buf.property
     have hs4 : s4.val.length = 416 := by rw [← Slice.length, __post1, hs3]
@@ -454,7 +453,7 @@ private theorem ntt_ringElem_deser10_raw (bytes : Slice U8) (hlen : bytes.length
       ⦃ (r : arithmetic.ring_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 10 ⦄ := by
   unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
+  simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac

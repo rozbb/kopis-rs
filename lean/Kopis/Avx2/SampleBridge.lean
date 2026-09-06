@@ -167,7 +167,7 @@ theorem gen_matrix_from_seed_loop0_loop1_spec {L : Std.Usize}
             else (((mat.val[a]!).val[b]!).val[j]!).val ⦄ := by
   have hmeb : backend.avx2.sample.MATRIX_ELEM_BYTES ⦃ (r : Std.Usize) => r.val = 416 ⦄ := by
     unfold backend.avx2.sample.MATRIX_ELEM_BYTES
-    simp only [consts.RING_DEG, consts.MODULUS_Q_BITS]
+    simp only [consts.RING_DEG]
     let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
     let* ⟨ r, hr ⟩ ← Std.Usize.div_spec
     omega
@@ -197,7 +197,7 @@ theorem gen_matrix_from_seed_loop0_loop1_spec {L : Std.Usize}
       have hsllen : (sl : Slice Std.U8).length = 32 * 13 := by
         simp only [Slice.length, hsl]; omega
       let* ⟨ re, hre ⟩ ← Kopis.Avx2.deserialize_streamNat sl 13 (by omega) (by omega) hsllen
-        consts.MODULUS_Q_BITS (by simp [consts.MODULUS_Q_BITS])
+        13#usize (by simp)
       let* ⟨ q, hq ⟩ ← Std.Usize.div_spec
       let* ⟨ m, hm ⟩ ← Std.Usize.rem_spec
       have hentv : entry.val = first.val + iter.start.val := hentry

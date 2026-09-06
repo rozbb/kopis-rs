@@ -27,7 +27,7 @@ theorem vecBytesFlat_getElem! {L : Usize} (self : pke.PkePublicKey L) (pos : ℕ
 
 /-- `PK_VEC_ELEM_BYTES` evaluates to `320` (`= 10·256/8`). -/
 theorem pk_vec_elem_bytes_spec : pke.PK_VEC_ELEM_BYTES ⦃ (r : Usize) => r.val = 320 ⦄ := by
-  simp only [pke.PK_VEC_ELEM_BYTES, consts.10, consts.RING_DEG]
+  simp only [pke.PK_VEC_ELEM_BYTES, consts.RING_DEG]
   let* ⟨ a, ha ⟩ ← Std.Usize.mul_spec (x := 10#usize) (y := 256#usize) (by scalar_tac)
   let* ⟨ b, hb ⟩ ← Std.Usize.div_spec
   rw [hb, ha]
@@ -142,7 +142,7 @@ theorem pke_serialize_spec {L : Usize} (self : pke.PkePublicKey L) (out_buf : Sl
   have hmax : L.val * 320 + 32 ≤ Usize.max := by rw [← hlen]; exact out_buf.property
   have hb0 : L.val * 10 ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit
   unfold pke.PkePublicKey.serialize pke.PkePublicKey.SERIALIZED_LEN
-  simp only [consts.10, consts.RING_DEG]
+  simp only [consts.RING_DEG]
   let* ⟨ i0, hi0 ⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) hb0
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (x := i0) (y := 256#usize) (by rw [hi0]; exact hfit)
   let* ⟨ i2, hi2 ⟩ ← Std.Usize.div_spec

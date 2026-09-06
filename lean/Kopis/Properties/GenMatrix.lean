@@ -386,7 +386,6 @@ theorem gen_matrix_loop0_loop0_spec {L : Usize} (iter : core.ops.range.Range Usi
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hj_lt : iter.start.val < L.val := by scalar_tac
-    simp only [consts.MODULUS_Q_BITS]
     step*
     have habs : hasherAbsorbed hasher3
         = seed.val ++ [UScalar.cast .U8 i] ++ [UScalar.cast .U8 iter.start] := by

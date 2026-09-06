@@ -180,7 +180,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
   have hb0 : L.val * 10 ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit
   have e32 : (32#usize).val = 32 := rfl
   unfold pke.PkePublicKey.from_bytes pke.PkePublicKey.SERIALIZED_LEN
-  simp only [consts.10, consts.RING_DEG]
+  simp only [consts.RING_DEG]
   -- SERIALIZED_LEN = 32 + L·10·256/8 = 32 + L·320
   let* ⟨ i0, hi0 ⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) hb0
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (x := i0) (y := 256#usize) (by rw [hi0]; exact hfit)
@@ -233,7 +233,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
     rw [hseed_val, hiiv]; congr 1; ring
   -- the matrix seed is the [32·10·ℓ, +32) window of the input
   have hseedbytes : matSeedBytes (L := L)
-        ⟨matrix_seed, mat_a_ntt, vec_bytes1, vec_ntt⟩
+        ⟨matrix_seed, mat_a_ntt, vec_ntt, vec_bytes1⟩
       = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
           (32 * 10 * L.val) 32 (by omega) := by
     rw [matSeed_eq_sliceToBytes _ seed hseedlen (by show matrix_seed.val = _; exact hms_val)]

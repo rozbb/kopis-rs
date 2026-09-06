@@ -48,7 +48,7 @@ PATCHES = [
     # itself, so the stream spec is weakened after the fact.
     ("Ntt.lean",
      """  unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS]
+  simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*
   have hb : bytes.len = 416#usize := by scalar_tac
@@ -79,7 +79,7 @@ PATCHES = [
     exact streamNat_lt _ _ _"""),
     ("Ntt.lean",
      """  unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
+  simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac
@@ -113,7 +113,7 @@ PATCHES = [
     # path) and case-splitting it is expensive in this file's environment.
     ("Serialize.lean",
      """  unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS]
+  simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*
   -- resolve `try_from 416` (lengths match) and `unwrap`, exposing `arr.val = bytes.val`
@@ -154,11 +154,9 @@ PATCHES = [
   rw [show massert (Slice.len bytes = rv) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
   -- neither the 13-bit nor the 10-bit fast path: take the generic else-branch
-  have hne13' : n#usize ≠ consts.MODULUS_Q_BITS := by
-    simp only [consts.MODULUS_Q_BITS]
+  have hne13' : n#usize ≠ 13#usize := by
     intro h; exact hne13 (by have := congrArg UScalar.val h; simpa using this)
-  have hne10' : n#usize ≠ consts.10 := by
-    simp only [consts.10]
+  have hne10' : n#usize ≠ 10#usize := by
     intro h; exact hne10 (by have := congrArg UScalar.val h; simpa using this)
   rw [if_neg hne13', if_neg hne10']
   -- delegate to the generic decoder and thread the postcondition through `ok a`
@@ -179,7 +177,7 @@ PATCHES = [
     # Dispatch point at width 10 (`RingElem::deserialize`, the ciphertext/public-key width).
     ("DeserializeVec.lean",
      """  unfold arithmetic.ring_arith.RingElem.deserialize
-  simp only [consts.RING_DEG, consts.MODULUS_Q_BITS, consts.10]
+  simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
   have hb : bytes.len = 320#usize := by scalar_tac

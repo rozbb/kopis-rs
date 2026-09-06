@@ -48,12 +48,12 @@ supply for the two branches. -/
 
 /-- The portable else-branch of `RingElem::deserialize`, exactly as the extraction writes it. -/
 def portableDeserialize (bytes : Slice U8) (bits : Usize) : Result RingElem :=
-  if bits = consts.MODULUS_Q_BITS then
+  if bits = 13#usize then
     (do let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
         let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
         let a ← ser.deserialize_13 arr
         ok a)
-  else if bits = consts.10 then
+  else if bits = 10#usize then
     (do let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
         let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
         let a ← ser.deserialize_10 arr
@@ -102,7 +102,7 @@ theorem ringElem_deserialize_13_streamNat (bytes : Slice U8) (hlen : bytes.lengt
           (r.val[j]!).val = streamNat bytes (13 * j) 13 ⦄ := by
   refine ringElem_deserialize_dispatch bytes 13#usize (by simp) (by simpa using hlen) ?_ ?_
   · unfold portableDeserialize
-    rw [if_pos (by simp only [consts.MODULUS_Q_BITS])]
+    rw [if_pos rfl]
     have hb : bytes.len = 416#usize := by scalar_tac
     simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
       core.result.Result.unwrap]
@@ -124,8 +124,7 @@ theorem ringElem_deserialize_10_streamNat (bytes : Slice U8) (hlen : bytes.lengt
           (r.val[j]!).val = streamNat bytes (10 * j) 10 ⦄ := by
   refine ringElem_deserialize_dispatch bytes 10#usize (by simp) (by simpa using hlen) ?_ ?_
   · unfold portableDeserialize
-    rw [if_neg (by simp only [consts.MODULUS_Q_BITS]; decide),
-      if_pos (by simp only [consts.10])]
+    rw [if_neg (by decide), if_pos rfl]
     have hb : bytes.len = 320#usize := by scalar_tac
     simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
       core.result.Result.unwrap]
@@ -146,14 +145,12 @@ theorem ringElem_deserialize_gen_streamNat (bytes : Slice U8) (n : ℕ) (hn1 : 1
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (n * j) n ⦄ := by
   have hnv : (n#usize).val = n := by simp
-  have h13 : n#usize ≠ consts.MODULUS_Q_BITS := by
-    simp only [consts.MODULUS_Q_BITS]
+  have h13 : n#usize ≠ 13#usize := by
     intro h
     have := congrArg UScalar.val h
     simp at this
     omega
-  have h10 : n#usize ≠ consts.10 := by
-    simp only [consts.10]
+  have h10 : n#usize ≠ 10#usize := by
     intro h
     have := congrArg UScalar.val h
     simp at this

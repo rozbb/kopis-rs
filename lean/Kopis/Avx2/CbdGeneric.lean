@@ -8,7 +8,7 @@
   This is `Kopis/Properties/GenSecretLoops.lean` up to (not including) its spec bridge, with
   `RustKopisSerial` replaced by `RustKopisAvx2` and nothing else changed — the iterator step
   specs, the three specialised branches (`MU = 8` nibble, `MU = 10` five-byte group, `MU = 6`
-  three-byte group), the generic fallback, and both the value (`cbd_spec`) and magnitude
+  three-byte group), and both the value (`cbd_spec`) and magnitude
   (`cbd_bd`) results.  `cbdX` itself is not redefined: it now lives in `Kopis/Bits/Stream.lean`
   and both backends share it.
 
@@ -37,7 +37,7 @@ extraction's constants: the two `IterMut` step lemmas (`Kopis/Properties/RingAri
 the two `count_ones` axioms (`Kopis/Properties/GenSecret.lean`).
 
 The `count_ones` axioms are genuinely new *assumptions* for this backend —
-`RustKopisAvx2.core.num.{U8,U32}.count_ones` are different opaque constants from the serial
+`RustKopisAvx2.core.num.{U8,U16}.count_ones` are different opaque constants from the serial
 ones — so they belong in the AVX2 row of `TrustBase.lean` exactly as their serial twins are in
 the serial row. -/
 
@@ -47,9 +47,9 @@ set_option maxHeartbeats 1000000
 /-! ## `count_ones` (popcount) — opaque compiler intrinsics, axiomatized as the
 number of set bits (= sum of the bit values). -/
 
-@[step] axiom U32.count_ones_spec (x : U32) :
-    core.num.U32.count_ones x
-      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 32, (x.bv.getLsbD i).toNat ⦄
+@[step] axiom U16.count_ones_spec (x : U16) :
+    core.num.U16.count_ones x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 16, (x.bv.getLsbD i).toNat ⦄
 
 @[step] axiom U8.count_ones_spec (x : U8) :
     core.num.U8.count_ones x
@@ -57,9 +57,9 @@ number of set bits (= sum of the bit values). -/
 
 /-- Popcount of `w` masked to its low `h` bits (`mask = 2^h - 1`) is the sum of
 the low `h` bits of `w`. -/
-theorem popcount_low_mask (w mask : U32) (h : ℕ) (hh : h ≤ 32)
+theorem popcount_low_mask (w mask : U16) (h : ℕ) (hh : h ≤ 16)
     (hmask : ∀ i, mask.bv.getLsbD i = decide (i < h)) :
-    ∑ i ∈ Finset.range 32, ((w &&& mask).bv.getLsbD i).toNat
+    ∑ i ∈ Finset.range 16, ((w &&& mask).bv.getLsbD i).toNat
       = ∑ i ∈ Finset.range h, (w.bv.getLsbD i).toNat := by
   have hstep : ∀ i, ((w &&& mask).bv.getLsbD i).toNat
       = if i < h then (w.bv.getLsbD i).toNat else 0 := by
@@ -72,33 +72,8 @@ theorem popcount_low_mask (w mask : U32) (h : ℕ) (hh : h ≤ 32)
   simp only [Finset.mem_filter, Finset.mem_range]
   omega
 
-/-- The 3-byte little-endian window `buf[bi] + 2⁸·buf[bi+1] + 2¹⁶·buf[bi+2]`
-(with OOB bytes read as 0 via `!`) has bit `b` (for `b < 16`) equal to the
-corresponding stream bit `buf[(8bi+b)/8][(8bi+b)%8]`. -/
-theorem window_testBit (buf : Slice U8) (bi b : ℕ) (hb : b < 24) :
-    (((buf.val[bi]!).val) + 2 ^ 8 * (buf.val[bi+1]!).val + 2 ^ 16 * (buf.val[bi+2]!).val).testBit b
-      = (buf.val[(8*bi+b)/8]!).val.testBit ((8*bi+b)%8) := by
-  have h0 : (buf.val[bi]!).val < 2 ^ 8 := by have := (buf.val[bi]!).hBounds; omega
-  have h1 : (buf.val[bi+1]!).val < 2 ^ 8 := by have := (buf.val[bi+1]!).hBounds; omega
-  rw [show ((buf.val[bi]!).val) + 2 ^ 8 * (buf.val[bi+1]!).val + 2 ^ 16 * (buf.val[bi+2]!).val
-        = 2 ^ 8 * ((buf.val[bi+1]!).val + 2 ^ 8 * (buf.val[bi+2]!).val) + (buf.val[bi]!).val from by ring,
-    Nat.testBit_two_pow_mul_add _ h0 b]
-  by_cases hb8 : b < 8
-  · -- bit in the low byte
-    rw [if_pos hb8, show (8*bi+b)/8 = bi from by omega, show (8*bi+b)%8 = b from by omega]
-  · rw [if_neg hb8, show ((buf.val[bi+1]!).val + 2 ^ 8 * (buf.val[bi+2]!).val)
-          = 2 ^ 8 * (buf.val[bi+2]!).val + (buf.val[bi+1]!).val from by ring,
-      Nat.testBit_two_pow_mul_add _ h1 (b - 8)]
-    by_cases hb16 : b < 16
-    · -- second byte
-      rw [if_pos (show b - 8 < 8 by omega),
-        show (8*bi+b)/8 = bi+1 from by omega, show (8*bi+b)%8 = b-8 from by omega]
-    · -- third byte
-      rw [if_neg (show ¬ b - 8 < 8 by omega), show b - 8 - 8 = b - 16 from by omega,
-        show (8*bi+b)/8 = bi+2 from by omega, show (8*bi+b)%8 = b-16 from by omega]
-
 /-- The mask `2^half - 1` has bit `i` set iff `i < half`. -/
-theorem mask_getLsbD (mask : U32) (half : ℕ) (hm : mask.val = 2 ^ half - 1) (i : ℕ) :
+theorem mask_getLsbD (mask : U16) (half : ℕ) (hm : mask.val = 2 ^ half - 1) (i : ℕ) :
     mask.bv.getLsbD i = decide (i < half) := by
   have h : mask.bv.getLsbD i = mask.val.testBit i := by rw [UScalar.val, BitVec.getLsbD]
   rw [h, hm, Nat.testBit_two_pow_sub_one]
@@ -117,24 +92,6 @@ theorem wrapping_sub_toZMod13 (a b : U16) :
     push_cast; ring
   rw [core.num.U16.wrapping_sub_val_eq, hsize, castMod, Nat.cast_add, Nat.cast_sub hy, h216]
   ring
-
-/-- **Bit heart of CBD.**  The popcount of the low `half` bits of the shifted
-window `raw4 = W >> bit_in_byte` equals the spec's `∑ streamBit` over the
-corresponding `half` stream positions. -/
-theorem window_popcount (buf : Slice U8) (byte_idx off half : ℕ)
-    (shifted : U32) (hoff : off + half ≤ 24) (_hhalf : half ≤ 8)
-    (hshift : shifted.val = ((buf.val[byte_idx]!).val + 2 ^ 8 * (buf.val[byte_idx+1]!).val
-        + 2 ^ 16 * (buf.val[byte_idx+2]!).val) >>> off) :
-    ∑ i ∈ Finset.range half, (shifted.bv.getLsbD i).toNat
-      = ∑ i ∈ Finset.range half, streamBit buf (8 * byte_idx + off + i) := by
-  apply Finset.sum_congr rfl
-  intro i hi
-  simp only [Finset.mem_range] at hi
-  have hbridge : shifted.bv.getLsbD i = shifted.val.testBit i := by rw [UScalar.val, BitVec.getLsbD]
-  rw [hbridge, hshift, Nat.testBit_shiftRight,
-    window_testBit buf byte_idx (off + i) (by omega),
-    show 8 * byte_idx + (off + i) = 8 * byte_idx + off + i from by ring]
-  rfl
 
 
 @[step]
@@ -242,250 +199,10 @@ theorem enumSliceIter_next_none {T : Type}
 /- `cbdX` and `cbdX_le` moved to `Kopis/Bits/Stream.lean`: they are backend-agnostic, and the
 AVX2 sampler is proved against the same definition rather than a copy of it. -/
 
-theorem cbd_streamBit_le_one (bytes : Slice U8) (m : ℕ) : streamBit bytes m ≤ 1 := by
-  unfold streamBit; cases (bytes.val[m / 8]!).val.testBit (m % 8) <;> simp
-
 /-- The CBD coefficient value (in `ZMod 2¹³`) for coefficient index `k`. -/
 def cbdVal (buf : Slice U8) (mu half k : ℕ) : ZMod (2 ^ 13) :=
   ((cbdX buf half (mu * k) : ℕ) : ZMod (2 ^ 13))
     - ((cbdX buf half (mu * k + half) : ℕ) : ZMod (2 ^ 13))
-
-/-- **`cbd_loop3` (generic fallback) loop spec.**  Coefficients `[0, iter.i)` already hold the CBD
-sample; `bit_pos = μ·iter.i`. -/
-theorem cbd_loop3_spec (MU : Usize) (iter : core.slice.iter.IterMut U16)
-    (back : core.slice.iter.IterMut U16 → core.slice.iter.IterMut U16)
-    (buf : Slice U8) (half : Usize) (mask : U32) (bit_pos : Usize)
-    (hhalf : half.val = MU.val / 2) (hmask : mask.val = 2 ^ half.val - 1)
-    (hMU : 4 ≤ MU.val ∧ MU.val ≤ 10)
-    (hlen : buf.val.length = 32 * MU.val)
-    (hbp : bit_pos.val = MU.val * iter.i)
-    (orig_slice : Slice U16)
-    (h_slice : iter.slice = orig_slice)
-    (h_len256 : orig_slice.length = 256)
-    (h_iter_i : iter.i ≤ 256)
-    (hback_len : ∀ (im : core.slice.iter.IterMut U16),
-      im.slice.length = orig_slice.length → (back im).slice.length = orig_slice.length)
-    (hback_writes : ∀ (im : core.slice.iter.IterMut U16)
-      (_him : im.slice.length = orig_slice.length) (j : Nat) (_hj : j < iter.i),
-        (((back im).slice.val[j]!).val : ZMod (2 ^ 13)) = cbdVal buf MU.val half.val j)
-    (hback_rest : ∀ (im : core.slice.iter.IterMut U16)
-      (_him : im.slice.length = orig_slice.length) (j : Nat)
-      (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
-        (back im).slice.val[j]! = im.slice.val[j]!) :
-    sample.cbd_loop3 MU iter back buf half mask bit_pos
-      ⦃ (r : core.slice.iter.IterMut U16) =>
-          ∃ (_h_len : r.slice.length = orig_slice.length),
-            ∀ (j : Nat) (_hj : j < orig_slice.length),
-              (((r.slice.val[j]!).val : ZMod (2 ^ 13))) = cbdVal buf MU.val half.val j ⦄ := by
-  unfold sample.cbd_loop3
-  by_cases hlt : iter.i < iter.slice.len
-  · -- SOME branch
-    have hi_pe : iter.slice.length = orig_slice.length := by rw [h_slice]
-    have hi_lt256 : iter.i < 256 := by rw [← h_len256, ← hi_pe]; scalar_tac
-    have hhalf_le : half.val ≤ 5 := by omega
-    have hhalf_lt32 : half.val < 32 := by omega
-    let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
-    obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
-    rw [ho]
-    simp only []
-    -- byte_idx / bit_in_byte
-    let* ⟨ byte_idx, hbi ⟩ ← Std.Usize.div_spec
-    let* ⟨ bib, hbibv ⟩ ← Std.Usize.rem_spec
-    have hbi_val : byte_idx.val = bit_pos.val / 8 := by rw [hbi]
-    have hbib_val : bib.val = bit_pos.val % 8 := by rw [hbibv]
-    have hbp_lt : bit_pos.val < 8 * buf.val.length := by
-      rw [hbp, hlen]
-      have h1 : iter.i < 256 := hi_lt256
-      have h2 : 4 ≤ MU.val := hMU.1
-      nlinarith
-    have hbi_lt : byte_idx.val < buf.val.length := by
-      rw [hbi_val]; omega
-    -- raw1 = cast buf[byte_idx]
-    let* ⟨ bt, hbt ⟩ ← Slice.index_usize_spec
-    let* ⟨ raw1, hraw1 ⟩ ← UScalar.cast_inBounds_spec
-    have hbt_pos : bt.val = (buf.val[byte_idx.val]!).val := by
-      rw [hbt, getElem!_pos buf.val byte_idx.val hbi_lt]
-    have hraw1v : raw1.val = (buf.val[byte_idx.val]!).val := by rw [hraw1, hbt_pos]
-    have hraw1_lt : raw1.val < 2 ^ 8 := by rw [hraw1v]; have := (buf.val[byte_idx.val]!).hBounds; omega
-    have hlen_buf : (Slice.len buf).val = buf.val.length := by simp [Slice.len]
-    let* ⟨ i1, hi1 ⟩ ← Std.Usize.add_spec
-    -- byte value at an OOB index is 0
-    have hoob : ∀ p : ℕ, ¬ p < buf.val.length → (buf.val[p]!).val = 0 := by
-      intro p hp; rw [getElem!_neg buf.val p hp]; rfl
-    -- window `raw2` (byte_idx + 1): value `raw1 + 2⁸·buf[bi+1]`, back = `next_back _ (some _)`
-    have hraw2 :
-        (if i1 < Slice.len buf then
-            (do let i3 ← Slice.index_usize buf i1
-                let i4 ← lift (UScalar.cast .U32 i3)
-                let i5 ← i4 <<< 8#i32
-                let raw3 ← lift (raw1 ||| i5)
-                ok (raw3, fun i6 im => next_back im (some i6)))
-          else ok (raw1, fun i3 im => next_back im (some i3)))
-        ⦃ (p : U32 × (U16 → core.slice.iter.IterMut U16 → core.slice.iter.IterMut U16)) =>
-            p.1.val = raw1.val + 2 ^ 8 * (buf.val[byte_idx.val + 1]!).val ∧
-            ∀ c im, p.2 c im = next_back im (some c) ⦄ := by
-      by_cases hg1 : i1 < Slice.len buf
-      · rw [if_pos hg1]
-        have hi1_lt : i1.val < buf.val.length := by
-          have : i1.val < (Slice.len buf).val := hg1; rw [hlen_buf] at this; exact this
-        let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
-        let* ⟨ i4, hi4 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
-        let* ⟨ i5, hi5, hi5bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec i4 8#i32 (by decide) (by decide)
-        simp only [lift, bind_tc_ok]
-        refine ⟨?_, fun c im => rfl⟩
-        have hi3v : i3.val = (buf.val[byte_idx.val + 1]!).val := by
-          have h : i3.val = (buf.val[i1.val]!).val := by
-            rw [hi3]; exact congrArg (·.val) (getElem!_pos buf.val i1.val hi1_lt).symm
-          rw [h, hi1]
-        have hi4_lt : i4.val < 2 ^ 8 := by
-          rw [hi4, hi3v]; have := (buf.val[byte_idx.val + 1]!).hBounds; omega
-        have hsz : U32.size = 2 ^ 32 := by simp [Std.U32.size, Std.U32.numBits]
-        have hi5v : i5.val = i4.val * 2 ^ 8 := by
-          rw [hi5, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show i4.val * 2 ^ 8 < U32.size from by
-            rw [hsz]; omega)]
-        simp only []
-        rw [UScalar.val_or, hi5v, lor_mul_of_lt hraw1_lt, hi4, hi3v]; ring
-      · rw [if_neg hg1]
-        simp only [WP.spec_ok]
-        refine ⟨?_, fun _ _ => trivial⟩
-        rw [hoob (byte_idx.val + 1) (by
-          have : ¬ i1.val < (Slice.len buf).val := hg1; rw [hlen_buf] at this; rw [hi1] at this; exact this)]
-        ring
-    let* ⟨ raw2, back1, hraw2v, hback1 ⟩ ← hraw2
-    -- raw3 window (byte_idx + 2)
-    let* ⟨ i3', hi3' ⟩ ← Std.Usize.add_spec
-    have hbuf1_lt : (buf.val[byte_idx.val + 1]!).val < 2 ^ 8 := by
-      have := (buf.val[byte_idx.val + 1]!).hBounds; omega
-    have hraw2_lt : raw2.val < 2 ^ 16 := by rw [hraw2v]; omega
-    have hraw3 :
-        (if i3' < Slice.len buf then
-            (do let i5 ← Slice.index_usize buf i3'
-                let i6 ← lift (UScalar.cast .U32 i5)
-                let i7 ← i6 <<< 16#i32
-                ok (raw2 ||| i7))
-          else ok raw2)
-        ⦃ (r : U32) => r.val = raw2.val + 2 ^ 16 * (buf.val[byte_idx.val + 2]!).val ⦄ := by
-      by_cases hg2 : i3' < Slice.len buf
-      · rw [if_pos hg2]
-        have hi3'_lt : i3'.val < buf.val.length := by
-          have : i3'.val < (Slice.len buf).val := hg2; rw [hlen_buf] at this; exact this
-        let* ⟨ i5, hi5' ⟩ ← Slice.index_usize_spec
-        let* ⟨ i6, hi6' ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
-        let* ⟨ i7, hi7, hi7bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec i6 16#i32 (by decide) (by decide)
-        have hi5'v : i5.val = (buf.val[byte_idx.val + 2]!).val := by
-          have h : i5.val = (buf.val[i3'.val]!).val := by
-            rw [hi5']; exact congrArg (·.val) (getElem!_pos buf.val i3'.val hi3'_lt).symm
-          rw [h, hi3']
-        have hi6_lt : i6.val < 2 ^ 8 := by
-          rw [hi6', hi5'v]; have := (buf.val[byte_idx.val + 2]!).hBounds; omega
-        have hsz : U32.size = 2 ^ 32 := by simp [Std.U32.size, Std.U32.numBits]
-        have hi7v : i7.val = i6.val * 2 ^ 16 := by
-          rw [hi7, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show i6.val * 2 ^ 16 < U32.size from by
-            rw [hsz]; omega)]
-        rw [UScalar.val_or, hi7v, lor_mul_of_lt hraw2_lt, hi6', hi5'v]; ring
-      · rw [if_neg hg2]
-        simp only [WP.spec_ok]
-        rw [hoob (byte_idx.val + 2) (by
-          have : ¬ i3'.val < (Slice.len buf).val := hg2; rw [hlen_buf] at this; rw [hi3'] at this; exact this)]
-        ring
-    let* ⟨ raw3, hraw3v ⟩ ← hraw3
-    -- window value W
-    have hwin : raw3.val = (buf.val[byte_idx.val]!).val + 2 ^ 8 * (buf.val[byte_idx.val + 1]!).val
-        + 2 ^ 16 * (buf.val[byte_idx.val + 2]!).val := by rw [hraw3v, hraw2v, hraw1v]
-    -- raw4 = raw3 >>> bit_in_byte
-    let* ⟨ raw4, hraw4, hraw4bv ⟩ ← Std.U32.ShiftRight_spec raw3 bib (by omega)
-    have hraw4v : raw4.val = ((buf.val[byte_idx.val]!).val + 2 ^ 8 * (buf.val[byte_idx.val + 1]!).val
-        + 2 ^ 16 * (buf.val[byte_idx.val + 2]!).val) >>> bib.val := by rw [hraw4, hwin]
-    have hbit_eq : 8 * byte_idx.val + bib.val = bit_pos.val := by rw [hbi_val, hbib_val]; omega
-    -- x = popcount(raw4 & mask)
-    rw [show lift (raw4 &&& mask) = ok (raw4 &&& mask) from rfl, bind_tc_ok]
-    let* ⟨ i6c, hi6c ⟩ ← U32.count_ones_spec
-    have hX : i6c.val = cbdX buf half.val bit_pos.val := by
-      rw [hi6c, popcount_low_mask raw4 mask half.val (by omega) (mask_getLsbD mask half.val hmask),
-        window_popcount buf byte_idx.val bib.val half.val raw4 (by omega) (by omega) hraw4v]
-      unfold cbdX; simp_rw [hbit_eq]
-    have hX_lt : i6c.val ≤ UScalar.max UScalarTy.U16 := by
-      rw [hX]; have := cbdX_le buf half.val bit_pos.val
-      simp only [UScalar.max, UScalarTy.numBits]; omega
-    let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i6c hX_lt
-    -- y = popcount((raw4 >>> half) & mask)
-    let* ⟨ i7c, hi7c, hi7cbv ⟩ ← Std.U32.ShiftRight_spec raw4 half (by omega)
-    rw [show lift (i7c &&& mask) = ok (i7c &&& mask) from rfl, bind_tc_ok]
-    let* ⟨ i9c, hi9c ⟩ ← U32.count_ones_spec
-    have hi7cv : i7c.val = ((buf.val[byte_idx.val]!).val + 2 ^ 8 * (buf.val[byte_idx.val + 1]!).val
-        + 2 ^ 16 * (buf.val[byte_idx.val + 2]!).val) >>> (bib.val + half.val) := by
-      rw [hi7c, hraw4v, ← Nat.shiftRight_add]
-    have hY : i9c.val = cbdX buf half.val (bit_pos.val + half.val) := by
-      rw [hi9c, popcount_low_mask i7c mask half.val (by omega) (mask_getLsbD mask half.val hmask),
-        window_popcount buf byte_idx.val (bib.val + half.val) half.val i7c (by omega) (by omega) hi7cv]
-      unfold cbdX
-      simp_rw [show 8 * byte_idx.val + (bib.val + half.val) = bit_pos.val + half.val from by
-        rw [← hbit_eq]; ring]
-    have hY_lt : i9c.val ≤ UScalar.max UScalarTy.U16 := by
-      rw [hY]; have := cbdX_le buf half.val (bit_pos.val + half.val)
-      simp only [UScalar.max, UScalarTy.numBits]; omega
-    let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i9c hY_lt
-    -- coeff = wrapping_sub a b, and its ZMod value
-    have hcoeff : ((core.num.U16.wrapping_sub a b).val : ZMod (2 ^ 13)) = cbdVal buf MU.val half.val iter.i := by
-      rw [wrapping_sub_toZMod13, ha, hb, hX, hY, hbp]; rfl
-    simp only [lift, bind_tc_ok]
-    let* ⟨ bit_pos1, hbp1 ⟩ ← Std.Usize.add_spec
-    simp only [hback1]
-    -- recurse
-    apply WP.spec_mono
-      (cbd_loop3_spec MU iter1 (fun im => back (next_back im (some (core.num.U16.wrapping_sub a b))))
-        buf half mask bit_pos1 hhalf hmask hMU hlen (by rw [hbp1, hit2_i, hbp]; ring)
-        orig_slice (by rw [hit2_slice, h_slice]) h_len256 (by rw [hit2_i]; omega) ?len ?writes ?rest)
-    case len =>
-      intro im him
-      have him_set : (next_back im (some (core.num.U16.wrapping_sub a b))).slice.length = orig_slice.length := by
-        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
-      exact hback_len _ him_set
-    case writes =>
-      intro im him j hj
-      rw [hit2_i] at hj
-      have him_set : (next_back im (some (core.num.U16.wrapping_sub a b))).slice.length = orig_slice.length := by
-        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
-      by_cases hji : j = iter.i
-      · subst hji
-        have hbk_len := hback_len _ him_set
-        have hrest := hback_rest _ him_set iter.i (le_refl _) (by rw [← hi_pe]; exact hlt)
-        have hkey : (back (next_back im (some (core.num.U16.wrapping_sub a b)))).slice.val[iter.i]!
-            = core.num.U16.wrapping_sub a b := by
-          rw [hrest, hsome_set]
-          exact Slice.getElem!_Nat_setAtNat_eq _ _ _ (by rw [him]; rw [← hi_pe]; exact hlt)
-        rw [hkey]; exact hcoeff
-      · have hjlt : j < iter.i := by omega
-        exact hback_writes _ him_set j hjlt
-    case rest =>
-      intro im him j hj_ge hj_lt
-      rw [hit2_i] at hj_ge
-      have him_set : (next_back im (some (core.num.U16.wrapping_sub a b))).slice.length = orig_slice.length := by
-        rw [hsome_set]; simp only; rw [Slice.setAtNat_length]; exact him
-      have hrest := hback_rest _ him_set j (by omega) hj_lt
-      rw [hrest, hsome_set]
-      exact Slice.getElem!_Nat_setAtNat_ne _ _ _ _ (by omega)
-    intro r hpost; exact hpost
-  · -- NONE branch
-    have hge : iter.i ≥ iter.slice.len := by scalar_tac
-    have hi_eq : iter.i = orig_slice.length := by
-      have hpe : iter.slice.length = orig_slice.length := by rw [h_slice]
-      have : iter.slice.len.val = orig_slice.length := by
-        rw [← hpe]; simp [Slice.len]
-      scalar_tac
-    let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec_none
-    obtain ⟨ho, hit2_eq, hsome_back⟩ := h_all
-    rw [ho]
-    have hbi : next_back iter1 none = iter := (hsome_back iter1 none).trans hit2_eq
-    show ∃ (_h_len : (back (next_back iter1 none)).slice.length = orig_slice.length),
-        ∀ (j : Nat), j < orig_slice.length →
-          (((back (next_back iter1 none)).slice.val[j]!).val : ZMod (2 ^ 13)) = cbdVal buf MU.val half.val j
-    refine ⟨by rw [hbi]; exact hback_len iter (by rw [h_slice]), ?_⟩
-    intro j hj
-    rw [hbi]
-    exact hback_writes iter (by rw [h_slice]) j (hi_eq ▸ hj)
-  termination_by iter.slice.len.val - iter.i
-  decreasing_by scalar_decr_tac
 
 /-- Popcount of the low nibble `byte & 15` = sum of `byte`'s low 4 bits. -/
 theorem cbd_nibble_low (byte : U8) :
@@ -554,34 +271,44 @@ theorem smallSignedU16_wrapping_sub {h : ℕ} (a b : U16)
 
 /-- **Magnitude of one CBD coefficient.**  Independent of the byte windows: it only uses that
 `a`, `b` are popcounts of `half` masked bits, so both are `≤ half`. -/
-theorem cbd_diff_bd (raw half mask : U32) (hhalf : half.val ≤ 8)
-    (hmask : mask.val = 2 ^ half.val - 1) :
-    sample.cbd_diff raw half mask
-      ⦃ (r : U16) => smallSignedU16 r half.val ⦄ := by
+theorem cbd_diff_bd (raw : U16) (half_mu : U32) (half : ℕ)
+    (hhm : half_mu.val = half) (hhalf : half ≤ 8) :
+    sample.cbd_diff raw half_mu
+      ⦃ (r : U16) => smallSignedU16 r half ⦄ := by
   unfold sample.cbd_diff
+  -- `cbd_diff` builds its own mask: `mask = (1 << half_mu) - 1`
+  have hsz : U16.size = 2 ^ 16 := by simp [Std.U16.size, Std.U16.numBits]
+  have hlt : 2 ^ half < 2 ^ 16 := Nat.pow_lt_pow_right (by norm_num) (by omega)
+  let* ⟨ i, hi, _hibv ⟩ ← Std.U16.ShiftLeft_spec (1#u16 : U16) half_mu (by omega)
+  have hiv : i.val = 2 ^ half := by
+    rw [hi, hhm, Nat.shiftLeft_eq, one_mul, hsz, Nat.mod_eq_of_lt hlt]
+  let* ⟨ mask, hmask ⟩ ← Std.U16.sub_spec (x := i) (y := 1#u16)
+    (by rw [hiv]; exact Nat.one_le_two_pow)
+  have hmaskv : mask.val = 2 ^ half - 1 := by rw [hmask, hiv]
+  have hmaskbits := mask_getLsbD mask half hmaskv
   rw [show lift (raw &&& mask) = ok (raw &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i1, hi1 ⟩ ← U32.count_ones_spec
-  have ha_le : i1.val ≤ half.val := by
-    rw [hi1, popcount_low_mask raw mask half.val (by omega) (mask_getLsbD mask half.val hmask)]
-    calc ∑ i ∈ Finset.range half.val, (raw.bv.getLsbD i).toNat
-        ≤ ∑ _i ∈ Finset.range half.val, 1 :=
+  let* ⟨ i2, hi2 ⟩ ← U16.count_ones_spec
+  have ha_le : i2.val ≤ half := by
+    rw [hi2, popcount_low_mask raw mask half (by omega) hmaskbits]
+    calc ∑ i ∈ Finset.range half, (raw.bv.getLsbD i).toNat
+        ≤ ∑ _i ∈ Finset.range half, 1 :=
           Finset.sum_le_sum (fun i _ => by cases raw.bv.getLsbD i <;> simp)
-      _ = half.val := by rw [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one]
-  have hx_le : i1.val ≤ UScalar.max UScalarTy.U16 := by
+      _ = half := by rw [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one]
+  have hx_le : i2.val ≤ UScalar.max UScalarTy.U16 := by
     simp only [UScalar.max, UScalarTy.numBits]; omega
-  let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i1 hx_le
-  let* ⟨ i2, hi2, hi2bv ⟩ ← Std.U32.ShiftRight_spec raw half (by omega)
-  rw [show lift (i2 &&& mask) = ok (i2 &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i4, hi4 ⟩ ← U32.count_ones_spec
-  have hb_le : i4.val ≤ half.val := by
-    rw [hi4, popcount_low_mask i2 mask half.val (by omega) (mask_getLsbD mask half.val hmask)]
-    calc ∑ i ∈ Finset.range half.val, (i2.bv.getLsbD i).toNat
-        ≤ ∑ _i ∈ Finset.range half.val, 1 :=
-          Finset.sum_le_sum (fun i _ => by cases i2.bv.getLsbD i <;> simp)
-      _ = half.val := by rw [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one]
-  have hy_le : i4.val ≤ UScalar.max UScalarTy.U16 := by
+  let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i2 hx_le
+  let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U16.ShiftRight_spec raw half_mu (by omega)
+  rw [show lift (i3 &&& mask) = ok (i3 &&& mask) from rfl, bind_tc_ok]
+  let* ⟨ i5, hi5 ⟩ ← U16.count_ones_spec
+  have hb_le : i5.val ≤ half := by
+    rw [hi5, popcount_low_mask i3 mask half (by omega) hmaskbits]
+    calc ∑ i ∈ Finset.range half, (i3.bv.getLsbD i).toNat
+        ≤ ∑ _i ∈ Finset.range half, 1 :=
+          Finset.sum_le_sum (fun i _ => by cases i3.bv.getLsbD i <;> simp)
+      _ = half := by rw [Finset.sum_const, Finset.card_range, smul_eq_mul, mul_one]
+  have hy_le : i5.val ≤ UScalar.max UScalarTy.U16 := by
     simp only [UScalar.max, UScalarTy.numBits]; omega
-  let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i4 hy_le
+  let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i5 hy_le
   exact smallSignedU16_wrapping_sub a b (by rw [ha]; exact ha_le) (by rw [hb]; exact hb_le) hhalf
 
 /-- **`cbd_loop0` loop spec (μ = 8 nibble path).**  The `Enumerate` cursor
@@ -804,7 +531,7 @@ theorem cbd_loop0_bd
 /-- **Popcount of a window equals a sum of stream bits.**  If the low `len` bits of `w`
 are the stream bits `[base, base+len)`, then summing them gives `∑ streamBit`.  Stated
 via `testBit` so it applies whether `w` was built from one byte or two. -/
-theorem popcount_eq_streamBits (buf : Slice U8) (base len : ℕ) (w : U32)
+theorem popcount_eq_streamBits (buf : Slice U8) (base len : ℕ) (w : U16)
     (hbits : ∀ i, i < len →
       w.val.testBit i = (buf.val[(base + i) / 8]!).val.testBit ((base + i) % 8)) :
     ∑ i ∈ Finset.range len, (w.bv.getLsbD i).toNat
@@ -817,8 +544,9 @@ theorem popcount_eq_streamBits (buf : Slice U8) (base len : ℕ) (w : U32)
   rfl
 
 /-- Bit `b < 16` of the two-byte little-endian window at `bi` is the corresponding
-stream bit.  (The three-byte version is `window_testBit` in `GenSecret.lean`; the fast
-paths never need a third byte because a coefficient spans at most 2 bytes here.) -/
+stream bit.  Two bytes always suffice: at every shipped `μ` (6, 8, 10) a coefficient spans at
+most two.  (There used to be a three-byte version in `GenSecret.lean`; it went away with the
+generic sampler that was its only caller.) -/
 theorem window2_testBit (buf : Slice U8) (bi b : ℕ) (hb : b < 16) :
     (((buf.val[bi]!).val) + 2 ^ 8 * (buf.val[bi+1]!).val).testBit b
       = (buf.val[(8*bi+b)/8]!).val.testBit ((8*bi+b)%8) := by
@@ -842,41 +570,51 @@ Given that the low `2·half` bits of `raw` are the stream bits `[base, base + 2�
 its result is the CBD value at that position. -/
 
 /-- **Spec for the extracted `sample.cbd_diff`.** -/
-theorem cbd_diff_spec (buf : Slice U8) (base : ℕ) (raw : U32) (half : U32) (mask : U32)
-    (hhalf : half.val ≤ 8) (hmask : mask.val = 2 ^ half.val - 1)
-    (hbits : ∀ i, i < 2 * half.val →
+theorem cbd_diff_spec (buf : Slice U8) (base : ℕ) (raw : U16) (half_mu : U32) (half : ℕ)
+    (hhm : half_mu.val = half) (hhalf : half ≤ 8)
+    (hbits : ∀ i, i < 2 * half →
       raw.val.testBit i = (buf.val[(base + i) / 8]!).val.testBit ((base + i) % 8)) :
-    sample.cbd_diff raw half mask
+    sample.cbd_diff raw half_mu
       ⦃ (r : U16) => ((r.val : ℕ) : ZMod (2 ^ 13))
-          = ((cbdX buf half.val base : ℕ) : ZMod (2 ^ 13))
-            - ((cbdX buf half.val (base + half.val) : ℕ) : ZMod (2 ^ 13)) ⦄ := by
+          = ((cbdX buf half base : ℕ) : ZMod (2 ^ 13))
+            - ((cbdX buf half (base + half) : ℕ) : ZMod (2 ^ 13)) ⦄ := by
   unfold sample.cbd_diff
-  -- x = popcount (raw &&& mask)
+  -- `cbd_diff` builds its own mask: `mask = (1 << half_mu) - 1`
+  have hsz : U16.size = 2 ^ 16 := by simp [Std.U16.size, Std.U16.numBits]
+  have hlt : 2 ^ half < 2 ^ 16 := Nat.pow_lt_pow_right (by norm_num) (by omega)
+  let* ⟨ i, hi, _hibv ⟩ ← Std.U16.ShiftLeft_spec (1#u16 : U16) half_mu (by omega)
+  have hiv : i.val = 2 ^ half := by
+    rw [hi, hhm, Nat.shiftLeft_eq, one_mul, hsz, Nat.mod_eq_of_lt hlt]
+  let* ⟨ mask, hmask ⟩ ← Std.U16.sub_spec (x := i) (y := 1#u16)
+    (by rw [hiv]; exact Nat.one_le_two_pow)
+  have hmaskv : mask.val = 2 ^ half - 1 := by rw [hmask, hiv]
+  have hmaskbits := mask_getLsbD mask half hmaskv
+  -- a = popcount (raw &&& mask)
   rw [show lift (raw &&& mask) = ok (raw &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i1, hi1 ⟩ ← U32.count_ones_spec
-  have hx : i1.val = cbdX buf half.val base := by
-    rw [hi1, popcount_low_mask raw mask half.val (by omega) (mask_getLsbD mask half.val hmask)]
+  let* ⟨ i2, hi2 ⟩ ← U16.count_ones_spec
+  have hx : i2.val = cbdX buf half base := by
+    rw [hi2, popcount_low_mask raw mask half (by omega) hmaskbits]
     unfold cbdX
-    exact popcount_eq_streamBits buf base half.val raw (fun i hi => hbits i (by omega))
-  have hx_le : i1.val ≤ UScalar.max UScalarTy.U16 := by
-    rw [hx]; have := cbdX_le buf half.val base
+    exact popcount_eq_streamBits buf base half raw (fun i hi => hbits i (by omega))
+  have hx_le : i2.val ≤ UScalar.max UScalarTy.U16 := by
+    rw [hx]; have := cbdX_le buf half base
     simp only [UScalar.max, UScalarTy.numBits]; omega
-  let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i1 hx_le
-  -- y = popcount ((raw >>> half) &&& mask)
-  let* ⟨ i2, hi2, hi2bv ⟩ ← Std.U32.ShiftRight_spec raw half (by omega)
-  rw [show lift (i2 &&& mask) = ok (i2 &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i4, hi4 ⟩ ← U32.count_ones_spec
-  have hy : i4.val = cbdX buf half.val (base + half.val) := by
-    rw [hi4, popcount_low_mask i2 mask half.val (by omega) (mask_getLsbD mask half.val hmask)]
+  let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i2 hx_le
+  -- b = popcount ((raw >>> half_mu) &&& mask)
+  let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U16.ShiftRight_spec raw half_mu (by omega)
+  rw [show lift (i3 &&& mask) = ok (i3 &&& mask) from rfl, bind_tc_ok]
+  let* ⟨ i5, hi5 ⟩ ← U16.count_ones_spec
+  have hy : i5.val = cbdX buf half (base + half) := by
+    rw [hi5, popcount_low_mask i3 mask half (by omega) hmaskbits]
     unfold cbdX
-    refine popcount_eq_streamBits buf (base + half.val) half.val i2 (fun i hi => ?_)
-    rw [show base + half.val + i = base + (half.val + i) from by omega, hi2,
+    refine popcount_eq_streamBits buf (base + half) half i3 (fun i hi => ?_)
+    rw [show base + half + i = base + (half + i) from by omega, hi3, hhm,
       Nat.testBit_shiftRight]
-    exact hbits (half.val + i) (by omega)
-  have hy_le : i4.val ≤ UScalar.max UScalarTy.U16 := by
-    rw [hy]; have := cbdX_le buf half.val (base + half.val)
+    exact hbits (half + i) (by omega)
+  have hy_le : i5.val ≤ UScalar.max UScalarTy.U16 := by
+    rw [hy]; have := cbdX_le buf half (base + half)
     simp only [UScalar.max, UScalarTy.numBits]; omega
-  let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i4 hy_le
+  let* ⟨ b, hb ⟩ ← UScalar.cast_inBounds_spec .U16 i5 hy_le
   rw [wrapping_sub_toZMod13, ha, hb, hx, hy]
 
 
@@ -886,13 +624,8 @@ Each fast path reads a fixed group of bytes and slices four coefficients out of 
 These two lemmas package the two window shapes that occur: a single byte, and two
 consecutive bytes combined little-endian. -/
 
-/-- Reading one byte of `buf` as a `U32`. -/
-theorem cbd_byte_val {buf : Slice U8} {i : Usize} {b : U32}
-    (_hi : i.val < buf.val.length) (hb : b.val = (buf.val[i.val]!).val) :
-    b.val = (buf.val[i.val]!).val := hb
-
 /-- Low `len` bits of a single byte, shifted by `sh`, are stream bits from `8·bi + sh`. -/
-theorem cbd_bits_of_byte (buf : Slice U8) (bi sh len : ℕ) (w : U32)
+theorem cbd_bits_of_byte (buf : Slice U8) (bi sh len : ℕ) (w : U16)
     (hsh : sh + len ≤ 8) (hw : w.val = (buf.val[bi]!).val >>> sh) :
     ∀ i, i < len → w.val.testBit i
       = (buf.val[(8 * bi + sh + i) / 8]!).val.testBit ((8 * bi + sh + i) % 8) := by
@@ -901,7 +634,7 @@ theorem cbd_bits_of_byte (buf : Slice U8) (bi sh len : ℕ) (w : U32)
   exact window1_testBit buf bi (sh + i) (by omega)
 
 /-- Low `len` bits of a two-byte little-endian window, shifted by `sh`. -/
-theorem cbd_bits_of_pair (buf : Slice U8) (bi sh len : ℕ) (w : U32)
+theorem cbd_bits_of_pair (buf : Slice U8) (bi sh len : ℕ) (w : U16)
     (hsh : sh + len ≤ 16) (hw : w.val
       = ((buf.val[bi]!).val + 2 ^ 8 * (buf.val[bi+1]!).val) >>> sh) :
     ∀ i, i < len → w.val.testBit i
@@ -914,18 +647,17 @@ theorem cbd_bits_of_pair (buf : Slice U8) (bi sh len : ℕ) (w : U32)
 /-- **One coefficient of a fast path.**  Specialises `cbd_diff_spec` to the position
 `base = μ·k` used by `cbdVal`, so each of the four coefficients in a group is discharged
 by supplying only its bit window. -/
-theorem cbd_diff_coeff_spec (buf : Slice U8) (mu half k : ℕ) (raw hf mk : U32)
-    (hmu : mu = 2 * half) (hhf : hf.val = half) (hhalf : half ≤ 8)
-    (hmk : mk.val = 2 ^ half - 1)
+theorem cbd_diff_coeff_spec (buf : Slice U8) (mu half k : ℕ) (raw : U16) (half_mu : U32)
+    (hmu : mu = 2 * half) (hhm : half_mu.val = half) (hhalf : half ≤ 8)
     (hbits : ∀ i, i < mu → raw.val.testBit i
       = (buf.val[(mu * k + i) / 8]!).val.testBit ((mu * k + i) % 8)) :
-    sample.cbd_diff raw hf mk
+    sample.cbd_diff raw half_mu
       ⦃ (r : U16) => ((r.val : ℕ) : ZMod (2 ^ 13)) = cbdVal buf mu half k ⦄ := by
-  have h := cbd_diff_spec buf (mu * k) raw hf mk (by omega) (by rw [hhf]; exact hmk)
-    (by rw [hhf]; intro i hi; exact hbits i (by omega))
+  have h := cbd_diff_spec buf (mu * k) raw half_mu half hhm hhalf
+    (by intro i hi; exact hbits i (by omega))
   refine WP.spec_mono h ?_
   intro r hr
-  rw [hr, hhf]
+  rw [hr]
   unfold cbdVal
   rfl
 
@@ -937,12 +669,13 @@ Four coefficients per 3-byte group.  Coefficient `4g+t` occupies stream bits
 byte `3g` unshifted, the pair `(3g, 3g+1)` shifted by 6, the pair `(3g+1, 3g+2)` shifted
 by 4, and byte `3g+2` shifted by 2. -/
 
-theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out : RingElem)
+theorem cbd_loop2_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Slice U8)
+    (out : RingElem) (hMU : MU.val = 6)
     (hend : iter.«end».val = 64) (hstart : iter.start.val ≤ 64)
     (hlen : buf.val.length = 32 * 6)
     (hinv : ∀ k, k < 4 * iter.start.val →
       (((out.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 6 3 k) :
-    sample.cbd_loop2 iter buf out
+    sample.cbd_loop2 MU iter buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 →
           (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 6 3 k ⦄ := by
   unfold sample.cbd_loop2
@@ -956,15 +689,15 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
     have hiv : i.val = 3 * iter.start.val := by rw [hi]
     have hb0lt : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U32 i1 (by scalar_tac)
+    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
     let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
     have hb1lt : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
+    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
     let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
     have hb2lt : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
+    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
     -- byte values
     have hb0v : b0.val = (buf.val[3 * iter.start.val]!).val := by
       rw [hb0, hi1, ← getElem!_pos buf.val i.val hb0lt, hiv]
@@ -974,12 +707,17 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [hb2, hi5, ← getElem!_pos buf.val i4.val hb2lt, hi4, hiv]
     let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
+    -- `half_mu = (MU / 2) as u32`, computed once per group
+    let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
+    have hhm0v : hm0.val = 3 := by rw [hhm0, hMU]
+    let* ⟨ half_mu, hhmv ⟩ ← UScalar.cast_inBounds_spec .U32 hm0 (by scalar_tac)
+    have hhmvv : half_mu.val = 3 := by rw [hhmv, hhm0v]
     have hb0lt8 : b0.val < 2 ^ 8 := by rw [hb0v]; have := (buf.val[3 * iter.start.val]!).hBounds; omega
     have hb1lt8 : b1.val < 2 ^ 8 := by
       rw [hb1v]; have := (buf.val[3 * iter.start.val + 1]!).hBounds; omega
     have hb2lt8 : b2.val < 2 ^ 8 := by
       rw [hb2v]; have := (buf.val[3 * iter.start.val + 2]!).hBounds; omega
-    have hsz : U32.size = 2 ^ 32 := by simp [Std.U32.size, Std.U32.numBits]
+    have hsz : U16.size = 2 ^ 16 := by simp [Std.U16.size, Std.U16.numBits]
     -- coefficient 4g+0 : byte 3g, unshifted
     have hbits0 : ∀ i, i < 6 → b0.val.testBit i
         = (buf.val[(6 * (4 * iter.start.val) + i) / 8]!).val.testBit
@@ -988,19 +726,19 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       intro i hi
       rw [show 6 * (4 * iter.start.val) + i = 8 * (3 * iter.start.val) + 0 + i from by ring]
       exact h i hi
-    let* ⟨ i6, hi6 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val) b0 3#u32 7#u32
-      rfl rfl (by omega) (by decide) hbits0
+    let* ⟨ i6, hi6 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val) b0 half_mu
+      rfl hhmvv (by omega) hbits0
     let* ⟨ a, ha ⟩ ← Array.update_spec
     -- coefficient 4g+1 : pair (3g, 3g+1) shifted by 6
-    let* ⟨ i7, hi7, hi7bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
+    let* ⟨ i7, hi7, hi7bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
     have hi7v : i7.val = b1.val * 2 ^ 8 := by
-      rw [hi7, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b1.val * 2 ^ 8 < U32.size from by
+      rw [hi7, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b1.val * 2 ^ 8 < U16.size from by
         rw [hsz]; omega)]
     rw [show lift (b0 ||| i7) = ok (b0 ||| i7) from rfl, bind_tc_ok]
     have hi8v : (b0 ||| i7).val = (buf.val[3 * iter.start.val]!).val
         + 2 ^ 8 * (buf.val[3 * iter.start.val + 1]!).val := by
       rw [UScalar.val_or, hi7v, lor_mul_of_lt hb0lt8, hb0v, hb1v]; ring
-    let* ⟨ i9, hi9, hi9bv ⟩ ← Std.U32.ShiftRight_IScalar_spec (b0 ||| i7) 6#i32 (by decide) (by decide)
+    let* ⟨ i9, hi9, hi9bv ⟩ ← Std.U16.ShiftRight_IScalar_spec (b0 ||| i7) 6#i32 (by decide) (by decide)
     have hbits1 : ∀ i, i < 6 → i9.val.testBit i
         = (buf.val[(6 * (4 * iter.start.val + 1) + i) / 8]!).val.testBit
             ((6 * (4 * iter.start.val + 1) + i) % 8) := by
@@ -1009,14 +747,14 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       intro i hi
       rw [show 6 * (4 * iter.start.val + 1) + i = 8 * (3 * iter.start.val) + 6 + i from by ring]
       exact h i hi
-    let* ⟨ i10, hi10 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 1) i9 3#u32 7#u32
-      rfl rfl (by omega) (by decide) hbits1
+    let* ⟨ i10, hi10 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 1) i9 half_mu
+      rfl hhmvv (by omega) hbits1
     let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
     -- coefficient 4g+2 : pair (3g+1, 3g+2) shifted by 4
-    let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
+    let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
     have hi12v : i12.val = b2.val * 2 ^ 8 := by
-      rw [hi12, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b2.val * 2 ^ 8 < U32.size from by
+      rw [hi12, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b2.val * 2 ^ 8 < U16.size from by
         rw [hsz]; omega)]
     rw [show lift (b1 ||| i12) = ok (b1 ||| i12) from rfl, bind_tc_ok]
     have hi13v : (b1 ||| i12).val = (buf.val[3 * iter.start.val + 1]!).val
@@ -1024,7 +762,7 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [UScalar.val_or, hi12v, lor_mul_of_lt hb1lt8, hb1v, hb2v,
         show 3 * iter.start.val + 1 + 1 = 3 * iter.start.val + 2 from by ring]; ring
     let* ⟨ i14, hi14, hi14bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b1 ||| i12) 4#i32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b1 ||| i12) 4#i32 (by decide) (by decide)
     have hbits2 : ∀ i, i < 6 → i14.val.testBit i
         = (buf.val[(6 * (4 * iter.start.val + 2) + i) / 8]!).val.testBit
             ((6 * (4 * iter.start.val + 2) + i) % 8) := by
@@ -1033,12 +771,12 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       intro i hi
       rw [show 6 * (4 * iter.start.val + 2) + i = 8 * (3 * iter.start.val + 1) + 4 + i from by ring]
       exact h i hi
-    let* ⟨ i15, hi15 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 2) i14 3#u32 7#u32
-      rfl rfl (by omega) (by decide) hbits2
+    let* ⟨ i15, hi15 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 2) i14 half_mu
+      rfl hhmvv (by omega) hbits2
     let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
     -- coefficient 4g+3 : byte 3g+2 shifted by 2
-    let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U32.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
+    let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U16.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
     have hbits3 : ∀ i, i < 6 → i17.val.testBit i
         = (buf.val[(6 * (4 * iter.start.val + 3) + i) / 8]!).val.testBit
             ((6 * (4 * iter.start.val + 3) + i) % 8) := by
@@ -1047,8 +785,8 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       intro i hi
       rw [show 6 * (4 * iter.start.val + 3) + i = 8 * (3 * iter.start.val + 2) + 2 + i from by ring]
       exact h i hi
-    let* ⟨ i18, hi18 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 3) i17 3#u32 7#u32
-      rfl rfl (by omega) (by decide) hbits3
+    let* ⟨ i18, hi18 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 3) i17 half_mu
+      rfl hhmvv (by omega) hbits3
     let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     -- the four writes, as a list update
@@ -1063,7 +801,7 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
     have hlen_a1 : a1.val.length = 256 := by rw [ha1v, List.length_set, hlen_a]
     have hlen_a2 : a2.val.length = 256 := by rw [ha2v, List.length_set, hlen_a1]
     -- recurse
-    apply WP.spec_mono (cbd_loop2_spec iter1 buf a3 (by rw [hend']; exact hend)
+    apply WP.spec_mono (cbd_loop2_spec MU iter1 buf a3 hMU (by rw [hend']; exact hend)
       (by rw [hstart']; omega) hlen ?inv)
     case inv =>
       intro k hk
@@ -1102,11 +840,12 @@ theorem cbd_loop2_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
 /-- **Magnitude version of `cbd_loop2`** (`MU = 6`, `half = 3`): every coefficient is
 small-signed with bound 3. Same skeleton as `cbd_loop2_spec` with the byte-window value
 reasoning stripped, using `cbd_diff_bd` at each of the four writes. -/
-theorem cbd_loop2_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out : RingElem)
+theorem cbd_loop2_bd (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Slice U8)
+    (out : RingElem) (hMU : MU.val = 6)
     (hend : iter.«end».val = 64) (hstart : iter.start.val ≤ 64)
     (hlen : buf.val.length = 32 * 6)
     (hinv : ∀ k, k < 4 * iter.start.val → smallSignedU16 (out.val[k]!) 3) :
-    sample.cbd_loop2 iter buf out
+    sample.cbd_loop2 MU iter buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) 3 ⦄ := by
   unfold sample.cbd_loop2
   have hout_len : out.val.length = 256 := List.Vector.length_val out
@@ -1118,34 +857,39 @@ theorem cbd_loop2_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out :
     have hiv : i.val = 3 * iter.start.val := by rw [hi]
     have hb0lt : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U32 i1 (by scalar_tac)
+    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
     let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
     have hb1lt : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
+    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
     let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
     have hb2lt : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
+    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
     let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
-    let* ⟨ i6, hi6 ⟩ ← cbd_diff_bd b0 3#u32 7#u32 (by decide) (by decide)
+    -- `half_mu = (MU / 2) as u32`, computed once per group
+    let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
+    have hhm0v : hm0.val = 3 := by rw [hhm0, hMU]
+    let* ⟨ half_mu, hhmv ⟩ ← UScalar.cast_inBounds_spec .U32 hm0 (by scalar_tac)
+    have hhmvv : half_mu.val = 3 := by rw [hhmv, hhm0v]
+    let* ⟨ i6, hi6 ⟩ ← cbd_diff_bd b0 half_mu 3 hhmvv (by omega)
     let* ⟨ a, ha ⟩ ← Array.update_spec
-    let* ⟨ i7, hi7, hi7bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
+    let* ⟨ i7, hi7, hi7bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
     rw [show lift (b0 ||| i7) = ok (b0 ||| i7) from rfl, bind_tc_ok]
-    let* ⟨ i9, hi9, hi9bv ⟩ ← Std.U32.ShiftRight_IScalar_spec (b0 ||| i7) 6#i32 (by decide) (by decide)
-    let* ⟨ i10, hi10 ⟩ ← cbd_diff_bd i9 3#u32 7#u32 (by decide) (by decide)
+    let* ⟨ i9, hi9, hi9bv ⟩ ← Std.U16.ShiftRight_IScalar_spec (b0 ||| i7) 6#i32 (by decide) (by decide)
+    let* ⟨ i10, hi10 ⟩ ← cbd_diff_bd i9 half_mu 3 hhmvv (by omega)
     let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-    let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
+    let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
     rw [show lift (b1 ||| i12) = ok (b1 ||| i12) from rfl, bind_tc_ok]
     let* ⟨ i14, hi14, hi14bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b1 ||| i12) 4#i32 (by decide) (by decide)
-    let* ⟨ i15, hi15 ⟩ ← cbd_diff_bd i14 3#u32 7#u32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b1 ||| i12) 4#i32 (by decide) (by decide)
+    let* ⟨ i15, hi15 ⟩ ← cbd_diff_bd i14 half_mu 3 hhmvv (by omega)
     let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
-    let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U32.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
-    let* ⟨ i18, hi18 ⟩ ← cbd_diff_bd i17 3#u32 7#u32 (by decide) (by decide)
+    let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U16.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
+    let* ⟨ i18, hi18 ⟩ ← cbd_diff_bd i17 half_mu 3 hhmvv (by omega)
     let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     have hav : a.val = out.val.set (4 * iter.start.val) i6 := by rw [ha, Array.set_val_eq, ho1v]
@@ -1158,7 +902,7 @@ theorem cbd_loop2_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out :
     have hlen_a : a.val.length = 256 := by rw [hav, List.length_set, hout_len]
     have hlen_a1 : a1.val.length = 256 := by rw [ha1v, List.length_set, hlen_a]
     have hlen_a2 : a2.val.length = 256 := by rw [ha2v, List.length_set, hlen_a1]
-    apply WP.spec_mono (cbd_loop2_bd iter1 buf a3 (by rw [hend']; exact hend)
+    apply WP.spec_mono (cbd_loop2_bd MU iter1 buf a3 hMU (by rw [hend']; exact hend)
       (by rw [hstart']; omega) hlen ?inv)
     case inv =>
       intro k hk
@@ -1199,12 +943,13 @@ Four coefficients per 5-byte group.  Coefficient `4g+t` occupies stream bits
 `[10(4g+t), +10)`, so each window is a *pair* of consecutive bytes: `(5g+t, 5g+t+1)`
 shifted by `2t`. -/
 
-theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out : RingElem)
+theorem cbd_loop1_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Slice U8)
+    (out : RingElem) (hMU : MU.val = 10)
     (hend : iter.«end».val = 64) (hstart : iter.start.val ≤ 64)
     (hlen : buf.val.length = 32 * 10)
     (hinv : ∀ k, k < 4 * iter.start.val →
       (((out.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 10 5 k) :
-    sample.cbd_loop1 iter buf out
+    sample.cbd_loop1 MU iter buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 →
           (((r.val[k]!).val : ZMod (2 ^ 13))) = cbdVal buf 10 5 k ⦄ := by
   unfold sample.cbd_loop1
@@ -1213,29 +958,29 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
   · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hg : iter.start.val < 64 := by omega
-    have hsz : U32.size = 2 ^ 32 := by simp [Std.U32.size, Std.U32.numBits]
+    have hsz : U16.size = 2 ^ 16 := by simp [Std.U16.size, Std.U16.numBits]
     -- the five bytes of the group
     let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 5#usize) (y := iter.start) (by scalar_tac)
     have hiv : i.val = 5 * iter.start.val := by rw [hi]
     have hlt0 : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U32 i1 (by scalar_tac)
+    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
     let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
     have hlt1 : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
+    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
     let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
     have hlt2 : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
+    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
     let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize) (by scalar_tac)
     have hlt3 : i6.val < buf.val.length := by rw [hi6, hiv, hlen]; omega
     let* ⟨ i7, hi7 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U32 i7 (by scalar_tac)
+    let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U16 i7 (by scalar_tac)
     let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize) (by scalar_tac)
     have hlt4 : i8.val < buf.val.length := by rw [hi8, hiv, hlen]; omega
     let* ⟨ i9, hi9 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U32 i9 (by scalar_tac)
+    let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U16 i9 (by scalar_tac)
     -- byte values
     have hb0v : b0.val = (buf.val[5 * iter.start.val]!).val := by
       rw [hb0, hi1, ← getElem!_pos buf.val i.val hlt0, hiv]
@@ -1259,10 +1004,15 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [hb4v]; have := (buf.val[5 * iter.start.val + 4]!).hBounds; omega
     let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
+    -- `half_mu = (MU / 2) as u32`, computed once per group
+    let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
+    have hhm0v : hm0.val = 5 := by rw [hhm0, hMU]
+    let* ⟨ half_mu, hhmv ⟩ ← UScalar.cast_inBounds_spec .U32 hm0 (by scalar_tac)
+    have hhmvv : half_mu.val = 5 := by rw [hhmv, hhm0v]
     -- coefficient 4g+0 : pair (5g, 5g+1), no shift
-    let* ⟨ i10, hi10, hi10bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
+    let* ⟨ i10, hi10, hi10bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
     have hi10v : i10.val = b1.val * 2 ^ 8 := by
-      rw [hi10, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b1.val * 2 ^ 8 < U32.size from by
+      rw [hi10, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b1.val * 2 ^ 8 < U16.size from by
         rw [hsz]; omega)]
     rw [show lift (b0 ||| i10) = ok (b0 ||| i10) from rfl, bind_tc_ok]
     have hi11v : (b0 ||| i10).val = (buf.val[5 * iter.start.val]!).val
@@ -1277,12 +1027,12 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [show 10 * (4 * iter.start.val) + i' = 8 * (5 * iter.start.val) + 0 + i' from by ring]
       exact h i' hi'
     let* ⟨ i12, hi12 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val) (b0 ||| i10)
-      5#u32 31#u32 rfl rfl (by omega) (by decide) hbits0
+      half_mu rfl hhmvv (by omega) hbits0
     let* ⟨ a, ha ⟩ ← Array.update_spec
     -- coefficient 4g+1 : pair (5g+1, 5g+2) shifted by 2
-    let* ⟨ i13, hi13, hi13bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
+    let* ⟨ i13, hi13, hi13bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
     have hi13v : i13.val = b2.val * 2 ^ 8 := by
-      rw [hi13, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b2.val * 2 ^ 8 < U32.size from by
+      rw [hi13, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b2.val * 2 ^ 8 < U16.size from by
         rw [hsz]; omega)]
     rw [show lift (b1 ||| i13) = ok (b1 ||| i13) from rfl, bind_tc_ok]
     have hi14v : (b1 ||| i13).val = (buf.val[5 * iter.start.val + 1]!).val
@@ -1290,7 +1040,7 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [UScalar.val_or, hi13v, lor_mul_of_lt hb1lt, hb1v, hb2v,
         show 5 * iter.start.val + 1 + 1 = 5 * iter.start.val + 2 from by ring]; ring
     let* ⟨ i15, hi15, hi15bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b1 ||| i13) 2#i32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b1 ||| i13) 2#i32 (by decide) (by decide)
     have hbits1 : ∀ i', i' < 10 → i15.val.testBit i'
         = (buf.val[(10 * (4 * iter.start.val + 1) + i') / 8]!).val.testBit
             ((10 * (4 * iter.start.val + 1) + i') % 8) := by
@@ -1301,13 +1051,13 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
             = 8 * (5 * iter.start.val + 1) + 2 + i' from by ring]
       exact h i' hi'
     let* ⟨ i16, hi16 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val + 1) i15
-      5#u32 31#u32 rfl rfl (by omega) (by decide) hbits1
+      half_mu rfl hhmvv (by omega) hbits1
     let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
     -- coefficient 4g+2 : pair (5g+2, 5g+3) shifted by 4
-    let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
+    let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
     have hi18v : i18.val = b3.val * 2 ^ 8 := by
-      rw [hi18, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b3.val * 2 ^ 8 < U32.size from by
+      rw [hi18, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b3.val * 2 ^ 8 < U16.size from by
         rw [hsz]; omega)]
     rw [show lift (b2 ||| i18) = ok (b2 ||| i18) from rfl, bind_tc_ok]
     have hi19v : (b2 ||| i18).val = (buf.val[5 * iter.start.val + 2]!).val
@@ -1315,7 +1065,7 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [UScalar.val_or, hi18v, lor_mul_of_lt hb2lt, hb2v, hb3v,
         show 5 * iter.start.val + 2 + 1 = 5 * iter.start.val + 3 from by ring]; ring
     let* ⟨ i20, hi20, hi20bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b2 ||| i18) 4#i32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b2 ||| i18) 4#i32 (by decide) (by decide)
     have hbits2 : ∀ i', i' < 10 → i20.val.testBit i'
         = (buf.val[(10 * (4 * iter.start.val + 2) + i') / 8]!).val.testBit
             ((10 * (4 * iter.start.val + 2) + i') % 8) := by
@@ -1326,13 +1076,13 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
             = 8 * (5 * iter.start.val + 2) + 4 + i' from by ring]
       exact h i' hi'
     let* ⟨ i21, hi21 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val + 2) i20
-      5#u32 31#u32 rfl rfl (by omega) (by decide) hbits2
+      half_mu rfl hhmvv (by omega) hbits2
     let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
     -- coefficient 4g+3 : pair (5g+3, 5g+4) shifted by 6
-    let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
+    let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
     have hi23v : i23.val = b4.val * 2 ^ 8 := by
-      rw [hi23, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b4.val * 2 ^ 8 < U32.size from by
+      rw [hi23, Nat.shiftLeft_eq, Nat.mod_eq_of_lt (show b4.val * 2 ^ 8 < U16.size from by
         rw [hsz]; omega)]
     rw [show lift (b3 ||| i23) = ok (b3 ||| i23) from rfl, bind_tc_ok]
     have hi24v : (b3 ||| i23).val = (buf.val[5 * iter.start.val + 3]!).val
@@ -1340,7 +1090,7 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
       rw [UScalar.val_or, hi23v, lor_mul_of_lt hb3lt, hb3v, hb4v,
         show 5 * iter.start.val + 3 + 1 = 5 * iter.start.val + 4 from by ring]; ring
     let* ⟨ i25, hi25, hi25bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b3 ||| i23) 6#i32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b3 ||| i23) 6#i32 (by decide) (by decide)
     have hbits3 : ∀ i', i' < 10 → i25.val.testBit i'
         = (buf.val[(10 * (4 * iter.start.val + 3) + i') / 8]!).val.testBit
             ((10 * (4 * iter.start.val + 3) + i') % 8) := by
@@ -1351,7 +1101,7 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
             = 8 * (5 * iter.start.val + 3) + 6 + i' from by ring]
       exact h i' hi'
     let* ⟨ i26, hi26 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val + 3) i25
-      5#u32 31#u32 rfl rfl (by omega) (by decide) hbits3
+      half_mu rfl hhmvv (by omega) hbits3
     let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     have hav : a.val = out.val.set (4 * iter.start.val) i12 := by rw [ha, Array.set_val_eq, ho1v]
@@ -1364,7 +1114,7 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
     have hlen_a : a.val.length = 256 := by rw [hav, List.length_set, hout_len]
     have hlen_a1 : a1.val.length = 256 := by rw [ha1v, List.length_set, hlen_a]
     have hlen_a2 : a2.val.length = 256 := by rw [ha2v, List.length_set, hlen_a1]
-    apply WP.spec_mono (cbd_loop1_spec iter1 buf a3 (by rw [hend']; exact hend)
+    apply WP.spec_mono (cbd_loop1_spec MU iter1 buf a3 hMU (by rw [hend']; exact hend)
       (by rw [hstart']; omega) hlen ?inv)
     case inv =>
       intro k hk
@@ -1400,11 +1150,12 @@ theorem cbd_loop1_spec (iter : core.ops.range.Range Usize) (buf : Slice U8) (out
   decreasing_by scalar_decr_tac
 
 /-- **Magnitude version of `cbd_loop1`** (`MU = 10`, `half = 5`). -/
-theorem cbd_loop1_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out : RingElem)
+theorem cbd_loop1_bd (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Slice U8)
+    (out : RingElem) (hMU : MU.val = 10)
     (hend : iter.«end».val = 64) (hstart : iter.start.val ≤ 64)
     (hlen : buf.val.length = 32 * 10)
     (hinv : ∀ k, k < 4 * iter.start.val → smallSignedU16 (out.val[k]!) 5) :
-    sample.cbd_loop1 iter buf out
+    sample.cbd_loop1 MU iter buf out
       ⦃ (r : RingElem) => ∀ k, k < 256 → smallSignedU16 (r.val[k]!) 5 ⦄ := by
   unfold sample.cbd_loop1
   have hout_len : out.val.length = 256 := List.Vector.length_val out
@@ -1416,48 +1167,53 @@ theorem cbd_loop1_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out :
     have hiv : i.val = 5 * iter.start.val := by rw [hi]
     have hlt0 : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U32 i1 (by scalar_tac)
+    let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
     let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
     have hlt1 : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U32 i3 (by scalar_tac)
+    let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
     let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
     have hlt2 : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U32 i5 (by scalar_tac)
+    let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
     let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize) (by scalar_tac)
     have hlt3 : i6.val < buf.val.length := by rw [hi6, hiv, hlen]; omega
     let* ⟨ i7, hi7 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U32 i7 (by scalar_tac)
+    let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U16 i7 (by scalar_tac)
     let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize) (by scalar_tac)
     have hlt4 : i8.val < buf.val.length := by rw [hi8, hiv, hlen]; omega
     let* ⟨ i9, hi9 ⟩ ← Slice.index_usize_spec
-    let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U32 i9 (by scalar_tac)
+    let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U16 i9 (by scalar_tac)
     let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
-    let* ⟨ i10, hi10, hi10bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
+    -- `half_mu = (MU / 2) as u32`, computed once per group
+    let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
+    have hhm0v : hm0.val = 5 := by rw [hhm0, hMU]
+    let* ⟨ half_mu, hhmv ⟩ ← UScalar.cast_inBounds_spec .U32 hm0 (by scalar_tac)
+    have hhmvv : half_mu.val = 5 := by rw [hhmv, hhm0v]
+    let* ⟨ i10, hi10, hi10bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b1 8#i32 (by decide) (by decide)
     rw [show lift (b0 ||| i10) = ok (b0 ||| i10) from rfl, bind_tc_ok]
-    let* ⟨ i12, hi12 ⟩ ← cbd_diff_bd (b0 ||| i10) 5#u32 31#u32 (by decide) (by decide)
+    let* ⟨ i12, hi12 ⟩ ← cbd_diff_bd (b0 ||| i10) half_mu 5 hhmvv (by omega)
     let* ⟨ a, ha ⟩ ← Array.update_spec
-    let* ⟨ i13, hi13, hi13bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
+    let* ⟨ i13, hi13, hi13bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
     rw [show lift (b1 ||| i13) = ok (b1 ||| i13) from rfl, bind_tc_ok]
     let* ⟨ i15, hi15, hi15bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b1 ||| i13) 2#i32 (by decide) (by decide)
-    let* ⟨ i16, hi16 ⟩ ← cbd_diff_bd i15 5#u32 31#u32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b1 ||| i13) 2#i32 (by decide) (by decide)
+    let* ⟨ i16, hi16 ⟩ ← cbd_diff_bd i15 half_mu 5 hhmvv (by omega)
     let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-    let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
+    let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
     rw [show lift (b2 ||| i18) = ok (b2 ||| i18) from rfl, bind_tc_ok]
     let* ⟨ i20, hi20, hi20bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b2 ||| i18) 4#i32 (by decide) (by decide)
-    let* ⟨ i21, hi21 ⟩ ← cbd_diff_bd i20 5#u32 31#u32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b2 ||| i18) 4#i32 (by decide) (by decide)
+    let* ⟨ i21, hi21 ⟩ ← cbd_diff_bd i20 half_mu 5 hhmvv (by omega)
     let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
-    let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U32.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
+    let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
     rw [show lift (b3 ||| i23) = ok (b3 ||| i23) from rfl, bind_tc_ok]
     let* ⟨ i25, hi25, hi25bv ⟩ ←
-      Std.U32.ShiftRight_IScalar_spec (b3 ||| i23) 6#i32 (by decide) (by decide)
-    let* ⟨ i26, hi26 ⟩ ← cbd_diff_bd i25 5#u32 31#u32 (by decide) (by decide)
+      Std.U16.ShiftRight_IScalar_spec (b3 ||| i23) 6#i32 (by decide) (by decide)
+    let* ⟨ i26, hi26 ⟩ ← cbd_diff_bd i25 half_mu 5 hhmvv (by omega)
     let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     have hav : a.val = out.val.set (4 * iter.start.val) i12 := by rw [ha, Array.set_val_eq, ho1v]
@@ -1470,7 +1226,7 @@ theorem cbd_loop1_bd (iter : core.ops.range.Range Usize) (buf : Slice U8) (out :
     have hlen_a : a.val.length = 256 := by rw [hav, List.length_set, hout_len]
     have hlen_a1 : a1.val.length = 256 := by rw [ha1v, List.length_set, hlen_a]
     have hlen_a2 : a2.val.length = 256 := by rw [ha2v, List.length_set, hlen_a1]
-    apply WP.spec_mono (cbd_loop1_bd iter1 buf a3 (by rw [hend']; exact hend)
+    apply WP.spec_mono (cbd_loop1_bd MU iter1 buf a3 hMU (by rw [hend']; exact hend)
       (by rw [hstart']; omega) hlen ?inv)
     case inv =>
       intro k hk
@@ -1556,9 +1312,8 @@ theorem cbd_spec (MU : Usize) (buf : Slice U8) (out : RingElem)
       (by intro k hk; replace hk : k < i1.i := hk; rw [hi1i] at hk; omega))
     intro r hr k hk
     exact hr k hk
-  · -- MU ∈ {6, 10}: the two specialised group paths.  (`cbd_loop3_spec` above still
-    -- proves the generic fallback, which is now unreachable for the shipped parameter
-    -- sets but is kept for any future `MU`.)
+  · -- MU ∈ {6, 10}: the two specialised group paths.  There is no fourth branch to prove:
+    -- `cbd` now panics on any other `MU`, and `hMU` rules that out.
     simp only [h8, reduceIte]
     have hMUne8 : MU.val ≠ 8 := fun h => h8 (by scalar_tac)
     have hMU6_10 : MU.val = 6 ∨ MU.val = 10 := by omega
@@ -1568,8 +1323,8 @@ theorem cbd_spec (MU : Usize) (buf : Slice U8) (out : RingElem)
       have hMU10 : MU.val = 10 := by scalar_tac
       let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
       have hi1v : i1.val = 64 := by rw [hi1]; simp [consts.RING_DEG]
-      apply WP.spec_mono (cbd_loop1_spec { start := 0#usize, «end» := i1 } buf out
-        hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU10])
+      apply WP.spec_mono (cbd_loop1_spec 10#usize { start := 0#usize, «end» := i1 } buf out
+        (by scalar_tac) hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU10])
         (by intro k hk; simp at hk))
       intro r hr k hk
       exact hr k hk
@@ -1580,8 +1335,8 @@ theorem cbd_spec (MU : Usize) (buf : Slice U8) (out : RingElem)
         have hMU6 : MU.val = 6 := by scalar_tac
         let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
         have hi1v : i1.val = 64 := by rw [hi1]; simp [consts.RING_DEG]
-        apply WP.spec_mono (cbd_loop2_spec { start := 0#usize, «end» := i1 } buf out
-          hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU6])
+        apply WP.spec_mono (cbd_loop2_spec 6#usize { start := 0#usize, «end» := i1 } buf out
+          (by scalar_tac) hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU6])
           (by intro k hk; simp at hk))
         intro r hr k hk
         exact hr k hk
@@ -1647,8 +1402,8 @@ theorem cbd_bd (MU : Usize) (buf : Slice U8) (out : RingElem)
       have hMU10 : MU.val = 10 := by scalar_tac
       let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
       have hi1v : i1.val = 64 := by rw [hi1]; simp [consts.RING_DEG]
-      apply WP.spec_mono (cbd_loop1_bd { start := 0#usize, «end» := i1 } buf out
-        hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU10])
+      apply WP.spec_mono (cbd_loop1_bd 10#usize { start := 0#usize, «end» := i1 } buf out
+        (by scalar_tac) hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU10])
         (by intro k hk; simp at hk))
       intro r hr k hk
       exact hr k hk
@@ -1658,8 +1413,8 @@ theorem cbd_bd (MU : Usize) (buf : Slice U8) (out : RingElem)
         have hMU6 : MU.val = 6 := by scalar_tac
         let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
         have hi1v : i1.val = 64 := by rw [hi1]; simp [consts.RING_DEG]
-        apply WP.spec_mono (cbd_loop2_bd { start := 0#usize, «end» := i1 } buf out
-          hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU6])
+        apply WP.spec_mono (cbd_loop2_bd 6#usize { start := 0#usize, «end» := i1 } buf out
+          (by scalar_tac) hi1v (by show (0#usize).val ≤ 64; scalar_tac) (by rw [hlen, hMU6])
           (by intro k hk; simp at hk))
         intro r hr k hk
         exact hr k hk

@@ -78,7 +78,7 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     simp only [Spec.Kopis.ctSize, hℓ, ht]; ring
   have hlenmax : ciphertext.length ≤ Usize.max := by
     have := ciphertext.property; simpa [Slice.length] using this
-  simp only [pke.ciphertext_len, consts.10, consts.MODULUS_Q_BITS, consts.RING_DEG]
+  simp only [pke.ciphertext_len, consts.RING_DEG]
   let* ⟨n0, hn0⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) (by scalar_tac)
   let* ⟨n1, hn1⟩ ← Std.Usize.mul_spec (x := n0) (y := 256#usize) (by rw [hn0]; scalar_tac)
   let* ⟨n2, hn2⟩ ← Std.Usize.div_spec
@@ -125,13 +125,12 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
   let* ⟨v1, hv1⟩ ← Array.index_usize_spec arow 0#usize (by have := arow.property; scalar_tac)
   -- mprime = v1 - c1
   let* ⟨mprime, hmprime⟩ ← sub_spec v1 c1
-  -- h2_val = 2⁸ - 2⁹⁻ᵀ + 4
-  let* ⟨j4, hj4, _⟩ ← Std.Usize.sub_spec (x := 10#usize) (y := 2#usize) (by scalar_tac)
-  have hj4v : j4.val = 8 := by scalar_tac
-  let* ⟨j5, hj5, _⟩ ← Std.U16.ShiftLeft_spec 1#u16 j4 (by scalar_tac)
-  have hj5v : j5.val = 2 ^ 8 := by
-    rw [hj5, hj4v]; simp only [Nat.shiftLeft_eq, one_mul]
-    rw [Nat.mod_eq_of_lt (by simp only [U16.size, U16.numBits]; norm_num)]
+  -- h2_val = 2⁸ - 2⁹⁻ᵀ + 4.  The two constant shifts are closed `i32` arithmetic now, so
+  -- evaluate them; only the `10 - T - 1` shift still depends on the parameter.
+  have e1 : (10#i32 - 2#i32 : Result I32) = ok 8#i32 := rfl
+  have e2 : ((1#u16 : U16) <<< (8#i32 : I32) : Result U16) = ok 256#u16 := rfl
+  simp only [e1, e2, bind_tc_ok]
+  have h256 : (256#u16 : U16).val = 2 ^ 8 := by scalar_tac
   let* ⟨j6, hj6, _⟩ ← Std.Usize.sub_spec (x := i3) (y := 1#usize) (by scalar_tac)
   have hj6v : j6.val = 9 - T.val := by rw [hj6, hi3v]; omega
   let* ⟨j7, hj7, _⟩ ← Std.U16.ShiftLeft_spec 1#u16 j6 (by scalar_tac)
@@ -140,26 +139,23 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     rw [Nat.mod_eq_of_lt]
     calc 2 ^ (9 - T.val) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by norm_num) (by omega)
       _ < U16.size := by simp only [U16.size, U16.numBits]; norm_num
-  let* ⟨j8, hj8, _⟩ ← Std.U16.sub_spec (x := j5) (y := j7) (by
-    rw [hj7v, hj5v]
+  let* ⟨j8, hj8, _⟩ ← Std.U16.sub_spec (x := 256#u16) (y := j7) (by
+    rw [hj7v, h256]
     calc 2 ^ (9 - T.val) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by norm_num) (by omega)
       _ ≤ 2 ^ 8 := by norm_num)
-  have hj8v : j8.val = 2 ^ 8 - 2 ^ (9 - T.val) := by rw [hj8, hj5v, hj7v]
-  let* ⟨j9, hj9, _⟩ ← Std.Usize.sub_spec (x := 13#usize) (y := 10#usize) (by scalar_tac)
-  have hj9v : j9.val = 3 := by scalar_tac
-  let* ⟨j10, hj10, _⟩ ← Std.Usize.sub_spec (x := j9) (y := 1#usize) (by scalar_tac)
-  have hj10v : j10.val = 2 := by rw [hj10, hj9v]
-  let* ⟨j11, hj11, _⟩ ← Std.U16.ShiftLeft_spec 1#u16 j10 (by scalar_tac)
-  have hj11v : j11.val = 4 := by
-    rw [hj11, hj10v]; simp only [Nat.shiftLeft_eq, one_mul]
-    rw [Nat.mod_eq_of_lt (by simp only [U16.size, U16.numBits]; norm_num)]
-  let* ⟨h2, hh2⟩ ← Std.U16.add_spec (x := j8) (y := j11) (by
-    rw [hj8v, hj11v]
+  have hj8v : j8.val = 2 ^ 8 - 2 ^ (9 - T.val) := by rw [hj8, hj7v]; norm_num
+  have e3 : (13#i32 - 10#i32 : Result I32) = ok 3#i32 := rfl
+  have e4 : (3#i32 - 1#i32 : Result I32) = ok 2#i32 := rfl
+  have e5 : ((1#u16 : U16) <<< (2#i32 : I32) : Result U16) = ok 4#u16 := rfl
+  simp only [e3, e4, e5, bind_tc_ok]
+  have h4v : (4#u16 : U16).val = 4 := by scalar_tac
+  let* ⟨h2, hh2⟩ ← Std.U16.add_spec (x := j8) (y := 4#u16) (by
+    rw [hj8v, h4v]
     have hb : 2 ^ (9 - T.val) ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (by omega)
     have e8 : (2 : ℕ) ^ 8 = 256 := by norm_num
     have em : U16.max = 65535 := by simp only [U16.max, U16.numBits]; norm_num
     omega)
-  have hh2v : h2.val = 2 ^ 8 - 2 ^ (9 - T.val) + 4 := by rw [hh2, hj8v, hj11v]
+  have hh2v : h2.val = 2 ^ 8 - 2 ^ (9 - T.val) + 4 := by rw [hh2, hj8v]
   -- mprime1 = mprime + h2_val
   let* ⟨mprime1, hmprime1⟩ ← wrapping_add_to_all_spec mprime h2
   -- mprime2 = mprime1 >> 9
