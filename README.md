@@ -192,9 +192,10 @@ chosen-ciphertext attacker gets to query — and it is checked with the whole ex
 tagged and the ciphertext left public, since the attacker chooses that. It runs against a
 well-formed ciphertext, a one-bit-corrupted one, and an unstructured one, so that both sides of
 the implicit-rejection comparison are exercised. **Encapsulation** tags the encapsulation
-randomness, and **key generation** tags the 32-byte seed. All of them are clean today, with no
-suppressions: kopis samples the public matrix by deserialising 13-bit coefficients rather than by
-rejection, so there is no intentional leak to whitelist the way a mod-3329 scheme would need.
+randomness, and **key generation** tags the 32-byte seed. All of them are clean today, and the
+script has no suppression mechanism at all: kopis samples the public matrix by deserialising
+13-bit coefficients rather than by rejection, so there is no intentional leak to allowlist the way
+a mod-3329 scheme would need, and every Valgrind report counts as a failure.
 
 Memcheck sees only the path that actually ran, so a leak in a branch these inputs never take goes
 unreported; that is why each check drives several distinct inputs. What it does give, on the code

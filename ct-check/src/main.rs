@@ -35,8 +35,8 @@ macro_rules! variant_checks {
             ///
             /// Nothing is expected to be reported, which is not a given for a lattice KEM: a
             /// scheme that rejection-samples its public matrix would branch on values derived
-            /// from a seed this check has tagged, and would need those reports whitelisted.
-            /// Kopis deserialises 13-bit coefficients instead, so there is nothing to whitelist.
+            /// from a seed this check has tagged, and would need those reports allowlisted.
+            /// Kopis deserialises 13-bit coefficients instead, so there is nothing to allowlist.
             pub fn keygen() -> Vec<u8> {
                 let mut out = Vec::new();
                 for v in [0x11u8, 0xa7, 0xfe] {

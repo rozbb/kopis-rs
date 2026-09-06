@@ -13,7 +13,6 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 BACKEND=native
-GEN_SUPP=0
 SELFTEST=0
 SCAN=1
 SCAN_ONLY=0
@@ -50,12 +49,10 @@ Runs two phases:
                         allowlist entry is broad enough to cover the crate's secret-handling
                         code. Passes only if the planted problems ARE found, which is what
                         proves both phases are live rather than silently inert.
-  --gen-suppressions    print a Valgrind suppression stanza for every report, to paste into
-                        ct-check/suppressions.supp after you have convinced yourself the leak is
-                        intentional. Phase 1 only, and does not fail on findings.
   -h, --help            this message
 
-Exit status is 0 if no unsuppressed constant-time violation was found, 1 otherwise.
+Exit status is 0 if no constant-time violation was found, 1 otherwise. There is no suppression
+mechanism: every report counts.
 EOF
 }
 
@@ -65,17 +62,10 @@ while [[ $# -gt 0 ]]; do
         --no-scan) SCAN=0; shift ;;
         --scan-only) SCAN_ONLY=1; shift ;;
         --selftest) SELFTEST=1; shift ;;
-        --gen-suppressions) GEN_SUPP=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) echo "ct-check.sh: unrecognised argument '$1'" >&2; usage >&2; exit 2 ;;
     esac
 done
-
-# Generating suppression text says nothing about the instruction scan, so that mode is phase 1
-# only. --selftest, by contrast, runs both phases' negative controls.
-if [[ $GEN_SUPP -eq 1 ]]; then
-    SCAN=0
-fi
 
 if [[ $SCAN_ONLY -eq 0 ]] && ! command -v valgrind >/dev/null 2>&1; then
     cat >&2 <<'EOF'
@@ -182,11 +172,6 @@ VG=(
     --num-callers=50
     --error-exitcode=1
 )
-if [[ $GEN_SUPP -eq 1 ]]; then
-    VG+=(--gen-suppressions=all)
-else
-    VG+=(--suppressions=ct-check/suppressions.supp)
-fi
 
 if [[ $SELFTEST -eq 1 ]]; then
     CMD=("${VG[@]}" "$BIN" --selftest)
@@ -219,9 +204,6 @@ different Valgrind than the one on PATH (check VALGRIND_INCLUDE_DIR and `valgrin
 EOF
         STATUS=1
     fi
-elif [[ $GEN_SUPP -eq 1 ]]; then
-    echo "suppression stanzas printed above; findings were not treated as failures"
-    exit 0
 elif [[ $STATUS -eq 0 ]]; then
     echo "PASS: no secret-dependent branch or memory access (backend: $BACKEND)"
 elif [[ $STATUS -eq 101 ]]; then
@@ -244,8 +226,9 @@ uninitialised value(s)" is a branch on a secret; "Use of uninitialised value of 
 load or store is a secret-dependent memory address, i.e. a cache-timing leak. The "Uninitialised
 value was created by a client request" frame points at the classify() call that tagged the input.
 
-If a report is an intentional leak, re-run with --gen-suppressions and add the stanza to
-ct-check/suppressions.supp with a comment saying why it is safe.
+Every report is a failure; there is no list of exceptions to add one to. Kopis has no intentional
+leak to allowlist, and if one is ever wanted, that is a change to the design rather than a filter
+on this output.
 EOF
 fi
 VG_STATUS=$STATUS

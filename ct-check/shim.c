@@ -15,7 +15,7 @@ void kopis_ct_make_undefined(void *p, size_t n) {
 }
 
 /* Tag `n` bytes at `p` as public (defined) again. Used to declassify outputs before the harness
- * itself looks at them, and to whitelist values the design intentionally leaks. */
+ * itself looks at them, and to allowlist values the design intentionally leaks. */
 void kopis_ct_make_defined(void *p, size_t n) {
     (void)VALGRIND_MAKE_MEM_DEFINED(p, n);
 }

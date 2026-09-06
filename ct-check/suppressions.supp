@@ -1,5 +1,0 @@
-# Intentional leaks: Valgrind reports that ct-check.sh should not treat as failures.
-#
-# Every stanza here is a place where kopis branches on data that a check tagged secret but that is
-# in fact public. Adding one is a security claim, so each needs a comment saying why the value is
-# public. Generate the boilerplate with `./ct-check.sh --gen-suppressions`.
