@@ -153,7 +153,14 @@ def configs(host: str, installed: set):
 
 def build(target: str, rustflags: str) -> list:
     """Builds the probe for one configuration; returns the rlibs holding kopis code."""
-    env = {**__import__("os").environ, "RUSTFLAGS": rustflags}
+    # The allowlist matches on symbol names, so the mangling is pinned rather than left to the
+    # toolchain's default: rustc 1.98 emits v0, 1.96 emitted the legacy scheme, and an entry
+    # written for one spelling stops covering its divide under the other, failing the scan on a
+    # divide that was fine yesterday and is still fine today. Pinning also
+    # keeps llvm-objdump from having to fall back to the `$LT$..$GT$` form it prints when it
+    # declines to demangle a legacy symbol.
+    env = {**__import__("os").environ,
+           "RUSTFLAGS": f"{rustflags} -C symbol-mangling-version=v0"}
     proc = subprocess.run(
         ["cargo", "build", "-p", "ct-scan-probe", "--release", "--target", target,
          "--message-format=json-render-diagnostics"],
