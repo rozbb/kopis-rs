@@ -148,9 +148,14 @@ producing a binary that would fault at run time.
 
 # Constant-Time Checking
 
-Every secret-dependent branch and every secret-dependent memory address is a timing side channel,
-so `ct-check.sh` looks for both. It tags the crate's secret inputs as *undefined* memory using
-Valgrind's client requests, then runs the public API under Memcheck. Memcheck already reports
+`ct-check.sh` runs two phases. **Phase 1** catches secret-dependent branches and memory addresses;
+**phase 2** catches instructions whose latency depends on their operands, which phase 1 is blind
+to. Both must pass.
+
+## Phase 1: Valgrind
+
+It tags the crate's secret inputs as *undefined* memory using Valgrind's client requests, then
+runs the public API under Memcheck. Memcheck already reports
 "conditional jump depends on uninitialised value" and "address depends on uninitialised value",
 and under this tagging those are exactly the two leak shapes. Definedness propagates bit-precisely
 through arithmetic, so masks, rotations and `subtle`'s constant-time selects stay silent no matter
@@ -171,9 +176,15 @@ sudo dnf install valgrind valgrind-devel
 ./ct-check.sh --backend serial
 ./ct-check.sh --variant 768 decap
 
-# prove the harness can still see a leak at all (runs deliberately leaky code; must FAIL to be
-# silent). Worth running whenever the harness or the toolchain changes.
+# prove both phases can still see a problem at all. Phase 1 runs deliberately leaky code that
+# Valgrind must report; phase 2 plants variable-latency instructions the scan must find, checks
+# 35 matcher cases, and rejects any allowlist entry broad enough to cover the crate's
+# secret-handling code. Worth running whenever the tooling or the toolchain changes.
 ./ct-check.sh --selftest
+
+# run one phase on its own. --scan-only is fast and needs no Valgrind.
+./ct-check.sh --no-scan
+./ct-check.sh --scan-only
 ```
 
 Three operations are covered. **Decapsulation** is the important one — it is the oracle a
@@ -185,22 +196,77 @@ randomness, and **key generation** tags the 32-byte seed. All of them are clean 
 suppressions: kopis samples the public matrix by deserialising 13-bit coefficients rather than by
 rejection, so there is no intentional leak to whitelist the way a mod-3329 scheme would need.
 
-**Backend coverage is limited by the host.** Valgrind interprets the guest's own instruction set,
-so there is no cross-architecture option: a backend can only be checked on hardware that runs it.
-On an x86-64 machine that means `serial` and `avx2`, which is what CI does. **`neon` is checked
-only if you run the script on AArch64 hardware with FEAT_SHA3** — Apple silicon, or Neoverse
-V-series; Neoverse N1 (Graviton2) lacks the extension, and macOS has no arm64 Valgrind port, so in
-practice this means Linux on AArch64. The script refuses up front rather than pretending
-otherwise. Until someone runs it there, the NEON Keccak and NTT are covered by the equivalence
-tests and the Lean proofs but *not* by this check.
+Memcheck sees only the path that actually ran, so a leak in a branch these inputs never take goes
+unreported; that is why each check drives several distinct inputs. What it does give, on the code
+it did run, is soundness: it works on the executed instruction stream, so it covers the
+hand-written AVX2 and NEON intrinsics as thoroughly as the portable Rust, and it cannot be fooled
+by an optimiser turning a select into a branch after the fact.
 
-Two caveats are worth stating plainly. Memcheck only sees the path that actually ran, so a leak
-in a branch these inputs never take goes unreported; that is why each check drives several
-distinct inputs. And it says nothing about leaks below the instruction level — a variable-latency
-multiplier, or a data-dependent microarchitectural effect — only about branches and addresses.
-What it does give, on the code it did run, is soundness: it works on the executed instruction
-stream, so it covers the hand-written AVX2 and NEON intrinsics as thoroughly as the portable
-Rust, and it cannot be fooled by an optimiser turning a select into a branch after the fact.
+## Phase 2: the instruction scan
+
+Memcheck is blind to one whole class of leak. A `div` whose divisor is secret takes a
+data-dependent number of cycles, but the taint flows through the quotient without ever reaching a
+branch, so nothing is reported. Phase 2 works the other way round — on the instruction stream
+rather than the data — disassembling every target we can cross-compile to and flagging
+instructions whose latency depends on their operands:
+
+| | flagged |
+|---|---|
+| **x86-64** | `DIV`/`IDIV`; `PEXT`/`PDEP` (microcoded and mask-dependent on AMD Zen 1/2); FP divide/sqrt; `REP CMPS`/`SCAS`; gathers |
+| **AArch64** | `UDIV`/`SDIV` (early-terminating on Cortex-A and Neoverse); `FDIV`/`FSQRT` |
+| **Cortex-M** | `UDIV`/`SDIV` |
+
+Deliberately *not* flagged, because they are constant-time on every CPU this crate targets:
+variable-count shifts, `POPCNT`/`LZCNT`/`TZCNT`/`BSF`/`BSR` (the CBD sampler calls `count_ones()`
+straight on secret bytes, and that is fine), integer `MUL`/`IMUL`, and `CMOV`/`CSEL`.
+
+Like phase 1, this phase's failure mode is silence — a regex that stopped matching, a
+disassembler whose output format moved, or an allowlist entry broad enough to swallow a real
+finding all produce a clean report rather than an error. `--selftest` covers it: it compiles a
+real divide for every target and requires the scan to report it, runs 35 matcher cases (including
+negative ones, so that constant-time instructions stay unflagged), and fails if any allowlist
+entry would cover a symbol like `kopis::kem::decap`.
+
+This phase is coarse — it sees instructions, not dataflow, so it cannot tell a secret operand from
+a public one. Hits that are known-public live in `ct-check/instr-allowlist.txt`, each with a
+written justification. There are currently four, all the same thing: `15 / bits` in the two
+`ser::deserialize` unpackers, where `bits` is the serialisation width, plus `core`'s `Zip` length
+arithmetic.
+
+It needs `llvm-objdump` (`rustup component add llvm-tools`) and the cross targets you want
+covered (`rustup target add aarch64-unknown-none thumbv7em-none-eabi`); missing targets are
+skipped with a note rather than silently passing. The system `objdump` is **not** a substitute: it
+is typically built for one architecture and prints nothing, successfully, for every other one.
+
+## What is actually guaranteed, and where
+
+| platform | phase 1 (branches, addresses) | phase 2 (instruction latency) |
+|---|---|---|
+| x86-64, serial backend | ✅ checked in CI | ✅ |
+| x86-64, AVX2 backend | ✅ checked in CI | ✅ |
+| AArch64 Linux, serial backend | ⚠️ only if you run it there | ✅ |
+| AArch64 Linux, NEON backend | ⚠️ only if you run it there, needs FEAT_SHA3 | ✅ |
+| macOS (either arch) | ❌ no usable Valgrind | ✅ |
+| `thumbv7em` (Cortex-M4/M7) | ❌ no emulation | ✅ |
+
+Phase 1 cannot cross architectures: Valgrind interprets the guest's own instruction set, so a
+backend can only be checked on hardware that runs it. On x86-64 that is `serial` and `avx2`. The
+NEON backend needs Linux on AArch64 with FEAT_SHA3 — Apple silicon or Neoverse V-series; Neoverse
+N1 (Graviton2) lacks the extension and macOS has no arm64 Valgrind port. `ct-check.sh` refuses up
+front rather than pretending otherwise. Phase 2 has no such limit and covers every target above.
+
+**On macOS you get phase 2 only.** Valgrind has no arm64 Darwin port and its x86 macOS support
+stopped at 10.13, so there is nothing to install — `./ct-check.sh --scan-only` is the whole story
+there, and the summary line says so rather than printing a bare PASS. Phase 1 needs Linux.
+
+So: **on x86-64 Linux the crate is checked end to end, both backends.** Everywhere else the guarantee is
+weaker — phase 2 plus the equivalence tests and the Lean proofs, but no dynamic secret-tracking.
+Running `./ct-check.sh` on an AArch64 box would close that gap and is the single highest-value
+thing anyone can do here.
+
+**Cortex-M3 and below are explicitly out of scope.** `UMULL` early-terminates on those cores, so
+its latency depends on the operand magnitudes, and the TurboSHAKE sponge multiplies secret data.
+Constant time is not claimed for `thumbv7m` or `thumbv6m`, and the scanner does not check them.
 
 The harness lives in `ct-check/`, kept out of the main crate so that the `unsafe` its client
 requests need does not weaken kopis's own `forbid(unsafe_code)`.

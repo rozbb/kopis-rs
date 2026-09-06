@@ -19,10 +19,20 @@ GEN_SUPP=0
 VERBOSE=0
 SELFTEST=0
 MARCH=""
+SCAN=1
+SCAN_ONLY=0
 
 usage() {
     cat <<'EOF'
 usage: ./ct-check.sh [OPTIONS] [OP...]
+
+Runs two phases:
+  1. Valgrind: secrets are tagged as undefined memory, and any branch or memory address that
+     depends on one is an error. Sound on the code path that ran, on this machine's architecture.
+  2. Instruction scan: disassembles every target we can cross-compile to and looks for
+     instructions whose latency depends on their operands, which phase 1 is blind to. Coarse —
+     it cannot tell a secret operand from a public one — but it reaches the backends Valgrind
+     cannot run here.
 
   OP                    keygen | encap | decap          (default: all three)
 
@@ -37,9 +47,15 @@ usage: ./ct-check.sh [OPTIONS] [OP...]
                         on AArch64. Do NOT default this to `target-cpu=native`: on a recent CPU
                         LLVM emits GFNI/AVX-512 instructions that Valgrind cannot decode, and the
                         run dies with SIGILL before it checks anything.
-  --selftest            run the negative control instead of the real checks: deliberately leaky
-                        code that Valgrind must report. Passes only if a leak IS found, which is
-                        what proves the tagging machinery is live.
+  --no-scan             skip phase 2 (the instruction scan), running only the Valgrind checks
+  --scan-only           skip phase 1 (Valgrind), running only the instruction scan. Fast, and the
+                        only phase that works without Valgrind installed.
+  --selftest            run both phases' negative controls instead of the real checks. Phase 1
+                        runs deliberately leaky code that Valgrind must report; phase 2 plants
+                        variable-latency instructions the scan must find, and checks that no
+                        allowlist entry is broad enough to cover the crate's secret-handling
+                        code. Passes only if the planted problems ARE found, which is what
+                        proves both phases are live rather than silently inert.
   --gen-suppressions    print a Valgrind suppression stanza for every report, to paste into
                         ct-check/suppressions.supp after you have convinced yourself the leak is
                         intentional. Does not fail on findings.
@@ -55,6 +71,8 @@ while [[ $# -gt 0 ]]; do
         --backend) BACKEND="${2:?--backend needs a value}"; shift 2 ;;
         --variant) VARIANT="${2:?--variant needs a value}"; shift 2 ;;
         --march) MARCH="${2:?--march needs a value}"; shift 2 ;;
+        --no-scan) SCAN=0; shift ;;
+        --scan-only) SCAN_ONLY=1; shift ;;
         --selftest) SELFTEST=1; shift ;;
         --gen-suppressions) GEN_SUPP=1; shift ;;
         --verbose) VERBOSE=1; shift ;;
@@ -64,11 +82,25 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if ! command -v valgrind >/dev/null 2>&1; then
+# Generating suppression text says nothing about the instruction scan, so that mode is phase 1
+# only. --selftest, by contrast, runs both phases' negative controls.
+if [[ $GEN_SUPP -eq 1 ]]; then
+    SCAN=0
+fi
+
+if [[ $SCAN_ONLY -eq 0 ]] && ! command -v valgrind >/dev/null 2>&1; then
     cat >&2 <<'EOF'
-ct-check.sh: valgrind not found.
+ct-check.sh: valgrind not found, so phase 1 cannot run.
   Debian/Ubuntu: sudo apt install valgrind
   Fedora:        sudo dnf install valgrind valgrind-devel
+
+On macOS there is nothing to install: Valgrind has no arm64 Darwin port, and its x86 macOS
+support stopped at 10.13. Phase 1 is Linux-only in practice. Phase 2 works fine there:
+
+    ./ct-check.sh --scan-only
+
+That checks instruction latency across every target, but does NOT track secrets, so it does not
+replace phase 1. Run the full script on a Linux box before trusting a release.
 EOF
     exit 2
 fi
@@ -119,6 +151,17 @@ case "$BACKEND" in
     serial|avx2|neon) export RUSTFLAGS="${RUSTFLAGS:-} $MARCH --cfg kopis_backend=\"$BACKEND\"" ;;
     *) echo "ct-check.sh: unknown backend '$BACKEND' (want serial, avx2, neon or native)" >&2; exit 2 ;;
 esac
+
+VG_STATUS=0
+SCAN_STATUS=0
+
+if [[ $SCAN_ONLY -eq 0 ]]; then
+
+if [[ $SELFTEST -eq 1 ]]; then
+    echo "==> phase 1: valgrind negative control"
+else
+    echo "==> phase 1: valgrind (secret-dependent branches and memory addresses)"
+fi
 
 BIN=target/ct/ct-check
 
@@ -180,16 +223,17 @@ if [[ $SELFTEST -eq 1 ]]; then
     # every other run of this script has been passing vacuously.
     if [[ $STATUS -ne 0 ]]; then
         echo "PASS: the harness detects a secret-dependent branch and a secret-dependent load"
-        exit 0
-    fi
-    cat >&2 <<'EOF'
+        STATUS=0
+    else
+        cat >&2 <<'EOF'
 FAIL: Valgrind did not report the deliberate leak in the self-test.
 
 Nothing is being checked, and any PASS from this script is meaningless. Usual causes: the binary
 was not actually run under Valgrind, or ct-check/shim.c was compiled against headers from a
 different Valgrind than the one on PATH (check VALGRIND_INCLUDE_DIR and `valgrind --version`).
 EOF
-    exit 1
+        STATUS=1
+    fi
 elif [[ $GEN_SUPP -eq 1 ]]; then
     echo "suppression stanzas printed above; findings were not treated as failures"
     exit 0
@@ -219,4 +263,52 @@ If a report is an intentional leak, re-run with --gen-suppressions and add the s
 ct-check/suppressions.supp with a comment saying why it is safe.
 EOF
 fi
-exit $STATUS
+VG_STATUS=$STATUS
+
+fi  # end phase 1
+
+if [[ $SCAN -eq 1 ]]; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "ct-check.sh: python3 is needed for the instruction scan (or pass --no-scan)" >&2
+        exit 2
+    fi
+    echo
+    if [[ $SELFTEST -eq 1 ]]; then
+        echo "==> phase 2: instruction-scan negative control"
+    else
+        echo "==> phase 2: instruction scan (operand-dependent latency)"
+    fi
+    SCAN_ARGS=()
+    [[ $SELFTEST -eq 1 ]] && SCAN_ARGS+=(--selftest)
+    set +e
+    python3 ct-check/scan-instrs.py "${SCAN_ARGS[@]+"${SCAN_ARGS[@]}"}"
+    SCAN_STATUS=$?
+    set -e
+fi
+
+# Name the phases that actually ran. A bare "PASS" after --scan-only reads as a clean bill for
+# the whole crate when half the checking was skipped, which is the same vacuous-pass trap the
+# self-test exists to catch.
+if [[ $SELFTEST -eq 1 ]]; then
+    COVERAGE="self-test: both phases detect a planted problem"
+elif [[ $SCAN_ONLY -eq 1 ]]; then
+    COVERAGE="phase 2 only — no secret tracking was performed"
+elif [[ $SCAN -eq 0 ]]; then
+    COVERAGE="phase 1 only — no instruction scan was performed"
+else
+    COVERAGE="both phases"
+fi
+
+echo
+if [[ $VG_STATUS -eq 0 && $SCAN_STATUS -eq 0 ]]; then
+    echo "=== ct-check: PASS ($COVERAGE) ==="
+    exit 0
+fi
+echo "=== ct-check: FAIL ($COVERAGE) ===" >&2
+if [[ $VG_STATUS -ne 0 ]]; then
+    echo "  phase 1 (valgrind): secret-dependent branch or memory access" >&2
+fi
+if [[ $SCAN_STATUS -ne 0 ]]; then
+    echo "  phase 2 (instruction scan): unexpected variable-latency instruction" >&2
+fi
+exit 1

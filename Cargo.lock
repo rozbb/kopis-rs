@@ -321,6 +321,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ct-scan-probe"
+version = "0.0.0"
+dependencies = [
+ "kopis",
+]
+
+[[package]]
 name = "digest"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

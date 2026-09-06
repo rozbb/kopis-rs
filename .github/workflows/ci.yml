@@ -73,22 +73,34 @@ jobs:
 
   # Constant-time validation: run the public API under Valgrind with every secret byte tagged as
   # undefined memory, so a branch or a memory address that depends on one becomes a hard error.
-  # Both x86 backends are checked because the AVX2 code is written by hand and the serial code is
-  # what gets extracted to Lean; a leak in either is a leak. NEON is NOT covered here: valgrind
-  # interprets the guest ISA, so it needs a real AArch64 runner with FEAT_SHA3 to check it.
+  # Both x86 backends go through valgrind, because the AVX2 code is written by hand and the serial
+  # code is what gets extracted to Lean; a leak in either is a leak. NEON gets the instruction
+  # scan only — valgrind interprets the guest ISA, so checking it properly needs a real AArch64
+  # runner with FEAT_SHA3.
   constant-time:
-    name: Constant-time (valgrind)
+    name: Constant-time
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          # llvm-tools ships llvm-objdump, which phase 2 needs: the system objdump is built for
+          # one architecture and silently disassembles nothing for the cross targets.
+          components: llvm-tools
+          targets: aarch64-unknown-none, thumbv7em-none-eabi
       - name: Install valgrind
         run: sudo apt-get update && sudo apt-get install -y valgrind
       # Guards against the harness silently checking nothing: this runs deliberately leaky code
       # and fails if valgrind stays quiet. Without it a broken shim looks like a clean bill.
       - name: Self-test (must detect a planted leak)
         run: ./ct-check.sh --selftest
-      - name: serial
-        run: ./ct-check.sh --backend serial
-      - name: avx2
-        run: ./ct-check.sh --backend avx2
+      # Phase 1 only; the instruction scan does not depend on which backend the harness was
+      # built against, so it runs once at the end rather than twice here.
+      - name: valgrind / serial
+        run: ./ct-check.sh --backend serial --no-scan
+      - name: valgrind / avx2
+        run: ./ct-check.sh --backend avx2 --no-scan
+      # Phase 2 covers every target we can cross-compile to, including the NEON backend that
+      # valgrind cannot run on an x86 runner.
+      - name: instruction scan (all targets)
+        run: ./ct-check.sh --scan-only

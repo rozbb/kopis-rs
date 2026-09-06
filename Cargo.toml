@@ -1,7 +1,7 @@
 # `ct-check` is the constant-time validation harness (see ct-check.sh). It is a separate crate so
 # that the `unsafe` its Valgrind client requests need stays out of kopis, which forbids it.
 [workspace]
-members = ["ct-check"]
+members = ["ct-check", "ct-check/probe"]
 
 [package]
 name = "kopis"

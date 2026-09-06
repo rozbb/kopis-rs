@@ -1,0 +1,12 @@
+[package]
+name = "ct-scan-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Instantiates every kopis operation so the instruction scanner has code to disassemble"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+kopis = { path = "../.." }
