@@ -172,9 +172,9 @@ sudo dnf install valgrind valgrind-devel
 # every operation, every parameter set, on the backend this machine would normally build
 ./ct-check.sh
 
-# pin a backend, or narrow to one operation or parameter set
+# pin a backend. There is no way to narrow the run further: every parameter set and all three
+# operations are always checked, because a partial run looks exactly like a full one in the output
 ./ct-check.sh --backend serial
-./ct-check.sh --variant 768 decap
 
 # prove both phases can still see a problem at all. Phase 1 runs deliberately leaky code that
 # Valgrind must report; phase 2 plants variable-latency instructions the scan must find, checks

@@ -18,7 +18,6 @@ Two failure modes are worth knowing about, because both fail *toward* a clean re
     That is what `ct-check/probe` is for; we disassemble it alongside the kopis rlib.
 """
 
-import argparse
 import json
 import re
 import shutil
@@ -27,7 +26,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DEFAULT_ALLOWLIST = Path(__file__).resolve().parent / "instr-allowlist.txt"
+ALLOWLIST = Path(__file__).resolve().parent / "instr-allowlist.txt"
 
 # If a disassembly yields fewer instructions than this, something went wrong with the tooling
 # rather than the code being small; treat it as an error instead of a pass.
@@ -357,21 +356,17 @@ def selftest(objdump: str, allowlist) -> int:
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST)
-    ap.add_argument("--list-unfiltered", action="store_true",
-                    help="report allowlisted hits too, instead of only new ones")
-    ap.add_argument("--selftest", action="store_true",
-                    help="negative control: plant variable-latency instructions and require the "
-                         "scan to find them, instead of scanning the crate")
-    args = ap.parse_args()
+    # `--selftest` is the one thing this script needs to be told; ct-check.sh passes it through
+    # for phase 2's negative control. Everything else it needs is a constant above.
+    argv = sys.argv[1:]
+    if argv not in ([], ["--selftest"]):
+        raise SystemExit("usage: scan-instrs.py [--selftest]   (normally run via ./ct-check.sh)")
 
     objdump = find_llvm_objdump()
-    allow = load_allowlist(args.allowlist)
+    allow = load_allowlist(ALLOWLIST)
     host = host_target()
 
-    if args.selftest:
+    if argv == ["--selftest"]:
         print(f"==> instruction-scan self-test (llvm-objdump: {objdump})")
         return selftest(objdump, allow)
 
@@ -392,22 +387,24 @@ def main():
                 f"right.\n  The scan would pass vacuously, so this is an error. Check that "
                 f"{objdump}\n  supports {fam} and that the build produced code."
             )
-        hits = 0
+        allowed = 0
         for sym, text in rows:
             for name, rx, desc in cats:
                 if not rx.match(text):
                     continue
-                hits += 1
+                # Matched a variable-latency category. Either the allowlist says the operands are
+                # public, in which case it only gets counted, or it is a finding.
                 if any(a_cat == name and a_sym in sym for a_cat, a_sym, _ in allow):
-                    if args.list_unfiltered:
-                        print(f"    allowed  [{name}] {text}  in {sym}")
+                    allowed += 1
                     continue
                 findings.append((label, name, desc, text, sym))
-        scanned.append((label, total, hits))
+        scanned.append((label, total, allowed))
 
-    print("\n    config              instructions   flagged")
-    for label, total, hits in scanned:
-        print(f"    {label:<18}  {total:>10}   {hits:>7}")
+    # The third column is only ever the allowlisted hits: anything not covered by the allowlist is
+    # a finding, and is printed in full below rather than folded into a count.
+    print("\n    config                instructions   allowlisted")
+    for label, total, allowed in scanned:
+        print(f"    {label:<19} {total:>12}   {allowed:>11}")
 
     if findings:
         print(f"\nFAIL: {len(findings)} variable-latency instruction(s) not in the allowlist:\n")
@@ -416,7 +413,7 @@ def main():
             print(f"      in {sym}")
             print(f"      {desc}")
         print("\nIf the operands are public, add a line to "
-              f"{args.allowlist.relative_to(REPO)} saying why.")
+              f"{ALLOWLIST.relative_to(REPO)} saying why.")
         return 1
 
     print("\nPASS: no unexpected variable-latency instructions")

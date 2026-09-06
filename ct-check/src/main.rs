@@ -181,6 +181,10 @@ fn selftest() -> u8 {
 ///
 /// A check hands back the key material and shared secrets it produced. `main` sinks that through
 /// `black_box` so the operation under test cannot be optimised away as an unused computation.
+///
+/// Every check in the table runs on every invocation. There is no way to ask for a subset: a
+/// partial run is a weaker claim that looks identical to a full one in the output, and narrowing
+/// saves a couple of minutes at most.
 struct Check {
     variant: &'static str,
     op: &'static str,
@@ -206,56 +210,30 @@ const CHECKS: &[Check] = &[
 ];
 
 const USAGE: &str = "\
-usage: ct-check [--variant 512|768|1024|all] [OP...]
+usage: ct-check [--selftest]
 
-  OP          one or more of `keygen`, `encap`, `decap` (default: all three)
-  --variant   which parameter set to check (default: all)
-  --list      print the available checks and exit
-  --selftest  run the negative control instead: deliberately leaky code that Valgrind must
-              report. Used to prove the harness can see a leak at all.
+  --selftest  run the negative control instead of the checks: deliberately leaky code that
+              Valgrind must report. Used to prove the harness can see a leak at all.
 
 Meant to be run under Valgrind; `./ct-check.sh` in the repo root does that.
 ";
 
 fn main() -> ExitCode {
-    let mut variant = String::from("all");
-    let mut ops: Vec<String> = Vec::new();
     let mut selftest_only = false;
 
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
+    for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "-h" | "--help" => {
                 print!("{USAGE}");
                 return ExitCode::SUCCESS;
             }
-            "--list" => {
-                for c in CHECKS {
-                    println!("{} {}", c.variant, c.op);
-                }
-                return ExitCode::SUCCESS;
-            }
-            "--variant" => match args.next() {
-                Some(v) => variant = v,
-                None => {
-                    eprintln!("ct-check: --variant needs a value\n\n{USAGE}");
-                    return ExitCode::FAILURE;
-                }
-            },
             "--selftest" => selftest_only = true,
-            "keygen" | "encap" | "decap" => ops.push(arg),
             other => {
                 eprintln!("ct-check: unrecognised argument `{other}`\n\n{USAGE}");
                 return ExitCode::FAILURE;
             }
         }
     }
-
-    if !matches!(variant.as_str(), "all" | "512" | "768" | "1024") {
-        eprintln!("ct-check: unknown variant `{variant}`\n\n{USAGE}");
-        return ExitCode::FAILURE;
-    }
-    let want_variant = format!("kopis{variant}");
 
     if !under_valgrind() {
         eprintln!(
@@ -270,23 +248,10 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    let mut ran = 0;
     for c in CHECKS {
-        if variant != "all" && c.variant != want_variant {
-            continue;
-        }
-        if !ops.is_empty() && !ops.iter().any(|o| o == c.op) {
-            continue;
-        }
         println!("running {}/{}", c.variant, c.op);
         black_box((c.run)());
-        ran += 1;
     }
-
-    if ran == 0 {
-        eprintln!("ct-check: no checks matched\n\n{USAGE}");
-        return ExitCode::FAILURE;
-    }
-    println!("ran {ran} check(s)");
+    println!("ran {} check(s)", CHECKS.len());
     ExitCode::SUCCESS
 }

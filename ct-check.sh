@@ -13,18 +13,17 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 BACKEND=native
-VARIANT=all
-OPS=()
 GEN_SUPP=0
-VERBOSE=0
 SELFTEST=0
-MARCH=""
 SCAN=1
 SCAN_ONLY=0
 
 usage() {
     cat <<'EOF'
-usage: ./ct-check.sh [OPTIONS] [OP...]
+usage: ./ct-check.sh [OPTIONS]
+
+Every parameter set and all three operations are checked on every run; there is no flag to
+narrow that. A partial run makes a weaker claim while looking exactly like a full one.
 
 Runs two phases:
   1. Valgrind: secrets are tagged as undefined memory, and any branch or memory address that
@@ -34,20 +33,15 @@ Runs two phases:
      it cannot tell a secret operand from a public one — but it reaches the backends Valgrind
      cannot run here.
 
-  OP                    keygen | encap | decap          (default: all three)
-
   --backend BACKEND     serial | avx2 | neon | native   (default: native)
                         `native` builds for this CPU with runtime backend detection, i.e. what a
                         normal `cargo build` here produces. The others pin one backend; `serial`
                         is the portable code that gets extracted to Lean, and is the only one
                         that can be checked on any machine.
-  --variant V           512 | 768 | 1024 | all          (default: all)
-  --march FLAGS         rustc codegen flags picking the target ISA. Defaults to
-                        `-C target-cpu=x86-64-v3` on x86-64 and `-C target-feature=+neon,+sha3`
-                        on AArch64. Do NOT default this to `target-cpu=native`: on a recent CPU
-                        LLVM emits GFNI/AVX-512 instructions that Valgrind cannot decode, and the
-                        run dies with SIGILL before it checks anything.
-  --no-scan             skip phase 2 (the instruction scan), running only the Valgrind checks
+  --no-scan             skip phase 2 (the instruction scan), running only the Valgrind checks.
+                        Phase 2 does not depend on which backend the harness was built against,
+                        so a matrix that runs this script once per backend wants it on all but
+                        one of them.
   --scan-only           skip phase 1 (Valgrind), running only the instruction scan. Fast, and the
                         only phase that works without Valgrind installed.
   --selftest            run both phases' negative controls instead of the real checks. Phase 1
@@ -58,8 +52,7 @@ Runs two phases:
                         proves both phases are live rather than silently inert.
   --gen-suppressions    print a Valgrind suppression stanza for every report, to paste into
                         ct-check/suppressions.supp after you have convinced yourself the leak is
-                        intentional. Does not fail on findings.
-  --verbose             show the build and the full Valgrind command line
+                        intentional. Phase 1 only, and does not fail on findings.
   -h, --help            this message
 
 Exit status is 0 if no unsuppressed constant-time violation was found, 1 otherwise.
@@ -69,15 +62,11 @@ EOF
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --backend) BACKEND="${2:?--backend needs a value}"; shift 2 ;;
-        --variant) VARIANT="${2:?--variant needs a value}"; shift 2 ;;
-        --march) MARCH="${2:?--march needs a value}"; shift 2 ;;
         --no-scan) SCAN=0; shift ;;
         --scan-only) SCAN_ONLY=1; shift ;;
         --selftest) SELFTEST=1; shift ;;
         --gen-suppressions) GEN_SUPP=1; shift ;;
-        --verbose) VERBOSE=1; shift ;;
         -h|--help) usage; exit 0 ;;
-        keygen|encap|decap) OPS+=("$1"); shift ;;
         *) echo "ct-check.sh: unrecognised argument '$1'" >&2; usage >&2; exit 2 ;;
     esac
 done
@@ -135,14 +124,13 @@ fi
 # actually compiled in — checking only the portable code on an x86 box would miss every bug in
 # the hand-written AVX2 — but no wider than Valgrind's decoder. x86-64-v3 is exactly AVX2 + BMI2
 # + FMA, all of which Valgrind handles; `native` on anything newer than Ice Lake pulls in GFNI or
-# AVX-512 and the run aborts with SIGILL.
-if [[ -z "$MARCH" ]]; then
-    case "$(uname -m)" in
-        x86_64|amd64) MARCH="-C target-cpu=x86-64-v3" ;;
-        aarch64|arm64) MARCH="-C target-feature=+neon,+sha3" ;;
-        *) MARCH="" ;;
-    esac
-fi
+# AVX-512 and the run aborts with SIGILL. There is deliberately no flag to override this — a host
+# that needs something else should edit the cases here, where that reasoning is written down.
+case "$(uname -m)" in
+    x86_64|amd64) MARCH="-C target-cpu=x86-64-v3" ;;
+    aarch64|arm64) MARCH="-C target-feature=+neon,+sha3" ;;
+    *) MARCH="" ;;
+esac
 
 # The backend is chosen by a cfg that build.rs reads; `native` leaves it unset so build.rs does
 # its usual autodetection, which is what a normal build of this crate does.
@@ -173,11 +161,7 @@ echo "==> building ct-check (backend: $BACKEND)"
 BUILD_LOG="$(mktemp)"
 trap 'rm -f "$BUILD_LOG"' EXIT
 if cargo build --profile ct -p ct-check >"$BUILD_LOG" 2>&1; then
-    if [[ $VERBOSE -eq 1 ]]; then
-        cat "$BUILD_LOG"
-    else
-        grep -Ev '^\s*(Compiling|Finished)' "$BUILD_LOG" || true
-    fi
+    grep -Ev '^\s*(Compiling|Finished)' "$BUILD_LOG" || true
 else
     cat "$BUILD_LOG" >&2
     echo "ct-check.sh: build failed (backend: $BACKEND); nothing was checked" >&2
@@ -207,9 +191,10 @@ fi
 if [[ $SELFTEST -eq 1 ]]; then
     CMD=("${VG[@]}" "$BIN" --selftest)
 else
-    CMD=("${VG[@]}" "$BIN" --variant "$VARIANT" "${OPS[@]+"${OPS[@]}"}")
+    CMD=("${VG[@]}" "$BIN")
 fi
-[[ $VERBOSE -eq 1 ]] && printf '==> %s\n' "${CMD[*]}"
+# Always echoed: it is the one line someone needs to reproduce a report by hand.
+printf '==> %s\n' "${CMD[*]}"
 
 echo "==> running under valgrind (this takes a couple of minutes)"
 set +e
@@ -238,7 +223,7 @@ elif [[ $GEN_SUPP -eq 1 ]]; then
     echo "suppression stanzas printed above; findings were not treated as failures"
     exit 0
 elif [[ $STATUS -eq 0 ]]; then
-    echo "PASS: no secret-dependent branch or memory access (backend: $BACKEND, variant: $VARIANT)"
+    echo "PASS: no secret-dependent branch or memory access (backend: $BACKEND)"
 elif [[ $STATUS -eq 101 ]]; then
     # Valgrind passes the child's exit status through when it found no errors of its own, and 101
     # is a Rust panic: one of the checks asserted, so the operation under test is broken or was
