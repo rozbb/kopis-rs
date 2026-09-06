@@ -195,6 +195,17 @@ elif [[ $GEN_SUPP -eq 1 ]]; then
     exit 0
 elif [[ $STATUS -eq 0 ]]; then
     echo "PASS: no secret-dependent branch or memory access (backend: $BACKEND, variant: $VARIANT)"
+elif [[ $STATUS -eq 101 ]]; then
+    # Valgrind passes the child's exit status through when it found no errors of its own, and 101
+    # is a Rust panic: one of the checks asserted, so the operation under test is broken or was
+    # optimised away. Nothing was said about constant time either way.
+    cat <<'EOF'
+FAIL: a check panicked before Valgrind had anything to report.
+
+The assertion above means the operation under test did not produce the expected value — it is
+either genuinely broken or no longer being executed. Fix that first; this run made no statement
+about constant-time behaviour.
+EOF
 else
     cat <<'EOF'
 FAIL: Valgrind reported a secret-dependent branch or memory access.

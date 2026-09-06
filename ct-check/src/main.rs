@@ -7,7 +7,7 @@
 //!
 //! Inputs are fixed rather than random so that a failure reproduces exactly.
 
-use ct_check::{checksum, classify, declassify, under_valgrind};
+use ct_check::{classify, declassify, under_valgrind};
 
 use std::{hint::black_box, process::ExitCode};
 
@@ -28,16 +28,17 @@ fn fill(byte: u8) -> [u8; 32] {
 macro_rules! variant_checks {
     ($modname:ident, $sk:ident, $ct_len:ident) => {
         mod $modname {
-            use super::{black_box, checksum, classify, declassify, fill};
+            use super::{black_box, classify, declassify, fill};
             use kopis::$modname::{$ct_len, $sk};
 
             /// Key generation from a **secret** 32-byte seed.
             ///
-            /// Expected to report: the public matrix `A` is rejection-sampled from a seed that
-            /// this check has tagged secret, even though `A` ships inside the public key. Those
-            /// reports are whitelisted in `suppressions.supp`; see the file's header.
-            pub fn keygen() -> u8 {
-                let mut acc = 0u8;
+            /// Nothing is expected to be reported, which is not a given for a lattice KEM: a
+            /// scheme that rejection-samples its public matrix would branch on values derived
+            /// from a seed this check has tagged, and would need those reports whitelisted.
+            /// Kopis deserialises 13-bit coefficients instead, so there is nothing to whitelist.
+            pub fn keygen() -> Vec<u8> {
+                let mut out = Vec::new();
                 for v in [0x11u8, 0xa7, 0xfe] {
                     let mut seed = fill(v);
                     classify(&mut seed);
@@ -46,17 +47,18 @@ macro_rules! variant_checks {
 
                     declassify(&sk);
                     declassify(&seed);
-                    acc ^= checksum(sk.seed()) ^ checksum(&sk.public_key().to_bytes());
+                    out.extend_from_slice(sk.seed());
+                    out.extend_from_slice(&sk.public_key().to_bytes());
                 }
-                acc
+                out
             }
 
             /// Encapsulation against a public key, with **secret** encapsulation randomness.
             ///
             /// The public key is untagged: the caller of a KEM encapsulation knows it. Only the
             /// randomness — and therefore the shared secret — is secret here.
-            pub fn encap() -> u8 {
-                let mut acc = 0u8;
+            pub fn encap() -> Vec<u8> {
+                let mut out = Vec::new();
                 for (ks, rs) in [(0x11u8, 0x22u8), (0x00, 0xff), (0x5c, 0x01)] {
                     let sk = $sk::from_seed(&fill(ks));
                     let pk = sk.public_key();
@@ -69,9 +71,10 @@ macro_rules! variant_checks {
                     declassify(&randomness);
                     declassify(&ct);
                     declassify(ss.as_bytes());
-                    acc ^= checksum(&ct) ^ checksum(ss.as_bytes());
+                    out.extend_from_slice(&ct);
+                    out.extend_from_slice(ss.as_bytes());
                 }
-                acc
+                out
             }
 
             /// Decapsulation with a **secret** key and a public, attacker-chosen ciphertext.
@@ -86,11 +89,11 @@ macro_rules! variant_checks {
             ///   * a well-formed ciphertext, which re-encrypts to itself;
             ///   * one with a single bit flipped, which does not;
             ///   * an entirely unstructured one.
-            pub fn decap() -> u8 {
-                let mut acc = 0u8;
+            pub fn decap() -> Vec<u8> {
+                let mut out = Vec::new();
                 for (ks, rs) in [(0x11u8, 0x22u8), (0x93, 0x4d)] {
                     let mut sk = $sk::from_seed(&fill(ks));
-                    let (valid_ct, _) = sk.public_key().encapsulate_deterministic(&fill(rs));
+                    let (valid_ct, expected) = sk.public_key().encapsulate_deterministic(&fill(rs));
 
                     let mut one_bit_off = valid_ct;
                     one_bit_off[0] ^= 1;
@@ -100,7 +103,9 @@ macro_rules! variant_checks {
                         *b = (i as u8).wrapping_mul(31).wrapping_add(ks);
                     }
 
-                    for ct in [valid_ct, one_bit_off, garbage] {
+                    for (ct, should_agree) in
+                        [(valid_ct, true), (one_bit_off, false), (garbage, false)]
+                    {
                         // The whole expanded key is tagged, seed and PKE secret alike. That is
                         // stricter than necessary — the cached public matrix lives in here too —
                         // but a stricter tag can only add reports, never hide one.
@@ -110,10 +115,22 @@ macro_rules! variant_checks {
 
                         declassify(&sk);
                         declassify(ss.as_bytes());
-                        acc ^= checksum(ss.as_bytes());
+
+                        // Both sides are declassified, so comparing them is not itself a leak.
+                        // This is here to notice if the operation under test ever stops actually
+                        // running: a decapsulation the optimiser deleted, or one left broken by a
+                        // refactor, would report zero errors and look exactly like a clean pass.
+                        assert_eq!(
+                            ss.as_bytes() == expected.as_bytes(),
+                            should_agree,
+                            "{}/decap produced the wrong shared secret",
+                            stringify!($modname),
+                        );
+
+                        out.extend_from_slice(ss.as_bytes());
                     }
                 }
-                acc
+                out
             }
         }
     };
@@ -161,14 +178,17 @@ fn selftest() -> u8 {
 }
 
 /// One runnable check: parameter set, operation name, and the body.
+///
+/// A check hands back the key material and shared secrets it produced. `main` sinks that through
+/// `black_box` so the operation under test cannot be optimised away as an unused computation.
 struct Check {
     variant: &'static str,
     op: &'static str,
-    run: fn() -> u8,
+    run: fn() -> Vec<u8>,
 }
 
 /// Shorthand so the table below stays readable.
-const fn check(variant: &'static str, op: &'static str, run: fn() -> u8) -> Check {
+const fn check(variant: &'static str, op: &'static str, run: fn() -> Vec<u8>) -> Check {
     Check { variant, op, run }
 }
 

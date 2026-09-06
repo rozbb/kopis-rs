@@ -56,15 +56,9 @@ pub fn classify<T: ?Sized>(v: &mut T) {
 /// A shared reference is fine here: this direction only ever removes tags, so the optimiser
 /// keeping a stale idea of the contents cannot hide a leak.
 ///
-/// Used for two things: releasing an operation's outputs so the harness can checksum them
+/// Used for two things: releasing an operation's outputs so the harness can hand them back
 /// without tripping over its own tags, and whitelisting a value the design deliberately leaks.
 pub fn declassify<T: ?Sized>(v: &T) {
     let len = core::mem::size_of_val(v);
     unsafe { kopis_ct_make_defined(v as *const T as *mut c_void, len) }
-}
-
-/// Folds bytes into a single value, so the harness can consume a result without the optimiser
-/// deleting the work that produced it.
-pub fn checksum(bytes: &[u8]) -> u8 {
-    bytes.iter().fold(0u8, |acc, b| acc ^ b)
 }
