@@ -1,0 +1,272 @@
+//! Constant-time validation harness for `kopis`.
+//!
+//! Run it under Valgrind's Memcheck — `../ct-check.sh` does that for you. Each check tags its
+//! secret inputs via [`ct_check::classify`], runs one public API operation, and declassifies the
+//! outputs. Anything Memcheck reports in between is a branch or a memory access that depended on
+//! a secret.
+//!
+//! Inputs are fixed rather than random so that a failure reproduces exactly.
+
+use ct_check::{checksum, classify, declassify, under_valgrind};
+
+use std::{hint::black_box, process::ExitCode};
+
+/// Deterministic filler for seeds and randomness. Values are public; only the *tagging* decides
+/// what the harness treats as secret.
+fn fill(byte: u8) -> [u8; 32] {
+    let mut out = [0u8; 32];
+    for (i, b) in out.iter_mut().enumerate() {
+        *b = byte.wrapping_mul(i as u8).wrapping_add(byte);
+    }
+    out
+}
+
+/// Generates the three checks for one Kopis variant.
+///
+/// Each variant is a distinct set of monomorphised functions — different `L`, `MU` and `T` mean
+/// different NTT and serialisation code paths — so all three have to be exercised separately.
+macro_rules! variant_checks {
+    ($modname:ident, $sk:ident, $ct_len:ident) => {
+        mod $modname {
+            use super::{black_box, checksum, classify, declassify, fill};
+            use kopis::$modname::{$ct_len, $sk};
+
+            /// Key generation from a **secret** 32-byte seed.
+            ///
+            /// Expected to report: the public matrix `A` is rejection-sampled from a seed that
+            /// this check has tagged secret, even though `A` ships inside the public key. Those
+            /// reports are whitelisted in `suppressions.supp`; see the file's header.
+            pub fn keygen() -> u8 {
+                let mut acc = 0u8;
+                for v in [0x11u8, 0xa7, 0xfe] {
+                    let mut seed = fill(v);
+                    classify(&mut seed);
+
+                    let sk = $sk::from_seed(&seed);
+
+                    declassify(&sk);
+                    declassify(&seed);
+                    acc ^= checksum(sk.seed()) ^ checksum(&sk.public_key().to_bytes());
+                }
+                acc
+            }
+
+            /// Encapsulation against a public key, with **secret** encapsulation randomness.
+            ///
+            /// The public key is untagged: the caller of a KEM encapsulation knows it. Only the
+            /// randomness — and therefore the shared secret — is secret here.
+            pub fn encap() -> u8 {
+                let mut acc = 0u8;
+                for (ks, rs) in [(0x11u8, 0x22u8), (0x00, 0xff), (0x5c, 0x01)] {
+                    let sk = $sk::from_seed(&fill(ks));
+                    let pk = sk.public_key();
+
+                    let mut randomness = fill(rs);
+                    classify(&mut randomness);
+
+                    let (ct, ss) = pk.encapsulate_deterministic(&randomness);
+
+                    declassify(&randomness);
+                    declassify(&ct);
+                    declassify(ss.as_bytes());
+                    acc ^= checksum(&ct) ^ checksum(ss.as_bytes());
+                }
+                acc
+            }
+
+            /// Decapsulation with a **secret** key and a public, attacker-chosen ciphertext.
+            ///
+            /// This is the check that matters most: it is the oracle a chosen-ciphertext attacker
+            /// actually gets to query. The ciphertext stays public because the attacker picks it.
+            ///
+            /// Three shapes of ciphertext are driven through, because the implicit-rejection path
+            /// is only meaningful if both outcomes of the re-encryption comparison are covered,
+            /// and a single mismatching bit is the case most likely to expose an early-exit
+            /// comparison:
+            ///   * a well-formed ciphertext, which re-encrypts to itself;
+            ///   * one with a single bit flipped, which does not;
+            ///   * an entirely unstructured one.
+            pub fn decap() -> u8 {
+                let mut acc = 0u8;
+                for (ks, rs) in [(0x11u8, 0x22u8), (0x93, 0x4d)] {
+                    let mut sk = $sk::from_seed(&fill(ks));
+                    let (valid_ct, _) = sk.public_key().encapsulate_deterministic(&fill(rs));
+
+                    let mut one_bit_off = valid_ct;
+                    one_bit_off[0] ^= 1;
+
+                    let mut garbage = [0u8; $ct_len];
+                    for (i, b) in garbage.iter_mut().enumerate() {
+                        *b = (i as u8).wrapping_mul(31).wrapping_add(ks);
+                    }
+
+                    for ct in [valid_ct, one_bit_off, garbage] {
+                        // The whole expanded key is tagged, seed and PKE secret alike. That is
+                        // stricter than necessary — the cached public matrix lives in here too —
+                        // but a stricter tag can only add reports, never hide one.
+                        classify(&mut sk);
+
+                        let ss = sk.decapsulate(black_box(&ct));
+
+                        declassify(&sk);
+                        declassify(ss.as_bytes());
+                        acc ^= checksum(ss.as_bytes());
+                    }
+                }
+                acc
+            }
+        }
+    };
+}
+
+variant_checks!(kopis512, Kopis512SecretKey, KOPIS512_CIPHERTEXT_LEN);
+variant_checks!(kopis768, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN);
+variant_checks!(kopis1024, Kopis1024SecretKey, KOPIS1024_CIPHERTEXT_LEN);
+
+/// Negative control: code that is *supposed* to be reported.
+///
+/// A silently broken shim — headers from a different Valgrind, a `classify` that got inlined into
+/// nothing, a run that never actually reached Valgrind — would make every other check pass for
+/// the wrong reason. So `ct-check.sh --selftest` runs this and fails if Memcheck stays quiet.
+///
+/// Both classic leak shapes are here, since they are reported differently: a branch whose
+/// direction depends on a secret, and a table index that does.
+fn selftest() -> u8 {
+    let mut secret = [0u8; 32];
+    secret[0] = 7;
+    classify(&mut secret);
+    let s = &secret;
+
+    // Expected: "Conditional jump or move depends on uninitialised value(s)". This is a
+    // secret-dependent loop bound rather than a plain `if`, because LLVM flattens a small `if`
+    // into branchless arithmetic — which is, after all, the transformation we *want* it to make
+    // everywhere else. A trip count survives.
+    let mut acc = 0u8;
+    for _ in 0..(s[0] & 7) {
+        acc = acc.wrapping_add(black_box(1));
+    }
+
+    // Expected: "Use of uninitialised value of size 8" at the load. The index is a `u8` into a
+    // 256-entry table, so there is no bounds check in the way; the address itself is the secret.
+    // The table has to hold distinct values or the load folds to a constant and there is nothing
+    // left to observe.
+    let mut table = [0u8; 256];
+    for (i, e) in table.iter_mut().enumerate() {
+        *e = i as u8;
+    }
+    acc ^= black_box(table[s[1] as usize]);
+
+    declassify(&secret);
+    black_box(acc)
+}
+
+/// One runnable check: parameter set, operation name, and the body.
+struct Check {
+    variant: &'static str,
+    op: &'static str,
+    run: fn() -> u8,
+}
+
+/// Shorthand so the table below stays readable.
+const fn check(variant: &'static str, op: &'static str, run: fn() -> u8) -> Check {
+    Check { variant, op, run }
+}
+
+/// Every (variant, operation) pair the harness knows how to run.
+const CHECKS: &[Check] = &[
+    check("kopis512", "keygen", kopis512::keygen),
+    check("kopis512", "encap", kopis512::encap),
+    check("kopis512", "decap", kopis512::decap),
+    check("kopis768", "keygen", kopis768::keygen),
+    check("kopis768", "encap", kopis768::encap),
+    check("kopis768", "decap", kopis768::decap),
+    check("kopis1024", "keygen", kopis1024::keygen),
+    check("kopis1024", "encap", kopis1024::encap),
+    check("kopis1024", "decap", kopis1024::decap),
+];
+
+const USAGE: &str = "\
+usage: ct-check [--variant 512|768|1024|all] [OP...]
+
+  OP          one or more of `keygen`, `encap`, `decap` (default: all three)
+  --variant   which parameter set to check (default: all)
+  --list      print the available checks and exit
+  --selftest  run the negative control instead: deliberately leaky code that Valgrind must
+              report. Used to prove the harness can see a leak at all.
+
+Meant to be run under Valgrind; `./ct-check.sh` in the repo root does that.
+";
+
+fn main() -> ExitCode {
+    let mut variant = String::from("all");
+    let mut ops: Vec<String> = Vec::new();
+    let mut selftest_only = false;
+
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "-h" | "--help" => {
+                print!("{USAGE}");
+                return ExitCode::SUCCESS;
+            }
+            "--list" => {
+                for c in CHECKS {
+                    println!("{} {}", c.variant, c.op);
+                }
+                return ExitCode::SUCCESS;
+            }
+            "--variant" => match args.next() {
+                Some(v) => variant = v,
+                None => {
+                    eprintln!("ct-check: --variant needs a value\n\n{USAGE}");
+                    return ExitCode::FAILURE;
+                }
+            },
+            "--selftest" => selftest_only = true,
+            "keygen" | "encap" | "decap" => ops.push(arg),
+            other => {
+                eprintln!("ct-check: unrecognised argument `{other}`\n\n{USAGE}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
+    if !matches!(variant.as_str(), "all" | "512" | "768" | "1024") {
+        eprintln!("ct-check: unknown variant `{variant}`\n\n{USAGE}");
+        return ExitCode::FAILURE;
+    }
+    let want_variant = format!("kopis{variant}");
+
+    if !under_valgrind() {
+        eprintln!(
+            "ct-check: not running under Valgrind, so nothing is being checked. \
+             Use `./ct-check.sh` instead."
+        );
+    }
+
+    if selftest_only {
+        println!("running selftest (Valgrind is expected to report two errors here)");
+        black_box(selftest());
+        return ExitCode::SUCCESS;
+    }
+
+    let mut ran = 0;
+    for c in CHECKS {
+        if variant != "all" && c.variant != want_variant {
+            continue;
+        }
+        if !ops.is_empty() && !ops.iter().any(|o| o == c.op) {
+            continue;
+        }
+        println!("running {}/{}", c.variant, c.op);
+        black_box((c.run)());
+        ran += 1;
+    }
+
+    if ran == 0 {
+        eprintln!("ct-check: no checks matched\n\n{USAGE}");
+        return ExitCode::FAILURE;
+    }
+    println!("ran {ran} check(s)");
+    ExitCode::SUCCESS
+}

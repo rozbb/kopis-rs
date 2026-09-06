@@ -1,0 +1,20 @@
+[package]
+name = "ct-check"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Valgrind-based constant-time validation harness for the kopis crate"
+
+[dependencies]
+kopis = { path = ".." }
+
+[build-dependencies]
+cc = "1"
+
+[lib]
+name = "ct_check"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ct-check"
+path = "src/main.rs"

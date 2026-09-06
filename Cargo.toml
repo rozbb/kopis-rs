@@ -1,3 +1,8 @@
+# `ct-check` is the constant-time validation harness (see ct-check.sh). It is a separate crate so
+# that the `unsafe` its Valgrind client requests need stays out of kopis, which forbids it.
+[workspace]
+members = ["ct-check"]
+
 [package]
 name = "kopis"
 authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
@@ -35,6 +40,12 @@ harness = false
 [[bench]]
 name = "noic"
 harness = false
+
+# What ct-check.sh builds: release codegen, because a debug build's constant-time behaviour says
+# nothing about the one that ships, plus symbols so Valgrind reports name the offending function.
+[profile.ct]
+inherits = "release"
+debug = 2
 
 [patch.crates-io]
 aws-lc-rs = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-derand" }

@@ -146,6 +146,65 @@ does the same for AArch64: the target must enable both `neon` and `sha3` and mus
 softfloat ABI. If the check fails, the build fails with an explanatory panic rather than
 producing a binary that would fault at run time.
 
+# Constant-Time Checking
+
+Every secret-dependent branch and every secret-dependent memory address is a timing side channel,
+so `ct-check.sh` looks for both. It tags the crate's secret inputs as *undefined* memory using
+Valgrind's client requests, then runs the public API under Memcheck. Memcheck already reports
+"conditional jump depends on uninitialised value" and "address depends on uninitialised value",
+and under this tagging those are exactly the two leak shapes. Definedness propagates bit-precisely
+through arithmetic, so masks, rotations and `subtle`'s constant-time selects stay silent no matter
+how much secret data flows through them.
+
+It needs Valgrind and its headers:
+
+```bash
+sudo apt install valgrind        # Debian/Ubuntu
+sudo dnf install valgrind valgrind-devel
+```
+
+```bash
+# every operation, every parameter set, on the backend this machine would normally build
+./ct-check.sh
+
+# pin a backend, or narrow to one operation or parameter set
+./ct-check.sh --backend serial
+./ct-check.sh --variant 768 decap
+
+# prove the harness can still see a leak at all (runs deliberately leaky code; must FAIL to be
+# silent). Worth running whenever the harness or the toolchain changes.
+./ct-check.sh --selftest
+```
+
+Three operations are covered. **Decapsulation** is the important one — it is the oracle a
+chosen-ciphertext attacker gets to query — and it is checked with the whole expanded secret key
+tagged and the ciphertext left public, since the attacker chooses that. It runs against a
+well-formed ciphertext, a one-bit-corrupted one, and an unstructured one, so that both sides of
+the implicit-rejection comparison are exercised. **Encapsulation** tags the encapsulation
+randomness, and **key generation** tags the 32-byte seed. All of them are clean today, with no
+suppressions: kopis samples the public matrix by deserialising 13-bit coefficients rather than by
+rejection, so there is no intentional leak to whitelist the way a mod-3329 scheme would need.
+
+**Backend coverage is limited by the host.** Valgrind interprets the guest's own instruction set,
+so there is no cross-architecture option: a backend can only be checked on hardware that runs it.
+On an x86-64 machine that means `serial` and `avx2`, which is what CI does. **`neon` is checked
+only if you run the script on AArch64 hardware with FEAT_SHA3** — Apple silicon, or Neoverse
+V-series; Neoverse N1 (Graviton2) lacks the extension, and macOS has no arm64 Valgrind port, so in
+practice this means Linux on AArch64. The script refuses up front rather than pretending
+otherwise. Until someone runs it there, the NEON Keccak and NTT are covered by the equivalence
+tests and the Lean proofs but *not* by this check.
+
+Two caveats are worth stating plainly. Memcheck only sees the path that actually ran, so a leak
+in a branch these inputs never take goes unreported; that is why each check drives several
+distinct inputs. And it says nothing about leaks below the instruction level — a variable-latency
+multiplier, or a data-dependent microarchitectural effect — only about branches and addresses.
+What it does give, on the code it did run, is soundness: it works on the executed instruction
+stream, so it covers the hand-written AVX2 and NEON intrinsics as thoroughly as the portable
+Rust, and it cannot be fooled by an optimiser turning a select into a branch after the fact.
+
+The harness lives in `ct-check/`, kept out of the main crate so that the `unsafe` its client
+requests need does not weaken kopis's own `forbid(unsafe_code)`.
+
 # Formal Verification
 
 We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates the three
