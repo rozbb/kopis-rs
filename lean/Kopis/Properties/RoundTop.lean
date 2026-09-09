@@ -20,7 +20,7 @@ theorem toRingElem_coeff_val (re : RingElem) (k : ℕ) (hk : k < 256) :
   simp only [toRingElem, Vector.getElem_ofFn]
   rw [ZMod.val_natCast, Nat.mod_eq_of_lt hlt]
 
-/-- **Full RoundToR10 correspondence (Rust side).** -/
+/-- **Full CompressToR10 correspondence (Rust side).** -/
 theorem prod2_roundR10_bridge {L : Usize} (mat_a : Matrix L L) (vec_s : Matrix L 1#usize)
     (prod prod1 prod2 : Matrix L 1#usize) (i : ℕ) (hi : i < L.val)
     (hmt : ∀ i₀ : ℕ, i₀ < L.val → toRingElem ((prod.val[i₀]!).val[0]!)
@@ -31,7 +31,7 @@ theorem prod2_roundR10_bridge {L : Usize} (mat_a : Matrix L L) (vec_s : Matrix L
     (hs : toRingElem ((prod2.val[i]!).val[0]!)
         = Spec.Kopis.Polynomial.shiftRight (toRingElem ((prod1.val[i]!).val[0]!)) 3) :
     toPolyN 10 ((prod2.val[i]!).val[0]!)
-      = (Spec.Kopis.RoundToR10 L.val
+      = (Spec.Kopis.CompressToR10 L.val
           (Spec.Kopis.matVecMul (Matrix.transpose (toMatrix13 mat_a)) (toVector13 vec_s)))[i]'hi := by
   haveI : NeZero ((2 : ℕ) ^ 10) := ⟨by positivity⟩
   apply Vector.ext

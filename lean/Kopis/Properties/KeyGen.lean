@@ -4,9 +4,9 @@ open Spec (𝔹)
 namespace Kopis.Properties
 set_option maxHeartbeats 1000000
 
-/-- **Rust KEM key expansion matches the spec `ExpandDecapKey`.**  `expand_from_seed`
+/-- **Rust KEM key expansion matches the spec `ExpandSecretKey`.**  `expand_from_seed`
 runs `expand_decap_key` and packs the four outputs into a `KemSecretKey`; each field is
-exactly the corresponding `ExpandDecapKey` component (the secret vector, the reject seed
+exactly the corresponding `ExpandSecretKey` component (the secret vector, the reject seed
 `z`, the serialized public key, and its hash). -/
 theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (p : Spec.Kopis.ParameterSet)
@@ -17,11 +17,11 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     kem.KemSecretKey.expand_from_seed L MU seed
       ⦃ (ksk : kem.KemSecretKey L) =>
           (∃ S : Mat L 1#usize, ksk.pke_sk = nttFwdS S ∧
-              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes seed)).1 ∧
+              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandSecretKey p (skBytes seed)).1 ∧
               SecretBounded S ((MU.val / 2 : ℕ) : ℤ)) ∧
-          arrayToBytes ksk.z = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.1 ∧
-          pkStructBytes ksk.kem_pk.pke_pk p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.1 ∧
-          arrayToBytes ksk.kem_pk.hash_pke_pk = (Spec.Kopis.ExpandDecapKey p (skBytes seed)).2.2.2 ∧
+          arrayToBytes ksk.z = (Spec.Kopis.ExpandSecretKey p (skBytes seed)).2.1 ∧
+          pkStructBytes ksk.kem_pk.pke_pk p hℓ = (Spec.Kopis.ExpandSecretKey p (skBytes seed)).2.2.1 ∧
+          arrayToBytes ksk.kem_pk.hash_pke_pk = (Spec.Kopis.ExpandSecretKey p (skBytes seed)).2.2.2 ∧
           (∃ Amat : Mat L L, ksk.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes ksk.kem_pk.pke_pk.matrix_seed) ∧
               UniformBounded Amat) ∧

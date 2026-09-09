@@ -12,11 +12,11 @@ open arithmetic.ring_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 
-/-- **Spec-side `RoundToRt` coefficient.**  Coefficient `k` of `RoundToRt t r` is
+/-- **Spec-side `CompressToRt` coefficient.**  Coefficient `k` of `CompressToRt t r` is
 `(((r[k].val + 4) mod 2¹⁰) >>> (10 - t))` (valid for `t ≤ 10`). -/
 theorem roundRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Polynomial (2 ^ 10))
     (k : ℕ) (hk : k < 256) :
-    (((Spec.Kopis.RoundToRt t r)[k]'hk).val)
+    (((Spec.Kopis.CompressToRt t r)[k]'hk).val)
       = (((r[k]'hk).val + 4) % 2 ^ 10) >>> (10 - t) := by
   haveI : NeZero ((2:ℕ)^t) := ⟨by positivity⟩
   have hlt : (((r[k]'hk).val + 4) % 2 ^ 10) >>> (10 - t) < 2 ^ t := by
@@ -30,13 +30,13 @@ theorem roundRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Polynomial (2 ^ 
     show (((Spec.Kopis.Polynomial.add r (Spec.Kopis.Polynomial.const (2 ^ 10) 4))[k]'hk).val : ℕ) = _
     simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
       Vector.getElem_replicate, ZMod.val_add, h4]
-  unfold Spec.Kopis.RoundToRt
+  unfold Spec.Kopis.CompressToRt
   simp only [Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map,
     hcoeff, ZMod.val_natCast]
   rw [Nat.mod_eq_of_lt (lt_of_lt_of_le hlt (Nat.pow_le_pow_right (by norm_num) ht)),
     Nat.mod_eq_of_lt hlt]
 
-/-- **`RoundToRt` physical bridge.**  The 16-bit physical rounding
+/-- **`CompressToRt` physical bridge.**  The 16-bit physical rounding
 `((((c+4) mod 2¹⁶) >>> (10-t)) mod 2ᵗ)` depends only on the low 10 bits of `c`, matching
 the spec's `R10` rounding `(((c mod 2¹⁰)+4) mod 2¹⁰) >>> (10-t)`. -/
 theorem roundRt_bridge (c t : ℕ) (ht : t ≤ 10) :
@@ -58,14 +58,14 @@ theorem roundRt_bridge (c t : ℕ) (ht : t ≤ 10) :
     omega
   rw [hsplit, Nat.add_mul_div_left _ _ hpos, Nat.add_mul_mod_self_left]
 
-/-- **Per-`RingElem` `RoundToRt` correspondence (Rust side).**  The Rust pipeline
+/-- **Per-`RingElem` `CompressToRt` correspondence (Rust side).**  The Rust pipeline
 `c₂ = (c + 4) >>> (10 - t)` on a `u16` ring element computes the spec's
-`RoundToRt t ((coerce to R10) c)`. -/
+`CompressToRt t ((coerce to R10) c)`. -/
 theorem roundRt_ring_bridge (c c1 c2 : RingElem) (t : ℕ) (ht : t ≤ 10)
     (hw : toRingElem c1
       = Spec.Kopis.Polynomial.add (toRingElem c) (Spec.Kopis.Polynomial.const (2 ^ 16) 4))
     (hs : toRingElem c2 = Spec.Kopis.Polynomial.shiftRight (toRingElem c1) (10 - t)) :
-    toPolyN t c2 = Spec.Kopis.RoundToRt t ((toRingElem c).coerce (2 ^ 10)) := by
+    toPolyN t c2 = Spec.Kopis.CompressToRt t ((toRingElem c).coerce (2 ^ 10)) := by
   haveI : NeZero ((2:ℕ)^t) := ⟨by positivity⟩
   apply Vector.ext
   intro k hk

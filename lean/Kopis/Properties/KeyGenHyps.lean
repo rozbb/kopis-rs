@@ -97,10 +97,10 @@ theorem keygen_hpkmat {L : Usize} (self : pke.PkePublicKey L) (Amat : Mat L L)
 /-- **`hpkh` holds for a key-gen public key** (`hash = turboSHAKE256(pk)`). -/
 theorem keygen_hpkh {L : Usize} (self : pke.PkePublicKey L) (hash_pke_pk : Array U8 32#usize)
     (p : Spec.Kopis.ParameterSet) (hℓ : Spec.Kopis.ℓ p = L.val) (sk_seed : 𝔹 32)
-    (hh : arrayToBytes hash_pke_pk = (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2)
-    (hpk : pkStructBytes self p hℓ = (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.1) :
+    (hh : arrayToBytes hash_pke_pk = (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2)
+    (hpk : pkStructBytes self p hℓ = (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.1) :
     arrayToBytes hash_pke_pk = turboSHAKE256 (pkStructBytes self p hℓ) DOMSEP_PKHASH 32 := by
   rw [hh, hpk]
-  simp only [Spec.Kopis.ExpandDecapKey]
+  simp only [Spec.Kopis.ExpandSecretKey]
 
 end Kopis.Properties

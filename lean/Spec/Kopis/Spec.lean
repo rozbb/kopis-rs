@@ -180,8 +180,8 @@ def innerProduct {m ℓ : ℕ} (v w : PolyVector m ℓ) : Polynomial m := Id.run
 
 /-! ## Serialization (spec §"Auxiliary Functions")
 
-`serialize(n, r)` packs the `n`-bit canonical coefficients of `r`, LSB-first,
-into `32·n` bytes; `deserialize` inverts it. -/
+`serialize_elem(n, r)` packs the `n`-bit canonical coefficients of `r`,
+LSB-first, into `32·n` bytes; `deserialize_elem` inverts it. -/
 
 /-- `serialize_elem(n, r) : [u8; 32·n]`. -/
 def serialize (n : ℕ) (r : Polynomial (2 ^ n)) : 𝔹 (32 * n) := Id.run do
@@ -202,11 +202,11 @@ def deserialize (n : ℕ) (B : 𝔹 (32 * n)) : Polynomial (2 ^ n) := Id.run do
     F := F.set i (∑ j : Fin n, (b[n * i + j.val]'(serialize_idx_lt (srrange_lt hi) j.isLt)).toNat * 2 ^ j.val)
   pure F
 
-/-- `serialize` on a vector: concatenate the per-element serializations. -/
+/-- `serialize_vec(n, v)` — concatenate the per-element serializations. -/
 def PolyVector.serialize {ℓ : ℕ} (n : ℕ) (v : PolyVector (2 ^ n) ℓ) : 𝔹 (ℓ * (32 * n)) :=
   (v.map (Kopis.serialize n)).flatten
 
-/-- `deserialize` on a vector: deserialize each `32·n`-byte block. -/
+/-- `deserialize_vec(n, bytes)` — deserialize each `32·n`-byte block. -/
 def PolyVector.deserialize {ℓ : ℕ} (n : ℕ) (bytes : 𝔹 (32 * n * ℓ)) : PolyVector (2 ^ n) ℓ :=
   Vector.ofFn fun i =>
     Kopis.deserialize n (slice bytes (32 * n * i) (32 * n) (by
@@ -273,7 +273,7 @@ def GenMat (ℓ : ℕ) (seed : 𝔹 32) : PolyMatrix (2 ^ 13) ℓ := Id.run do
 
 /-- `GenSecret(seed) : VecR13`.  Centered-binomial sampling: for each coefficient
 `k`, `hamming(vals[2k]) - hamming(vals[2k+1])`, where `vals` splits the
-TurboSHAKE256 stream into `μ/2`-bit chunks (spec's `bit_slice`).  Concretely,
+TurboSHAKE256 stream into `μ/2`-bit chunks (spec's `bit_slices`).  Concretely,
 coefficient `k` is `(Σ of μ/2 bits) - (Σ of μ/2 bits)` — i.e. CBD with `η = μ/2`. -/
 def GenSecret (ℓ μ : ℕ) (seed : 𝔹 32) : PolyVector (2 ^ 13) ℓ := Id.run do
   let mut s := PolyVector.zero (2 ^ 13) ℓ
@@ -293,33 +293,35 @@ def GenSecret (ℓ μ : ℕ) (seed : 𝔹 32) : PolyVector (2 ^ 13) ℓ := Id.ru
     s := s.set i r
   pure s
 
-/-! ## Rounding (spec §"Auxiliary Functions")
+/-! ## Compression and message decoding (spec §"Auxiliary Functions")
 
 Kopis' Learning-With-Rounding step: add a fixed rounding constant, then
-right-shift and reinterpret in the coarser ring. -/
+right-shift and reinterpret in the coarser ring.  `CompressToR10` and
+`CompressToRt` compress; `DecodeMsg` uses the same shape to recover the message
+bit from an `R10` element. -/
 
-/-- `RoundToR10(v : R13^ℓ) : R10^ℓ` — add 4, shift right by 3, project to `R10`. -/
-def RoundToR10 (ℓ : ℕ) (v : PolyVector (2 ^ 13) ℓ) : PolyVector (2 ^ 10) ℓ :=
+/-- `CompressToR10(v : R13^ℓ) : R10^ℓ` — add 4, shift right by 3, project to `R10`. -/
+def CompressToR10 (ℓ : ℕ) (v : PolyVector (2 ^ 13) ℓ) : PolyVector (2 ^ 10) ℓ :=
   let h : PolyVector (2 ^ 13) ℓ := Vector.replicate ℓ (Polynomial.const (2 ^ 13) 4)
   ((v + h).shiftRight 3).coerce (2 ^ 10)
 
-/-- `RoundToRt(r : R10) : Rt` — add 4, shift right by `10 - t`, project to `Rt`. -/
-def RoundToRt (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ t) :=
+/-- `CompressToRt(r : R10) : Rt` — add 4, shift right by `10 - t`, project to `Rt`. -/
+def CompressToRt (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ t) :=
   let h := Polynomial.const (2 ^ 10) 4
   ((r + h).shiftRight (10 - t)).coerce (2 ^ t)
 
-/-- `RoundToR1(r : R10) : R1` — add `2⁸ - 2⁹⁻ᵗ + 4`, shift right by 9, project to `R1`. -/
-def RoundToR1 (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ 1) :=
+/-- `DecodeMsg(r : R10) : R1` — add `2⁸ - 2⁹⁻ᵗ + 4`, shift right by 9, project to `R1`. -/
+def DecodeMsg (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ 1) :=
   let c : ZMod (2 ^ 10) := ((2 ^ 8 - 2 ^ (10 - t - 1) + 4 : ℕ) : ZMod (2 ^ 10))
   let h := Polynomial.const (2 ^ 10) c
   ((r + h).shiftRight 9).coerce (2 ^ 1)
 
 /-! ## Key expansion (spec §"Auxiliary Functions") -/
 
-/-- `ExpandDecapKey(sk) : (VecR13, [u8;32], [u8; PK_SIZE], [u8;32])`.
+/-- `ExpandSecretKey(sk) : (VecR13, [u8;32], [u8; PK_SIZE], [u8;32])`.
 Derives the matrix/secret seeds and rejection seed `z` from `sk`, regenerates the
 secret vector and public key, and hashes the public key. -/
-def ExpandDecapKey (p : ParameterSet) (sk : 𝔹 32) :
+def ExpandSecretKey (p : ParameterSet) (sk : 𝔹 32) :
     PolyVector (2 ^ 13) (ℓ p) × 𝔹 32 × 𝔹 (pkSize p) × 𝔹 32 :=
   let randomness := turboSHAKE256 (sk ‖ #v[(ℓ p : Byte)]) DOMSEP_KGEXPAND 96
   let mat_seed := slice randomness 0 32
@@ -327,7 +329,7 @@ def ExpandDecapKey (p : ParameterSet) (sk : 𝔹 32) :
   let z := slice randomness 64 32
   let mat_A := GenMat (ℓ p) mat_seed
   let vec_s := GenSecret (ℓ p) (μ p) secret_seed
-  let vec_b := RoundToR10 (ℓ p) (matVecMul (Matrix.transpose mat_A) vec_s)
+  let vec_b := CompressToR10 (ℓ p) (matVecMul (Matrix.transpose mat_A) vec_s)
   let pk : 𝔹 (pkSize p) := (PolyVector.serialize 10 vec_b ‖ mat_seed).cast (by simp [pkSize]; ring)
   let pkh := turboSHAKE256 pk DOMSEP_PKHASH 32
   (vec_s, z, pk, pkh)
@@ -336,7 +338,7 @@ def ExpandDecapKey (p : ParameterSet) (sk : 𝔹 32) :
 
 /-- `SkToPk(sk) : [u8; PK_SIZE]`. -/
 def SkToPk (p : ParameterSet) (sk : 𝔹 32) : 𝔹 (pkSize p) :=
-  let (_, _, pk, _) := ExpandDecapKey p sk
+  let (_, _, pk, _) := ExpandSecretKey p sk
   pk
 
 /-- `PkeEncrypt(randomness, pk, msg) : [u8; CT_SIZE]`. IND-CPA encryption of the 32-byte
@@ -348,19 +350,19 @@ def PkeEncrypt (p : ParameterSet) (randomness : 𝔹 32) (pk : 𝔹 (pkSize p)) 
   let m := deserialize 1 msg
   let mat_A := GenMat (ℓ p) mat_seed
   let vec_sprime := GenSecret (ℓ p) (μ p) randomness
-  let vec_bprime := RoundToR10 (ℓ p) (matVecMul mat_A vec_sprime)
+  let vec_bprime := CompressToR10 (ℓ p) (matVecMul mat_A vec_sprime)
   let vprime := innerProduct vec_b (vec_sprime.coerce (2 ^ 10))
-  let cm := RoundToRt (t p) (vprime - ((m.coerce (2 ^ 10)).shiftLeft 9))
+  let cm := CompressToRt (t p) (vprime - ((m.coerce (2 ^ 10)).shiftLeft 9))
   (PolyVector.serialize 10 vec_bprime ‖ serialize (t p) cm).cast (by simp [ctSize]; ring)
 
 /-- `PkeDecrypt(sk, c) : [u8; 32]`. Unconditionally recovers a 32-byte message. -/
 def PkeDecrypt (p : ParameterSet) (sk : 𝔹 32) (c : 𝔹 (ctSize p)) : 𝔹 32 :=
-  let (vec_s, _, _, _) := ExpandDecapKey p sk
+  let (vec_s, _, _, _) := ExpandSecretKey p sk
   let vec_bprime := PolyVector.deserialize (ℓ := ℓ p) 10 (slice c 0 (32 * 10 * ℓ p) (by simp [ctSize]))
   let cm := deserialize (t p) (slice c (32 * 10 * ℓ p) (32 * t p) (by simp [ctSize]))
   let v := innerProduct vec_bprime (vec_s.coerce (2 ^ 10))
   let cm10 := (cm.coerce (2 ^ 10)).shiftLeft (10 - t p)
-  let mprime := RoundToR1 (t p) (v - cm10)
+  let mprime := DecodeMsg (t p) (v - cm10)
   serialize 1 mprime
 
 /-! ## Key encapsulation (spec §"KEM")
@@ -383,7 +385,7 @@ def KemEncap (p : ParameterSet) (randomness : 𝔹 32) (pk : 𝔹 (pkSize p)) :
 The final branch on `c == c'` (implicit rejection) MUST be evaluated in constant
 time by any implementation; the spec value is unaffected by the timing. -/
 def KemDecap (p : ParameterSet) (sk : 𝔹 32) (c : 𝔹 (ctSize p)) : 𝔹 32 :=
-  let (_, z, pk, pkh) := ExpandDecapKey p sk
+  let (_, z, pk, pkh) := ExpandSecretKey p sk
   let randomness := PkeDecrypt p sk c
   let b := turboSHAKE256 (randomness ‖ pkh) DOMSEP_FO 64
   let k := slice b 0 32

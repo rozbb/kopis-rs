@@ -44,10 +44,10 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     (hskfwd : sk.pke_sk = nttFwdS S)
     (hpkvecfwd : sk.kem_pk.pke_pk.vec_ntt = nttFwdU V)
     (hpkmatfwd : sk.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
-    (hsk : toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p sk_seed).1)
+    (hsk : toVector13 S = hℓ ▸ (Spec.Kopis.ExpandSecretKey p sk_seed).1)
     (hskbnd : SecretBounded S ((MU.val / 2 : ℕ) : ℤ))
-    (hz : arrayToBytes sk.z = (Spec.Kopis.ExpandDecapKey p sk_seed).2.1)
-    (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.1)
+    (hz : arrayToBytes sk.z = (Spec.Kopis.ExpandSecretKey p sk_seed).2.1)
+    (hpk : pk_bytes = (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.1)
     (hpkvec : toVecN 10 V
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
           (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
@@ -136,16 +136,16 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   let* ⟨out, hout⟩ ← conditional_select_array_u8_spec reject_val (to_slice_mut_back s3) matched
   -- === final assembly ===
   -- structural fact: `pkh` component is the hash of the `pk` component
-  have hpkh_rel : (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2
-      = turboSHAKE256 (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.1 DOMSEP_PKHASH 32 := by
-    simp only [Spec.Kopis.ExpandDecapKey]
-  have hpkh2 : (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2 = arrayToBytes sk.kem_pk.hash_pke_pk := by
+  have hpkh_rel : (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2
+      = turboSHAKE256 (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.1 DOMSEP_PKHASH 32 := by
+    simp only [Spec.Kopis.ExpandSecretKey]
+  have hpkh2 : (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2 = arrayToBytes sk.kem_pk.hash_pke_pk := by
     rw [hpkh_rel, ← hpk, ← hpkh]
   -- `b` matches the spec's `turboSHAKE256 (randomness ‖ pkh)` (bridged at the list level to
   -- avoid the `𝔹 32` vs `𝔹 ↑32#usize` size-index mismatch)
   have hbspec : b = turboSHAKE256
       (Spec.Kopis.PkeDecrypt p sk_seed (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct)
-        ‖ (Spec.Kopis.ExpandDecapKey p sk_seed).2.2.2) DOMSEP_FO 64 := by
+        ‖ (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2) DOMSEP_FO 64 := by
     rw [hb]
     refine turboSHAKE256_congr _ _ _ _ ?_
     rw [bappend_toList, bappend_toList, congrArg Vector.toList hrand]

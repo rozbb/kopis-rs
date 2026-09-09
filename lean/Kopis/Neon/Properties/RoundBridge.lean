@@ -8,7 +8,7 @@ namespace Kopis.Neon.Properties
 
 open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
 
-/-- **RoundToR10 per-coefficient bridge.**  The 16-bit physical rounding
+/-- **CompressToR10 per-coefficient bridge.**  The 16-bit physical rounding
 `(((c+4) mod 2¹⁶) >>> 3) mod 2¹⁰` depends only on the low 13 bits of `c`, matching the
 spec's 13-bit rounding `(((c mod 2¹³)+4) mod 2¹³) >>> 3`.  This is why the Rust pipeline
 (which keeps `u16` coefficients) computes the same `R10` value as the spec (which reduces
@@ -25,11 +25,11 @@ theorem round10_bridge (c : ℕ) :
   conv_lhs => rw [show c + 4 = (c % 2 ^ 13 + 4) + 2 ^ 3 * (c / 2 ^ 13 * 2 ^ 10) from by omega]
   rw [Nat.add_mul_div_left _ _ (by norm_num : 0 < 2 ^ 3), Nat.add_mul_mod_self_right]
 
-/-- **Spec-side `RoundToR10` coefficient.**  Coefficient `k` of row `i` of `RoundToR10 ℓ vv`
+/-- **Spec-side `CompressToR10` coefficient.**  Coefficient `k` of row `i` of `CompressToR10 ℓ vv`
 is `(((vv[i][k].val + 4) mod 2¹³) >>> 3)`. -/
 theorem roundR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) (i : ℕ) (hi : i < ℓ)
     (k : ℕ) (hk : k < 256) :
-    (((Spec.Kopis.RoundToR10 ℓ vv)[i]'hi)[k]'hk).val
+    (((Spec.Kopis.CompressToR10 ℓ vv)[i]'hi)[k]'hk).val
       = ((((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13) >>> 3 := by
   have hlt : ((((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13) >>> 3 < 2 ^ 10 := by
     have h1 : (((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13 < 2 ^ 13 := Nat.mod_lt _ (by positivity)
@@ -48,7 +48,7 @@ theorem roundR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) (i 
     show (Vector.ofFn fun j => vv[j] + (Vector.replicate ℓ (Spec.Kopis.Polynomial.const (2 ^ 13) 4))[j])[i]'hi
         = vv[i]'hi + Spec.Kopis.Polynomial.const (2 ^ 13) 4
     simp [Vector.getElem_ofFn, Vector.getElem_replicate]
-  unfold Spec.Kopis.RoundToR10
+  unfold Spec.Kopis.CompressToR10
   simp only [Spec.Kopis.PolyVector.coerce, Spec.Kopis.PolyVector.shiftRight, Vector.getElem_map,
     Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight, hveci,
     ZMod.val_natCast, hcoeff]

@@ -66,9 +66,9 @@ private def sample13 : Polynomial (2 ^ 13) := Vector.ofFn fun i => (i.val : ZMod
 
 /-! ### Rounding -/
 
--- `RoundToRt` on the all-zero element is zero (adding 4 then `>> (10-t)` clears).
-#guard RoundToRt 3 (Polynomial.zero (2 ^ 10)) = Polynomial.zero (2 ^ 3)
-#guard RoundToR1 3 (Polynomial.zero (2 ^ 10)) = Polynomial.zero (2 ^ 1)
+-- `CompressToRt` on the all-zero element is zero (adding 4 then `>> (10-t)` clears).
+#guard CompressToRt 3 (Polynomial.zero (2 ^ 10)) = Polynomial.zero (2 ^ 3)
+#guard DecodeMsg 3 (Polynomial.zero (2 ^ 10)) = Polynomial.zero (2 ^ 1)
 
 -- Parameter constants match the spec table.
 #guard (ℓ .Kopis_512, t .Kopis_512, μ .Kopis_512) = (2, 3, 10)

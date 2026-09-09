@@ -12,11 +12,11 @@ open arithmetic.ring_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 
-/-- **Spec-side `RoundToR1` coefficient.**  Coefficient `k` of `RoundToR1 t r` is
+/-- **Spec-side `DecodeMsg` coefficient.**  Coefficient `k` of `DecodeMsg t r` is
 `(((r[k].val + h₂) mod 2¹⁰) >>> 9)` where `h₂ = 2⁸ - 2⁹⁻ᵗ + 4` (valid for `1 ≤ t ≤ 10`). -/
 theorem roundR1_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Polynomial (2 ^ 10))
     (k : ℕ) (hk : k < 256) :
-    (((Spec.Kopis.RoundToR1 t r)[k]'hk).val)
+    (((Spec.Kopis.DecodeMsg t r)[k]'hk).val)
       = (((r[k]'hk).val + (2 ^ 8 - 2 ^ (9 - t) + 4)) % 2 ^ 10) >>> 9 := by
   haveI : NeZero ((2:ℕ)^1) := ⟨by positivity⟩
   set C : ℕ := 2 ^ 8 - 2 ^ (9 - t) + 4 with hC
@@ -39,14 +39,14 @@ theorem roundR1_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Poly
     show (((Spec.Kopis.Polynomial.add r (Spec.Kopis.Polynomial.const (2 ^ 10) ((C:ℕ):ZMod (2^10))))[k]'hk).val : ℕ) = _
     simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
       Vector.getElem_replicate, ZMod.val_add, hcv]
-  unfold Spec.Kopis.RoundToR1
+  unfold Spec.Kopis.DecodeMsg
   -- the spec writes the exponent as `10 - t - 1`; on `ℕ` that is `9 - t`, which is how `C` reads
   have hst : 10 - t - 1 = 9 - t := by omega
   simp only [hst, Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight,
     Vector.getElem_map, hcoeff, ZMod.val_natCast, ← hC]
   rw [Nat.mod_eq_of_lt (lt_of_lt_of_le hlt (by norm_num : (2:ℕ)^1 ≤ 2^10)), Nat.mod_eq_of_lt hlt]
 
-/-- **`RoundToR1` physical bridge.**  The 16-bit physical rounding
+/-- **`DecodeMsg` physical bridge.**  The 16-bit physical rounding
 `((((c+C) mod 2¹⁶) >>> 9) mod 2¹)` depends only on the low 10 bits of `c`. -/
 theorem roundR1_bridge (c C : ℕ) :
     (((c + C) % 2 ^ 16) >>> 9) % 2 ^ 1 = (((c % 2 ^ 10) + C) % 2 ^ 10) >>> 9 := by
@@ -65,14 +65,14 @@ theorem roundR1_bridge (c C : ℕ) :
     omega
   rw [hsplit, Nat.add_mul_div_left _ _ hpos, Nat.add_mul_mod_self_left]
 
-/-- **Per-`RingElem` `RoundToR1` correspondence (Rust side).**  The Rust pipeline
+/-- **Per-`RingElem` `DecodeMsg` correspondence (Rust side).**  The Rust pipeline
 `mp₂ = (mp + h₂) >>> 9` on a `u16` ring element computes the spec's
-`RoundToR1 t ((coerce to R10) mp)`. -/
+`DecodeMsg t ((coerce to R10) mp)`. -/
 theorem roundR1_ring_bridge (mp mp1 mp2 : RingElem) (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10)
     (hw : toRingElem mp1 = Spec.Kopis.Polynomial.add (toRingElem mp)
       (Spec.Kopis.Polynomial.const (2 ^ 16) (((2 ^ 8 - 2 ^ (9 - t) + 4 : ℕ) : ZMod (2 ^ 16)))))
     (hs : toRingElem mp2 = Spec.Kopis.Polynomial.shiftRight (toRingElem mp1) 9) :
-    toPolyN 1 mp2 = Spec.Kopis.RoundToR1 t ((toRingElem mp).coerce (2 ^ 10)) := by
+    toPolyN 1 mp2 = Spec.Kopis.DecodeMsg t ((toRingElem mp).coerce (2 ^ 10)) := by
   haveI : NeZero ((2:ℕ)^1) := ⟨by positivity⟩
   set C : ℕ := 2 ^ 8 - 2 ^ (9 - t) + 4 with hC
   have hClt16 : C < 2 ^ 16 := by

@@ -36,7 +36,7 @@ theorem prod_matVecMul_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
   rw [coerce_mul, coerce_toRingElem, coerce_toRingElem]
   simp only [toMatrix13, Matrix.of_apply, toVector13, Vector.getElem_ofFn]
 
-/-- **Full RoundToR10 correspondence (Rust side, no transpose).** -/
+/-- **Full CompressToR10 correspondence (Rust side, no transpose).** -/
 theorem prod2_roundR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matrix L 1#usize)
     (prod prod1 prod2 : Matrix L 1#usize) (i : ℕ) (hi : i < L.val)
     (hmt : ∀ i₀ : ℕ, i₀ < L.val → toRingElem ((prod.val[i₀]!).val[0]!)
@@ -47,7 +47,7 @@ theorem prod2_roundR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
     (hs : toRingElem ((prod2.val[i]!).val[0]!)
         = Spec.Kopis.Polynomial.shiftRight (toRingElem ((prod1.val[i]!).val[0]!)) 3) :
     toPolyN 10 ((prod2.val[i]!).val[0]!)
-      = (Spec.Kopis.RoundToR10 L.val
+      = (Spec.Kopis.CompressToR10 L.val
           (Spec.Kopis.matVecMul (toMatrix13 mat_a) (toVector13 vec_s)))[i]'hi := by
   haveI : NeZero ((2 : ℕ) ^ 10) := ⟨by positivity⟩
   apply Vector.ext

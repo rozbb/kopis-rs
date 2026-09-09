@@ -12,7 +12,7 @@ set_option maxRecDepth 8000
 Each wrapper fixes `(L, MU, T)` for its parameter set and calls the generic
 `kem.encap_deterministic` / `kem.decap`.  These theorems discharge every numeric
 side-condition (`ℓ`/`μ`/`t`, the `MU`/`T` ranges, `hfit`, `hbuf`, buffer lengths) by
-computation, leaving only the public-key/secret-key ↔ `ExpandDecapKey` correspondences
+computation, leaving only the public-key/secret-key ↔ `ExpandSecretKey` correspondences
 (to be supplied by a key-generation correctness proof). -/
 
 /-- **Kopis-512 `encapsulate_deterministic` matches `KemEncap`.** -/
@@ -60,10 +60,10 @@ theorem kopis512_decapsulate_spec
     (self : kem.KemSecretKey 2#usize) (encapsulated_key : Array U8 736#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_512))
     (S : Mat 2#usize 1#usize) (hskfwd : self.pke_sk = nttFwdS S)
-    (hsk : toVector13 S = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).1)
+    (hsk : toVector13 S = (Spec.Kopis.ExpandSecretKey .Kopis_512 sk_seed).1)
     (hskbnd : SecretBounded S (((10 : ℕ) / 2 : ℕ) : ℤ))
-    (hz : arrayToBytes self.z = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).2.1)
-    (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_512 sk_seed).2.2.1)
+    (hz : arrayToBytes self.z = (Spec.Kopis.ExpandSecretKey .Kopis_512 sk_seed).2.1)
+    (hpk : pk_bytes = (Spec.Kopis.ExpandSecretKey .Kopis_512 sk_seed).2.2.1)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 2#usize 1#usize) (Amat : Mat 2#usize 2#usize)
     (hpkvecfwd : self.kem_pk.pke_pk.vec_ntt = nttFwdU V)
@@ -140,10 +140,10 @@ theorem kopis768_decapsulate_spec
     (self : kem.KemSecretKey 3#usize) (encapsulated_key : Array U8 1088#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_768))
     (S : Mat 3#usize 1#usize) (hskfwd : self.pke_sk = nttFwdS S)
-    (hsk : toVector13 S = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).1)
+    (hsk : toVector13 S = (Spec.Kopis.ExpandSecretKey .Kopis_768 sk_seed).1)
     (hskbnd : SecretBounded S (((8 : ℕ) / 2 : ℕ) : ℤ))
-    (hz : arrayToBytes self.z = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).2.1)
-    (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_768 sk_seed).2.2.1)
+    (hz : arrayToBytes self.z = (Spec.Kopis.ExpandSecretKey .Kopis_768 sk_seed).2.1)
+    (hpk : pk_bytes = (Spec.Kopis.ExpandSecretKey .Kopis_768 sk_seed).2.2.1)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 3#usize 1#usize) (Amat : Mat 3#usize 3#usize)
     (hpkvecfwd : self.kem_pk.pke_pk.vec_ntt = nttFwdU V)
@@ -220,10 +220,10 @@ theorem kopis1024_decapsulate_spec
     (self : kem.KemSecretKey 4#usize) (encapsulated_key : Array U8 1472#usize)
     (sk_seed : 𝔹 32) (pk_bytes : 𝔹 (Spec.Kopis.pkSize .Kopis_1024))
     (S : Mat 4#usize 1#usize) (hskfwd : self.pke_sk = nttFwdS S)
-    (hsk : toVector13 S = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).1)
+    (hsk : toVector13 S = (Spec.Kopis.ExpandSecretKey .Kopis_1024 sk_seed).1)
     (hskbnd : SecretBounded S (((6 : ℕ) / 2 : ℕ) : ℤ))
-    (hz : arrayToBytes self.z = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).2.1)
-    (hpk : pk_bytes = (Spec.Kopis.ExpandDecapKey .Kopis_1024 sk_seed).2.2.1)
+    (hz : arrayToBytes self.z = (Spec.Kopis.ExpandSecretKey .Kopis_1024 sk_seed).2.1)
+    (hpk : pk_bytes = (Spec.Kopis.ExpandSecretKey .Kopis_1024 sk_seed).2.2.1)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat 4#usize 1#usize) (Amat : Mat 4#usize 4#usize)
     (hpkvecfwd : self.kem_pk.pke_pk.vec_ntt = nttFwdU V)

@@ -35,7 +35,7 @@ worlds below. Every other name therefore carries a prefix saying what it is:
 read it against `kopis-spec.md` and `make test-kopis-spec` passes. `Properties.…` is
 proved, but it is where a statement could be made vacuous, so §2 pins it down.
 
-So `RustKopisNeon.kem.KemSecretKey.expand_from_seed` is Rust, `Spec.Kopis.ExpandDecapKey` is the
+So `RustKopisNeon.kem.KemSecretKey.expand_from_seed` is Rust, `Spec.Kopis.ExpandSecretKey` is the
 specification it is claimed to implement, and `Properties.arrayToBytes` is the glue that
 lets the two be compared. A theorem is a claim about the Rust exactly when a
 `RustKopisNeon.…` name appears to the left of its `⦃ … ⦄`.
@@ -189,15 +189,15 @@ side conditions hiding a restricted input range. Read them as:
 The `2#usize`/`10#usize`-style literals are the Rust const generics `ℓ` and `μ`:
 (2, 10) is Kopis-512, (3, 8) is Kopis-768, (4, 6) is Kopis-1024. -/
 
-/-! ### §3.1 Key generation — `expand_from_seed` matches `ExpandDecapKey`
+/-! ### §3.1 Key generation — `expand_from_seed` matches `ExpandSecretKey`
 
 `KemSecretKey::expand_from_seed` is what `KemSecretKey::<2>::from_seed`
 and (via a random seed) `KemSecretKey::<2>::generate_from_rng` call. The conjuncts below say
 that the *observable* components of the resulting key are the corresponding components
-of the spec's `ExpandDecapKey`: the implicit-rejection seed `z`, the serialized public
+of the spec's `ExpandSecretKey`: the implicit-rejection seed `z`, the serialized public
 key, and its hash.
 
-`ExpandDecapKey` returns its components as a nested tuple, so the `let` block at the top
+`ExpandSecretKey` returns its components as a nested tuple, so the `let` block at the top
 of each statement below names them once — `z`, `pk`, `pkHash` — instead of leaving
 `.2.2.1`-style projections scattered through the conjuncts. Those are plain `let`s and
 definitionally transparent, so the statement is the same proposition as the projected
@@ -233,7 +233,7 @@ theorem kopis512_keygen (seed : Array U8 32#usize) :
     RustKopisNeon.kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
       ⦃ (ksk : RustKopisNeon.kem.KemSecretKey 2#usize) =>
           -- the spec's key-expansion output, with its observable components named
-          let dk     := Spec.Kopis.ExpandDecapKey .Kopis_512 (Properties.arrayToBytes seed)
+          let dk     := Spec.Kopis.ExpandSecretKey .Kopis_512 (Properties.arrayToBytes seed)
           let z      := dk.2.1      -- the implicit-rejection seed
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
@@ -251,7 +251,7 @@ theorem kopis768_keygen (seed : Array U8 32#usize) :
     RustKopisNeon.kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
       ⦃ (ksk : RustKopisNeon.kem.KemSecretKey 3#usize) =>
           -- the spec's key-expansion output, with its observable components named
-          let dk     := Spec.Kopis.ExpandDecapKey .Kopis_768 (Properties.arrayToBytes seed)
+          let dk     := Spec.Kopis.ExpandSecretKey .Kopis_768 (Properties.arrayToBytes seed)
           let z      := dk.2.1      -- the implicit-rejection seed
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash
@@ -269,7 +269,7 @@ theorem kopis1024_keygen (seed : Array U8 32#usize) :
     RustKopisNeon.kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
       ⦃ (ksk : RustKopisNeon.kem.KemSecretKey 4#usize) =>
           -- the spec's key-expansion output, with its observable components named
-          let dk     := Spec.Kopis.ExpandDecapKey .Kopis_1024 (Properties.arrayToBytes seed)
+          let dk     := Spec.Kopis.ExpandSecretKey .Kopis_1024 (Properties.arrayToBytes seed)
           let z      := dk.2.1      -- the implicit-rejection seed
           let pk     := dk.2.2.1    -- the serialized public key
           let pkHash := dk.2.2.2    -- and its hash

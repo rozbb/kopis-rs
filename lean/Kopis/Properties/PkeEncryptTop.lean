@@ -19,8 +19,8 @@ set_option maxRecDepth 8000
 
 theorem roundR10_mvm_cast {ℓ ℓ' : ℕ} (h : ℓ = ℓ') (A : Spec.Kopis.PolyMatrix (2 ^ 13) ℓ)
     (v : Spec.Kopis.PolyVector (2 ^ 13) ℓ) :
-    h ▸ Spec.Kopis.RoundToR10 ℓ (Spec.Kopis.matVecMul A v)
-      = Spec.Kopis.RoundToR10 ℓ' (Spec.Kopis.matVecMul (h ▸ A) (h ▸ v)) := by cases h; rfl
+    h ▸ Spec.Kopis.CompressToR10 ℓ (Spec.Kopis.matVecMul A v)
+      = Spec.Kopis.CompressToR10 ℓ' (Spec.Kopis.matVecMul (h ▸ A) (h ▸ v)) := by cases h; rfl
 
 theorem genSecret_cast {ℓ ℓ' : ℕ} (h : ℓ = ℓ') (μ : ℕ) (ss : 𝔹 32) :
     h ▸ Spec.Kopis.GenSecret ℓ μ ss = Spec.Kopis.GenSecret ℓ' μ ss := by cases h; rfl
@@ -154,13 +154,13 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     rw [hc, coerce_sub10, innerProduct_coerce_bridge V vec_sprime vprime1 hip]
     congr 1
     rw [hmp, he3v, msg_shift_bridge]
-  -- toPolyN T c2 = RoundToRt T (that value)
-  have hccorr : toPolyN T.val c2 = Spec.Kopis.RoundToRt T.val ((toRingElem c).coerce (2 ^ 10)) := by
+  -- toPolyN T c2 = CompressToRt T (that value)
+  have hccorr : toPolyN T.val c2 = Spec.Kopis.CompressToRt T.val ((toRingElem c).coerce (2 ^ 10)) := by
     apply roundRt_ring_bridge c c1 c2 T.val hT.2
     · rw [hc1]; congr 1
     · rw [hc2, he4v]
-  -- b' correspondence: toVecN 10 prod2 = RoundToR10 (over L.val)
-  have hbcorr : toVecN 10 prod2 = Spec.Kopis.RoundToR10 L.val
+  -- b' correspondence: toVecN 10 prod2 = CompressToR10 (over L.val)
+  have hbcorr : toVecN 10 prod2 = Spec.Kopis.CompressToR10 L.val
       (Spec.Kopis.matVecMul (toMatrix13 Amat) (toVector13 vec_sprime)) := by
     apply Vector.ext
     intro idx hidx
@@ -168,7 +168,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     simp only [toVecN, Vector.getElem_ofFn]
     exact prod2_roundR10_bridge_nt Amat vec_sprime prod prod1 prod2 idx hidx
       (fun i₀ hi₀ => hprod i₀ hi₀ 0 (by norm_num)) (hprod1 idx hidx 0 (by norm_num)) hs
-  have hbprime : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.RoundToR10 (Spec.Kopis.ℓ p)
+  have hbprime : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.CompressToR10 (Spec.Kopis.ℓ p)
       (Spec.Kopis.matVecMul
         (Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
           (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
@@ -177,7 +177,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   have hvsc : toVector13 vec_sprime
       = hℓ ▸ Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins) := by
     rw [hvecs, genSecret_cast, hμ]
-  have hcmfinal : toPolyN T.val c2 = Spec.Kopis.RoundToRt T.val
+  have hcmfinal : toPolyN T.val c2 = Spec.Kopis.CompressToRt T.val
       (Spec.Kopis.Polynomial.sub
         (Spec.Kopis.innerProduct
           (Spec.Kopis.PolyVector.deserialize 10

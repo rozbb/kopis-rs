@@ -190,9 +190,9 @@ theorem serialize_eqRec_toList {N ℓ ℓ' : ℕ} (h : ℓ = ℓ')
 
 /-- The rounded-product expression transports cleanly across the matrix dimension. -/
 theorem roundExpr_cast {ℓ ℓ' : ℕ} (h : ℓ = ℓ') (μ : ℕ) (ms ss : 𝔹 32) :
-    h ▸ (Spec.Kopis.RoundToR10 ℓ (Spec.Kopis.matVecMul
+    h ▸ (Spec.Kopis.CompressToR10 ℓ (Spec.Kopis.matVecMul
           (Matrix.transpose (Spec.Kopis.GenMat ℓ ms)) (Spec.Kopis.GenSecret ℓ μ ss)))
-      = Spec.Kopis.RoundToR10 ℓ' (Spec.Kopis.matVecMul
+      = Spec.Kopis.CompressToR10 ℓ' (Spec.Kopis.matVecMul
           (Matrix.transpose (Spec.Kopis.GenMat ℓ' ms)) (Spec.Kopis.GenSecret ℓ' μ ss)) := by
   cases h; rfl
 
@@ -209,7 +209,7 @@ theorem turboSHAKE256_congr {a b : ℕ} (X : 𝔹 a) (Y : 𝔹 b) (D : Byte) (N 
     have h2 := congrArg List.length h; simp only [Vector.toList_length] at h2; exact h2
   subst hab; rw [Vector.toList_inj.mp h]
 
-/-- **Rust `expand_decap_key` matches the spec `ExpandDecapKey`.** -/
+/-- **Rust `expand_decap_key` matches the spec `ExpandSecretKey`.** -/
 theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     (p : Spec.Kopis.ParameterSet)
     (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val)
@@ -221,11 +221,11 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
           -- the secret vector `s`: `pke_sk` is its NTT-domain image, it is the spec's secret,
           -- and its coefficients are within the secret bound
           (∃ S : Mat L 1#usize, r.1 = nttFwdS S ∧
-              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandDecapKey p (skBytes sk)).1 ∧
+              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandSecretKey p (skBytes sk)).1 ∧
               SecretBounded S ((MU.val / 2 : ℕ) : ℤ)) ∧
-          arrayToBytes r.2.1 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.1 ∧
-          pkStructBytes r.2.2.1 p hℓ = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.1 ∧
-          arrayToBytes r.2.2.2 = (Spec.Kopis.ExpandDecapKey p (skBytes sk)).2.2.2 ∧
+          arrayToBytes r.2.1 = (Spec.Kopis.ExpandSecretKey p (skBytes sk)).2.1 ∧
+          pkStructBytes r.2.2.1 p hℓ = (Spec.Kopis.ExpandSecretKey p (skBytes sk)).2.2.1 ∧
+          arrayToBytes r.2.2.2 = (Spec.Kopis.ExpandSecretKey p (skBytes sk)).2.2.2 ∧
           -- the public matrix `A`: `mat_a_ntt` is its NTT-domain image, and it is `GenMat`
           (∃ Amat : Mat L L, r.2.2.1.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes r.2.2.1.matrix_seed) ∧
@@ -360,7 +360,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     unfold matSeedBytes
     rw [Vector.toList_cast, hmatseed]
   -- the rounded vector corresponds to the spec's `vec_b` (over `L.val`)
-  have hvecb : toVecN 10 prod2 = Spec.Kopis.RoundToR10 L.val
+  have hvecb : toVecN 10 prod2 = Spec.Kopis.CompressToR10 L.val
       (Spec.Kopis.matVecMul (Matrix.transpose (toMatrix13 mat_a)) (toVector13 vec_s)) := by
     apply Vector.ext
     intro idx hidx
@@ -370,7 +370,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     exact prod2_roundR10_bridge mat_a vec_s prod prod1 prod2 idx hidx
       (fun i₀ hi₀ => hprod i₀ hi₀ 0 (by omega)) (hprod1 idx hidx 0 (by omega)) hs
   -- the rounded vector, transported to the spec's `ℓ p` index, is the spec's `vec_b`
-  have hvecbcast : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.RoundToR10 (Spec.Kopis.ℓ p)
+  have hvecbcast : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.CompressToR10 (Spec.Kopis.ℓ p)
       (Spec.Kopis.matVecMul (Matrix.transpose (Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
           (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
             DOMSEP_KGEXPAND 96) 0 32 (by omega))))
@@ -378,7 +378,7 @@ theorem expand_decap_key_spec (L MU : Usize) (sk : Array U8 32#usize)
           (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
             DOMSEP_KGEXPAND 96) 32 32 (by omega)))) := by
     rw [hvecb, hmata, hmatseed, hvecs, hsecseed, roundExpr_cast hℓ, hμ]
-  simp only [Spec.Kopis.ExpandDecapKey]
+  simp only [Spec.Kopis.ExpandSecretKey]
   refine ⟨⟨vec_s, hvecs_ntt, ?_, hvecbnd⟩, hzseed, ?_, ?_,
           ⟨mat_a, hmata_ntt, hmata, hmatbnd⟩, ⟨prod2, hvecntt, hprod2bnd, ?_⟩⟩
   · -- the secret vector is the spec's secret

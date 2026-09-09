@@ -7,7 +7,7 @@ set_option maxHeartbeats 4000000
 
 /-! ## Unconditional decapsulation for a key-gen output.
 
-Composing `expand_from_seed_spec` (key-gen = `ExpandDecapKey`) with the hypothesis
+Composing `expand_from_seed_spec` (key-gen = `ExpandSecretKey`) with the hypothesis
 discharges (`keygen_hpkvec/hpkmat/hpkh`) removes ALL the structural side-conditions from
 the decapsulation wrappers: for a secret key produced by `expand_from_seed` from a seed,
 `decapsulate` computes exactly `KemDecap` of that seed. -/
@@ -111,22 +111,22 @@ theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
   subst ha hnm hnm1 ha1
   rfl
 
-/-- `SkToPk` unfolds definitionally to the public-key component of `ExpandDecapKey`. Proved
+/-- `SkToPk` unfolds definitionally to the public-key component of `ExpandSecretKey`. Proved
 here (cheaply, by `rfl`) *before* the local-irreducible attribute below, so the
 `keygen_encap` composites can bridge the two forms by rewriting with this equation rather than
 by a `whnf` that would unfold the huge spec term. -/
 theorem skToPk_eq (p : Spec.Kopis.ParameterSet) (sk : 𝔹 32) :
-    Spec.Kopis.SkToPk p sk = (Spec.Kopis.ExpandDecapKey p sk).2.2.1 := rfl
+    Spec.Kopis.SkToPk p sk = (Spec.Kopis.ExpandSecretKey p sk).2.2.1 := rfl
 
 -- The three `keygen_encap_spec` composites below check the `keygen_hpk*` facts against
 -- `encapsulate_deterministic_spec`'s expected types over the huge spec-level `KemEncap` /
--- `ExpandDecapKey` / `SkToPk` terms.  Making those three spec definitions *locally* irreducible
+-- `ExpandSecretKey` / `SkToPk` terms.  Making those three spec definitions *locally* irreducible
 -- stops `whnf`/`kabstract` from unfolding them during elaboration — which is exactly what
 -- otherwise blows up — while the proofs only ever touch them through `skToPk_eq` and the
 -- already-compiled specs.  (The decapsulation capstones above are unaffected: this attribute
 -- takes effect only from here onward in the file.)
 attribute [local irreducible]
-  Spec.Kopis.SkToPk Spec.Kopis.KemEncap Spec.Kopis.ExpandDecapKey
+  Spec.Kopis.SkToPk Spec.Kopis.KemEncap Spec.Kopis.ExpandSecretKey
 
 /-- Kopis-512 `public_key` (the impls wrapper) hands back the stored `kem_pk`. -/
 theorem kopis512_public_key_spec (self : kem.KemSecretKey 2#usize) :
