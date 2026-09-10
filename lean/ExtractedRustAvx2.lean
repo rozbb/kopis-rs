@@ -6593,10 +6593,10 @@ def pke.H1_VAL : Result Std.U16 := do
   let i1 ← i - 1#i32
   1#u16 <<< i1
 
-/-- [kopis::pke::expand_decap_key]: loop 0:
+/-- [kopis::pke::expand_secret_key]: loop 0:
     Source: 'src/pke.rs', lines 170:4-172:5 -/
 @[rust_loop]
-def pke.expand_decap_key_loop
+def pke.expand_secret_key_loop
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
   (b : arithmetic.matrix_arith.Matrix L 1#usize)
   (vec_bytes : Array (Array Std.U8 320#usize) L) :
@@ -6614,12 +6614,12 @@ def pke.expand_decap_key_loop
     let s1 ← arithmetic.ring_arith.RingElem.serialize re s 10#usize
     let a2 := to_slice_mut_back s1
     let a3 := index_mut_back a2
-    pke.expand_decap_key_loop iter1 b a3
+    pke.expand_secret_key_loop iter1 b a3
 partial_fixpoint
 
-/-- [kopis::pke::expand_decap_key]:
+/-- [kopis::pke::expand_secret_key]:
     Source: 'src/pke.rs', lines 134:0-183:1 -/
-def pke.expand_decap_key
+def pke.expand_secret_key
   (L : Std.Usize) (MU : Std.Usize) (sk : Array Std.U8 32#usize) :
   Result ((pke.PkeSecretKey L) × (Array Std.U8 32#usize) × (pke.PkePublicKey
     L) × (Array Std.U8 32#usize))
@@ -6662,7 +6662,7 @@ def pke.expand_decap_key
   let vec_bytes := Array.repeat L a
   let z1 := to_slice_mut_back2 s7
   let vec_bytes1 ←
-    pke.expand_decap_key_loop { start := 0#usize, «end» := L } prod2
+    pke.expand_secret_key_loop { start := 0#usize, «end» := L } prod2
       vec_bytes
   let pkh ←
     pke.PkePublicKey.hash
@@ -6677,7 +6677,7 @@ def kem.KemSecretKey.expand_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (kem.KemSecretKey L)
   := do
-  let (pke_sk, z, pke_pk, hash_pke_pk) ← pke.expand_decap_key L MU seed
+  let (pke_sk, z, pke_pk, hash_pke_pk) ← pke.expand_secret_key L MU seed
   ok { seed, z, pke_sk, kem_pk := { pke_pk, hash_pke_pk } }
 
 /-- [kopis::pke::{impl zeroize::Zeroize for kopis::pke::PkeSecretKey<L>}::zeroize]:

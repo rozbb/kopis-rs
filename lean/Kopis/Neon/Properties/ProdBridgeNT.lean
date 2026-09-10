@@ -3,9 +3,9 @@
 -- constants and this stack's namespace renamed, and nothing else changed.
 import Kopis.Bits.Stream
 import Kopis.Neon.Properties.ProdBridge
-import Kopis.Neon.Properties.RoundBridge
+import Kopis.Neon.Properties.CompressBridge
 import Kopis.Neon.Properties.MatrixArith
-import Kopis.Neon.Properties.RoundTop
+import Kopis.Neon.Properties.CompressTop
 open Aeneas Aeneas.Std Result RustKopisNeon
 open scoped BigOperators
 namespace Kopis.Neon.Properties
@@ -37,7 +37,7 @@ theorem prod_matVecMul_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
   simp only [toMatrix13, Matrix.of_apply, toVector13, Vector.getElem_ofFn]
 
 /-- **Full CompressToR10 correspondence (Rust side, no transpose).** -/
-theorem prod2_roundR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matrix L 1#usize)
+theorem prod2_compressR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matrix L 1#usize)
     (prod prod1 prod2 : Matrix L 1#usize) (i : ℕ) (hi : i < L.val)
     (hmt : ∀ i₀ : ℕ, i₀ < L.val → toRingElem ((prod.val[i₀]!).val[0]!)
         = ∑ ii ∈ Finset.range L.val,
@@ -54,7 +54,7 @@ theorem prod2_roundR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
   intro k hk
   apply ZMod.val_injective
   set vv := Spec.Kopis.matVecMul (toMatrix13 mat_a) (toVector13 vec_s) with hvv
-  rw [roundR10_coeff vv i hi k hk,
+  rw [compressR10_coeff vv i hi k hk,
     ← getElem!_pos (toPolyN 10 ((prod2.val[i]!).val[0]!)) k hk, toPolyN_val 10 _ k hk,
     ← toRingElem_coeff_val _ k hk, getElem!_pos _ k hk, hs]
   simp only [Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map, ZMod.val_natCast]
@@ -70,7 +70,7 @@ theorem prod2_roundR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
       Vector.getElem_replicate, hc4, ZMod.val_add, h4]
   rw [hp1]
   set c := ((toRingElem ((prod.val[i]!).val[0]!))[k]'hk).val with hc
-  rw [Nat.mod_mod_of_dvd _ (show (2 : ℕ) ^ 10 ∣ 2 ^ 16 from by norm_num), round10_bridge c]
+  rw [Nat.mod_mod_of_dvd _ (show (2 : ℕ) ^ 10 ∣ 2 ^ 16 from by norm_num), compress10_bridge c]
   -- vv[i][k].val = c % 2^13
   have hvvc : ((vv[i]'hi)[k]'hk).val = c % 2 ^ 13 := by
     have hb := prod_matVecMul_bridge_nt mat_a vec_s prod i hi hmt

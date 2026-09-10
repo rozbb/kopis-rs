@@ -406,16 +406,16 @@ import Kopis.Avx2.SampleBridge"""),
       ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
           SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
   apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU hL hL4)"""),
-    # `expand_decap_key_spec` calls all four sampler specs.  `L ≤ 4` and `L*L + 4 ≤ Usize.max`
+    # `expand_secret_key_spec` calls all four sampler specs.  `L ≤ 4` and `L*L + 4 ≤ Usize.max`
     # follow from hypotheses it already has (`_hbuf` and `_hL`); `0 < L` does not, so it is added.
-    ("ExpandDecap.lean",
+    ("ExpandSecretKey.lean",
      """    (_hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
     (_hL : L.val < 256) :
-    pke.expand_decap_key L MU sk""",
+    pke.expand_secret_key L MU sk""",
      """    (_hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
     (_hL : L.val < 256) (hL0 : 0 < L.val) :
-    pke.expand_decap_key L MU sk"""),
-    ("ExpandDecap.lean",
+    pke.expand_secret_key L MU sk"""),
+    ("ExpandSecretKey.lean",
      """  let* ⟨mat_a, hmata, hmatbnd⟩ ← spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3))
     (gen_matrix_uniformBounded (to_slice_mut_back s3))
   let* ⟨vec_s, hvecs, hvecbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU)
@@ -432,8 +432,8 @@ import Kopis.Avx2.SampleBridge"""),
     (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU hL0 hL4)"""),
     # The two remaining callers of the sampler specs, threading the same hypotheses onward.
     ("KeyGen.lean",
-     """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL""",
-     """    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL _hL0"""),
+     """    expand_secret_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL""",
+     """    expand_secret_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL _hL0"""),
     ("PkeEncryptTop.lean",
      """    (hT : 1 ≤ T.val ∧ T.val ≤ 10)
     (hfit : L.val * 10 * 256 ≤ Usize.max)""",

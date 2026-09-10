@@ -2,7 +2,7 @@
 
 use crate::{
     consts::{DOMSEP_FO, DOMSEP_NOREJECT},
-    pke::{self, PkePublicKey, PkeSecretKey, ciphertext_len, expand_decap_key, max_ciphertext_len},
+    pke::{self, PkePublicKey, PkeSecretKey, ciphertext_len, expand_secret_key, max_ciphertext_len},
     turboshake256_hash,
 };
 
@@ -78,7 +78,7 @@ pub struct KemSecretKey<const L: usize> {
 impl<const L: usize> KemSecretKey<L> {
     /// Expands a secret key from its 32-byte seed form
     pub(crate) fn expand_from_seed<const MU: usize>(seed: &[u8; 32]) -> KemSecretKey<L> {
-        let (pke_sk, z, pke_pk, hash_pke_pk) = expand_decap_key::<L, MU>(seed);
+        let (pke_sk, z, pke_pk, hash_pke_pk) = expand_secret_key::<L, MU>(seed);
         let kem_pk = KemPublicKey {
             pke_pk,
             hash_pke_pk,

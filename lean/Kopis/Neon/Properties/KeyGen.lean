@@ -2,7 +2,7 @@
 -- See NEON_VERIFICATION_PLAN.md phase E: the serial proof, with the extracted
 -- constants and this stack's namespace renamed, and nothing else changed.
 import Kopis.Bits.Stream
-import Kopis.Neon.Properties.ExpandDecap
+import Kopis.Neon.Properties.ExpandSecretKey
 open Aeneas Aeneas.Std Result RustKopisNeon
 open Spec (𝔹)
 namespace Kopis.Neon.Properties
@@ -11,7 +11,7 @@ open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamB
 set_option maxHeartbeats 1000000
 
 /-- **Rust KEM key expansion matches the spec `ExpandSecretKey`.**  `expand_from_seed`
-runs `expand_decap_key` and packs the four outputs into a `KemSecretKey`; each field is
+runs `expand_secret_key` and packs the four outputs into a `KemSecretKey`; each field is
 exactly the corresponding `ExpandSecretKey` component (the secret vector, the reject seed
 `z`, the serialized public key, and its hash). -/
 theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
@@ -41,7 +41,7 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
   let* ⟨pke_sk, z, pke_pk, hash_pke_pk,
         S, hS1, hS2, hS3, hz, hpk, hhash,
         Am, hA1, hA2, hA3, V, hV1, hV2, hV3⟩ ←
-    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL _hL0
+    expand_secret_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL _hL0
   exact ⟨⟨S, hS1, hS2, hS3⟩, hz, hpk, hhash, ⟨Am, hA1, hA2, hA3⟩, ⟨V, hV1, hV2, hV3⟩⟩
 
 end Kopis.Neon.Properties

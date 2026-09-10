@@ -248,7 +248,7 @@ regression that reopened any of it would fail the build. -/
 The transform-level correctness, stated as a **drop-in for `matrix_mul_transpose_spec`**: the
 Rust path `from_uniform A → from_secret s → mul_transpose` produces exactly the schoolbook
 product that `matrix_mul_transpose_spec` proves `Matrix.mul_transpose A s` produces. Downstream
-proofs (`ExpandDecap`, `PkeEncryptTop`, `PkeDecryptTop`) can then replace the schoolbook step
+proofs (`ExpandSecretKey`, `PkeEncryptTop`, `PkeDecryptTop`) can then replace the schoolbook step
 with this one, discharging the magnitude preconditions from the `gen_matrix` / `gen_secret`
 magnitude lemmas (still to be proved — see `NTT_REFACTOR_STATUS.md`).
 

@@ -7,7 +7,7 @@ namespace Kopis.Properties
 spec's 13-bit rounding `(((c mod 2¹³)+4) mod 2¹³) >>> 3`.  This is why the Rust pipeline
 (which keeps `u16` coefficients) computes the same `R10` value as the spec (which reduces
 to `R13` after `matVecMul`). -/
-theorem round10_bridge (c : ℕ) :
+theorem compress10_bridge (c : ℕ) :
     (((c + 4) % 2 ^ 16) >>> 3) % 2 ^ 10 = (((c % 2 ^ 13) + 4) % 2 ^ 13) >>> 3 := by
   simp only [Nat.shiftRight_eq_div_pow]
   have lhs : (((c + 4) % 2 ^ 16) / 2 ^ 3) % 2 ^ 10 = (c + 4) / 2 ^ 3 % 2 ^ 10 := by
@@ -21,7 +21,7 @@ theorem round10_bridge (c : ℕ) :
 
 /-- **Spec-side `CompressToR10` coefficient.**  Coefficient `k` of row `i` of `CompressToR10 ℓ vv`
 is `(((vv[i][k].val + 4) mod 2¹³) >>> 3)`. -/
-theorem roundR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) (i : ℕ) (hi : i < ℓ)
+theorem compressR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) (i : ℕ) (hi : i < ℓ)
     (k : ℕ) (hk : k < 256) :
     (((Spec.Kopis.CompressToR10 ℓ vv)[i]'hi)[k]'hk).val
       = ((((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13) >>> 3 := by

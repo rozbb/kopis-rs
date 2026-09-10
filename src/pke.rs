@@ -131,7 +131,7 @@ pub const fn ciphertext_len<const L: usize, const T: usize>() -> usize {
 /// - `pkh` is the hash of the public key
 // `needless_range_loop`: explicit index loop kept for aeneas-extraction friendliness.
 #[allow(clippy::needless_range_loop)]
-pub(crate) fn expand_decap_key<const L: usize, const MU: usize>(
+pub(crate) fn expand_secret_key<const L: usize, const MU: usize>(
     sk: &[u8; 32],
 ) -> (PkeSecretKey<L>, [u8; 32], PkePublicKey<L>, [u8; 32]) {
     // mat_seed || secret_seed || r = TurboSHAKE256(sk || ℓ, 96, DOMSEP_KGEXPAND)
@@ -273,7 +273,7 @@ mod test {
             // Generate a random secret key seed and expand it
             let mut sk_seed = [0u8; 32];
             rng.fill_bytes(&mut sk_seed);
-            let (sk, _, pk, _) = expand_decap_key::<L, MU>(&sk_seed);
+            let (sk, _, pk, _) = expand_secret_key::<L, MU>(&sk_seed);
 
             // Encrypt a random message
             let mut enc_seed = [0u8; 32];

@@ -100,7 +100,7 @@ squeeze with its first `offset` bytes dropped (XOF prefix/streaming property, RF
 /-- `read` (RATE = 136 ⇒ TurboSHAKE256) fills `out` with the XOF output determined
 by the reader's domain separator and absorbed message.  A `read` advances the consumed
 offset but leaves the absorbed message and domain separator (`readerModel`) unchanged, so
-several reads stream successive windows of the same squeeze (used by `expand_decap_key`). -/
+several reads stream successive windows of the same squeeze (used by `expand_secret_key`). -/
 @[step] axiom reader_read136_spec
     (r : turboshake.TurboShakeReader 136#usize) (out : Slice U8) :
     turboshake.TurboShakeReader.Insts.DigestXofReader.read r out

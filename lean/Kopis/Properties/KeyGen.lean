@@ -1,11 +1,11 @@
-import Kopis.Properties.ExpandDecap
+import Kopis.Properties.ExpandSecretKey
 open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 namespace Kopis.Properties
 set_option maxHeartbeats 1000000
 
 /-- **Rust KEM key expansion matches the spec `ExpandSecretKey`.**  `expand_from_seed`
-runs `expand_decap_key` and packs the four outputs into a `KemSecretKey`; each field is
+runs `expand_secret_key` and packs the four outputs into a `KemSecretKey`; each field is
 exactly the corresponding `ExpandSecretKey` component (the secret vector, the reject seed
 `z`, the serialized public key, and its hash). -/
 theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
@@ -35,7 +35,7 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
   let* ⟨pke_sk, z, pke_pk, hash_pke_pk,
         S, hS1, hS2, hS3, hz, hpk, hhash,
         Am, hA1, hA2, hA3, V, hV1, hV2, hV3⟩ ←
-    expand_decap_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL
+    expand_secret_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL
   exact ⟨⟨S, hS1, hS2, hS3⟩, hz, hpk, hhash, ⟨Am, hA1, hA2, hA3⟩, ⟨V, hV1, hV2, hV3⟩⟩
 
 end Kopis.Properties

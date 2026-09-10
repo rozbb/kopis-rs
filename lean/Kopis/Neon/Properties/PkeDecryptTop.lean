@@ -2,14 +2,14 @@
 -- See NEON_VERIFICATION_PLAN.md phase E: the serial proof, with the extracted
 -- constants and this stack's namespace renamed, and nothing else changed.
 import Kopis.Bits.Stream
-import Kopis.Neon.Properties.RoundR1
+import Kopis.Neon.Properties.DecodeMsg
 import Kopis.Neon.Properties.DecryptGlue
 import Kopis.Neon.Properties.InnerProduct
 import Kopis.Neon.Properties.EncryptGlue
 import Kopis.Neon.Properties.MulTranspose
 import Kopis.Neon.Properties.RingArith
 import Kopis.Neon.Properties.SerializeTop
-import Kopis.Neon.Properties.ExpandDecap
+import Kopis.Neon.Properties.ExpandSecretKey
 import Kopis.Neon.Properties.DeserializeVec
 import Kopis.Neon.Properties.DeserializeCm
 open Aeneas Aeneas.Std Result RustKopisNeon
@@ -186,9 +186,9 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
           (Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 S).coerce (2 ^ 10)))
           (((toPolyN T.val cm).coerce (2 ^ 10)).shiftLeft (10 - T.val)) := by
     rw [hmprime, coerce_sub10, hvcoerce, hc1coerce]
-  have hround : toPolyN 1 mprime2
+  have hdecode : toPolyN 1 mprime2
       = Spec.Kopis.DecodeMsg T.val ((toRingElem mprime).coerce (2 ^ 10)) := by
-    apply roundR1_ring_bridge mprime mprime1 mprime2 T.val ⟨by omega, by omega⟩
+    apply decodeMsg_ring_bridge mprime mprime1 mprime2 T.val ⟨by omega, by omega⟩
     · rw [hmprime1]; congr 2; rw [hh2v]
     · rw [hmprime2, hi12v]
   -- spec-side slice/cast bridging
@@ -229,7 +229,7 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
   have houtval : (Array.from_slice (Array.repeat 32#usize 0#u8) s1).val = s1.val :=
     Array.from_slice_val _ s1 (by show s1.val.length = 32; rw [hs1val32])
   apply Vector.toList_inj.mp
-  rw [arrayToBytes_toList, houtval, ← sliceToBytes_toList hs1len, hs1eq, hround, hmcoerce, hv_spec,
+  rw [arrayToBytes_toList, houtval, ← sliceToBytes_toList hs1len, hs1eq, hdecode, hmcoerce, hv_spec,
     hcm_spec]
   -- reduce the spec side: destructure `ExpandSecretKey` to collapse the `match`, align `t p = ↑T`
   unfold Spec.Kopis.PkeDecrypt
