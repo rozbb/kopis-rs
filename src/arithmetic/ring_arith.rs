@@ -1,4 +1,4 @@
-//! This file defines and implements Saber ring elements, specifically ℤ[X]/(X^256 + 1) mod n where
+//! This file defines and implements Kopis ring elements, specifically ℤ[X]/(X^256 + 1) mod n where
 //! n can be any power of two at most 2^16
 
 use crate::{
@@ -38,39 +38,44 @@ impl RingElem {
 
     /// Deserializes a ring element, treating each coefficient as having only `bits_per_elem` bits.
     #[allow(clippy::unwrap_used)]
-    pub(crate) fn deserialize(bytes: &[u8], bits_per_elem: usize) -> Self {
-        assert_eq!(bytes.len(), bits_per_elem * RING_DEG / 8);
+    pub(crate) fn deserialize<const BITS_PER_ELEM: usize>(bytes: &[u8]) -> Self {
+        // We support deserialization of any number of bits up to 13
+        assert!((1..=13).contains(&BITS_PER_ELEM));
+        // The bytes must be exactly RING_DEG-many copies of BITS_PER_ELEM
+        assert_eq!(bytes.len(), BITS_PER_ELEM * RING_DEG / 8);
 
         // One AVX2 unpacker covers every width, so it subsumes both specializations below.
         #[cfg(kopis_avx2)]
         #[allow(unsafe_code)]
-        if (1..=13).contains(&bits_per_elem) && crate::backend::avx2_available() {
+        if crate::backend::avx2_available() {
             // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2. The width
             // and length preconditions are the range check above and the assertion.
             return RingElem(unsafe {
-                crate::backend::avx2::ser::deserialize(bytes, bits_per_elem)
+                crate::backend::avx2::ser::deserialize(bytes, BITS_PER_ELEM)
             });
         }
 
         #[cfg(kopis_neon)]
         #[allow(unsafe_code)]
-        if (1..=13).contains(&bits_per_elem) && crate::backend::neon_available() {
+        if crate::backend::neon_available() {
             // SAFETY: `neon_available()` has just confirmed this CPU supports NEON. The width
             // and length preconditions are the range check above and the assertion.
             return RingElem(unsafe {
-                crate::backend::neon::ser::deserialize(bytes, bits_per_elem)
+                crate::backend::neon::ser::deserialize(bytes, BITS_PER_ELEM)
             });
         }
 
         // Specialize based on bits_per_elem. unwraps are okay because of the check above
-        if bits_per_elem == 13 {
-            let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();
-            RingElem(crate::ser::deserialize_13(arr))
-        } else if bits_per_elem == 10 {
-            let arr: &[u8; 10 * RING_DEG / 8] = bytes.try_into().unwrap();
-            RingElem(crate::ser::deserialize_10(arr))
-        } else {
-            RingElem(deserialize_generic(bytes, bits_per_elem))
+        match BITS_PER_ELEM {
+            13 => {
+                let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();
+                RingElem(crate::ser::deserialize_13(arr))
+            }
+            10 => {
+                let arr: &[u8; 10 * RING_DEG / 8] = bytes.try_into().unwrap();
+                RingElem(crate::ser::deserialize_10(arr))
+            }
+            _ => RingElem(deserialize_generic(bytes, BITS_PER_ELEM)),
         }
     }
 
@@ -340,7 +345,7 @@ mod test {
             rng.fill_bytes(bytes);
             assert_eq!(
                 saber_ref_from_bytes_mod8192(&bytes),
-                RingElem::deserialize(&bytes, 13)
+                RingElem::deserialize::<13>(&bytes)
             );
 
             // Now check it matches the reference to_bytes impl
@@ -356,7 +361,7 @@ mod test {
             rng.fill_bytes(bytes);
             assert_eq!(
                 saber_ref_from_bytes_mod1024(&bytes).0,
-                RingElem::deserialize(&bytes, 10).0,
+                RingElem::deserialize::<10>(&bytes).0,
             );
 
             let bits_per_elem = 1;
@@ -364,7 +369,7 @@ mod test {
             rng.fill_bytes(bytes);
             assert_eq!(
                 saber_ref_from_bytes_mod2(&bytes).0,
-                RingElem::deserialize(&bytes, 1).0,
+                RingElem::deserialize::<1>(&bytes).0,
             );
 
             // Now check it matches the reference to_bytes impl
@@ -391,15 +396,35 @@ mod test {
                 // Check that a round trip preserves the polynomial
                 let p_bytes = &mut backing_buf1[..bits_per_elem * RING_DEG / 8];
                 p.serialize(p_bytes, bits_per_elem);
-                assert_eq!(p, RingElem::deserialize(&p_bytes, bits_per_elem));
+                assert_eq!(p, dynamic_deserialize_elem(&p_bytes, bits_per_elem));
 
                 // Now other way around
                 let p_bytes = &mut backing_buf1[..bits_per_elem * RING_DEG / 8];
                 rng.fill_bytes(p_bytes);
-                let p = RingElem::deserialize(&p_bytes, bits_per_elem);
+                let p = dynamic_deserialize_elem(&p_bytes, bits_per_elem);
                 let new_p_bytes = &mut backing_buf2[..bits_per_elem * RING_DEG / 8];
                 p.serialize(new_p_bytes, bits_per_elem);
                 assert_eq!(p_bytes, new_p_bytes);
+            }
+        }
+
+        /// Runs RingElem::deserialize<bits_per_elem)(bytes)
+        fn dynamic_deserialize_elem(bytes: &[u8], bits_per_elem: usize) -> RingElem {
+            match bits_per_elem {
+                13 => RingElem::deserialize::<13>(bytes),
+                12 => RingElem::deserialize::<12>(bytes),
+                11 => RingElem::deserialize::<11>(bytes),
+                10 => RingElem::deserialize::<10>(bytes),
+                9 => RingElem::deserialize::<9>(bytes),
+                8 => RingElem::deserialize::<8>(bytes),
+                7 => RingElem::deserialize::<7>(bytes),
+                6 => RingElem::deserialize::<6>(bytes),
+                5 => RingElem::deserialize::<5>(bytes),
+                4 => RingElem::deserialize::<4>(bytes),
+                3 => RingElem::deserialize::<3>(bytes),
+                2 => RingElem::deserialize::<2>(bytes),
+                1 => RingElem::deserialize::<1>(bytes),
+                _ => panic!("Unsupported bits_per_elem {bits_per_elem}"),
             }
         }
     }

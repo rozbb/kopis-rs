@@ -195,7 +195,7 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
     let bprime: Matrix<L, 1> = Matrix::deserialize_10(bprime_bytes);
     let bprime_ntt = NttMatrix::from_uniform_matrix(&bprime);
 
-    let mut c = RingElem::deserialize(c_bytes, T);
+    let mut c = RingElem::deserialize::<T>(c_bytes);
     c.shift_left(10 - T);
 
     let v = bprime_ntt.mul_transpose(&sk.0);

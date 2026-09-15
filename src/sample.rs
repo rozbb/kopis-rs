@@ -153,7 +153,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
 
             let mut reader = hasher.finalize_xof();
             reader.read(&mut buf);
-            mat.0[i][j] = RingElem::deserialize(&buf, 13);
+            mat.0[i][j] = RingElem::deserialize::<13>(&buf);
         }
     }
 

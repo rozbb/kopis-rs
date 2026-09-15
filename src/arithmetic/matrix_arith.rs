@@ -125,7 +125,7 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
             for j in 0..Y {
                 let idx = i * Y + j;
                 let chunk = &bytes[idx * chunk_len..(idx + 1) * chunk_len];
-                result.0[i][j] = RingElem::deserialize(chunk, 10);
+                result.0[i][j] = RingElem::deserialize::<10>(chunk);
             }
         }
 

@@ -36,7 +36,7 @@ use turboshake::{
 };
 
 /// Helper function that computes the 32-bytes digest of the concatenation of the given inputs
-/// using TurboSHAKE256 with the given domain separator `DS` Pass an empty slice for `input1` to
+/// using TurboSHAKE256 with the given domain separator `DS`. Pass an empty slice for `input1` to
 /// hash a single input.
 // Note: we cannot take a `&[&[u8]]` because that's a nested borrow, which aeneas doesn't support
 // yet.

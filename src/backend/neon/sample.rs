@@ -256,7 +256,7 @@ mod test {
                     hasher.update(&[i as u8]);
                     hasher.update(&[j as u8]);
                     hasher.finalize_xof().read(&mut buf);
-                    let expected = RingElem::deserialize(&buf, 13);
+                    let expected = RingElem::deserialize::<13>(&buf);
                     assert_eq!(actual.0[i][j], expected, "L = {L}, entry ({i}, {j})");
                 }
             }
