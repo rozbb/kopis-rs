@@ -389,7 +389,7 @@ impl<const X: usize, const Y: usize> NttMatrix<X, Y> {
     }
 
     /// Multiplies two NTT-domain matrices, returning the result in the coefficient domain.
-    /// Equivalent to [`Matrix::mul`] on the corresponding coefficient-domain matrices.
+    /// Equivalent to schoolbook multiplication of the corresponding coefficient-domain matrices.
     pub(crate) fn mul<const Z: usize>(&self, other: &NttMatrix<Y, Z>) -> Matrix<X, Z> {
         // The inner dimension bounds the pointwise accumulator (see pointwise_mul_acc)
         debug_assert!(Y <= crate::consts::MAX_L);
@@ -408,7 +408,7 @@ impl<const X: usize, const Y: usize> NttMatrix<X, Y> {
     }
 
     /// Multiplies the transpose of this NTT-domain matrix by another, returning the result in
-    /// the coefficient domain. Equivalent to [`Matrix::mul_transpose`].
+    /// the coefficient domain. Equivalent to schoolbook multiplication by the transpose.
     pub(crate) fn mul_transpose<const Z: usize>(&self, other: &NttMatrix<X, Z>) -> Matrix<Y, Z> {
         // The inner dimension bounds the pointwise accumulator (see pointwise_mul_acc)
         debug_assert!(X <= crate::consts::MAX_L);
@@ -509,7 +509,79 @@ mod test {
         }
     }
 
-    // NTT-domain matrix products must match the schoolbook Matrix products exactly, for the
+    /// Naive schoolbook multiply-accumulate directly in Z[X]/(X^256+1): adds `a·b` into `acc`.
+    /// O(n²) with explicit ring reduction — the simplest correct implementation, and the
+    /// reference every product in this module is checked against.
+    fn schoolbook_ring_mul_acc(acc: &mut RingElem, a: &RingElem, b: &RingElem) {
+        for i in 0..RING_DEG {
+            for j in 0..RING_DEG {
+                let prod = a.0[i].wrapping_mul(b.0[j]);
+                let idx = i + j;
+                if idx < RING_DEG {
+                    acc.0[idx] = acc.0[idx].wrapping_add(prod);
+                } else {
+                    // X^256 = -1 in our ring, so wrap and negate
+                    acc.0[idx - RING_DEG] = acc.0[idx - RING_DEG].wrapping_sub(prod);
+                }
+            }
+        }
+    }
+
+    /// Schoolbook `a · b`, entry by entry
+    fn schoolbook_mul<const X: usize, const Y: usize, const Z: usize>(
+        a: &Matrix<X, Y>,
+        b: &Matrix<Y, Z>,
+    ) -> Matrix<X, Z> {
+        let mut result = Matrix::default();
+        for i in 0..X {
+            for j in 0..Y {
+                for k in 0..Z {
+                    schoolbook_ring_mul_acc(&mut result.0[i][k], &a.0[i][j], &b.0[j][k]);
+                }
+            }
+        }
+        result
+    }
+
+    /// Schoolbook `aᵀ · b`, entry by entry
+    fn schoolbook_mul_transpose<const X: usize, const Y: usize, const Z: usize>(
+        a: &Matrix<X, Y>,
+        b: &Matrix<X, Z>,
+    ) -> Matrix<Y, Z> {
+        let mut result = Matrix::default();
+        for i in 0..X {
+            for j in 0..Y {
+                for k in 0..Z {
+                    schoolbook_ring_mul_acc(&mut result.0[j][k], &a.0[i][j], &b.0[i][k]);
+                }
+            }
+        }
+        result
+    }
+
+    // One NTT-domain ring product must match naive schoolbook multiplication in
+    // Z[X]/(X^256 + 1). `matches_schoolbook` below covers the matrix layer on top of this.
+    #[test]
+    fn ring_mul_matches_schoolbook() {
+        let mut rng = rng();
+        // One secret range per parameter set, as in `matches_schoolbook`
+        for half_mu in [5u16, 4, 3] {
+            for _ in 0..20 {
+                let a = rand_uniform(&mut rng, 13);
+                let s = rand_secret(&mut rng, half_mu);
+
+                let a_ntt = NttMatrix::<1, 1>([[NttElem::from_uniform(&a)]]);
+                let s_ntt = NttMatrix::<1, 1>([[NttElem::from_secret(&s)]]);
+
+                let mut expected = RingElem::default();
+                schoolbook_ring_mul_acc(&mut expected, &a, &s);
+
+                assert_eq!(a_ntt.mul(&s_ntt).0[0][0], expected);
+            }
+        }
+    }
+
+    // NTT-domain matrix products must match the schoolbook matrix products exactly, for the
     // shapes and operand ranges of all three parameter sets
     #[test]
     fn matches_schoolbook() {
@@ -534,9 +606,15 @@ mod test {
                 let b_ntt = NttMatrix::from_uniform_matrix(&vec_b);
                 let s_ntt = NttMatrix::from_secret_matrix(&vec_s);
 
-                assert_eq!(a_ntt.mul(&s_ntt), mat_a.mul(&vec_s));
-                assert_eq!(a_ntt.mul_transpose(&s_ntt), mat_a.mul_transpose(&vec_s));
-                assert_eq!(b_ntt.mul_transpose(&s_ntt), vec_b.mul_transpose(&vec_s));
+                assert_eq!(a_ntt.mul(&s_ntt), schoolbook_mul(&mat_a, &vec_s));
+                assert_eq!(
+                    a_ntt.mul_transpose(&s_ntt),
+                    schoolbook_mul_transpose(&mat_a, &vec_s)
+                );
+                assert_eq!(
+                    b_ntt.mul_transpose(&s_ntt),
+                    schoolbook_mul_transpose(&vec_b, &vec_s)
+                );
             }
         }
 
@@ -581,12 +659,16 @@ mod test {
         let a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
         let s_ntt = NttMatrix::from_secret_matrix(&vec_s);
 
-        // `Matrix::mul` is schoolbook multiplication over the wrapping-u16 ring: an exact
-        // integer reference, independent of either transform.
-        assert_eq!(a_ntt.mul(&s_ntt), mat_a.mul(&vec_s), "mul, L={L} MU={MU}");
+        // Schoolbook multiplication over the wrapping-u16 ring is an exact integer reference,
+        // independent of either transform.
+        assert_eq!(
+            a_ntt.mul(&s_ntt),
+            schoolbook_mul(&mat_a, &vec_s),
+            "mul, L={L} MU={MU}"
+        );
         assert_eq!(
             a_ntt.mul_transpose(&s_ntt),
-            mat_a.mul_transpose(&vec_s),
+            schoolbook_mul_transpose(&mat_a, &vec_s),
             "mul_transpose, L={L} MU={MU}"
         );
     }

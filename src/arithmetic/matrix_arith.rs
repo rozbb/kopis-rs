@@ -2,8 +2,6 @@
 
 use crate::{arithmetic::RingElem, consts::RING_DEG};
 
-use crate::arithmetic::ring_arith::ring_mul_acc;
-
 use zeroize::Zeroize;
 
 /// An element of R^{x×y} where R is a [`RingElem`], stored in row-major order
@@ -26,46 +24,6 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
                 elem.shift_right(shift)
             }
         }
-    }
-
-    /// Multiplies two matrices, using multiply-accumulate to avoid intermediate temporaries.
-    /// Each ring product is accumulated directly into the result element.
-    //
-    // This is the *reference* multiplication. Production code multiplies via `NttMatrix` (see
-    // ntt.rs), which is proved to agree with this function; the Lean correspondence between
-    // this schoolbook form and the spec (`Kopis/Properties/MatrixMul.lean`,
-    // `MulTranspose.lean`) is what that agreement is composed with. So it must stay outside
-    // `cfg(test)` to remain visible to the extractor, even though nothing outside tests calls
-    // it — it is `pub(crate)` and unused, so codegen drops it from the binary.
-    #[allow(dead_code)]
-    pub(crate) fn mul<const Z: usize>(&self, other: &Matrix<Y, Z>) -> Matrix<X, Z> {
-        let mut result = Matrix::default();
-        for i in 0..X {
-            for j in 0..Y {
-                for k in 0..Z {
-                    ring_mul_acc(&mut result.0[i][k], &self.0[i][j], &other.0[j][k]);
-                }
-            }
-        }
-
-        result
-    }
-
-    /// Multiplies the transpose of this matrix by the given vector, using multiply-accumulate
-    /// to avoid intermediate temporaries.
-    // The reference multiplication; see the note on `mul` above for why it is not `cfg(test)`.
-    #[allow(dead_code)]
-    pub(crate) fn mul_transpose<const Z: usize>(&self, other: &Matrix<X, Z>) -> Matrix<Y, Z> {
-        let mut result = Matrix::default();
-        for i in 0..X {
-            for j in 0..Y {
-                for k in 0..Z {
-                    ring_mul_acc(&mut result.0[j][k], &self.0[i][j], &other.0[i][k]);
-                }
-            }
-        }
-
-        result
     }
 
     /// Adds a given value to all coefficients of all elements of the matrix
@@ -104,7 +62,7 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
 
     /// Deserializes a matrix of R10 values, element by element
     pub(crate) fn deserialize_10(bytes: &[u8]) -> Self {
-        debug_assert_eq!(bytes.len(), X * Y * 10 * RING_DEG / 8);
+        assert_eq!(bytes.len(), X * Y * 10 * RING_DEG / 8);
         let mut result = Matrix::default();
 
         /* More idiomatic version here. We have to use explicit indices because aeneas (the Lean
@@ -129,104 +87,5 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
         }
 
         result
-    }
-}
-
-impl<'a, const X: usize, const Y: usize> core::ops::Add<&'a Matrix<X, Y>> for &'a Matrix<X, Y> {
-    type Output = Matrix<X, Y>;
-
-    fn add(self, other: &'a Matrix<X, Y>) -> Self::Output {
-        let mut result = Matrix::default();
-        for i in 0..X {
-            for j in 0..Y {
-                result.0[i][j] = &self.0[i][j] + &other.0[i][j];
-            }
-        }
-
-        result
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    impl<const X: usize, const Y: usize> Matrix<X, Y> {
-        #[cfg(test)]
-        pub fn rand(rng: &mut impl rand_core::CryptoRng) -> Self {
-            let mut mat = Matrix::default();
-            for i in 0..X {
-                for j in 0..Y {
-                    mat.0[i][j] = RingElem::rand(rng);
-                }
-            }
-            mat
-        }
-
-        /// Returns the matrix transpose
-        pub(crate) fn transpose(&self) -> Matrix<Y, X> {
-            let mut ret = Matrix::default();
-            for i in 0..X {
-                for j in 0..Y {
-                    ret.0[j][i] = self.0[i][j];
-                }
-            }
-            ret
-        }
-    }
-
-    // Checks that mul and mul_transpose distribute over addition on the RHS
-    #[test]
-    fn distributivity() {
-        const X: usize = 4;
-        const Y: usize = 7;
-
-        let mut rng = rand::rng();
-
-        // Test mul_transpose
-        let mat = Matrix::<X, Y>::rand(&mut rng);
-        let vec1 = Matrix::<X, 1>::rand(&mut rng);
-        let vec2 = Matrix::<X, 1>::rand(&mut rng);
-        let prod1 = {
-            let vec_sum = &vec1 + &vec2;
-            mat.mul_transpose(&vec_sum)
-        };
-        let prod2 = &mat.mul_transpose(&vec1) + &mat.mul_transpose(&vec2);
-        assert_eq!(prod1, prod2);
-
-        // Now do the same with mul
-        let vec1 = Matrix::<Y, 1>::rand(&mut rng);
-        let vec2 = Matrix::<Y, 1>::rand(&mut rng);
-        let prod1 = {
-            let vec_sum = &vec1 + &vec2;
-            mat.mul(&vec_sum)
-        };
-        let prod2 = &mat.mul(&vec1) + &mat.mul(&vec2);
-        assert_eq!(prod1, prod2);
-    }
-
-    // Checks that mul, mul_transpose, and transpose are consistent with each other
-    #[test]
-    fn transpose() {
-        // Some arbitrary dimensions
-        const X: usize = 4;
-        const Y: usize = 7;
-        const Z: usize = 13;
-
-        let mut rng = rand::rng();
-
-        // Check that A^T B == (B^T A)^T
-        let mat1 = Matrix::<X, Y>::rand(&mut rng);
-        let mat2 = Matrix::<X, Z>::rand(&mut rng);
-        let prod1 = mat1.mul_transpose(&mat2);
-        let prod2 = mat2.mul_transpose(&mat1).transpose();
-        assert_eq!(prod1, prod2);
-
-        // Check that (AB)^T == A^T B^T
-        let mat1 = Matrix::<X, Y>::rand(&mut rng);
-        let mat2 = Matrix::<Y, Z>::rand(&mut rng);
-        let prod1 = &mat1.mul(&mat2).transpose();
-        let prod2 = &mat2.transpose().mul(&mat1.transpose());
-        assert_eq!(prod1, prod2);
     }
 }
