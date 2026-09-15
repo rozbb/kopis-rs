@@ -117,9 +117,8 @@ pub(crate) const CRT_Q_HALF: i32 = 41296896;
 pub(crate) const CRT_Q1_INV_MONT: i16 = 3563;
 
 /// Powers of ψ₁ = 62 (a primitive 512th root of unity mod q₁) in bit-reversed order and
-/// Montgomery form: `ZETAS_Q1[k] = ψ₁^brv8(k) · 2^16 mod q₁`, centered. Same layout as
-/// [`crate::arithmetic::ntt::ZETAS`]; the `zetas_tables_are_correct` test recomputes both
-/// tables from ψ and checks every entry.
+/// Montgomery form: `ZETAS_Q1[k] = ψ₁^brv8(k) · 2^16 mod q₁`, centered. The
+/// `zetas_tables_are_correct` test recomputes both tables from ψ and checks every entry.
 #[rustfmt::skip]
 pub(crate) const ZETAS_Q1: [i16; 256] = [
     -3593, 3777, -3182, 3625, -3696, -1100, 2456, 2194, 121, -2250, 834, -2495, -2319, 2876, -1701, 1414,

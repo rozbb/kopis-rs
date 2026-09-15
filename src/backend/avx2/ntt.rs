@@ -47,16 +47,15 @@
 //! are different integers entirely; only the endpoints agree, so `avx2_matches_serial` in
 //! [`crate::arithmetic::ntt`] checks the pipeline end to end rather than stage by stage.
 //!
-//! Note the scope carefully: the Lean proof is about the *single-prime* transform in
-//! [`crate::arithmetic::ntt`], and since the portable path moved to two primes as well (see
-//! [`crate::arithmetic::ntt_crt`]) that transform no longer ships in any configuration. So
-//! **the Lean proof does not currently cover the ring multiplication in any build**, not just
-//! AVX2 ones. What is verified is that the algorithm is right — the same negacyclic transform,
-//! over moduli whose product covers the product bound — not that these implementations of it
-//! are. That guarantee now rests entirely on tests: `crt_matches_single` against the retained
-//! single-prime reference, `avx2_matches_serial` and `neon_matches_serial` for the vector
-//! backends, the schoolbook and extremal-coefficient tests over all three parameter sets, and
-//! the KATs. Re-establishing the proof means porting it to the two-prime transform.
+//! Note the scope carefully: the Lean proof was about an older *single-prime* transform, and
+//! every path — portable included (see [`crate::arithmetic::ntt_crt`]) — now uses two primes.
+//! So **the Lean proof does not currently cover the ring multiplication in any build**, not
+//! just AVX2 ones. What is verified is that the algorithm is right — the same negacyclic
+//! transform, over moduli whose product covers the product bound — not that these
+//! implementations of it are. That guarantee now rests entirely on tests: the schoolbook and
+//! extremal-coefficient tests over all three parameter sets, `avx2_matches_serial` and
+//! `neon_matches_serial` pinning each vector backend against the portable two-prime pipeline,
+//! and the KATs. Re-establishing the proof means porting it to the two-prime transform.
 //!
 //! # Layout
 //!

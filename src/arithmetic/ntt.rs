@@ -7,36 +7,25 @@
 //! see [`crate::backend::crt`] for that scheme and `ntt_crt` for why it is what the portable path
 //! uses too.
 //!
-//! What is written out below is the older single-prime transform, over one 26-bit prime p. It no
-//! longer ships in any configuration — it is `#[cfg(test)]`, kept as the reference that
-//! `crt_matches_single` checks the two-prime pipeline against. It stays because a second,
-//! independent implementation of the same ring multiplication over a completely different modulus
-//! is a much better oracle than anything derived from the code under test, and because the
-//! exactness argument it is built on is the one *both* schemes rely on. That argument follows.
+//! # Why the products come out exact
 //!
 //! Every ring multiplication in Kopis has one operand with small coefficients: a CBD secret
 //! with coefficients in [-μ/2, μ/2]. The other operand has coefficients in [0, 2^13). The
 //! coefficients of the *exact integer* product of such polynomials — even accumulated over an
 //! ℓ-term matrix-vector product — are bounded in magnitude by
 //!     ℓ · 256 · (2^13 - 1) · (μ/2) ≤ 3 · 256 · 8191 · 4 = 25_162_752,
-//! (the maximum over all three parameter sets). This is less than p/2 for the prime
-//! p = 50330113. So we can compute the product exactly: do the arithmetic mod p, lift the
-//! result to the centered representative in (-p/2, p/2), and reduce mod 2^16. The result is
-//! bit-identical to schoolbook multiplication of the wrapping-u16 ring elements.
+//! (the maximum over all three parameter sets). Every modulus the transforms work over is picked
+//! so that this bound fits strictly inside it. So the product can be computed exactly: do the
+//! arithmetic mod that modulus, lift the result to its centered representative, and reduce mod
+//! 2^16. What comes out is bit-identical to schoolbook multiplication of the wrapping-u16 ring
+//! elements — which is exactly what the tests below check it against.
 //!
-//! p ≡ 1 (mod 512), so ℤ/p has a primitive 512th root of unity ψ and X^256 + 1 splits
-//! completely: a full 8-level negacyclic NTT applies, and products of transformed elements are
-//! plain pointwise products. This makes matrix products cheap: each entry of a matrix-vector
-//! product costs one pointwise multiply-accumulate instead of a full ring multiplication, and
-//! the transforms themselves are shared across rows/columns. Callers cache fixed operands
-//! (the matrix A, the public vector b, the secret s) in NTT form.
-//!
-//! The implementation follows the reference ML-DSA (Dilithium) NTT structure: an in-place
-//! Cooley-Tukey forward pass and Gentleman-Sande inverse pass over a table of ψ powers in
-//! bit-reversed order, with signed Montgomery reduction (R = 2^32). Unlike Dilithium's q,
-//! our p is large enough that Gentleman-Sande sums could overflow an i32 after a few levels,
-//! so the inverse butterfly Barrett-reduces the sum path every level. All arithmetic is
-//! branch-free and all loop bounds are public, so the code is constant-time.
+//! Each prime is ≡ 1 (mod 512), so ℤ/q has a primitive 512th root of unity ψ and X^256 + 1
+//! splits completely: a full 8-level negacyclic NTT applies, and products of transformed
+//! elements are plain pointwise products. This makes matrix products cheap: each entry of a
+//! matrix-vector product costs one pointwise multiply-accumulate instead of a full ring
+//! multiplication, and the transforms themselves are shared across rows/columns. Callers cache
+//! fixed operands (the matrix A, the public vector b, the secret s) in NTT form.
 
 // The explicit `for i in 0..N` index loops that trigger this lint are deliberate: aeneas (the
 // Lean extractor) handles them better than the iterator patterns clippy suggests
@@ -49,193 +38,7 @@ use crate::{
 
 use zeroize::Zeroize;
 
-/// The NTT prime modulus
-#[cfg(test)]
-pub(crate) const P: i32 = 50330113;
-/// p^-1 mod 2^32 (as a wrapping u32)
-#[cfg(test)]
-pub(crate) const P_INV: u32 = 3575907841;
-/// round(2^48 / p), for Barrett reduction
-#[cfg(test)]
-pub(crate) const BARRETT_M: i64 = 5592576;
-/// The rounding addend for Barrett reduction, 2^47. Spelled as a literal rather than `1 << 47`
-/// so that the extracted Lean contains no shift operation to discharge.
-#[cfg(test)]
-pub(crate) const BARRETT_ROUND: i64 = 140737488355328;
-/// ⌊p/2⌋, the centering threshold. A literal for the same reason (no division to discharge).
-#[cfg(test)]
-pub(crate) const P_HALF: i32 = 25165056;
-/// 256^-1 · 2^64 mod p: the inverse-NTT output scale. One Montgomery reduction by this value
-/// undoes both the 1/256 of the inverse transform and the 2^-32 introduced by the Montgomery
-/// reduction in the pointwise multiplication step.
-#[cfg(test)]
-pub(crate) const INVNTT_SCALE: i32 = 44652572;
-
-/// Powers of ψ = 49118445 (a primitive 512th root of unity mod p) in bit-reversed order and
-/// Montgomery form: ZETAS[k] = ψ^brv8(k) · 2^32 mod p. Generated by gen_ntt_consts.py; the
-/// `zetas_table_is_correct` test recomputes the table from ψ and checks every entry.
-#[rustfmt::skip]
-#[cfg(test)]
-pub(crate) const ZETAS: [i32; 256] = [
-    16907691, 2667794, 25435945, 38041794, 4526213, 35360986, 30701667, 21078350,
-    36956843, 13677930, 22323069, 13735052, 16437056, 5691837, 29800035, 15764652,
-    45309494, 32237400, 24236486, 2001600, 1321324, 27016828, 15167304, 4366839,
-    28120194, 32421317, 30261273, 12292806, 22968316, 13702742, 937110, 2965954,
-    34335133, 44939767, 6512044, 26419553, 19973946, 49111849, 40847418, 20023056,
-    43261597, 41129446, 12627709, 45952874, 30150184, 36681813, 45532529, 39191671,
-    45414311, 2081056, 808565, 49693071, 31006016, 28961757, 15337390, 31683976,
-    4955339, 27911199, 29647313, 30189282, 40031443, 49298885, 46092656, 18408488,
-    245475, 31889855, 39534436, 41714666, 8292132, 21449251, 22309987, 8205570,
-    31096891, 47405297, 930348, 6971348, 10106150, 31035883, 46359140, 35263708,
-    25740623, 9884444, 542513, 16415589, 9876654, 44372807, 21881921, 19165831,
-    9227072, 2984297, 36824748, 43900147, 43917176, 9030513, 26543409, 34836022,
-    45307234, 35198677, 14645063, 2098347, 37061938, 3244828, 41096247, 32062813,
-    8918713, 47344810, 46288223, 21000897, 41046191, 20508021, 35242638, 21557502,
-    49459492, 3469647, 1704205, 29274982, 27408601, 6834376, 3860969, 50170866,
-    7253270, 26028155, 34019372, 9518412, 22713734, 14612739, 26018446, 43305093,
-    12047271, 21217146, 26069968, 4256850, 3639874, 48691800, 17320569, 3323937,
-    32443671, 42492417, 9308803, 33498296, 25236161, 17970048, 30529967, 11776789,
-    23284408, 23725761, 39814592, 32816444, 45216211, 34497791, 1878200, 45702238,
-    40014922, 39122569, 28779735, 44971151, 12142149, 25663462, 31479913, 19837380,
-    39143843, 21323231, 17806070, 36807664, 47595478, 49950288, 16588490, 32773564,
-    19315478, 33753056, 15093953, 23446825, 49044025, 41815538, 1288725, 23610193,
-    2754751, 40030005, 13643238, 20793088, 16114388, 33147218, 15927487, 41781494,
-    5795109, 11439966, 15064762, 35884894, 22645018, 10582966, 14900694, 21660678,
-    16765530, 20825350, 30320649, 42368153, 39131901, 42360159, 6363984, 35581825,
-    28072132, 11706419, 20970510, 44236552, 17934700, 14577479, 42770390, 44206858,
-    28865919, 40187227, 15964209, 15444696, 17019703, 32900174, 28423607, 42332883,
-    32435385, 40121202, 37968791, 33541227, 35393185, 34591081, 48852822, 8473545,
-    43827986, 23231608, 34405552, 26405625, 27381101, 33514230, 46158701, 27741938,
-    10409285, 21224207, 6796942, 35314909, 49625944, 20271219, 6354214, 38361969,
-    34767461, 14097694, 13212224, 47820051, 49316243, 20113174, 21747171, 39170867,
-    38847587, 20584729, 27124165, 40492847, 7742348, 43534070, 7422899, 12232461,
-];
-
-// Every arithmetic operation below is written with an explicit `wrapping_*` / `wrapping_shr`
-// even where the value bounds guarantee no overflow. This is deliberate: aeneas extracts
-// checked `+`/`-`/`*`/`>>` into the `Result` monad, so each one becomes a separate
-// panic-freedom obligation whose discharge needs the full magnitude analysis. The wrapping
-// forms extract as total functions, which keeps the generated Lean in plain (non-monadic)
-// arithmetic and leaves exactly one thing to prove: that the mathematical values are in range,
-// so the wrapping never actually wraps. That argument is made once, in the correctness proof,
-// instead of 36 times inline. Runtime behaviour is unchanged (the KATs pin it down).
-
-/// Signed Montgomery reduction: for |a| < 2^31 · p, returns t ≡ a · 2^-32 (mod p) with |t| < p
-#[cfg(test)]
-#[inline(always)]
-fn mont_reduce(a: i64) -> i32 {
-    let t = (a as u32).wrapping_mul(P_INV) as i32 as i64;
-    a.wrapping_sub(t.wrapping_mul(P as i64)).wrapping_shr(32) as i32
-}
-
-/// Centered Barrett reduction: for any i32 input, returns r ≡ x (mod p) with |r| ≤ p/2 + 41
-/// (checked exhaustively over all i32; for the |x| ≤ 16p this pipeline produces, |r| ≤ p/2 + 15).
-///
-/// Note the intermediate `q.wrapping_mul(P)` genuinely wraps i32 for |x| ≳ 43p; the double
-/// wrap cancels mod 2^32 and the result is still correct for every i32 input (verified
-/// exhaustively), and pipeline inputs stay ≤ 16p where nothing wraps at all.
-#[cfg(test)]
-#[inline(always)]
-fn barrett_reduce(x: i32) -> i32 {
-    let q = (x as i64)
-        .wrapping_mul(BARRETT_M)
-        .wrapping_add(BARRETT_ROUND)
-        .wrapping_shr(48) as i32;
-    x.wrapping_sub(q.wrapping_mul(P))
-}
-
-/// Reduces a value in (-p, p) to the canonical range [0, p), branch-free
-#[cfg(test)]
-#[inline(always)]
-fn to_canonical(x: i32) -> i32 {
-    x.wrapping_add(x.wrapping_shr(31) & P)
-}
-
-/// Lifts a value in (-p, p) to its centered representative in (-p/2, p/2] and reduces it
-/// mod 2^16, branch-free. This is exact whenever the true integer value it represents lies in
-/// (-p/2, p/2], which the coefficient bound in the module docs guarantees.
-#[cfg(test)]
-#[inline(always)]
-fn to_wrapping_u16(x: i32) -> u16 {
-    let x = to_canonical(x); // [0, p)
-    let x = x.wrapping_sub(P & P_HALF.wrapping_sub(x).wrapping_shr(31)); // (-p/2, p/2]
-    x as u16
-}
-
-/// In-place forward negacyclic NTT (Cooley-Tukey), then centering to |a[i]| ≤ p/2 + 41.
-///
-/// Input coefficients must satisfy |a[i]| < 2^13. Butterflies add at most p in magnitude per
-/// level, so intermediate values stay below 8p + 2^13 < 2^29 and never overflow. The output
-/// is the evaluation of the input polynomial at the odd powers of ψ, in bit-reversed order.
-#[cfg(test)]
-fn ntt(a: &mut [i32; RING_DEG]) {
-    let mut k = 0;
-    let mut len = RING_DEG / 2;
-    while len > 0 {
-        let mut start = 0;
-        while start < RING_DEG {
-            k += 1;
-            let zeta = ZETAS[k] as i64;
-            for j in start..start + len {
-                let t = mont_reduce(zeta.wrapping_mul(a[j + len] as i64));
-                a[j + len] = a[j].wrapping_sub(t);
-                a[j] = a[j].wrapping_add(t);
-            }
-            start += 2 * len;
-        }
-        len /= 2;
-    }
-
-    for coeff in a.iter_mut() {
-        *coeff = barrett_reduce(*coeff);
-    }
-}
-
-/// In-place inverse negacyclic NTT (Gentleman-Sande). Input coefficients must satisfy
-/// |a[i]| < p. The final Montgomery multiplication by INVNTT_SCALE leaves plain
-/// (non-Montgomery) centered values with |a[i]| < p, *assuming* the pointwise step that
-/// produced the input performed exactly one Montgomery reduction (see module docs).
-///
-/// p is too large for Dilithium-style lazy growth to fit in an i32 across all 8 levels: the
-/// un-reduced sum path doubles per level. Starting below p, four levels reach 16p < 2^31;
-/// one Barrett pass then re-centers everything to ≤ p/2 + 41, and the remaining four levels
-/// reach at most 16(p/2 + 41) = 402_641_552 < 2^31 again. The Montgomery inputs also stay in
-/// range: the largest is ζ·(t - a) with |ζ| < p and |t - a| < 16p, and 16p² < 2^31 · p.
-#[cfg(test)]
-fn invntt(a: &mut [i32; RING_DEG]) {
-    let mut k = RING_DEG;
-    let mut len = 1;
-    while len < RING_DEG {
-        let mut start = 0;
-        while start < RING_DEG {
-            k -= 1;
-            // `0 - z` rather than `z.wrapping_neg()`: aeneas leaves `i64::wrapping_neg` opaque
-            // (it extracts to an axiom with no definition), whereas `wrapping_sub` gets real
-            // semantics. Identical codegen, one fewer assumption in the Lean trust base.
-            let neg_zeta = 0i64.wrapping_sub(ZETAS[k] as i64);
-            for j in start..start + len {
-                let t = a[j];
-                a[j] = t.wrapping_add(a[j + len]);
-                a[j + len] = mont_reduce(neg_zeta.wrapping_mul(t.wrapping_sub(a[j + len]) as i64));
-            }
-            start += 2 * len;
-        }
-        len *= 2;
-
-        // Halfway (after the len=8 level), re-center to keep sums within i32
-        if len == 16 {
-            for coeff in a.iter_mut() {
-                *coeff = barrett_reduce(*coeff);
-            }
-        }
-    }
-
-    for coeff in a.iter_mut() {
-        *coeff = mont_reduce((*coeff as i64).wrapping_mul(INVNTT_SCALE as i64));
-    }
-}
-
-/// A ring element in the NTT domain. Coefficients are centered mod-p values, |·| ≤ p/2 + 41.
+/// A ring element in the NTT domain. Coefficients are centered mod-q values, |·| ≤ q/2 + 41.
 // The NTT is an invertible linear map, so a transformed secret is exactly as sensitive as the
 // coefficient-domain one. Zeroize accordingly, matching RingElem.
 //
@@ -433,48 +236,6 @@ mod test {
 
     use rand::{Rng, rng};
 
-    /// ψ, the primitive 512th root of unity underlying ZETAS
-    const PSI: u64 = 49118445;
-
-    fn pow_mod(mut base: u64, mut exp: u64, modulus: u64) -> u64 {
-        let mut acc = 1u64;
-        base %= modulus;
-        while exp > 0 {
-            if exp & 1 == 1 {
-                acc = acc * base % modulus;
-            }
-            base = base * base % modulus;
-            exp >>= 1;
-        }
-        acc
-    }
-
-    // The constants spelled as literals (to keep shifts and divisions out of the extracted
-    // Lean) must equal the expressions they stand for
-    #[test]
-    fn literal_constants_are_correct() {
-        assert_eq!(BARRETT_ROUND, 1i64 << 47);
-        assert_eq!(P_HALF, P / 2);
-        assert_eq!(BARRETT_M, ((1i64 << 48) + (P as i64) / 2) / (P as i64));
-        // P_INV is p^-1 mod 2^32, i.e. p · P_INV ≡ 1
-        assert_eq!((P as u32).wrapping_mul(P_INV), 1);
-    }
-
-    // Recompute the ZETAS table from ψ and check every entry, plus ψ's defining properties
-    #[test]
-    fn zetas_table_is_correct() {
-        let p = P as u64;
-        // ψ is a 512th root of unity and ψ^256 = -1 (so the transform is negacyclic)
-        assert_eq!(pow_mod(PSI, 256, p), p - 1);
-        assert_eq!(pow_mod(PSI, 512, p), 1);
-
-        for (k, &z) in ZETAS.iter().enumerate() {
-            let brv = (k as u8).reverse_bits() as u64;
-            let expected = pow_mod(PSI, brv, p) * (1u64 << 32) % p;
-            assert_eq!(z as u64, expected, "ZETAS[{k}]");
-        }
-    }
-
     /// A random CBD-like secret: wrapping-u16 coefficients in [-mu/2, mu/2]
     fn rand_secret(rng: &mut impl Rng, half_mu: u16) -> RingElem {
         let mut ret = RingElem::default();
@@ -630,8 +391,8 @@ mod test {
     #[test]
     fn extremal_coefficients() {
         // Every parameter set, since each has its own (ℓ, μ/2) and so its own accumulator
-        // bound: the product grows with ℓ·(μ/2), and it is that bound the reconstruction — one
-        // 26-bit prime or two 16-bit ones — has to stay exact within.
+        // bound: the product grows with ℓ·(μ/2), and it is that bound the CRT reconstruction
+        // has to stay exact within.
         check_extremal::<{ crate::consts::KOPIS512_L }, { crate::consts::KOPIS512_MU }>();
         check_extremal::<{ crate::consts::KOPIS768_L }, { crate::consts::KOPIS768_MU }>();
         check_extremal::<{ crate::consts::KOPIS1024_L }, { crate::consts::KOPIS1024_MU }>();
@@ -673,18 +434,18 @@ mod test {
         );
     }
 
-    // Neither vector backend is a reimplementation of the transforms above: both work over
-    // two 16-bit primes, so their NTT-domain values are different integers entirely and nothing
-    // in the middle of the pipeline can be compared. What must still hold is that the endpoints
-    // agree — feeding the same ring elements through both routes must produce the very same
-    // coefficients. Check that over the accumulator shape of every parameter set, since those
-    // shapes are what keep the product inside the bound the CRT reconstruction is exact within.
+    // Neither vector backend shares any code with the portable transform, but both work over
+    // the same two 16-bit primes, so the endpoints must agree exactly: feeding the same ring
+    // elements through both routes has to produce the very same coefficients. Check that over
+    // the accumulator shape of every parameter set, since those shapes are what keep the product
+    // inside the bound the CRT reconstruction is exact within.
     #[allow(unused_macros)]
     macro_rules! backend_matches_serial {
         ($name:ident, $backend:path) => {
             #[allow(unsafe_code)]
             #[test]
             fn $name() {
+                use crate::arithmetic::ntt_crt;
                 use $backend as backend;
 
                 if !backend::available() {
@@ -699,31 +460,19 @@ mod test {
                         let secret = rand_secret(&mut rng, half_mu);
 
                         // The portable route: transform, accumulate ℓ products, reduce, invert.
-                        let mut serial_u = [0i32; RING_DEG];
-                        let mut serial_s = [0i32; RING_DEG];
-                        for i in 0..RING_DEG {
-                            serial_u[i] = uniform.0[i] as i32;
-                            serial_s[i] = secret.0[i] as i16 as i32;
-                        }
-                        ntt(&mut serial_u);
-                        ntt(&mut serial_s);
-                        let mut serial_acc = [0i64; RING_DEG];
-                        for _ in 0..ell {
-                            for i in 0..RING_DEG {
-                                serial_acc[i] = serial_acc[i].wrapping_add(
-                                    (serial_u[i] as i64).wrapping_mul(serial_s[i] as i64),
-                                );
+                        // Safe code, so it stays outside the `unsafe` block below — a serial
+                        // build is `forbid(unsafe_code)`.
+                        let serial_packed = {
+                            let u = ntt_crt::from_uniform(&uniform.0);
+                            let s = ntt_crt::from_secret(&secret.0);
+                            let mut acc = [0i32; 2 * RING_DEG];
+                            for _ in 0..ell {
+                                ntt_crt::pointwise_mul_acc(&mut acc, &u, &s);
                             }
-                        }
-                        let mut serial_out = [0i32; RING_DEG];
-                        for i in 0..RING_DEG {
-                            serial_out[i] = mont_reduce(serial_acc[i]);
-                        }
-                        invntt(&mut serial_out);
-                        let serial_packed: [u16; RING_DEG] =
-                            core::array::from_fn(|i| to_wrapping_u16(serial_out[i]));
+                            ntt_crt::reduce_invntt(&acc)
+                        };
 
-                        // The same journey through the two 16-bit primes.
+                        // The same journey through the vector backend.
                         // SAFETY: `available()` returned true just above.
                         let vector_packed = unsafe {
                             let u = backend::ntt::from_uniform(&uniform.0);
@@ -740,67 +489,6 @@ mod test {
                 }
             }
         };
-    }
-
-    // The portable two-prime transform gets the same end-to-end check the vector backends do,
-    // for the same reason: its NTT-domain values are different integers entirely, so only the
-    // endpoints can be compared. It is spelled out rather than driven through the macro above
-    // because it is safe code — a serial build is `forbid(unsafe_code)`, so it cannot sit
-    // inside that macro's `unsafe` block — and because both routes are compiled here (see the
-    // note at the top of this file), making it a direct comparison rather than an end-to-end
-    // one through the KEM.
-    #[test]
-    fn crt_matches_single() {
-        use crate::arithmetic::ntt_crt;
-
-        let mut rng = rng();
-
-        // (ℓ, μ/2) for kopis512, kopis768 and kopis1024: the accumulator shapes that keep the
-        // product inside the bound both reconstructions are exact within.
-        for (ell, half_mu) in [(2usize, 5u16), (3, 4), (4, 3)] {
-            for _ in 0..100 {
-                let uniform = rand_uniform(&mut rng, 13);
-                let secret = rand_secret(&mut rng, half_mu);
-
-                // The single-prime route: transform, accumulate ℓ products, reduce, invert.
-                let mut single_u = [0i32; RING_DEG];
-                let mut single_s = [0i32; RING_DEG];
-                for i in 0..RING_DEG {
-                    single_u[i] = uniform.0[i] as i32;
-                    single_s[i] = secret.0[i] as i16 as i32;
-                }
-                ntt(&mut single_u);
-                ntt(&mut single_s);
-                let mut single_acc = [0i64; RING_DEG];
-                for _ in 0..ell {
-                    for i in 0..RING_DEG {
-                        single_acc[i] = single_acc[i]
-                            .wrapping_add((single_u[i] as i64).wrapping_mul(single_s[i] as i64));
-                    }
-                }
-                let mut single_out = [0i32; RING_DEG];
-                for i in 0..RING_DEG {
-                    single_out[i] = mont_reduce(single_acc[i]);
-                }
-                invntt(&mut single_out);
-                let single_packed: [u16; RING_DEG] =
-                    core::array::from_fn(|i| to_wrapping_u16(single_out[i]));
-
-                // The same journey through the two 16-bit primes.
-                let u = ntt_crt::from_uniform(&uniform.0);
-                let s = ntt_crt::from_secret(&secret.0);
-                let mut acc = [0i32; 2 * RING_DEG];
-                for _ in 0..ell {
-                    ntt_crt::pointwise_mul_acc(&mut acc, &u, &s);
-                }
-                let crt_packed = ntt_crt::reduce_invntt(&acc);
-
-                assert_eq!(
-                    single_packed, crt_packed,
-                    "portable two-prime pipeline, ℓ={ell}"
-                );
-            }
-        }
     }
 
     #[cfg(kopis_avx2)]

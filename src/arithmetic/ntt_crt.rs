@@ -1,10 +1,9 @@
 //! Portable negacyclic NTT over *two* 16-bit primes, combined by the CRT.
 //!
-//! This computes exactly the same ring products as [`crate::arithmetic::ntt`]'s single-prime
-//! transform — the same `[u16; 256]` come out — but over q₁ = 7681 and q₂ = 10753 instead of
-//! the 26-bit prime p, reconstructing the exact integer product from the two residues. It is
-//! the same scheme the vector backends use; [`crate::backend::crt`] holds the moduli, the ψ
-//! tables and the correctness argument, and this module is a plain-Rust transcription of it.
+//! This computes the ring products [`crate::arithmetic::ntt`] hands out, over q₁ = 7681 and
+//! q₂ = 10753, reconstructing the exact integer product from the two residues. It is the same
+//! scheme the vector backends use; [`crate::backend::crt`] holds the moduli, the ψ tables and
+//! the correctness argument, and this module is a plain-Rust transcription of it.
 //!
 //! # Why the portable path uses two primes
 //!
@@ -38,8 +37,7 @@
 //!
 //! An [`NttElem`](crate::arithmetic::NttElem) is `[i16; 512]`: the q₁ residues in the first 256
 //! lanes, the q₂ residues in the second. The pointwise accumulator is `[i32; 512]`, split the
-//! same way. Those are the same sizes the single-prime form used (`[i32; 256]` and
-//! `[i64; 256]`), they are what the vector backends read too, and neither is ever serialized, so
+//! same way. They are what the vector backends read too, and neither is ever serialized, so
 //! the representation never escapes the process that computed it.
 //!
 //! # Growth
