@@ -78,27 +78,26 @@ impl<const X: usize, const Y: usize> Matrix<X, Y> {
     }
 
     /// Serializes this matrix, ring element by ring element, treating each ring element
-    /// coefficient as having only `bits_per_elem` bits. In Saber terms, this runs POLYVECk2BS
-    /// where k = bits_per_elem
-    pub(crate) fn serialize(&self, out_buf: &mut [u8], bits_per_elem: usize) {
-        assert_eq!(out_buf.len(), X * Y * bits_per_elem * RING_DEG / 8);
+    /// coefficient as having only `BITS_PER_ELEM` bits.
+    pub(crate) fn serialize<const BITS_PER_ELEM: usize>(&self, out_buf: &mut [u8]) {
+        assert_eq!(out_buf.len(), X * Y * BITS_PER_ELEM * RING_DEG / 8);
 
         /* More idiomatic version here. We have to use explicit indices because aeneas (the Lean
          * extractor) has a problem with some iterator patterns
-        let mut chunk_iter = out_buf.chunks_mut(bits_per_elem * RING_DEG / 8);
+        let mut chunk_iter = out_buf.chunks_mut(BITS_PER_ELEM * RING_DEG / 8);
         for row in self.0.iter() {
             for entry in row.iter() {
                 let out_chunk = chunk_iter
                     .next()
                     .expect("length check at beginning ensures X*Y many chunks");
-                entry.serialize(out_chunk, bits_per_elem);
+                entry.serialize::<BITS_PER_ELEM>(out_chunk);
         */
-        let chunk_len = bits_per_elem * RING_DEG / 8;
+        let chunk_len = BITS_PER_ELEM * RING_DEG / 8;
         for i in 0..X {
             for j in 0..Y {
                 let idx = i * Y + j;
                 let out_chunk = &mut out_buf[idx * chunk_len..(idx + 1) * chunk_len];
-                self.0[i][j].serialize(out_chunk, bits_per_elem);
+                self.0[i][j].serialize::<BITS_PER_ELEM>(out_chunk);
             }
         }
     }

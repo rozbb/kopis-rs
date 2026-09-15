@@ -77,48 +77,49 @@ const fn plans() -> [Plan; MAX_BITS + 1] {
     plans
 }
 
-/// One plan per supported width. Index 0 is unused padding so `bits` indexes directly.
+/// One plan per supported width. Index 0 is unused padding so `BITS_PER_ELEM` indexes
+/// directly.
 const PLANS: [Plan; MAX_BITS + 1] = plans();
 
-/// Deserializes `RING_DEG` coefficients of `bits` bits each from `bytes`.
+/// Deserializes `RING_DEG` coefficients of `BITS_PER_ELEM` bits each from `bytes`.
 ///
 /// Produces exactly what [`crate::ser::deserialize_generic`] does. `bytes.len()` must be
-/// `bits * RING_DEG / 8` and `bits` must be in `1..=13`, both of which the caller has already
-/// asserted.
+/// `BITS_PER_ELEM * RING_DEG / 8` and `BITS_PER_ELEM` must be in `1..=13`, both of which the
+/// caller has already asserted.
 ///
 /// # Safety
 ///
 /// Requires NEON.
 #[target_feature(enable = "neon")]
-pub(crate) fn deserialize(bytes: &[u8], bits: usize) -> [u16; RING_DEG] {
-    let plan = &PLANS[bits];
+pub(crate) fn deserialize<const BITS_PER_ELEM: usize>(bytes: &[u8]) -> [u16; RING_DEG] {
+    let plan = &PLANS[BITS_PER_ELEM];
     let shuf_lo = load_u8x16(&plan.shuffle, 0);
     let shuf_hi = load_u8x16(&plan.shuffle, 16);
     let shift_lo = load_i32(&plan.shift, 0);
     let shift_hi = load_i32(&plan.shift, 1);
-    let mask = dup_n_u32((1u32 << bits) - 1);
+    let mask = dup_n_u32((1u32 << BITS_PER_ELEM) - 1);
 
     // A group reads a whole 16 bytes from its start, so the last few groups would read past the
-    // end of a buffer that is only `32 * bits` long. Exactly `⌊15 / bits⌋` of them do — the ones
-    // starting within 15 bytes of the end — so copy that short remainder (at most 15 bytes) into
-    // a zero-padded scratch buffer and read those groups from there. Everything stays
-    // vectorized, and the copy is a few bytes rather than the whole buffer.
-    let tail_groups = 15 / bits;
+    // end of a buffer that is only `32 * BITS_PER_ELEM` long. Exactly `⌊15 / BITS_PER_ELEM⌋` of
+    // them do — the ones starting within 15 bytes of the end — so copy that short remainder (at
+    // most 15 bytes) into a zero-padded scratch buffer and read those groups from there.
+    // Everything stays vectorized, and the copy is a few bytes rather than the whole buffer.
+    let tail_groups = 15 / BITS_PER_ELEM;
     let head_groups = GROUPS - tail_groups;
-    let tail_start = head_groups * bits;
+    let tail_start = head_groups * BITS_PER_ELEM;
     let mut tail = [0u8; 32];
     tail[..bytes.len() - tail_start].copy_from_slice(&bytes[tail_start..]);
 
     let mut out = [0u16; RING_DEG];
     for group in 0..GROUPS {
-        // For a group in the head, `group * bits + 16 ≤ 32 * bits = bytes.len()`, so the load is
-        // in bounds. For one in the tail, its offset into `tail` is at most
-        // `31 * bits - tail_start = (⌊15/bits⌋ - 1) * bits ≤ 15 - bits`, so the 16-byte load
-        // stays inside the 32-byte scratch buffer.
+        // For a group in the head, `group * BITS_PER_ELEM + 16 ≤ 32 * BITS_PER_ELEM =
+        // bytes.len()`, so the load is in bounds. For one in the tail, its offset into `tail` is
+        // at most `31 * BITS_PER_ELEM - tail_start = (⌊15/BITS_PER_ELEM⌋ - 1) * BITS_PER_ELEM ≤
+        // 15 - BITS_PER_ELEM`, so the 16-byte load stays inside the 32-byte scratch buffer.
         let raw = if group < head_groups {
-            load_u8x16(bytes, group * bits)
+            load_u8x16(bytes, group * BITS_PER_ELEM)
         } else {
-            load_u8x16(&tail, group * bits - tail_start)
+            load_u8x16(&tail, group * BITS_PER_ELEM - tail_start)
         };
 
         let win_lo = tbl1_u8(raw, shuf_lo);

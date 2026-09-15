@@ -40,15 +40,17 @@ pub(crate) fn deserialize_10(bytes: &[u8; 10 * 256 / 8]) -> [u16; 256] {
 }
 
 /// Deserializes the given bitstring into a u16 array. Every element of the array has
-/// `bits_per_elem` bits (must be ≤ 13), encoded in the lower bits of the word.
+/// `BITS_PER_ELEM` bits (must be ≤ 13), encoded in the lower bits of the word.
 #[allow(clippy::needless_range_loop)]
-pub(crate) fn deserialize_generic<const N: usize>(bytes: &[u8], bits_per_elem: usize) -> [u16; N] {
+pub(crate) fn deserialize_generic<const N: usize, const BITS_PER_ELEM: usize>(
+    bytes: &[u8],
+) -> [u16; N] {
     // Serialized bitlength must be a multiple of 8, and `bytes` must be the correct length
-    assert_eq!((bits_per_elem * N) % 8, 0);
-    assert_eq!(bytes.len(), bits_per_elem * N / 8);
+    assert_eq!((BITS_PER_ELEM * N) % 8, 0);
+    assert_eq!(bytes.len(), BITS_PER_ELEM * N / 8);
 
     let mut out = [0u16; N];
-    let bitmask: u32 = (1 << bits_per_elem) - 1;
+    let bitmask: u32 = (1 << BITS_PER_ELEM) - 1;
 
     // Sliding window: holds pending bits from the byte stream. We refill from bytes
     // one at a time and extract elements from the bottom.
@@ -58,16 +60,16 @@ pub(crate) fn deserialize_generic<const N: usize>(bytes: &[u8], bits_per_elem: u
 
     for idx in 0..N {
         // Ensure we have enough bits in the window for one element
-        while bits_in_window < bits_per_elem {
+        while bits_in_window < BITS_PER_ELEM {
             window |= (bytes[byte_pos] as u32) << bits_in_window;
             byte_pos += 1;
             bits_in_window += 8;
         }
 
-        // Extract the lowest bits_per_elem bits as one element
+        // Extract the lowest BITS_PER_ELEM bits as one element
         out[idx] = (window & bitmask) as u16;
-        window >>= bits_per_elem;
-        bits_in_window -= bits_per_elem;
+        window >>= BITS_PER_ELEM;
+        bits_in_window -= BITS_PER_ELEM;
     }
 
     out
@@ -90,11 +92,11 @@ pub(crate) fn serialize_10(data: &[u16; 256], out_buf: &mut [u8; 10 * 256 / 8]) 
     }
 }
 
-/// Serializes a `un` array into a bytestring, where `n = bits_per_elem`
-pub(crate) fn serialize(data: &[u16], out_buf: &mut [u8], bits_per_elem: usize) {
-    assert_eq!(out_buf.len(), bits_per_elem * data.len() / 8);
+/// Serializes a `un` array into a bytestring, where `n = BITS_PER_ELEM`
+pub(crate) fn serialize_generic<const BITS_PER_ELEM: usize>(data: &[u16], out_buf: &mut [u8]) {
+    assert_eq!(out_buf.len(), BITS_PER_ELEM * data.len() / 8);
 
-    let bitmask: u32 = (1 << bits_per_elem) - 1;
+    let bitmask: u32 = (1 << BITS_PER_ELEM) - 1;
 
     // Sliding window: elements are OR'd in at the current position, and complete bytes
     // are flushed out from the bottom.
@@ -105,7 +107,7 @@ pub(crate) fn serialize(data: &[u16], out_buf: &mut [u8], bits_per_elem: usize) 
     for &elem in data.iter() {
         // Insert this element's bits into the window
         window |= ((elem as u32) & bitmask) << bits_in_window;
-        bits_in_window += bits_per_elem;
+        bits_in_window += BITS_PER_ELEM;
 
         // Flush all complete bytes
         while bits_in_window >= 8 {
@@ -129,7 +131,7 @@ fn specialized_deser_matches_generic() {
     // Test deserialize_13
     for _ in 0..100 {
         let bytes: [u8; 13 * 256 / 8] = rng.random();
-        let generic: [u16; 256] = deserialize_generic(&bytes, 13);
+        let generic: [u16; 256] = deserialize_generic::<256, 13>(&bytes);
         let fast = deserialize_13(&bytes);
         assert_eq!(generic, fast);
     }
@@ -137,7 +139,7 @@ fn specialized_deser_matches_generic() {
     // Test deserialize_10
     for _ in 0..100 {
         let bytes: [u8; 10 * 256 / 8] = rng.random();
-        let generic: [u16; 256] = deserialize_generic(&bytes, 10);
+        let generic: [u16; 256] = deserialize_generic::<256, 10>(&bytes);
         let fast = deserialize_10(&bytes);
         assert_eq!(generic, fast);
     }
@@ -154,7 +156,7 @@ fn specialized_ser_matches_generic() {
         let data: [u16; 256] = rng.random();
         let mut generic = [0u8; 10 * 256 / 8];
         let mut fast = [0u8; 10 * 256 / 8];
-        serialize(&data, &mut generic, 10);
+        serialize_generic::<10>(&data, &mut generic);
         serialize_10(&data, &mut fast);
         assert_eq!(generic, fast);
     }

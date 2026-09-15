@@ -68,7 +68,7 @@ fn popcount_small(v: Vec128) -> Vec128 {
 /// Requires NEON. `buf.len()` must be `RING_DEG * MU / 8`, and `MU` must be even and in `2..=13`.
 #[target_feature(enable = "neon")]
 fn cbd_lanes<const MU: usize>(buf: &[u8]) -> RingElem {
-    let fields = ser::deserialize(buf, MU);
+    let fields = ser::deserialize::<MU>(buf);
 
     let half_mask = dup_n_u16((1u16 << (MU / 2)) - 1);
     // `MU/2 < 16`, so a 16-bit logical right shift by the negated count brings the high half down.
@@ -121,7 +121,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
         for lane in 0..WAYS {
             let entry = first + lane;
             if entry < entries {
-                mat.0[entry / L][entry % L] = RingElem(ser::deserialize(&bufs[lane], 13));
+                mat.0[entry / L][entry % L] = RingElem(ser::deserialize::<13>(&bufs[lane]));
             }
         }
 

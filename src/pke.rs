@@ -168,7 +168,7 @@ pub(crate) fn expand_secret_key<const L: usize, const MU: usize>(
     // Pack b into its serialized bytes; we keep those, not the structured vector.
     let mut vec_bytes = [[0u8; PK_VEC_ELEM_BYTES]; L];
     for i in 0..L {
-        b.0[i][0].serialize(&mut vec_bytes[i], 10);
+        b.0[i][0].serialize::<10>(&mut vec_bytes[i]);
     }
 
     let pk = PkePublicKey {
@@ -208,7 +208,7 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
     mprime.shift_right(10 - 1);
 
     let mut m = [0u8; 32];
-    mprime.serialize(&mut m, 1);
+    mprime.serialize::<1>(&mut m);
     m
 }
 
@@ -235,7 +235,7 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
     let vprime: Matrix<1, 1> = pk.vec_ntt.mul_transpose(&sprime_ntt);
     let vprime = vprime.0[0][0];
 
-    let mut msg_polyn = RingElem(deserialize_generic(msg, 1));
+    let mut msg_polyn = RingElem(deserialize_generic::<RING_DEG, 1>(msg));
     msg_polyn.shift_left(10 - 1);
 
     // Compute v' - mp + h₁
@@ -245,8 +245,8 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
 
     // b' is in R^l_P and c is in R_T
     let (bprime_buf, c_buf) = out_buf.split_at_mut(L * 10 * RING_DEG / 8);
-    bprime.serialize(bprime_buf, 10);
-    c.serialize(c_buf, T);
+    bprime.serialize::<10>(bprime_buf);
+    c.serialize::<T>(c_buf);
 }
 
 #[cfg(test)]

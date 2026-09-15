@@ -78,34 +78,35 @@ const fn plans() -> [Plan; MAX_BITS + 1] {
     plans
 }
 
-/// One plan per supported width. Index 0 is unused padding so `bits` indexes directly.
+/// One plan per supported width. Index 0 is unused padding so `BITS_PER_ELEM` indexes
+/// directly.
 const PLANS: [Plan; MAX_BITS + 1] = plans();
 
-/// Deserializes `RING_DEG` coefficients of `bits` bits each from `bytes`.
+/// Deserializes `RING_DEG` coefficients of `BITS_PER_ELEM` bits each from `bytes`.
 ///
 /// Produces exactly what [`crate::ser::deserialize_generic`] does. `bytes.len()` must be
-/// `bits * RING_DEG / 8` and `bits` must be in `1..=13`, both of which the caller has already
-/// asserted.
+/// `BITS_PER_ELEM * RING_DEG / 8` and `BITS_PER_ELEM` must be in `1..=13`, both of which the
+/// caller has already asserted.
 ///
 /// # Safety
 ///
 /// Requires AVX2.
 #[target_feature(enable = "avx2")]
-pub(crate) fn deserialize(bytes: &[u8], bits: usize) -> [u16; RING_DEG] {
-    let plan = &PLANS[bits];
+pub(crate) fn deserialize<const BITS_PER_ELEM: usize>(bytes: &[u8]) -> [u16; RING_DEG] {
+    let plan = &PLANS[BITS_PER_ELEM];
     let shuffle = load_u8(&plan.shuffle, 0);
     let shift = load_i32(&plan.shift, 0);
-    let mask = set1_epi32((1i32 << bits) - 1);
+    let mask = set1_epi32((1i32 << BITS_PER_ELEM) - 1);
 
-    // A group is 8 coefficients packed into `bits` bytes, and the vector path reads a whole
-    // 16 bytes from a group's start, so the last few groups would read past the end of a
-    // buffer that is only `32 * bits` long. Exactly `⌊15 / bits⌋` of them do — the ones
-    // starting within 15 bytes of the end — so we copy that short remainder (at most 15 bytes)
-    // into a zero-padded scratch buffer and read those groups from there. Everything stays
+    // A group is 8 coefficients packed into `BITS_PER_ELEM` bytes, and the vector path reads a
+    // whole 16 bytes from a group's start, so the last few groups would read past the end of a
+    // buffer that is only `32 * BITS_PER_ELEM` long. Exactly `⌊15 / BITS_PER_ELEM⌋` of them do —
+    // the ones starting within 15 bytes of the end — so we copy that short remainder (at most 15
+    // bytes) into a zero-padded scratch buffer and read those groups from there. Everything stays
     // vectorized, and the copy is a few bytes rather than the whole buffer.
-    let tail_groups = 15 / bits;
+    let tail_groups = 15 / BITS_PER_ELEM;
     let head_groups = GROUPS - tail_groups;
-    let tail_start = head_groups * bits;
+    let tail_start = head_groups * BITS_PER_ELEM;
     let mut tail = [0u8; 32];
     tail[..bytes.len() - tail_start].copy_from_slice(&bytes[tail_start..]);
 
@@ -113,15 +114,16 @@ pub(crate) fn deserialize(bytes: &[u8], bits: usize) -> [u16; RING_DEG] {
     for pair in 0..GROUPS / 2 {
         let mut wide = [setzero_si256(); 2];
         for half in 0..2 {
-            // For a group in the head, `group * bits + 16 ≤ 32 * bits = bytes.len()`, so the
-            // load is in bounds. For one in the tail, its offset into `tail` is at most
-            // `31 * bits - tail_start = (⌊15/bits⌋ - 1) * bits ≤ 15 - bits`, so the 16-byte
-            // load stays inside the 32-byte scratch buffer.
+            // For a group in the head, `group * BITS_PER_ELEM + 16 ≤ 32 * BITS_PER_ELEM =
+            // bytes.len()`, so the load is in bounds. For one in the tail, its offset into
+            // `tail` is at most `31 * BITS_PER_ELEM - tail_start = (⌊15/BITS_PER_ELEM⌋ - 1) *
+            // BITS_PER_ELEM ≤ 15 - BITS_PER_ELEM`, so the 16-byte load stays inside the 32-byte
+            // scratch buffer.
             let group = 2 * pair + half;
             let raw = if group < head_groups {
-                broadcastsi128_si256(load_u8x16(bytes, group * bits))
+                broadcastsi128_si256(load_u8x16(bytes, group * BITS_PER_ELEM))
             } else {
-                broadcastsi128_si256(load_u8x16(&tail, group * bits - tail_start))
+                broadcastsi128_si256(load_u8x16(&tail, group * BITS_PER_ELEM - tail_start))
             };
             let windows = shuffle_epi8(raw, shuffle);
             wide[half] = and_si256(srlv_epi32(windows, shift), mask);

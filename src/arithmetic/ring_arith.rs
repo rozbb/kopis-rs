@@ -3,7 +3,7 @@
 
 use crate::{
     consts::RING_DEG,
-    ser::{deserialize_generic, serialize},
+    ser::{deserialize_generic, serialize_10, serialize_generic},
 };
 
 use core::ops::{Add, Mul, Sub};
@@ -51,7 +51,7 @@ impl RingElem {
             // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2. The width
             // and length preconditions are the range check above and the assertion.
             return RingElem(unsafe {
-                crate::backend::avx2::ser::deserialize(bytes, BITS_PER_ELEM)
+                crate::backend::avx2::ser::deserialize::<BITS_PER_ELEM>(bytes)
             });
         }
 
@@ -61,7 +61,7 @@ impl RingElem {
             // SAFETY: `neon_available()` has just confirmed this CPU supports NEON. The width
             // and length preconditions are the range check above and the assertion.
             return RingElem(unsafe {
-                crate::backend::neon::ser::deserialize(bytes, BITS_PER_ELEM)
+                crate::backend::neon::ser::deserialize::<BITS_PER_ELEM>(bytes)
             });
         }
 
@@ -75,22 +75,26 @@ impl RingElem {
                 let arr: &[u8; 10 * RING_DEG / 8] = bytes.try_into().unwrap();
                 RingElem(crate::ser::deserialize_10(arr))
             }
-            _ => RingElem(deserialize_generic(bytes, BITS_PER_ELEM)),
+            _ => RingElem(deserialize_generic::<RING_DEG, BITS_PER_ELEM>(bytes)),
         }
     }
 
-    /// Serializes this ring element, treating each coefficient as having only `bits_per_elem`
-    /// bits. In Saber terms, this runs POLYk2BS where k = bits_per_elem
+    /// Serializes this ring element, treating each coefficient as having only `BITS_PER_ELEM`
+    /// bits. In Saber terms, this runs POLYk2BS where k = BITS_PER_ELEM
     #[allow(clippy::unwrap_used)]
-    pub(crate) fn serialize(&self, out_buf: &mut [u8], bits_per_elem: usize) {
-        assert_eq!(out_buf.len(), bits_per_elem * RING_DEG / 8);
+    pub(crate) fn serialize<const BITS_PER_ELEM: usize>(&self, out_buf: &mut [u8]) {
+        // We support serialization of any number of bits up to 13
+        assert!((1..=13).contains(&BITS_PER_ELEM));
+        // The output must be exactly RING_DEG-many copies of BITS_PER_ELEM
+        assert_eq!(out_buf.len(), BITS_PER_ELEM * RING_DEG / 8);
 
-        // Specialize based on bits_per_elem. unwrap is okay because of the check above
-        if bits_per_elem == 10 {
-            let arr: &mut [u8; 10 * RING_DEG / 8] = out_buf.try_into().unwrap();
-            crate::ser::serialize_10(&self.0, arr)
-        } else {
-            serialize(&self.0, out_buf, bits_per_elem)
+        // Specialize based on BITS_PER_ELEM. unwrap is okay because of the check above
+        match BITS_PER_ELEM {
+            10 => {
+                let arr: &mut [u8; 10 * RING_DEG / 8] = out_buf.try_into().unwrap();
+                serialize_10(&self.0, arr)
+            }
+            _ => serialize_generic::<BITS_PER_ELEM>(&self.0, out_buf),
         }
     }
 
@@ -352,7 +356,7 @@ mod test {
             let elem = RingElem::rand(&mut rng);
             let my_bytes = &mut backing_buf1[..bits_per_elem * RING_DEG / 8];
             let ref_bytes = &mut backing_buf2[..bits_per_elem * RING_DEG / 8];
-            elem.serialize(my_bytes, bits_per_elem);
+            elem.serialize::<13>(my_bytes);
             reference_impl_to_bytes_mod8192(&elem, ref_bytes);
             assert_eq!(my_bytes, ref_bytes);
 
@@ -378,7 +382,7 @@ mod test {
             backing_buf2.fill(0);
             let my_bytes = &mut backing_buf1[..bits_per_elem * RING_DEG / 8];
             let ref_bytes = &mut backing_buf2[..bits_per_elem * RING_DEG / 8];
-            elem.serialize(my_bytes, bits_per_elem);
+            elem.serialize::<1>(my_bytes);
             saber_ref_to_bytes_mod2(&elem, ref_bytes);
             assert_eq!(my_bytes, ref_bytes);
 
@@ -395,7 +399,7 @@ mod test {
 
                 // Check that a round trip preserves the polynomial
                 let p_bytes = &mut backing_buf1[..bits_per_elem * RING_DEG / 8];
-                p.serialize(p_bytes, bits_per_elem);
+                dynamic_serialize_elem(&p, p_bytes, bits_per_elem);
                 assert_eq!(p, dynamic_deserialize_elem(&p_bytes, bits_per_elem));
 
                 // Now other way around
@@ -403,12 +407,32 @@ mod test {
                 rng.fill_bytes(p_bytes);
                 let p = dynamic_deserialize_elem(&p_bytes, bits_per_elem);
                 let new_p_bytes = &mut backing_buf2[..bits_per_elem * RING_DEG / 8];
-                p.serialize(new_p_bytes, bits_per_elem);
+                dynamic_serialize_elem(&p, new_p_bytes, bits_per_elem);
                 assert_eq!(p_bytes, new_p_bytes);
             }
         }
 
-        /// Runs RingElem::deserialize<bits_per_elem)(bytes)
+        /// Runs `elem.serialize::<bits_per_elem>(out_buf)`
+        fn dynamic_serialize_elem(elem: &RingElem, out_buf: &mut [u8], bits_per_elem: usize) {
+            match bits_per_elem {
+                13 => elem.serialize::<13>(out_buf),
+                12 => elem.serialize::<12>(out_buf),
+                11 => elem.serialize::<11>(out_buf),
+                10 => elem.serialize::<10>(out_buf),
+                9 => elem.serialize::<9>(out_buf),
+                8 => elem.serialize::<8>(out_buf),
+                7 => elem.serialize::<7>(out_buf),
+                6 => elem.serialize::<6>(out_buf),
+                5 => elem.serialize::<5>(out_buf),
+                4 => elem.serialize::<4>(out_buf),
+                3 => elem.serialize::<3>(out_buf),
+                2 => elem.serialize::<2>(out_buf),
+                1 => elem.serialize::<1>(out_buf),
+                _ => panic!("Unsupported bits_per_elem {bits_per_elem}"),
+            }
+        }
+
+        /// Runs `RingElem::deserialize::<bits_per_elem>(bytes)`
         fn dynamic_deserialize_elem(bytes: &[u8], bits_per_elem: usize) -> RingElem {
             match bits_per_elem {
                 13 => RingElem::deserialize::<13>(bytes),

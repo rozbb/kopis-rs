@@ -70,7 +70,7 @@ fn shift_right_dynamic(v: Vec256, count: usize) -> Vec256 {
 /// Requires AVX2. `buf.len()` must be `RING_DEG * MU / 8` and `MU` must be even and in `2..=13`.
 #[target_feature(enable = "avx2")]
 fn cbd<const MU: usize>(buf: &[u8]) -> RingElem {
-    let fields = ser::deserialize(buf, MU);
+    let fields = ser::deserialize::<MU>(buf);
 
     let lut = load_u8(&NIBBLE_POPCOUNT.0, 0);
     let half_mask = set1_epi16(((1u16 << (MU / 2)) - 1) as i16);
@@ -121,7 +121,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
             let entry = first + lane;
             if entry < entries {
                 mat.0[entry / L][entry % L] =
-                    RingElem(ser::deserialize(&bufs[lane][..MATRIX_ELEM_BYTES], 13));
+                    RingElem(ser::deserialize::<13>(&bufs[lane][..MATRIX_ELEM_BYTES]));
             }
         }
 
@@ -239,7 +239,7 @@ mod test {
                     hasher.update(&[i as u8]);
                     hasher.update(&[j as u8]);
                     hasher.finalize_xof().read(&mut buf);
-                    let expected = RingElem::deserialize(&buf, 13);
+                    let expected = RingElem::deserialize::<13>(&buf);
                     assert_eq!(actual.0[i][j], expected, "L = {L}, entry ({i}, {j})");
                 }
             }
