@@ -124,10 +124,10 @@ theorem serialize_loop0_spec (iter : core.slice.iter.Iter U16) (out_buf : Slice 
     (hbits : 8 * byte_pos.val + bits_in_window.val = n * iter.i)
     (hval : byteVal out_buf byte_pos.val + window.val * 256 ^ byte_pos.val = packedVal orig n iter.i)
     (hi_le : iter.i ≤ 256) :
-    ser.serialize_loop0 iter out_buf bits_per_elem bitmask window bits_in_window byte_pos
+    ser.serialize_generic_loop0 bits_per_elem iter out_buf bitmask window bits_in_window byte_pos
       ⦃ (r : Slice U8 × Usize) =>
           r.1.val.length = 32 * n ∧ r.2.val = 0 ∧ byteVal r.1 (32 * n) = packedVal orig n 256 ⦄ := by
-  unfold ser.serialize_loop0
+  unfold ser.serialize_generic_loop0
   have hlen256 : iter.slice.len.val = 256 := by
     rw [hslice]; simp [Slice.len, horiglen]
   by_cases hlt : iter.i < iter.slice.len
@@ -253,14 +253,14 @@ theorem serialize_loop0_spec (iter : core.slice.iter.Iter U16) (out_buf : Slice 
     refine ⟨hbuflen, hb0, ?_⟩
     rw [← hbp, ← hi_eq, ← hval, hw0]; ring
 
-/-- **`ser.serialize` correctness (byte-value form).**  The output's little-endian
+/-- **`ser.serialize_generic` correctness (byte-value form).**  The output's little-endian
 value is the packed bit-stream of `data`. -/
 theorem ser_serialize_spec (data : Slice U16) (out_buf : Slice U8) (bits_per_elem : Usize) (n : ℕ)
     (hn : bits_per_elem.val = n) (hn_rng : 1 ≤ n ∧ n ≤ 13)
     (hdata : data.val.length = 256) (hbuflen : out_buf.val.length = 32 * n) :
-    ser.serialize data out_buf bits_per_elem
+    ser.serialize_generic bits_per_elem data out_buf
       ⦃ (r : Slice U8) => r.val.length = 32 * n ∧ byteVal r (32 * n) = packedVal data n 256 ⦄ := by
-  unfold ser.serialize
+  unfold ser.serialize_generic
   have hdlen : (Slice.len data).val = 256 := by simp [Slice.len, hdata]
   have holen : (Slice.len out_buf).val = 32 * n := by simp [Slice.len, hbuflen]
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (show bits_per_elem.val * (Slice.len data).val ≤ Usize.max by

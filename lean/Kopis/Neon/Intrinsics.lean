@@ -110,15 +110,32 @@ export Kopis.Bits (laneOf)
 @[reducible] def lane32 (v : Vec128) (i : Nat) : BitVec 32 := laneOf 32 (bits v) i
 @[reducible] def lane64 (v : Vec128) (i : Nat) : BitVec 64 := laneOf 64 (bits v) i
 
-/-- The width guard `(1..=13).contains(&bits)` terminates and does not fail. `contains` is a
-`core` comparison that charon does not lower, so aeneas emits it uninterpreted; this assumes only
-that it *returns*, not what it returns — both outcomes are proved. It appears nowhere in the
-serial extraction: the guard is part of the vector dispatch. -/
-axiom rangeInclusive_contains_ok {Idx U : Type}
-    (i1 : core.cmp.PartialOrd Idx Idx) (i2 : core.cmp.PartialOrd Idx U)
-    (i3 : core.cmp.PartialOrd U Idx)
-    (r : core.ops.range.RangeInclusive Idx) (x : U) :
-    ∃ b, RustKopisNeon.core.ops.range.RangeInclusive.contains i1 i2 i3 r x = ok b
+/-- **The width guard.**  `RingElem::{serialize,deserialize}` open with
+`debug_assert!((1..=13).contains(&BITS_PER_ELEM))`.  `contains` is a `core` comparison charon does
+not lower, so aeneas emits it uninterpreted, and the `massert` it guards cannot be discharged from
+the extraction alone — the triple would be *false*, not merely unproved, since `⦃ ⦄` forbids
+failure.  This gives the call its `core` semantics at the `Usize` instantiation: `contains` decides
+`start ≤ x ≤ end` (`RangeInclusive::contains` ignores the `exhausted` flag, as `core` does).
+
+This replaces the earlier `rangeInclusive_contains_ok`, which assumed only that the call *returns*.
+That was enough while the guard sat inside an `if` and both branches were proved; it is not enough
+now that the same guard fronts a `massert` in `plain_arith`, which compiles into every backend.
+The serial twin of this assumption is `Kopis.Properties.rangeInclusive_contains_usize_eq`. -/
+axiom rangeInclusive_contains_usize_eq
+    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
+    (i3 : core.cmp.PartialOrd Usize Usize)
+    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
+    RustKopisNeon.core.ops.range.RangeInclusive.contains i1 i2 i3 r x
+      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val))
+
+/-- `rangeInclusive_contains_usize_eq` in triple form, for `step*`. -/
+@[step] theorem rangeInclusive_contains_usize_spec
+    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
+    (i3 : core.cmp.PartialOrd Usize Usize)
+    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
+    RustKopisNeon.core.ops.range.RangeInclusive.contains i1 i2 i3 r x
+      ⦃ (b : Bool) => b = decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val) ⦄ := by
+  rw [rangeInclusive_contains_usize_eq]; simp
 
 /-! ## Saturation and small helpers -/
 

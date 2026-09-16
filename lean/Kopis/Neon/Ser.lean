@@ -138,7 +138,7 @@ theorem loop_spec (bytes : Slice U8) (w : ℕ) (hw1 : 1 ≤ w) (hw13 : w ≤ 13)
     (htail : ∀ p < 32, (tailArr.val[p]!).val = streamByte bytes (tailStart w + p))
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 32)
     (out : Array U16 256#usize) :
-    backend.neon.ser.deserialize_loop iter bytes bitsU shufLo shufHi shiftLo shiftHi maskV
+    backend.neon.ser.deserialize_loop bitsU iter bytes shufLo shufHi shiftLo shiftHi maskV
       headG tailS tailArr out
       ⦃ (r : Array U16 256#usize) => ∀ j < 256,
           (r.val[j]!).val =
@@ -296,7 +296,7 @@ result is the `bits`-bit window at bit `bits·j`, which is exactly what
 `ser::deserialize_generic` produces. -/
 theorem deserialize_streamNat (bytes : Slice U8) (w : ℕ) (hw1 : 1 ≤ w) (hw13 : w ≤ 13)
     (hlen : bytes.length = 32 * w) (bitsU : Usize) (hbitsU : bitsU.val = w) :
-    backend.neon.ser.deserialize bytes bitsU
+    backend.neon.ser.deserialize bitsU bytes
       ⦃ (r : Array U16 256#usize) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (w * j) w ⦄ := by
   have hblen : bytes.val.length = 32 * w := by simpa [Slice.length] using hlen

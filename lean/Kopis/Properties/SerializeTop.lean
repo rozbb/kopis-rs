@@ -57,27 +57,43 @@ theorem serialize_conclusion (re : RingElem) (n : ℕ) (hrng : 1 ≤ n ∧ n ≤
 coefficients produces the spec `serialize n (toPolyN n re)`. -/
 theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n : ℕ)
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hlen : out.val.length = 32 * n) :
-    RingElem.serialize re out bits
+    RingElem.serialize bits re out
       ⦃ (r : Slice U8) => ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h = Spec.Kopis.serialize n (toPolyN n re) ⦄ := by
   unfold RingElem.serialize
   simp only [consts.RING_DEG]
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show bits.val * (256#usize).val ≤ Usize.max by
+  -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val) = true) = ok ()
+        from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  -- `BITS_PER_ELEM * RING_DEG` is an overflow check whose value the body discards; the product
+  -- is then recomputed as a wrapping multiply, which `mul_spec` says does not wrap
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec (show bits.val * (256#usize).val ≤ Usize.max by
     rw [hn, show (256#usize).val = 256 from rfl]
     have : n * 256 ≤ 13 * 256 := by omega
     have : (13 * 256 : ℕ) ≤ Usize.max := by scalar_tac
     omega)
+  have h256 : (256#usize).val = 256 := by simp
+  have hlt : bits.val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul bits 256#usize).val = n * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hn]
+  rw [show lift (Std.Usize.wrapping_mul bits 256#usize)
+        = ok (Std.Usize.wrapping_mul bits 256#usize) from rfl, bind_tc_ok]
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.div_spec
-  have hiv : i.val = n * 256 := by rw [hi, hn]
   have hi1v : i1.val = 32 * n := by rw [hi1, hiv]; omega
   rw [show massert (Slice.len out = i1) = ok () from by
     have : Slice.len out = i1 := by scalar_tac
     simp only [massert, if_pos this], bind_tc_ok]
   have hslen : (Array.to_slice re).val.length = 256 := by rw [Array.val_to_slice]; exact re.property
-  by_cases hfast : bits = 10#usize
+  split
   · -- the branchless 10-bit fast path
-    simp only [hfast, reduceIte]
-    have hn10 : n = 10 := by
-      rw [← hn, hfast]; simp
+    rename_i hd
+    have hn10 : n = 10 := by rw [← hn]; exact hd
     have houtlen : out.val.length = 320 := by rw [hlen, hn10]
     have hlenu : Slice.len out = 320#usize :=
       UScalar.eq_of_val_eq (by rw [Slice.len_val]; exact houtlen)
@@ -93,7 +109,7 @@ theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n :
     refine Eq.trans ?_ hbv
     exact byteVal_congr _ _ _ (fun q _ => by simp [Array.val_to_slice])
   · -- the generic sliding-window path
-    simp only [hfast, reduceIte]
+    rename_i hd
     rw [show (lift (Array.to_slice re) : Result (Slice U16)) = ok (Array.to_slice re) from rfl,
       bind_tc_ok]
     apply WP.spec_mono (ser_serialize_spec (Array.to_slice re) out bits n hn hrng hslen hlen)

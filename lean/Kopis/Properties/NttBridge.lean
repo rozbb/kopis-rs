@@ -869,7 +869,8 @@ theorem ntt_mul_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat Y Z) (sBound :
 
 /-- **The convolution theorem.** Pointwise product in the NTT domain computes the schoolbook
 product of the underlying coefficient matrices, in `ℤ[X]/(X²⁵⁶+1)` with `u16` coefficients — the
-same postcondition as `matrix_mul_spec` — given the joint magnitude constraint `fitsExactly`.
+same postcondition as the former `matrix_mul_spec` — given the joint magnitude constraint
+`fitsExactly`.
 `hY` discharges the `debug_assert!(Y <= MAX_L)` that bounds the `i64` accumulator. -/
 theorem ntt_mul_spec {X Y Z : Usize}
     (A : Mat X Y) (s : Mat Y Z) (sBound : ℤ)
@@ -1127,8 +1128,8 @@ theorem ntt_mulT_outer_spec {X Y Z : Usize} (A : Mat X Y) (s : Mat X Z) (sBound 
   decreasing_by scalar_decr_tac
 
 /-- **The convolution theorem, transposed.** `mul_transpose` in the NTT domain computes the
-schoolbook product `Aᵀ·s` of the underlying coefficient matrices, matching
-`matrix_mul_transpose_spec`.  `hX` discharges the `debug_assert!(X <= MAX_L)`. -/
+schoolbook product `Aᵀ·s` of the underlying coefficient matrices, matching what the former
+`matrix_mul_transpose_spec` proved.  `hX` discharges the `debug_assert!(X <= MAX_L)`. -/
 theorem ntt_mul_transpose_spec {X Y Z : Usize}
     (A : Mat X Y) (s : Mat X Z) (sBound : ℤ)
     (hfit : fitsExactly X.val sBound)

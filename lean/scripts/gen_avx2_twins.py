@@ -50,7 +50,30 @@ PATCHES = [
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑13#usize` down to `13`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (13#usize).val = 13 := by simp
+  have hlt : (13#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 13#usize 256#usize).val = 13 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 13#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 13#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   have hb : bytes.len = 416#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
     core.result.Result.unwrap]
@@ -81,7 +104,30 @@ PATCHES = [
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (10#usize).val = 10 := by simp
+  have hlt : (10#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 10#usize 256#usize).val = 10 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 10#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 10#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   have hb : bytes.len = 320#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
     core.result.Result.unwrap]
@@ -111,11 +157,54 @@ PATCHES = [
     # spec as a hypothesis; doing it here instead took this file from 106 s to over thirty
     # minutes, because unfolding the AVX2 dispatch body (three nested copies of the portable
     # path) and case-splitting it is expensive in this file's environment.
+    # The width guard is assumed once per backend, in `Intrinsics.lean`.  Without this the twin
+    # of the serial `axiom` would be a second, identical assumption about the same constant,
+    # and the trust base would carry both.
+    ("Serialize.lean",
+     """axiom rangeInclusive_contains_usize_eq
+    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
+    (i3 : core.cmp.PartialOrd Usize Usize)
+    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
+    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
+      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val))""",
+     """/-- In the backend stacks this is **not** a second assumption.  The width guard is assumed once,
+in `Kopis/Avx2/Intrinsics.lean`, next to the other backend-level assumptions; this re-exports it
+under the serial name so that the twinned proof text below goes through unchanged. -/
+theorem rangeInclusive_contains_usize_eq
+    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
+    (i3 : core.cmp.PartialOrd Usize Usize)
+    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
+    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
+      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val)) :=
+  Kopis.Avx2.rangeInclusive_contains_usize_eq i1 i2 i3 r x"""),
     ("Serialize.lean",
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑13#usize` down to `13`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (13#usize).val = 13 := by simp
+  have hlt : (13#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 13#usize 256#usize).val = 13 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 13#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 13#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   -- resolve `try_from 416` (lengths match) and `unwrap`, exposing `arr.val = bytes.val`
   have hb : bytes.len = 416#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
@@ -145,23 +234,38 @@ PATCHES = [
     ("DeserializeCm.lean",
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
-  -- i = n * 256, right_val = 32·n, discharge the length massert
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
-  have hiv : i.val = n * 256 := hi
+  -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2, hnv]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  -- the discarded overflow check, then the same product as a wrapping multiply
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hlt : (n#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hnv, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul n#usize 256#usize).val = n * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hnv]
+  rw [show lift (Std.Usize.wrapping_mul n#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul n#usize 256#usize) from rfl, bind_tc_ok]
+  -- right_val = 32·n, discharge the length massert
   let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
   have hrvv : rv.val = 32 * n := by rw [hrv, hiv]; omega
   have hmeq : Slice.len bytes = rv := UScalar.eq_of_val_eq (by rw [Slice.len_val, hrvv]; exact hlen)
   rw [show massert (Slice.len bytes = rv) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
   -- neither the 13-bit nor the 10-bit fast path: take the generic else-branch
-  have hne13' : n#usize ≠ 13#usize := by
-    intro h; exact hne13 (by have := congrArg UScalar.val h; simpa using this)
-  have hne10' : n#usize ≠ 10#usize := by
-    intro h; exact hne10 (by have := congrArg UScalar.val h; simpa using this)
-  rw [if_neg hne13', if_neg hne10']
-  -- delegate to the generic decoder and thread the postcondition through `ok a`
-  let* ⟨ a, ha ⟩ ← deserialize_generic_gen_spec bytes n ⟨hn1, hn2⟩ hlen
-  exact ha""",
+  rw [hnv]
+  split
+  · exact absurd rfl hne13
+  · exact absurd rfl hne10
+  · -- delegate to the generic decoder and thread the postcondition through `ok a`
+    let* ⟨ a, ha ⟩ ← deserialize_generic_gen_spec bytes n ⟨hn1, hn2⟩ hlen
+    exact ha""",
      """  -- The dispatch is proved once in `Kopis/Avx2/SerDispatch.lean`; here it is instantiated at
   -- the generic widths, with the portable branch supplied by the twin's own generic decoder.
   have hstream := Kopis.Avx2.ringElem_deserialize_gen_streamNat bytes n hn1 hn2 hne10 hlen
@@ -179,7 +283,30 @@ PATCHES = [
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (10#usize).val = 10 := by simp
+  have hlt : (10#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 10#usize 256#usize).val = 10 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 10#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 10#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   have hb : bytes.len = 320#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
     core.result.Result.unwrap]

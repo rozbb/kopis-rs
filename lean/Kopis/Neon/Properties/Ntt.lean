@@ -5,11 +5,11 @@
   # Kopis/Properties/Ntt.lean — the NTT multiplication bridge.
 
   Production Kopis multiplies ring elements through a negacyclic NTT over the auxiliary prime
-  `p = 50330113` (`src/arithmetic/ntt_arith.rs`), not through the schoolbook `Matrix::mul` /
-  `Matrix::mul_transpose`.  Those schoolbook functions are still extracted, and
-  `MatrixMul.lean` / `MulTranspose.lean` prove they compute the spec's matrix product; this
-  file's job is to give the NTT pipeline a postcondition of *exactly the same shape*, so the
-  downstream key-generation / encryption / decryption proofs can quote it interchangeably.
+  `p = 50330113` (`src/arithmetic/ntt_arith.rs`).  It used to do so through a schoolbook
+  `Matrix::mul` / `Matrix::mul_transpose`, and `MatrixMul.lean` / `MulTranspose.lean` proved
+  those computed the spec's matrix product; both the Rust and those proofs are gone, and this
+  file's postcondition — deliberately kept in *exactly the same shape* — is what the downstream
+  key-generation / encryption / decryption proofs quote in their place.
 
   ## Why an auxiliary prime works at all
 
@@ -56,7 +56,7 @@
 -/
 import Kopis.Neon.SerDispatch
 import Kopis.Bits.Stream
-import Kopis.Neon.Properties.MulTranspose
+import Kopis.Neon.Properties.MatrixArith
 import Kopis.Neon.Properties.GenMatrix
 import Kopis.Neon.Properties.DeserializeVec
 import Kopis.Neon.Properties.GenSecretTop
@@ -253,9 +253,9 @@ regression that reopened any of it would fail the build. -/
 
 /-! ### The bridge interface
 
-The transform-level correctness, stated as a **drop-in for `matrix_mul_transpose_spec`**: the
-Rust path `from_uniform A → from_secret s → mul_transpose` produces exactly the schoolbook
-product that `matrix_mul_transpose_spec` proves `Matrix.mul_transpose A s` produces. Downstream
+The transform-level correctness, stated as a **drop-in for the former
+`matrix_mul_transpose_spec`**: the Rust path `from_uniform A → from_secret s → mul_transpose`
+produces exactly the schoolbook product that the deleted `Matrix.mul_transpose` did. Downstream
 proofs (`ExpandSecretKey`, `PkeEncryptTop`, `PkeDecryptTop`) can then replace the schoolbook step
 with this one, discharging the magnitude preconditions from the `gen_matrix` / `gen_secret`
 magnitude lemmas (still to be proved — see `NTT_REFACTOR_STATUS.md`).
@@ -310,7 +310,7 @@ private theorem ntt_getElem!_list_set {α : Type _} [Inhabited α] (l : List α)
 
 /-- A 13-bit `from_bytes` deserialization has every `u16` coefficient `< 2^13`. -/
 private theorem ntt_from_bytes_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
+    arithmetic.plain_arith.RingElem.deserialize 13#usize bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 13 ⦄ := by
   -- NEON only: `RingElem::deserialize` dispatches on the width and on `cpu::available`.
@@ -469,7 +469,7 @@ set_option maxRecDepth 20000
 
 /-- A 10-bit `RingElem.deserialize` has every `u16` coefficient `< 2^10`. -/
 private theorem ntt_ringElem_deser10_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize 10#usize bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 10 ⦄ := by
   -- NEON only: the width-10 dispatch, exactly as above.

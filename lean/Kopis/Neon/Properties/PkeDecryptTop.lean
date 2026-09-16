@@ -6,7 +6,7 @@ import Kopis.Neon.Properties.DecodeMsg
 import Kopis.Neon.Properties.DecryptGlue
 import Kopis.Neon.Properties.InnerProduct
 import Kopis.Neon.Properties.EncryptGlue
-import Kopis.Neon.Properties.MulTranspose
+import Kopis.Neon.Properties.MatrixArith
 import Kopis.Neon.Properties.RingArith
 import Kopis.Neon.Properties.SerializeTop
 import Kopis.Neon.Properties.ExpandSecretKey

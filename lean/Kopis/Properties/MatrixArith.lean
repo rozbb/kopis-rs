@@ -19,6 +19,11 @@ namespace Kopis.Properties
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
 
+/-- The Rust matrix: `X` rows of `Y` `RingElem`s.  (Lived in `MulTranspose.lean` until the
+schoolbook matrix product it served was deleted from the Rust; the NTT-domain product in
+`NttBridge.lean` is stated over the same type.) -/
+abbrev Mat (X Y : Usize) := arithmetic.plain_arith.Matrix X Y
+
 /-- Inner loop of `Matrix.shift_right`: shift every `RingElem` of one row.
 Returns `(iter, back)` unapplied; the outer computes `p.2 p.1`, which equals what
 a directly-applied 1-D loop would return. `!`-indexed to avoid bound-proof blowup

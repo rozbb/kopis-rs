@@ -298,7 +298,7 @@ theorem deserialize_10_spec (bytes : Slice U8) (arr : Array U8 320#usize)
 /-- **Correctness of `RingElem::deserialize` at 10 bits.**  Decoding a 320-byte
 buffer yields the spec ring element `deserialize 10`. -/
 theorem ringElem_deserialize_10_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize 10#usize bytes
       ⦃ (r : RingElem) => toPolyN 10 r = Spec.Kopis.deserialize 10 (sliceToBytes bytes (32 * 10) hlen) ⦄ := by
   have hlen320 : bytes.length = 320 := by omega
   -- dispatch at width 10, proved in `Kopis/Neon/SerDispatch.lean`

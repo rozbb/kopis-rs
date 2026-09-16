@@ -7,20 +7,28 @@
 
   ## Abstraction relation
 
-  The Rust `RingElem` stores 256 coefficients as `u16`, and `RingElem::add`
-  adds them with `u16::wrapping_add`, i.e. arithmetic modulo `2^16`.  The spec
-  `Spec.Kopis.Polynomial.add` is generic in the coefficient modulus `m` and
-  uses `ZMod m` addition, so the faithful correspondence is at `m = 2^16`:
+  The Rust `RingElem` stores 256 coefficients as `u16`, and `RingElem::sub`
+  subtracts them with `u16::wrapping_sub`, i.e. arithmetic modulo `2^16`.  The spec
+  `Spec.Kopis.Polynomial.sub` is generic in the coefficient modulus `m` and
+  uses `ZMod m` subtraction, so the faithful correspondence is at `m = 2^16`:
   `toRingElem` maps each stored `u16` to its class in `ZMod (2^16)`.
 
   (Kopis' *logical* moduli are `2^13`/`2^10`/`2^1`; those are recovered from the
   physical `2^16` representative by `Spec.Kopis.Polynomial.coerce`, which is a
-  ring hom and hence commutes with `add`.  Proving the correspondence at the
+  ring hom and hence commutes with `sub`.  Proving the correspondence at the
   physical `2^16` is therefore the strongest statement about what the code
   computes.)
 
-  This first result covers `RingElem::add`; `sub`, `mul`, and the shifts will
-  follow the same skeleton.
+  ## What is here
+
+  `RingElem::sub`, the two shifts, and `wrapping_add_to_all` — the `RingElem` operations
+  the Rust still has — plus the spec-side closed form of the negacyclic product
+  (`convCoeff` / `mul_get`), which `NttBridge` and the `CoerceBridge`s consume.
+
+  `RingElem::add` and `RingElem::mul` are *not* here: the `Add`/`Mul` impls on `&RingElem`
+  were deleted from the Rust along with the old schoolbook/Karatsuba multiplier, and ring
+  products now go through the NTT.  `NttBridge.lean` proves that path
+  (`ntt_mul_spec` / `ntt_mul_transpose_spec`).
 -/
 import ExtractedRustSerial
 import Spec.Kopis.Spec
@@ -57,13 +65,6 @@ private theorem wrapping_add_toZMod (x y : U16) :
       = (x.val : ZMod (2 ^ 16)) + (y.val : ZMod (2 ^ 16)) := by
   have hsize : UScalar.size .U16 = 2 ^ 16 := by rw [UScalar.size_def]; rfl
   rw [core.num.U16.wrapping_add_val_eq, hsize, ZMod.natCast_mod, Nat.cast_add]
-
-/-- Casting a `u16` wrapping product into `ZMod (2^16)` is the `ZMod` product. -/
-private theorem wrapping_mul_toZMod (x y : U16) :
-    (((core.num.U16.wrapping_mul x y).val : ℕ) : ZMod (2 ^ 16))
-      = (x.val : ZMod (2 ^ 16)) * (y.val : ZMod (2 ^ 16)) := by
-  have hsize : UScalar.size .U16 = 2 ^ 16 := by rw [UScalar.size_def]; rfl
-  rw [core.num.U16.wrapping_mul_val_eq, hsize, ZMod.natCast_mod, Nat.cast_mul]
 
 /-- Casting a `u16` wrapping difference into `ZMod (2^16)` is the `ZMod` difference. -/
 private theorem wrapping_sub_toZMod (x y : U16) :
@@ -114,112 +115,7 @@ theorem iter_mut_next_spec_none {T : Type}
   · agrind
   · simp
 
-/-! ## `RingElem::add` (`src/arithmetic/plain_arith.rs`) -/
-
-/-- **Loop spec** for the `add` loop.
-
-Invariant: at iteration `i`, indices `[0, i)` of `ret` hold the coefficient-wise
-sum of `self` and `other`; `[i, 256)` hold the original `ret`. -/
-theorem add_loop_spec
-    (iter : core.ops.range.Range Usize)
-    (self other ret : RingElem)
-    (h_start : iter.start.val ≤ 256) (h_end : iter.«end».val = 256) :
-    SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
-        iter self other ret
-      ⦃ (r : RingElem) =>
-          toRingElem r = Vector.ofFn fun (j : Fin 256) =>
-            if j.val < iter.start.val then (toRingElem ret).get j
-            else (toRingElem self).get j + (toRingElem other).get j ⦄ := by
-  unfold SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
-  by_cases hlt : iter.start.val < iter.«end».val
-  · -- some branch
-    let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]
-    simp only
-    have hi_lt : iter.start.val < 256 := by scalar_tac
-    let* ⟨ i1, hi1 ⟩ ← Array.index_usize_spec
-    let* ⟨ i2, hi2 ⟩ ← Array.index_usize_spec
-    simp only [lift]
-    let* ⟨ a, ha_eq ⟩ ← Array.update_spec
-    have h_start_new : iter1.start.val ≤ 256 := by rw [hstart']; scalar_tac
-    have h_end_new : iter1.«end».val = 256 := by rw [hend']; exact h_end
-    apply WP.spec_mono
-      (add_loop_spec iter1 self other a h_start_new h_end_new)
-    rintro r h_eq_r
-    rw [h_eq_r]
-    apply Vector.ext
-    intro j hj
-    rw [Vector.getElem_ofFn, Vector.getElem_ofFn]
-    show (if ↑(⟨j, hj⟩ : Fin 256) < iter1.start.val then _ else _) = _
-    rw [hstart']
-    by_cases hj_lt_new : j < iter.start.val + 1
-    · rw [if_pos hj_lt_new]
-      by_cases hj_eq : j = iter.start.val
-      · -- freshly-written slot
-        subst hj_eq
-        rw [if_neg (Nat.lt_irrefl _)]
-        unfold toRingElem
-        simp only [Vector_get_ofFn_aux]
-        rw [ha_eq]
-        simp only [Array.set_val_eq]
-        rw [List.getElem_set_self]
-        rw [hi1, hi2]
-        exact wrapping_add_toZMod _ _
-      · have hj_lt : j < iter.start.val := by scalar_tac
-        rw [if_pos hj_lt]
-        unfold toRingElem
-        simp only [Vector_get_ofFn_aux]
-        rw [ha_eq]
-        simp only [Array.set_val_eq]
-        rw [List.getElem_set_ne (Ne.symm hj_eq)]
-    · -- j ≥ iter.start + 1: both sides are self[j] + other[j] (read-only inputs)
-      push Not at hj_lt_new
-      rw [if_neg (by scalar_tac : ¬ j < iter.start.val + 1)]
-      rw [if_neg (by scalar_tac : ¬ j < iter.start.val)]
-  · -- none branch
-    have h_start_eq : iter.start.val = 256 := by scalar_tac
-    let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]
-    simp only [WP.spec_ok]
-    rw [h_start_eq]
-    conv_rhs =>
-      rw [show (fun (j : Fin 256) =>
-              if j.val < 256 then Vector.get (toRingElem ret) j
-              else Vector.get (toRingElem self) j + Vector.get (toRingElem other) j) =
-            (fun (j : Fin 256) => (toRingElem ret)[j.val]) from
-          funext (fun j => if_pos j.isLt)]
-    exact Vector.ofFn_getElem.symm
-termination_by iter.«end».val - iter.start.val
-decreasing_by scalar_decr_tac
-
-/-- **Wrapper spec** for `RingElem::add`.
-
-`RingElem::add self other` computes the coefficient-wise (mod `2^16`) sum, i.e.
-matches `Spec.Kopis.Polynomial.add` on the abstracted operands. -/
-theorem add_spec (self other : RingElem) :
-    SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add self other
-      ⦃ (r : RingElem) =>
-          toRingElem r = Spec.Kopis.Polynomial.add (toRingElem self) (toRingElem other) ⦄ := by
-  unfold SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
-  have h_end : (consts.RING_DEG).val = 256 := by simp [consts.RING_DEG]
-  rw [show (arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
-        = ok (Array.repeat 256#usize 0#u16) from rfl]
-  simp only [bind_tc_ok]
-  apply WP.spec_mono
-    (add_loop_spec { start := 0#usize, «end» := consts.RING_DEG } self other
-      (Array.repeat 256#usize 0#u16) (by scalar_tac) h_end)
-  rintro r h_eq_r
-  rw [h_eq_r]
-  apply Vector.ext
-  intro j hj
-  rw [Vector.getElem_ofFn]
-  show (if (⟨j, hj⟩ : Fin 256).val < (0#usize).val then _ else _) = _
-  rw [if_neg (by simp)]
-  unfold Spec.Kopis.Polynomial.add
-  rw [Vector.getElem_zipWith]
-  rfl
-
-/-! ## `RingElem::sub` (`src/arithmetic/plain_arith.rs`) — identical skeleton to `add`. -/
+/-! ## `RingElem::sub` (`src/arithmetic/plain_arith.rs`) -/
 
 /-- **Loop spec** for the `sub` loop (mirrors `add_loop_spec`). -/
 theorem sub_loop_spec
@@ -314,367 +210,23 @@ theorem sub_spec (self other : RingElem) :
   rw [Vector.getElem_zipWith]
   rfl
 
-/-! ## `RingElem::mul` — one-level Karatsuba over schoolbook, negacyclic in ℤ[X]/(X²⁵⁶+1)
+/-! ## The negacyclic product on the spec side
 
-  The Rust `ring_mul_acc(acc, a, b)` computes `acc += a·b` in `(ℤ/2¹⁶ℤ)[X]/(X²⁵⁶+1)`
-  (all `wrapping_*`, exact mod 2¹⁶).  It splits `a = a_lo + a_hi·X¹²⁸`, uses one
-  Karatsuba level (`z0 = a_lo·b_lo`, `z2 = a_hi·b_hi`, `z3 = (a_lo+a_hi)(b_lo+b_hi)`,
-  `z1 = z3-z0-z2`), then folds `z0 - z2 + z1·X¹²⁸` with the `X²⁵⁶ = -1` wrap.  We prove
-  each schoolbook product, the cross-sum loop, and the final fold, then match against the
-  audited negacyclic convolution `Spec.Kopis.Polynomial.mul`. -/
+  `RingElem::add` and `RingElem::mul` are gone from the Rust: the `Add`/`Mul` impls on
+  `&RingElem` were deleted with the old schoolbook/Karatsuba multiplier, and products now
+  go through the NTT (`arithmetic.ntt_arith.NttMatrix.mul`, proved in `NttBridge.lean` by
+  `ntt_mul_spec` / `ntt_mul_transpose_spec`).  The correspondence proofs for those two
+  operations went with them.
+
+  What stays here is the part that never mentioned Rust: the closed form `convCoeff` of a
+  coefficient of `Spec.Kopis.Polynomial.mul`, and `mul_get`, which proves the audited spec's
+  double `Id.run` loop computes it.  `NttBridge` and `CoerceBridge`/`CoerceBridge10` are the
+  consumers. -/
 
 open scoped BigOperators
 
 /-- Coefficient `m` of a stored `u16` list, as an element of `ZMod (2^16)`. -/
 private def zc (l : List U16) (m : ℕ) : ZMod (2 ^ 16) := ((l[m]!).val : ZMod (2 ^ 16))
-
-/-- `(l.set j v)[k]!` case split (replicated from `GenMatrix`). -/
-private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ)
-    (v : α) (k : ℕ) (hj : j < l.length) :
-    (l.set j v)[k]! = if k = j then v else l[k]! := by
-  by_cases h : k = j
-  · subst h
-    rw [getElem!_pos _ k (by rw [List.length_set]; exact hj), List.getElem_set_self, if_pos rfl]
-  · by_cases hk : k < l.length
-    · rw [getElem!_pos _ k (by rw [List.length_set]; exact hk),
-        List.getElem_set_of_ne (Ne.symm h), ← getElem!_pos _ k hk, if_neg h]
-    · rw [getElem!_neg _ k (by rw [List.length_set]; exact hk), getElem!_neg _ k hk, if_neg h]
-
-/-- Peel the bottom index off an `Ico` sum. -/
-private theorem sum_Ico_peel {M : Type*} [AddCommMonoid M] (f : ℕ → M) {a b : ℕ} (h : a < b) :
-    ∑ j ∈ Finset.Ico a b, f j = f a + ∑ j ∈ Finset.Ico (a + 1) b, f j := by
-  rw [show a + 1 = a.succ from rfl, Nat.Ico_succ_left_eq_erase_Ico,
-      Finset.add_sum_erase _ f (Finset.mem_Ico.mpr ⟨le_refl a, h⟩)]
-
-set_option maxHeartbeats 1000000 in
-/-- **Schoolbook inner loop.**  Fixed outer index `i` (with `ai = a[i]`); accumulates
-`out[i+j] += ai·b[j]` for `j ∈ [iter.start, 128)`. -/
-theorem schoolbook_inner_spec (iter : core.ops.range.Range Usize)
-    (out : Array U16 256#usize) (b : Array U16 128#usize) (i : Usize) (ai : U16)
-    (hi : i.val < 128) (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.plain_arith.schoolbook_128_loop0_loop0 iter out b i ai
-      ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
-          zc r.val m = zc out.val m
-            + ∑ j ∈ Finset.Ico iter.start.val 128,
-                (if i.val + j = m then (ai.val : ZMod (2 ^ 16)) * zc b.val j else 0) ⦄ := by
-  unfold arithmetic.plain_arith.schoolbook_128_loop0_loop0
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only
-    have hj_lt : iter.start.val < 128 := by scalar_tac
-    let* ⟨ i1, hi1 ⟩ ← Std.Usize.add_spec
-    have hi1_lt : i1.val < 256 := by scalar_tac
-    let* ⟨ i2, hi2 ⟩ ← Array.index_usize_spec
-    let* ⟨ i3, hi3 ⟩ ← Array.index_usize_spec
-    simp only [lift]
-    let* ⟨ a, ha ⟩ ← Array.update_spec
-    have hstartnew : iter1.start.val ≤ 128 := by rw [hstart']; scalar_tac
-    have hendnew : iter1.«end».val = 128 := by rw [hend']; exact hend
-    apply WP.spec_mono (schoolbook_inner_spec iter1 a b i ai hi hstartnew hendnew)
-    intro r hr m hm
-    rw [hr m hm, hstart']
-    -- peel the j = iter.start term
-    rw [sum_Ico_peel _ hj_lt]
-    have hlen : out.val.length = 256 := by have := out.property; scalar_tac
-    have hblen : b.val.length = 128 := by have := b.property; scalar_tac
-    have key : zc a.val m = zc out.val m
-        + (if i.val + iter.start.val = m then (ai.val : ZMod (2 ^ 16)) * zc b.val iter.start.val
-           else 0) := by
-      have hset : a.val[m]! = if m = i1.val
-          then core.num.U16.wrapping_add i2 (core.num.U16.wrapping_mul ai i3) else out.val[m]! := by
-        rw [ha, Array.set_val_eq, getElem!_list_set out.val i1.val _ m (by rw [hlen]; exact hi1_lt)]
-      unfold zc
-      rw [hset]
-      by_cases hmi1 : m = i1.val
-      · rw [if_pos hmi1, if_pos (show i.val + iter.start.val = m by omega),
-          wrapping_add_toZMod, wrapping_mul_toZMod, hi2, hi3, hmi1,
-          getElem!_pos out.val i1.val (by rw [hlen]; exact hi1_lt),
-          getElem!_pos b.val iter.start.val (by rw [hblen]; exact hj_lt)]
-      · rw [if_neg hmi1, if_neg (show ¬ i.val + iter.start.val = m by omega), add_zero]
-    rw [key]; ring
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    intro m hm
-    have : iter.start.val = 128 := by scalar_tac
-    rw [this, Finset.Ico_self, Finset.sum_empty, add_zero]
-termination_by 128 - iter.start.val
-decreasing_by scalar_decr_tac
-
-set_option maxHeartbeats 1000000 in
-/-- **Schoolbook outer loop.**  For outer indices `i1 ∈ [iter.start, 128)`, runs the
-inner loop accumulating `out[i1+j] += a[i1]·b[j]` for `j ∈ [0, 128)`. -/
-theorem schoolbook_outer_spec (i : Usize) (iter : core.ops.range.Range Usize)
-    (out : Array U16 256#usize) (a b : Array U16 128#usize)
-    (hi : i.val = 128) (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.plain_arith.schoolbook_128_loop0 i iter out a b
-      ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
-          zc r.val m = zc out.val m
-            + ∑ i1 ∈ Finset.Ico iter.start.val 128, ∑ j ∈ Finset.Ico 0 128,
-                (if i1 + j = m then zc a.val i1 * zc b.val j else 0) ⦄ := by
-  unfold arithmetic.plain_arith.schoolbook_128_loop0
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only
-    have hi1_lt : iter.start.val < 128 := by scalar_tac
-    have halen : a.val.length = 128 := by have := a.property; scalar_tac
-    let* ⟨ ai, hai ⟩ ← Array.index_usize_spec
-    let* ⟨ out1, hout1 ⟩ ←
-      schoolbook_inner_spec { start := 0#usize, «end» := i } out b iter.start ai hi1_lt
-        (by simp) (by exact hi)
-    apply WP.spec_mono (schoolbook_outer_spec i iter1 out1 a b hi
-      (by rw [hstart']; scalar_tac) (by rw [hend']; exact hend))
-    intro r hr m hm
-    rw [hr m hm, hstart', sum_Ico_peel _ hi1_lt, hout1 m hm]
-    have hz : (ai.val : ZMod (2 ^ 16)) = zc a.val iter.start.val := by
-      unfold zc; rw [hai, getElem!_pos a.val iter.start.val (by rw [halen]; exact hi1_lt)]
-    simp only [hz]; ring
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    intro m hm
-    have : iter.start.val = 128 := by scalar_tac
-    rw [this, Finset.Ico_self, Finset.sum_empty, add_zero]
-termination_by 128 - iter.start.val
-decreasing_by scalar_decr_tac
-
-/-- **Schoolbook full spec.**  `schoolbook_128 out a b` computes `out + a·b` in each
-of the 256 output slots, where `a·b` is the (unreduced) product of two degree-127 polys. -/
-theorem schoolbook_128_spec (out : Array U16 256#usize) (a b : Array U16 128#usize) :
-    arithmetic.plain_arith.schoolbook_128 out a b
-      ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
-          zc r.val m = zc out.val m
-            + ∑ i1 ∈ Finset.Ico 0 128, ∑ j ∈ Finset.Ico 0 128,
-                (if i1 + j = m then zc a.val i1 * zc b.val j else 0) ⦄ := by
-  unfold arithmetic.plain_arith.schoolbook_128 arithmetic.plain_arith.HALF
-  simp only [consts.RING_DEG]
-  let* ⟨ i, hi ⟩ ← Std.Usize.div_spec
-  have hi128 : i.val = 128 := by rw [hi]
-  apply WP.spec_mono (schoolbook_outer_spec i { start := 0#usize, «end» := i } out a b
-    hi128 (by simp) hi128)
-  intro r hr m hm
-  exact hr m hm
-
-set_option maxHeartbeats 1000000 in
-/-- **Cross-sum loop.**  Computes `a_sum[i] = a_lo[i]+a_hi[i]`, `b_sum[i] = b_lo[i]+b_hi[i]`
-for `i ∈ [iter.start, 128)`. -/
-theorem ring_mul_acc_loop0_spec (iter : core.ops.range.Range Usize)
-    (a_lo a_hi b_lo b_hi a_sum b_sum : Array U16 128#usize)
-    (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.plain_arith.ring_mul_acc_loop0 iter a_lo a_hi b_lo b_hi a_sum b_sum
-      ⦃ (r : Array U16 128#usize × Array U16 128#usize) => ∀ i, i < 128 →
-          (zc r.1.val i = if i < iter.start.val then zc a_sum.val i
-             else zc a_lo.val i + zc a_hi.val i)
-          ∧ (zc r.2.val i = if i < iter.start.val then zc b_sum.val i
-             else zc b_lo.val i + zc b_hi.val i) ⦄ := by
-  unfold arithmetic.plain_arith.ring_mul_acc_loop0
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only
-    have hst_lt : iter.start.val < 128 := by scalar_tac
-    have haslen : a_sum.val.length = 128 := by have := a_sum.property; scalar_tac
-    have hbslen : b_sum.val.length = 128 := by have := b_sum.property; scalar_tac
-    let* ⟨ i1, hi1 ⟩ ← Array.index_usize_spec
-    let* ⟨ i2, hi2 ⟩ ← Array.index_usize_spec
-    simp only [lift]
-    let* ⟨ a, ha ⟩ ← Array.update_spec
-    let* ⟨ i4, hi4 ⟩ ← Array.index_usize_spec
-    let* ⟨ i5, hi5 ⟩ ← Array.index_usize_spec
-    let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-    apply WP.spec_mono (ring_mul_acc_loop0_spec iter1 a_lo a_hi b_lo b_hi a a1
-      (by rw [hstart']; scalar_tac) (by rw [hend']; exact hend))
-    intro r hr i hi_lt
-    obtain ⟨hr1, hr2⟩ := hr i hi_lt
-    rw [hstart'] at hr1 hr2
-    refine ⟨?_, ?_⟩
-    · rw [hr1]
-      by_cases hi_new : i < iter.start.val + 1
-      · rw [if_pos hi_new]
-        by_cases hi_eq : i = iter.start.val
-        · subst hi_eq
-          rw [if_neg (Nat.lt_irrefl _)]
-          unfold zc
-          rw [ha, Array.set_val_eq, getElem!_list_set a_sum.val iter.start.val _ iter.start.val
-            (by rw [haslen]; exact hst_lt), if_pos rfl, wrapping_add_toZMod, hi1, hi2,
-            getElem!_pos a_lo.val iter.start.val (by have := a_lo.property; scalar_tac),
-            getElem!_pos a_hi.val iter.start.val (by have := a_hi.property; scalar_tac)]
-        · rw [if_pos (by omega : i < iter.start.val)]
-          unfold zc
-          rw [ha, Array.set_val_eq, getElem!_list_set a_sum.val iter.start.val _ i
-            (by rw [haslen]; exact hst_lt), if_neg hi_eq]
-      · rw [if_neg hi_new, if_neg (by omega : ¬ i < iter.start.val)]
-    · rw [hr2]
-      by_cases hi_new : i < iter.start.val + 1
-      · rw [if_pos hi_new]
-        by_cases hi_eq : i = iter.start.val
-        · subst hi_eq
-          rw [if_neg (Nat.lt_irrefl _)]
-          unfold zc
-          rw [ha1, Array.set_val_eq, getElem!_list_set b_sum.val iter.start.val _ iter.start.val
-            (by rw [hbslen]; exact hst_lt), if_pos rfl, wrapping_add_toZMod, hi4, hi5,
-            getElem!_pos b_lo.val iter.start.val (by have := b_lo.property; scalar_tac),
-            getElem!_pos b_hi.val iter.start.val (by have := b_hi.property; scalar_tac)]
-        · rw [if_pos (by omega : i < iter.start.val)]
-          unfold zc
-          rw [ha1, Array.set_val_eq, getElem!_list_set b_sum.val iter.start.val _ i
-            (by rw [hbslen]; exact hst_lt), if_neg hi_eq]
-      · rw [if_neg hi_new, if_neg (by omega : ¬ i < iter.start.val)]
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    intro i hi_lt
-    have : iter.start.val = 128 := by scalar_tac
-    exact ⟨by rw [if_pos (by omega)], by rw [if_pos (by omega)]⟩
-termination_by 128 - iter.start.val
-decreasing_by scalar_decr_tac
-
-set_option maxHeartbeats 4000000 in
-/-- **Karatsuba reconstruction loop.**  For `j ∈ [iter.start, 128)`, folds `z0-z2+z1·X¹²⁸`
-into `acc[j]` (low, wrapped with sign flip) and `acc[j+128]` (high). -/
-theorem ring_mul_acc_loop1_spec (i : Usize) (iter : core.ops.range.Range Usize)
-    (acc z0 z2 z3 : Array U16 256#usize)
-    (hi : i.val = 128) (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.plain_arith.ring_mul_acc_loop1 i iter acc z0 z2 z3
-      ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
-          zc r.val m = zc acc.val m
-            + (if m < 128
-               then (if m < iter.start.val then 0
-                     else zc z0.val m - zc z2.val m
-                          - (zc z3.val (m + 128) - zc z0.val (m + 128) - zc z2.val (m + 128)))
-               else (if m - 128 < iter.start.val then 0
-                     else zc z0.val m - zc z2.val m
-                          + (zc z3.val (m - 128) - zc z0.val (m - 128) - zc z2.val (m - 128)))) ⦄ := by
-  unfold arithmetic.plain_arith.ring_mul_acc_loop1
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only [lift]
-    have hs_lt : iter.start.val < 128 := by scalar_tac
-    have hbnd : iter.start.val + 128 ≤ Usize.max := by scalar_tac
-    have hacclen : acc.val.length = 256 := by have := acc.property; scalar_tac
-    let* ⟨ i1, hi1 ⟩ ← Std.Usize.add_spec
-    let* ⟨ i2, hi2 ⟩ ← Array.index_usize_spec
-    let* ⟨ i3, hi3 ⟩ ← Std.Usize.add_spec
-    let* ⟨ i4, hi4 ⟩ ← Array.index_usize_spec
-    let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec
-    let* ⟨ i7, hi7 ⟩ ← Array.index_usize_spec
-    let* ⟨ i8, hi8 ⟩ ← Array.index_usize_spec
-    let* ⟨ i9, hi9 ⟩ ← Array.index_usize_spec
-    let* ⟨ i11, hi11 ⟩ ← Array.index_usize_spec
-    let* ⟨ a, ha ⟩ ← Array.update_spec
-    let* ⟨ i14, hi14 ⟩ ← Array.index_usize_spec
-    let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec
-    let* ⟨ i17, hi17 ⟩ ← Array.index_usize_spec
-    let* ⟨ i18, hi18 ⟩ ← Std.Usize.add_spec
-    let* ⟨ i19, hi19 ⟩ ← Array.index_usize_spec
-    let* ⟨ i21, hi21 ⟩ ← Std.Usize.add_spec
-    let* ⟨ i22, hi22 ⟩ ← Array.index_usize_spec
-    let* ⟨ i25, hi25 ⟩ ← Std.Usize.add_spec
-    let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-    -- normalize the `+ i` indices to `+ 128`
-    rw [hi] at hi1 hi3 hi6 hi16 hi18 hi21 hi25
-    have z0len : z0.val.length = 256 := by have := z0.property; scalar_tac
-    have z2len : z2.val.length = 256 := by have := z2.property; scalar_tac
-    have z3len : z3.val.length = 256 := by have := z3.property; scalar_tac
-    have alen : a.val.length = 256 := by have := a.property; scalar_tac
-    -- ZMod values of the reads
-    have e8 : (i8.val : ZMod (2 ^ 16)) = zc acc.val iter.start.val := by
-      unfold zc; rw [hi8, ← getElem!_pos acc.val iter.start.val (by rw [hacclen]; omega)]
-    have e9 : (i9.val : ZMod (2 ^ 16)) = zc z0.val iter.start.val := by
-      unfold zc; rw [hi9, ← getElem!_pos z0.val iter.start.val (by rw [z0len]; omega)]
-    have e11 : (i11.val : ZMod (2 ^ 16)) = zc z2.val iter.start.val := by
-      unfold zc; rw [hi11, ← getElem!_pos z2.val iter.start.val (by rw [z2len]; omega)]
-    have e14 : (i14.val : ZMod (2 ^ 16)) = zc z3.val iter.start.val := by
-      unfold zc; rw [hi14, ← getElem!_pos z3.val iter.start.val (by rw [z3len]; omega)]
-    have e2 : (i2.val : ZMod (2 ^ 16)) = zc z3.val (iter.start.val + 128) := by
-      unfold zc; rw [hi2, ← getElem!_pos z3.val i1.val (by rw [z3len, hi1]; omega), hi1]
-    have e4 : (i4.val : ZMod (2 ^ 16)) = zc z0.val (iter.start.val + 128) := by
-      unfold zc; rw [hi4, ← getElem!_pos z0.val i3.val (by rw [z0len, hi3]; omega), hi3]
-    have e7 : (i7.val : ZMod (2 ^ 16)) = zc z2.val (iter.start.val + 128) := by
-      unfold zc; rw [hi7, ← getElem!_pos z2.val i6.val (by rw [z2len, hi6]; omega), hi6]
-    have e19 : (i19.val : ZMod (2 ^ 16)) = zc z0.val (iter.start.val + 128) := by
-      unfold zc; rw [hi19, ← getElem!_pos z0.val i18.val (by rw [z0len, hi18]; omega), hi18]
-    have e22 : (i22.val : ZMod (2 ^ 16)) = zc z2.val (iter.start.val + 128) := by
-      unfold zc; rw [hi22, ← getElem!_pos z2.val i21.val (by rw [z2len, hi21]; omega), hi21]
-    have e17 : (i17.val : ZMod (2 ^ 16)) = zc acc.val (iter.start.val + 128) := by
-      unfold zc
-      rw [hi17, ← getElem!_pos a.val i16.val (by rw [alen, hi16]; omega), hi16, ha,
-        Array.set_val_eq, getElem!_list_set acc.val iter.start.val _ (iter.start.val + 128)
-          (by rw [hacclen]; omega), if_neg (by omega)]
-    -- the two reconstructed slots, in ZMod
-    have hlow : ((a.val[iter.start.val]!).val : ZMod (2 ^ 16))
-        = zc acc.val iter.start.val + zc z0.val iter.start.val - zc z2.val iter.start.val
-          - (zc z3.val (iter.start.val + 128) - zc z0.val (iter.start.val + 128)
-             - zc z2.val (iter.start.val + 128)) := by
-      rw [ha, Array.set_val_eq,
-        getElem!_list_set acc.val iter.start.val _ iter.start.val (by rw [hacclen]; omega), if_pos rfl,
-        wrapping_sub_toZMod, wrapping_sub_toZMod, wrapping_add_toZMod, wrapping_sub_toZMod,
-        wrapping_sub_toZMod, e8, e9, e11, e2, e4, e7]
-    have hhigh : ((a1.val[iter.start.val + 128]!).val : ZMod (2 ^ 16))
-        = zc acc.val (iter.start.val + 128) + zc z0.val (iter.start.val + 128)
-          - zc z2.val (iter.start.val + 128)
-          + (zc z3.val iter.start.val - zc z0.val iter.start.val - zc z2.val iter.start.val) := by
-      rw [ha1, Array.set_val_eq,
-        getElem!_list_set a.val i25.val _ (iter.start.val + 128) (by rw [alen]; omega), hi25,
-        if_pos rfl, wrapping_add_toZMod, wrapping_sub_toZMod, wrapping_add_toZMod,
-        wrapping_sub_toZMod, wrapping_sub_toZMod, e17, e19, e22, e14, e9, e11]
-    -- a1 lookup as a function of m
-    have ha1_zc : ∀ m, zc a1.val m = if m = iter.start.val + 128
-        then ((a1.val[iter.start.val + 128]!).val : ZMod (2 ^ 16))
-        else if m = iter.start.val then ((a.val[iter.start.val]!).val : ZMod (2 ^ 16))
-        else zc acc.val m := by
-      intro m
-      by_cases hm2 : m = iter.start.val + 128
-      · rw [if_pos hm2]; unfold zc; rw [hm2]
-      · rw [if_neg hm2]
-        have hstep : zc a1.val m = zc a.val m := by
-          unfold zc
-          rw [ha1, Array.set_val_eq,
-            getElem!_list_set a.val i25.val _ m (by rw [alen]; omega), hi25, if_neg hm2]
-        rw [hstep]
-        by_cases hm1 : m = iter.start.val
-        · rw [if_pos hm1]; unfold zc; rw [hm1]
-        · rw [if_neg hm1]
-          unfold zc
-          rw [ha, Array.set_val_eq,
-            getElem!_list_set acc.val iter.start.val _ m (by rw [hacclen]; omega), if_neg hm1]
-    -- recurse
-    apply WP.spec_mono (ring_mul_acc_loop1_spec i iter1 a1 z0 z2 z3 hi
-      (by rw [hstart']; scalar_tac) (by rw [hend']; exact hend))
-    intro r hr m hm
-    rw [hr m hm, hstart', ha1_zc m, hlow, hhigh]
-    by_cases hms2 : m = iter.start.val + 128
-    · -- high slot `m = s + 128`
-      rw [if_pos hms2, if_neg (show ¬ m < 128 by omega), if_neg (show ¬ m < 128 by omega),
-        if_pos (show m - 128 < iter.start.val + 1 by omega),
-        if_neg (show ¬ m - 128 < iter.start.val by omega), hms2,
-        show iter.start.val + 128 - 128 = iter.start.val from by omega]
-      ring
-    · by_cases hms : m = iter.start.val
-      · -- low slot `m = s`
-        rw [if_neg (by omega), if_pos hms, if_pos (show m < 128 by omega),
-          if_pos (show m < iter.start.val + 1 by omega), if_pos (show m < 128 by omega),
-          if_neg (show ¬ m < iter.start.val by omega), hms]
-        ring
-      · -- untouched slot
-        rw [if_neg hms2, if_neg hms]
-        by_cases hm128 : m < 128
-        · rw [if_pos hm128, if_pos hm128]
-          by_cases hlt3 : m < iter.start.val
-          · rw [if_pos (by omega), if_pos hlt3]
-          · rw [if_neg (by omega), if_neg hlt3]
-        · rw [if_neg hm128, if_neg hm128]
-          by_cases hlt3 : m - 128 < iter.start.val
-          · rw [if_pos (by omega), if_pos hlt3]
-          · rw [if_neg (by omega), if_neg hlt3]
-  · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    intro m hm
-    have hs : iter.start.val = 128 := by scalar_tac
-    rw [hs]
-    by_cases hm128 : m < 128
-    · rw [if_pos hm128, if_pos (by omega), add_zero]
-    · rw [if_neg hm128, if_pos (by omega), add_zero]
-termination_by 128 - iter.start.val
-decreasing_by scalar_decr_tac
-
-/-! ### Spec side: evaluating `Polynomial.mul`'s double `Id.run` loop -/
 
 /-- Indexed-invariant evaluator for an `Id.run` `forIn'` loop over a `List` (replicated
 locally from the `Serialize` module). -/
@@ -712,118 +264,6 @@ def convContrib (a b : Spec.Kopis.Polynomial m) (i j p : ℕ) : ZMod m :=
 /-- Closed form of coefficient `p` of the negacyclic product. -/
 def convCoeff (a b : Spec.Kopis.Polynomial m) (p : ℕ) : ZMod m :=
   ∑ i ∈ Finset.range 256, ∑ j ∈ Finset.range 256, convContrib a b i j p
-
-/-! ### Negacyclic-convolution algebra
-
-  The code produces three 128×128 schoolbook products `z0, z2, z3` and folds them.
-  `sb F G m₀` is the generic schoolbook coefficient; `z0 = sb aₗₒ bₗₒ`, etc.  We match
-  the fold against `convCoeff` (the audited spec). -/
-
-/-- Generic 128×128 schoolbook coefficient at output slot `m₀`. -/
-private def sb (F G : ℕ → ZMod m) (m0 : ℕ) : ZMod m :=
-  ∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, if i + j = m0 then F i * G j else 0
-
-/-- Split a `range 256` sum into low/high halves. -/
-private theorem sum_split_128 {M : Type*} [AddCommMonoid M] (f : ℕ → M) :
-    ∑ i ∈ Finset.range 256, f i
-      = ∑ i ∈ Finset.range 128, f i + ∑ i ∈ Finset.range 128, f (128 + i) := by
-  rw [show (256 : ℕ) = 128 + 128 from rfl, Finset.sum_range_add]
-
-/-- Bilinearity of `sb` in both arguments. -/
-private theorem sb_bilin (F1 F2 G1 G2 : ℕ → ZMod m) (m0 : ℕ) :
-    sb (fun i => F1 i + F2 i) (fun j => G1 j + G2 j) m0
-      = sb F1 G1 m0 + sb F1 G2 m0 + sb F2 G1 m0 + sb F2 G2 m0 := by
-  simp only [sb, ← Finset.sum_add_distrib]
-  refine Finset.sum_congr rfl fun i _ => Finset.sum_congr rfl fun j _ => ?_
-  split_ifs <;> ring
-
-set_option maxHeartbeats 2000000 in
-/-- The Karatsuba fold of the three schoolbook products equals the audited negacyclic
-convolution coefficient. -/
-private theorem recon_eq_convCoeff (a b : Spec.Kopis.Polynomial m) (p : ℕ) (hp : p < 256) :
-    (if p < 128
-     then sb (fun i => a[i]!) (fun j => b[j]!) p - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) p
-          - (sb (fun i => a[i]! + a[128 + i]!) (fun j => b[j]! + b[128 + j]!) (p + 128)
-             - sb (fun i => a[i]!) (fun j => b[j]!) (p + 128)
-             - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) (p + 128))
-     else sb (fun i => a[i]!) (fun j => b[j]!) p - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) p
-          + (sb (fun i => a[i]! + a[128 + i]!) (fun j => b[j]! + b[128 + j]!) (p - 128)
-             - sb (fun i => a[i]!) (fun j => b[j]!) (p - 128)
-             - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) (p - 128)))
-      = convCoeff a b p := by
-  have hz1 : ∀ m0, sb (fun i => a[i]! + a[128 + i]!) (fun j => b[j]! + b[128 + j]!) m0
-      - sb (fun i => a[i]!) (fun j => b[j]!) m0 - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) m0
-      = sb (fun i => a[i]!) (fun j => b[128 + j]!) m0
-        + sb (fun i => a[128 + i]!) (fun j => b[j]!) m0 := by
-    intro m0; rw [sb_bilin]; ring
-  -- diagonal quadrants
-  have qll : (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b i j p)
-      = sb (fun i => a[i]!) (fun j => b[j]!) p := by
-    rw [sb]
-    refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
-    have hil : i < 128 := Finset.mem_range.mp hi
-    have hjl : j < 128 := Finset.mem_range.mp hj
-    rw [convContrib, Nat.mod_eq_of_lt (by omega), if_pos (show i + j < 256 by omega)]
-  have qhh : (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b (128 + i) (128 + j) p)
-      = - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) p := by
-    rw [sb, ← Finset.sum_neg_distrib]
-    refine Finset.sum_congr rfl fun i hi => ?_
-    rw [← Finset.sum_neg_distrib]
-    refine Finset.sum_congr rfl fun j hj => ?_
-    have hil : i < 128 := Finset.mem_range.mp hi
-    have hjl : j < 128 := Finset.mem_range.mp hj
-    rw [convContrib]
-    split_ifs <;> first | (exfalso; omega) | ring
-  have hconv : convCoeff a b p
-      = sb (fun i => a[i]!) (fun j => b[j]!) p
-        + (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b i (128 + j) p)
-        + (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b (128 + i) j p)
-        - sb (fun i => a[128 + i]!) (fun j => b[128 + j]!) p := by
-    rw [convCoeff]
-    simp only [sum_split_128, Finset.sum_add_distrib]
-    rw [qll, qhh]; ring
-  by_cases hp128 : p < 128
-  · rw [if_pos hp128, hz1, hconv]
-    have qlh : (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b i (128 + j) p)
-        = - sb (fun i => a[i]!) (fun j => b[128 + j]!) (p + 128) := by
-      rw [sb, ← Finset.sum_neg_distrib]
-      refine Finset.sum_congr rfl fun i hi => ?_
-      rw [← Finset.sum_neg_distrib]
-      refine Finset.sum_congr rfl fun j hj => ?_
-      have hil : i < 128 := Finset.mem_range.mp hi
-      have hjl : j < 128 := Finset.mem_range.mp hj
-      rw [convContrib]
-      split_ifs <;> first | (exfalso; omega) | ring
-    have qhl : (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b (128 + i) j p)
-        = - sb (fun i => a[128 + i]!) (fun j => b[j]!) (p + 128) := by
-      rw [sb, ← Finset.sum_neg_distrib]
-      refine Finset.sum_congr rfl fun i hi => ?_
-      rw [← Finset.sum_neg_distrib]
-      refine Finset.sum_congr rfl fun j hj => ?_
-      have hil : i < 128 := Finset.mem_range.mp hi
-      have hjl : j < 128 := Finset.mem_range.mp hj
-      rw [convContrib]
-      split_ifs <;> first | (exfalso; omega) | ring
-    rw [qlh, qhl]; ring
-  · rw [if_neg hp128, hz1, hconv]
-    have hpge : 128 ≤ p := by omega
-    have qlh : (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b i (128 + j) p)
-        = sb (fun i => a[i]!) (fun j => b[128 + j]!) (p - 128) := by
-      rw [sb]
-      refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
-      have hil : i < 128 := Finset.mem_range.mp hi
-      have hjl : j < 128 := Finset.mem_range.mp hj
-      rw [convContrib]
-      split_ifs <;> first | (exfalso; omega) | ring
-    have qhl : (∑ i ∈ Finset.range 128, ∑ j ∈ Finset.range 128, convContrib a b (128 + i) j p)
-        = sb (fun i => a[128 + i]!) (fun j => b[j]!) (p - 128) := by
-      rw [sb]
-      refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
-      have hil : i < 128 := Finset.mem_range.mp hi
-      have hjl : j < 128 := Finset.mem_range.mp hj
-      rw [convContrib]
-      split_ifs <;> first | (exfalso; omega) | ring
-    rw [qlh, qhl]; ring
 
 set_option maxRecDepth 8000 in
 theorem mul_get (a b : Spec.Kopis.Polynomial m) (p : ℕ) (hp : p < 256) :
@@ -878,189 +318,12 @@ theorem mul_get (a b : Spec.Kopis.Polynomial m) (p : ℕ) (hp : p < 256) :
           ring
         · rw [if_neg hpk, hPcc, convContrib, if_neg hpk, add_zero]
 
-/-! ## `ring_mul_acc` / `RingElem::mul` -/
-
 /-- Coefficient `i` of `toRingElem x` is the `ZMod` image `zc x.val i`. -/
 private theorem toRingElem_getElem (x : RingElem) (i : ℕ) (hi : i < 256) :
     (toRingElem x)[i]! = zc x.val i := by
   rw [getElem!_pos (toRingElem x) i hi]
   unfold toRingElem zc
   rw [Vector.getElem_ofFn, getElem!_pos x.val i (by have := x.property; scalar_tac)]
-
-set_option maxHeartbeats 4000000 in
-private theorem ring_mul_acc_spec (acc a b : RingElem) :
-    arithmetic.plain_arith.ring_mul_acc acc a b
-      ⦃ (r : RingElem) => ∀ p (_hp : p < 256),
-          (toRingElem r)[p]! = (toRingElem acc)[p]!
-            + convCoeff (toRingElem a) (toRingElem b) p ⦄ := by
-  unfold arithmetic.plain_arith.ring_mul_acc arithmetic.plain_arith.HALF
-  simp only [consts.RING_DEG]
-  let* ⟨ i, hi ⟩ ← Std.Usize.div_spec
-  have hi128 : i.val = 128 := by rw [hi]
-  -- extract `x[..128]` (low half)
-  have hTo : ∀ (x : RingElem),
-      core.slice.index.SliceIndexRangeToUsizeSlice.index
-        ({ «end» := i } : core.ops.range.RangeTo Usize) (Array.to_slice x)
-      ⦃ (s : Slice U16) => s.val.length = 128 ∧ ∀ k, k < 128 → s.val[k]! = x.val[k]! ⦄ := by
-    intro x
-    have hxlen : x.val.length = 256 := by have := x.property; scalar_tac
-    unfold core.slice.index.SliceIndexRangeToUsizeSlice.index
-    rw [if_pos (by simp only [Array.to_slice, Slice.length]; scalar_tac)]
-    simp only [WP.spec_ok, Array.to_slice]
-    refine ⟨by rw [List.slice_length]; omega, fun k hk => ?_⟩
-    rw [List.getElem!_slice 0 i.val k x.val (by rw [hi128]; omega)]; simp
-  -- extract `x[128..]` (high half)
-  have hFrom : ∀ (x : RingElem),
-      core.slice.index.SliceIndexRangeFromUsizeSlice.index
-        ({ start := i } : core.ops.range.RangeFrom Usize) (Array.to_slice x)
-      ⦃ (s : Slice U16) => s.val.length = 128 ∧ ∀ k, k < 128 → s.val[k]! = x.val[128 + k]! ⦄ := by
-    intro x
-    have hxlen : x.val.length = 256 := by have := x.property; scalar_tac
-    unfold core.slice.index.SliceIndexRangeFromUsizeSlice.index
-    rw [if_pos (by simp only [Array.to_slice, Slice.length]; scalar_tac)]
-    simp only [WP.spec_ok, Slice.drop, Array.to_slice]
-    refine ⟨by rw [List.length_drop]; omega, fun k hk => ?_⟩
-    rw [List.getElem!_drop, hi128]
-  -- try_from + unwrap plumbing
-  have htf : ∀ (s : Slice U16) (hs : s.val.length = 128),
-      core.array.TryFromSharedArraySlice.try_from 128#usize s
-      ⦃ (r : core.result.Result (Array U16 128#usize) core.array.TryFromSliceError) =>
-          r = core.result.Result.Ok ⟨s.val, hs⟩ ⦄ := by
-    intro s hs
-    unfold core.array.TryFromSharedArraySlice.try_from
-    rw [dif_pos (show s.len = 128#usize by simp only [Slice.len]; scalar_tac)]
-    simp only [WP.spec_ok]
-  have hval : ∀ (r : core.result.Result (Array U16 128#usize) core.array.TryFromSliceError)
-      (s : Slice U16) (hs : s.val.length = 128) (a_lo : Array U16 128#usize),
-      r = core.result.Result.Ok ⟨s.val, hs⟩ → r = core.result.Result.Ok a_lo → a_lo.val = s.val := by
-    intro r s hs a_lo h1 h2; rw [h1] at h2; injection h2 with h3; rw [← h3]
-  let* ⟨ salo, hsalo_len, hsalo ⟩ ← hTo a
-  let* ⟨ ralo, hralo ⟩ ← htf salo hsalo_len
-  let* ⟨ a_lo, ha_lo ⟩ ← core.result.Result.unwrap.step_spec _ ralo ⟨_, hralo⟩
-  let* ⟨ sahi, hsahi_len, hsahi ⟩ ← hFrom a
-  let* ⟨ rahi, hrahi ⟩ ← htf sahi hsahi_len
-  let* ⟨ a_hi, ha_hi ⟩ ← core.result.Result.unwrap.step_spec _ rahi ⟨_, hrahi⟩
-  let* ⟨ sblo, hsblo_len, hsblo ⟩ ← hTo b
-  let* ⟨ rblo, hrblo ⟩ ← htf sblo hsblo_len
-  let* ⟨ b_lo, hb_lo ⟩ ← core.result.Result.unwrap.step_spec _ rblo ⟨_, hrblo⟩
-  let* ⟨ sbhi, hsbhi_len, hsbhi ⟩ ← hFrom b
-  let* ⟨ rbhi, hrbhi ⟩ ← htf sbhi hsbhi_len
-  let* ⟨ b_hi, hb_hi ⟩ ← core.result.Result.unwrap.step_spec _ rbhi ⟨_, hrbhi⟩
-  -- value facts: coefficient `k` of each half
-  have hval_alo : ∀ k, k < 128 → a_lo.val[k]! = a.val[k]! := fun k hk =>
-    (hval _ _ _ _ hralo ha_lo).symm ▸ hsalo k hk
-  have hval_ahi : ∀ k, k < 128 → a_hi.val[k]! = a.val[128 + k]! := fun k hk =>
-    (hval _ _ _ _ hrahi ha_hi).symm ▸ hsahi k hk
-  have hval_blo : ∀ k, k < 128 → b_lo.val[k]! = b.val[k]! := fun k hk =>
-    (hval _ _ _ _ hrblo hb_lo).symm ▸ hsblo k hk
-  have hval_bhi : ∀ k, k < 128 → b_hi.val[k]! = b.val[128 + k]! := fun k hk =>
-    (hval _ _ _ _ hrbhi hb_hi).symm ▸ hsbhi k hk
-  -- `zc` of each half in terms of `toRingElem`
-  have hrep0 : ∀ mm, zc (Array.repeat 256#usize 0#u16).val mm = 0 := by
-    intro mm; unfold zc
-    rw [show (Array.repeat 256#usize 0#u16).val = List.replicate 256 (0#u16) from rfl]
-    rcases lt_or_ge mm 256 with hmm | hmm
-    · rw [getElem!_pos _ mm (by rw [List.length_replicate]; exact hmm), List.getElem_replicate]; rfl
-    · rw [getElem!_neg _ mm (by rw [List.length_replicate]; omega)]; rfl
-  have zc_alo : ∀ k, k < 128 → zc a_lo.val k = (toRingElem a)[k]! := by
-    intro k hk; rw [toRingElem_getElem a k (by omega)]; unfold zc; rw [hval_alo k hk]
-  have zc_ahi : ∀ k, k < 128 → zc a_hi.val k = (toRingElem a)[128 + k]! := by
-    intro k hk; rw [toRingElem_getElem a (128 + k) (by omega)]; unfold zc; rw [hval_ahi k hk]
-  have zc_blo : ∀ k, k < 128 → zc b_lo.val k = (toRingElem b)[k]! := by
-    intro k hk; rw [toRingElem_getElem b k (by omega)]; unfold zc; rw [hval_blo k hk]
-  have zc_bhi : ∀ k, k < 128 → zc b_hi.val k = (toRingElem b)[128 + k]! := by
-    intro k hk; rw [toRingElem_getElem b (128 + k) (by omega)]; unfold zc; rw [hval_bhi k hk]
-  -- z0 = a_lo·b_lo, z2 = a_hi·b_hi
-  let* ⟨ z01, hz01' ⟩ ← schoolbook_128_spec (Array.repeat 256#usize 0#u16) a_lo b_lo
-  have hz01 : ∀ mm, mm < 256 → zc z01.val mm
-      = sb (fun i => (toRingElem a)[i]!) (fun j => (toRingElem b)[j]!) mm := by
-    intro mm hmm
-    rw [hz01' mm hmm, hrep0, zero_add, sb]
-    simp only [← Finset.range_eq_Ico]
-    refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
-    rw [zc_alo i (Finset.mem_range.mp hi), zc_blo j (Finset.mem_range.mp hj)]
-  let* ⟨ z21, hz21' ⟩ ← schoolbook_128_spec (Array.repeat 256#usize 0#u16) a_hi b_hi
-  have hz21 : ∀ mm, mm < 256 → zc z21.val mm
-      = sb (fun i => (toRingElem a)[128 + i]!) (fun j => (toRingElem b)[128 + j]!) mm := by
-    intro mm hmm
-    rw [hz21' mm hmm, hrep0, zero_add, sb]
-    simp only [← Finset.range_eq_Ico]
-    refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
-    rw [zc_ahi i (Finset.mem_range.mp hi), zc_bhi j (Finset.mem_range.mp hj)]
-  -- cross-sum loop: a_sum = a_lo + a_hi, b_sum = b_lo + b_hi
-  let* ⟨ asum, bsum, hsum ⟩ ← ring_mul_acc_loop0_spec { start := 0#usize, «end» := i }
-    a_lo a_hi b_lo b_hi (Array.repeat 128#usize 0#u16) (Array.repeat 128#usize 0#u16) (by simp) hi128
-  have zc_asum : ∀ k, k < 128 → zc asum.val k = (toRingElem a)[k]! + (toRingElem a)[128 + k]! := by
-    intro k hk; rw [(hsum k hk).1, if_neg (by simp), zc_alo k hk, zc_ahi k hk]
-  have zc_bsum : ∀ k, k < 128 → zc bsum.val k = (toRingElem b)[k]! + (toRingElem b)[128 + k]! := by
-    intro k hk; rw [(hsum k hk).2, if_neg (by simp), zc_blo k hk, zc_bhi k hk]
-  -- z3 = a_sum·b_sum
-  let* ⟨ z31, hz31' ⟩ ← schoolbook_128_spec (Array.repeat 256#usize 0#u16) asum bsum
-  have hz31 : ∀ mm, mm < 256 → zc z31.val mm
-      = sb (fun i => (toRingElem a)[i]! + (toRingElem a)[128 + i]!)
-          (fun j => (toRingElem b)[j]! + (toRingElem b)[128 + j]!) mm := by
-    intro mm hmm
-    rw [hz31' mm hmm, hrep0, zero_add, sb]
-    simp only [← Finset.range_eq_Ico]
-    refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
-    rw [zc_asum i (Finset.mem_range.mp hi), zc_bsum j (Finset.mem_range.mp hj)]
-  -- Karatsuba reconstruction
-  apply WP.spec_mono (ring_mul_acc_loop1_spec i { start := 0#usize, «end» := i } acc z01 z21 z31
-    hi128 (by simp) hi128)
-  intro result hresult p hp
-  rw [toRingElem_getElem result p hp, toRingElem_getElem acc p hp, hresult p hp]
-  have hrec := recon_eq_convCoeff (toRingElem a) (toRingElem b) p hp
-  by_cases hp128 : p < 128
-  · rw [if_pos hp128] at hrec ⊢
-    rw [if_neg (by simp), hz01 p hp, hz21 p hp, hz31 (p + 128) (by omega), hz01 (p + 128) (by omega),
-      hz21 (p + 128) (by omega), hrec]
-  · rw [if_neg hp128] at hrec ⊢
-    rw [if_neg (by simp), hz01 p hp, hz21 p hp, hz31 (p - 128) (by omega), hz01 (p - 128) (by omega),
-      hz21 (p - 128) (by omega), hrec]
-
-/-- **Correctness of `RingElem::mul`.**  `RingElem::mul self other` computes the audited
-negacyclic product `Spec.Kopis.Polynomial.mul` on the abstracted operands (at `m = 2¹⁶`). -/
-theorem mul_spec (self other : RingElem) :
-    SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul self other
-      ⦃ (r : RingElem) =>
-          toRingElem r = Spec.Kopis.Polynomial.mul (toRingElem self) (toRingElem other) ⦄ := by
-  unfold SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
-  rw [show (arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
-        = ok (Array.repeat 256#usize 0#u16) from rfl]
-  simp only [bind_tc_ok]
-  apply WP.spec_mono (ring_mul_acc_spec (Array.repeat 256#usize 0#u16) self other)
-  intro r hr
-  apply Vector.ext
-  intro p hp
-  have h0 : (toRingElem (Array.repeat 256#usize 0#u16))[p]! = 0 := by
-    rw [toRingElem_getElem _ p hp]
-    unfold zc
-    rw [show (Array.repeat 256#usize 0#u16).val = List.replicate 256 (0#u16) from rfl,
-      getElem!_pos _ p (by rw [List.length_replicate]; exact hp), List.getElem_replicate]; rfl
-  have hp' := hr p hp
-  rw [h0, zero_add, getElem!_pos (toRingElem r) p hp] at hp'
-  rw [hp', mul_get (toRingElem self) (toRingElem other) p hp]
-
-/-- **Multiply-accumulate at the Polynomial level.**  `ring_mul_acc acc a b`
-computes `acc + a·b` (negacyclic product, at `m = 2¹⁶`).  Public wrapper over the
-per-coefficient `ring_mul_acc_spec`; the matrix product `mul_transpose` folds
-these. -/
-theorem ring_mul_acc_poly_spec (acc a b : RingElem) :
-    arithmetic.plain_arith.ring_mul_acc acc a b
-      ⦃ (r : RingElem) =>
-          toRingElem r = toRingElem acc + toRingElem a * toRingElem b ⦄ := by
-  apply WP.spec_mono (ring_mul_acc_spec acc a b)
-  intro r hr
-  apply Vector.ext
-  intro p hp
-  have hp' := hr p hp
-  rw [getElem!_pos (toRingElem r) p hp] at hp'
-  rw [hp']
-  show (toRingElem acc)[p]! + convCoeff (toRingElem a) (toRingElem b) p
-     = (Spec.Kopis.Polynomial.add (toRingElem acc)
-          (Spec.Kopis.Polynomial.mul (toRingElem a) (toRingElem b)))[p]
-  unfold Spec.Kopis.Polynomial.add
-  rw [Vector.getElem_zipWith, mul_get, getElem!_pos (toRingElem acc) p hp]
 
 /-- The abstraction of the all-zero `RingElem` is the zero polynomial. -/
 theorem toRingElem_repeat_zero : toRingElem (Array.repeat 256#usize 0#u16) = 0 := by

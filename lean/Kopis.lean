@@ -5,7 +5,6 @@ import Kopis.Properties.RingArith
 import Kopis.Properties.Serialize
 import Kopis.Properties.GenMatrix
 import Kopis.Properties.MatrixArith
-import Kopis.Properties.MulTranspose
 import Kopis.Properties.Ntt
 import Kopis.Properties.NttCrtZeta
 import Kopis.Properties.NttCrtLane
@@ -31,7 +30,6 @@ import Kopis.Properties.CompressTop
 import Kopis.Properties.PkeSerialize
 import Kopis.Properties.PkeHash
 import Kopis.Properties.ExpandSecretKey
-import Kopis.Properties.MatrixMul
 import Kopis.Properties.CoerceBridge10
 import Kopis.Properties.InnerProduct
 import Kopis.Properties.CompressRt

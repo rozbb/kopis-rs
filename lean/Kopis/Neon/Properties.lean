@@ -28,9 +28,7 @@ import Kopis.Neon.Properties.KeyGenCapstone
 import Kopis.Neon.Properties.KeyGenHyps
 import Kopis.Neon.Properties.MatVecMul
 import Kopis.Neon.Properties.MatrixArith
-import Kopis.Neon.Properties.MatrixMul
 import Kopis.Neon.Properties.MatrixSerialize
-import Kopis.Neon.Properties.MulTranspose
 import Kopis.Neon.Properties.Ntt
 import Kopis.Neon.Properties.NttBridge
 import Kopis.Neon.Properties.NttCrtBlock

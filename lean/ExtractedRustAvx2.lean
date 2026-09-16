@@ -49,15 +49,6 @@ axiom core.num.U16.count_ones : Std.U16 → Result Std.U32
 @[rust_fun "core::num::{u8}::count_ones"]
 axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 
-/-- Trait declaration: [core::ops::arith::Add]
-    Source: '/rustc/library/core/src/ops/arith.rs', lines 76:0-76:31
-    Name pattern: [core::ops::arith::Add]
-    Visibility: public -/
-@[rust_trait "core::ops::arith::Add"]
-structure core.ops.arith.Add (Self : Type) (Rhs : Type) (Self_Output : Type)
-  where
-  add : Self → Rhs → Result Self_Output
-
 /-- Trait declaration: [core::ops::arith::Sub]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 188:0-188:31
     Name pattern: [core::ops::arith::Sub]
@@ -66,15 +57,6 @@ structure core.ops.arith.Add (Self : Type) (Rhs : Type) (Self_Output : Type)
 structure core.ops.arith.Sub (Self : Type) (Rhs : Type) (Self_Output : Type)
   where
   sub : Self → Rhs → Result Self_Output
-
-/-- Trait declaration: [core::ops::arith::Mul]
-    Source: '/rustc/library/core/src/ops/arith.rs', lines 322:0-322:31
-    Name pattern: [core::ops::arith::Mul]
-    Visibility: public -/
-@[rust_trait "core::ops::arith::Mul"]
-structure core.ops.arith.Mul (Self : Type) (Rhs : Type) (Self_Output : Type)
-  where
-  mul : Self → Rhs → Result Self_Output
 
 /-- [core::ops::range::{core::ops::range::RangeInclusive<Idx>}::contains]:
     Source: '/rustc/library/core/src/ops/range.rs', lines 522:4-525:44
@@ -338,20 +320,2785 @@ def Array.Insts.ZeroizeZeroize {Z : Type} (N : Std.Usize) (ZeroizeInst :
 axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
 
+/-- [kopis::arithmetic::ntt_arith::NttElem]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 41:0-41:58 -/
+@[reducible]
+def arithmetic.ntt_arith.NttElem := Array Std.I16 512#usize
+
+/-- [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttElem}::clone]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 40:9-40:14
+    Visibility: public -/
+def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone.clone
+  (self : arithmetic.ntt_arith.NttElem) :
+  Result arithmetic.ntt_arith.NttElem
+  := do
+  ok self
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttElem}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 40:9-40:14 -/
+@[reducible]
+def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone : core.clone.Clone
+  arithmetic.ntt_arith.NttElem := {
+  clone := arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::marker::Copy for kopis::arithmetic::ntt_arith::NttElem}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 40:16-40:20 -/
+@[reducible]
+def arithmetic.ntt_arith.NttElem.Insts.CoreMarkerCopy : core.marker.Copy
+  arithmetic.ntt_arith.NttElem := {
+  cloneInst := arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone
+}
+
+/-- [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttElem}::zeroize]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 40:22-40:29
+    Visibility: public -/
+def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize.zeroize
+  (self : arithmetic.ntt_arith.NttElem) :
+  Result arithmetic.ntt_arith.NttElem
+  := do
+  let __zeroize_field_0 ←
+    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
+      I16.Insts.ZeroizeDefaultIsZeroes) self
+  ok __zeroize_field_0
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttElem}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 40:22-40:29 -/
+@[reducible]
+def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize : zeroize.Zeroize
+  arithmetic.ntt_arith.NttElem := {
+  zeroize := arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize.zeroize
+}
+
+/-- [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttElem}::default]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 44:4-46:5
+    Visibility: public -/
+def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
+  : Result arithmetic.ntt_arith.NttElem := do
+  let a := Array.repeat 512#usize 0#i16
+  ok a
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttElem}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 43:0-47:1 -/
+@[reducible]
+def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault :
+  core.default.Default arithmetic.ntt_arith.NttElem := {
+  default := arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
+}
+
+/-- [kopis::arithmetic::ntt_arith::ACC_ZERO]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 54:0-54:54 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_arith.ACC_ZERO : Array Std.I32 512#usize :=
+  Array.repeat 512#usize 0#i32
+
+/-- [kopis::backend::avx2::intrinsics::Vec256]
+    Source: 'src/backend/avx2/intrinsics.rs', lines 43:0-43:34 -/
+axiom backend.avx2.intrinsics.Vec256 : Type
+
+/-- [kopis::backend::avx2::intrinsics::unpackhi_epi64]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 297:0-299:1 -/
+axiom backend.avx2.intrinsics.unpackhi_epi64
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::unpacklo_epi64]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 290:0-292:1 -/
+axiom backend.avx2.intrinsics.unpacklo_epi64
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::unpackhi_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 283:0-285:1 -/
+axiom backend.avx2.intrinsics.unpackhi_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::unpacklo_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 276:0-278:1 -/
+axiom backend.avx2.intrinsics.unpacklo_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::unpackhi_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 269:0-271:1 -/
+axiom backend.avx2.intrinsics.unpackhi_epi16
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::unpacklo_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 262:0-264:1 -/
+axiom backend.avx2.intrinsics.unpacklo_epi16
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::ntt::inlane_transpose8]:
+    Source: 'src/backend/avx2/ntt.rs', lines 214:0-241:1 -/
+def backend.avx2.ntt.inlane_transpose8
+  (v : Array backend.avx2.intrinsics.Vec256 8#usize) :
+  Result (Array backend.avx2.intrinsics.Vec256 8#usize)
+  := do
+  let v1 ← Array.index_usize v 0#usize
+  let v2 ← Array.index_usize v 1#usize
+  let a0 ← backend.avx2.intrinsics.unpacklo_epi16 v1 v2
+  let a1 ← backend.avx2.intrinsics.unpackhi_epi16 v1 v2
+  let v3 ← Array.index_usize v 2#usize
+  let v4 ← Array.index_usize v 3#usize
+  let a2 ← backend.avx2.intrinsics.unpacklo_epi16 v3 v4
+  let a3 ← backend.avx2.intrinsics.unpackhi_epi16 v3 v4
+  let v5 ← Array.index_usize v 4#usize
+  let v6 ← Array.index_usize v 5#usize
+  let a4 ← backend.avx2.intrinsics.unpacklo_epi16 v5 v6
+  let a5 ← backend.avx2.intrinsics.unpackhi_epi16 v5 v6
+  let v7 ← Array.index_usize v 6#usize
+  let v8 ← Array.index_usize v 7#usize
+  let a6 ← backend.avx2.intrinsics.unpacklo_epi16 v7 v8
+  let a7 ← backend.avx2.intrinsics.unpackhi_epi16 v7 v8
+  let b0 ← backend.avx2.intrinsics.unpacklo_epi32 a0 a2
+  let b1 ← backend.avx2.intrinsics.unpackhi_epi32 a0 a2
+  let b2 ← backend.avx2.intrinsics.unpacklo_epi32 a1 a3
+  let b3 ← backend.avx2.intrinsics.unpackhi_epi32 a1 a3
+  let b4 ← backend.avx2.intrinsics.unpacklo_epi32 a4 a6
+  let b5 ← backend.avx2.intrinsics.unpackhi_epi32 a4 a6
+  let b6 ← backend.avx2.intrinsics.unpacklo_epi32 a5 a7
+  let b7 ← backend.avx2.intrinsics.unpackhi_epi32 a5 a7
+  let v9 ← backend.avx2.intrinsics.unpacklo_epi64 b0 b4
+  let v10 ← Array.update v 0#usize v9
+  let v11 ← backend.avx2.intrinsics.unpackhi_epi64 b0 b4
+  let v12 ← Array.update v10 1#usize v11
+  let v13 ← backend.avx2.intrinsics.unpacklo_epi64 b1 b5
+  let v14 ← Array.update v12 2#usize v13
+  let v15 ← backend.avx2.intrinsics.unpackhi_epi64 b1 b5
+  let v16 ← Array.update v14 3#usize v15
+  let v17 ← backend.avx2.intrinsics.unpacklo_epi64 b2 b6
+  let v18 ← Array.update v16 4#usize v17
+  let v19 ← backend.avx2.intrinsics.unpackhi_epi64 b2 b6
+  let v20 ← Array.update v18 5#usize v19
+  let v21 ← backend.avx2.intrinsics.unpacklo_epi64 b3 b7
+  let v22 ← Array.update v20 6#usize v21
+  let v23 ← backend.avx2.intrinsics.unpackhi_epi64 b3 b7
+  Array.update v22 7#usize v23
+
+/-- [kopis::backend::avx2::intrinsics::store_i16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 381:0-385:1 -/
+axiom backend.avx2.intrinsics.store_i16
+  {N : Std.Usize} :
+  Array Std.I16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
+    (Array Std.I16 N)
+
+/-- [kopis::backend::avx2::intrinsics::load_i16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 372:0-376:1 -/
+axiom backend.avx2.intrinsics.load_i16
+  {N : Std.Usize} :
+  Array Std.I16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::permute2x128_si256]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 305:0-307:1 -/
+axiom backend.avx2.intrinsics.permute2x128_si256
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::ntt::transpose16]: loop 1:
+    Source: 'src/backend/avx2/ntt.rs', lines 268:8-270:9 -/
+@[rust_loop]
+def backend.avx2.ntt.transpose16_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (scratch : Array Std.I16 256#usize)
+  (half : Std.Usize) (v : Array backend.avx2.intrinsics.Vec256 8#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok scratch
+  | some j =>
+    let i ← 8#usize * half
+    let i1 ← i + j
+    let v1 ← Array.index_usize v j
+    let scratch1 ← backend.avx2.intrinsics.store_i16 scratch i1 v1
+    backend.avx2.ntt.transpose16_loop0_loop0 iter1 scratch1 half v
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::transpose16]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 256:4-271:5 -/
+@[rust_loop]
+def backend.avx2.ntt.transpose16_loop0
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (scratch : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok scratch
+  | some half =>
+    let i ← 8#usize * half
+    let v ← backend.avx2.intrinsics.load_i16 b i
+    let i1 ← i + 1#usize
+    let v1 ← backend.avx2.intrinsics.load_i16 b i1
+    let i2 ← i + 2#usize
+    let v2 ← backend.avx2.intrinsics.load_i16 b i2
+    let i3 ← i + 3#usize
+    let v3 ← backend.avx2.intrinsics.load_i16 b i3
+    let i4 ← i + 4#usize
+    let v4 ← backend.avx2.intrinsics.load_i16 b i4
+    let i5 ← i + 5#usize
+    let v5 ← backend.avx2.intrinsics.load_i16 b i5
+    let i6 ← i + 6#usize
+    let v6 ← backend.avx2.intrinsics.load_i16 b i6
+    let i7 ← i + 7#usize
+    let v7 ← backend.avx2.intrinsics.load_i16 b i7
+    let v8 ←
+      backend.avx2.ntt.inlane_transpose8
+        (Array.make 8#usize [ v, v1, v2, v3, v4, v5, v6, v7 ])
+    let scratch1 ←
+      backend.avx2.ntt.transpose16_loop0_loop0
+        { start := 0#usize, «end» := 8#usize } scratch half v8
+    backend.avx2.ntt.transpose16_loop0 iter1 b scratch1
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::transpose16]: loop 2:
+    Source: 'src/backend/avx2/ntt.rs', lines 273:4-278:5 -/
+@[rust_loop]
+def backend.avx2.ntt.transpose16_loop1
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (scratch : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some r =>
+    let a ← backend.avx2.intrinsics.load_i16 scratch r
+    let i ← 8#usize + r
+    let c ← backend.avx2.intrinsics.load_i16 scratch i
+    let v ← backend.avx2.intrinsics.permute2x128_si256 32#i32 a c
+    let b1 ← backend.avx2.intrinsics.store_i16 b r v
+    let v1 ← backend.avx2.intrinsics.permute2x128_si256 49#i32 a c
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i v1
+    backend.avx2.ntt.transpose16_loop1 iter1 b2 scratch
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::transpose16]:
+    Source: 'src/backend/avx2/ntt.rs', lines 254:0-279:1 -/
+def backend.avx2.ntt.transpose16
+  (b : Array Std.I16 256#usize) : Result (Array Std.I16 256#usize) := do
+  let scratch := Array.repeat 256#usize 0#i16
+  let scratch1 ←
+    backend.avx2.ntt.transpose16_loop0 { start := 0#usize, «end» := 2#usize }
+      b scratch
+  backend.avx2.ntt.transpose16_loop1 { start := 0#usize, «end» := 8#usize } b
+    scratch1
+
+/-- [kopis::backend::avx2::intrinsics::srai_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 187:0-189:1 -/
+axiom backend.avx2.intrinsics.srai_epi16
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::mulhi_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 162:0-164:1 -/
+axiom backend.avx2.intrinsics.mulhi_epi16
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::mullo_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 155:0-157:1 -/
+axiom backend.avx2.intrinsics.mullo_epi16
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::sub_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 134:0-136:1 -/
+axiom backend.avx2.intrinsics.sub_epi16
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::add_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 127:0-129:1 -/
+axiom backend.avx2.intrinsics.add_epi16
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::ntt::barrett]:
+    Source: 'src/backend/avx2/ntt.rs', lines 174:0-178:1 -/
+def backend.avx2.ntt.barrett
+  (x : backend.avx2.intrinsics.Vec256) (m : backend.avx2.intrinsics.Vec256)
+  (round : backend.avx2.intrinsics.Vec256) (q : backend.avx2.intrinsics.Vec256)
+  :
+  Result backend.avx2.intrinsics.Vec256
+  := do
+  let v ← backend.avx2.intrinsics.mulhi_epi16 x m
+  let t ← backend.avx2.intrinsics.add_epi16 v round
+  let t1 ← backend.avx2.intrinsics.srai_epi16 11#i32 t
+  let v1 ← backend.avx2.intrinsics.mullo_epi16 t1 q
+  backend.avx2.intrinsics.sub_epi16 x v1
+
+/-- [kopis::backend::avx2::ntt::barrett_block]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 203:4-205:5 -/
+@[rust_loop]
+def backend.avx2.ntt.barrett_block_loop
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (m : backend.avx2.intrinsics.Vec256) (round : backend.avx2.intrinsics.Vec256)
+  (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let v ← backend.avx2.intrinsics.load_i16 b i
+    let v1 ← backend.avx2.ntt.barrett v m round q
+    let b1 ← backend.avx2.intrinsics.store_i16 b i v1
+    backend.avx2.ntt.barrett_block_loop iter1 b1 m round q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::barrett_block]:
+    Source: 'src/backend/avx2/ntt.rs', lines 202:0-206:1 -/
+@[reducible]
+def backend.avx2.ntt.barrett_block
+  (b : Array Std.I16 256#usize) (m : backend.avx2.intrinsics.Vec256)
+  (round : backend.avx2.intrinsics.Vec256) (q : backend.avx2.intrinsics.Vec256)
+  :
+  Result (Array Std.I16 256#usize)
+  := do
+  backend.avx2.ntt.barrett_block_loop { start := 0#usize, «end» := 16#usize }
+    b m round q
+
+/-- [kopis::backend::avx2::ntt::mont_mul]:
+    Source: 'src/backend/avx2/ntt.rs', lines 162:0-165:1 -/
+def backend.avx2.ntt.mont_mul
+  (a : backend.avx2.intrinsics.Vec256) (z : backend.avx2.intrinsics.Vec256)
+  (zq : backend.avx2.intrinsics.Vec256) (q : backend.avx2.intrinsics.Vec256) :
+  Result backend.avx2.intrinsics.Vec256
+  := do
+  let t ← backend.avx2.intrinsics.mullo_epi16 a zq
+  let v ← backend.avx2.intrinsics.mulhi_epi16 a z
+  let v1 ← backend.avx2.intrinsics.mulhi_epi16 t q
+  backend.avx2.intrinsics.sub_epi16 v v1
+
+/-- [kopis::backend::avx2::ntt::ct_butterfly]:
+    Source: 'src/backend/avx2/ntt.rs', lines 183:0-187:1 -/
+def backend.avx2.ntt.ct_butterfly
+  (lo : backend.avx2.intrinsics.Vec256) (hi : backend.avx2.intrinsics.Vec256)
+  (z : backend.avx2.intrinsics.Vec256) (zq : backend.avx2.intrinsics.Vec256)
+  (q : backend.avx2.intrinsics.Vec256) :
+  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
+  := do
+  let t ← backend.avx2.ntt.mont_mul hi z zq q
+  let hi1 ← backend.avx2.intrinsics.sub_epi16 lo t
+  let lo1 ← backend.avx2.intrinsics.add_epi16 lo t
+  ok (lo1, hi1)
+
+/-- [kopis::backend::avx2::ntt::Tbl]
+    Source: 'src/backend/avx2/ntt.rs', lines 71:0-74:1 -/
+structure backend.avx2.ntt.Tbl (N : Std.Usize) where
+  z : Array Std.I16 N
+  zq : Array Std.I16 N
+
+/-- [kopis::backend::avx2::ntt::ld_tbl]:
+    Source: 'src/backend/avx2/ntt.rs', lines 150:0-152:1 -/
+def backend.avx2.ntt.ld_tbl
+  {N : Std.Usize} (table : backend.avx2.ntt.Tbl N) (h : Std.Usize) :
+  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
+  := do
+  let v ← backend.avx2.intrinsics.load_i16 table.z h
+  let v1 ← backend.avx2.intrinsics.load_i16 table.zq h
+  ok (v, v1)
+
+/-- [kopis::backend::avx2::ntt::lane_tbl]: loop 1:
+    Source: 'src/backend/avx2/ntt.rs', lines 91:8-98:9 -/
+@[rust_loop]
+def backend.avx2.ntt.lane_tbl_loop0_loop0
+  {N : Std.Usize} (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (base : Std.Isize) (h_stride : Std.Isize) (m_stride : Std.Isize) (neg : Bool)
+  (z : Array Std.I16 N) (zq : Array Std.I16 N) (h : Std.Usize) (m : Std.Usize)
+  :
+  Result ((Array Std.I16 N) × (Array Std.I16 N))
+  := do
+  if m < 16#usize
+  then
+    let i ← lift (UScalar.hcast .Isize h)
+    let i1 ← i * h_stride
+    let i2 ← base + i1
+    let i3 ← lift (UScalar.hcast .Isize m)
+    let i4 ← i3 * m_stride
+    let idx ← i2 + i4
+    let i5 ← lift (IScalar.hcast .Usize idx)
+    let value ← Array.index_usize zetas i5
+    let value1 ← if neg
+                   then -. value
+                   else ok value
+    let i6 ← h * 16#usize
+    let i7 ← i6 + m
+    let a ← Array.update z i7 value1
+    let i8 ← lift (core.num.I16.wrapping_mul value1 qinv)
+    let i9 ← i6 + m
+    let a1 ← Array.update zq i9 i8
+    let m1 ← m + 1#usize
+    backend.avx2.ntt.lane_tbl_loop0_loop0 zetas qinv base h_stride m_stride neg
+      a a1 h m1
+  else ok (z, zq)
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::lane_tbl]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 89:4-100:5 -/
+@[rust_loop]
+def backend.avx2.ntt.lane_tbl_loop0
+  {N : Std.Usize} (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (base : Std.Isize) (h_stride : Std.Isize) (m_stride : Std.Isize) (neg : Bool)
+  (z : Array Std.I16 N) (zq : Array Std.I16 N) (h : Std.Usize) :
+  Result ((Array Std.I16 N) × (Array Std.I16 N))
+  := do
+  let i ← h * 16#usize
+  if i < N
+  then
+    let (z1, zq1) ←
+      backend.avx2.ntt.lane_tbl_loop0_loop0 zetas qinv base h_stride m_stride
+        neg z zq h 0#usize
+    let h1 ← h + 1#usize
+    backend.avx2.ntt.lane_tbl_loop0 zetas qinv base h_stride m_stride neg z1
+      zq1 h1
+  else ok (z, zq)
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::lane_tbl]:
+    Source: 'src/backend/avx2/ntt.rs', lines 78:0-102:1 -/
+def backend.avx2.ntt.lane_tbl
+  (N : Std.Usize) (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (base : Std.Isize) (h_stride : Std.Isize) (m_stride : Std.Isize) (neg : Bool)
+  :
+  Result (backend.avx2.ntt.Tbl N)
+  := do
+  let z := Array.repeat N 0#i16
+  let zq := Array.repeat N 0#i16
+  let (z1, zq1) ←
+    backend.avx2.ntt.lane_tbl_loop0 zetas qinv base h_stride m_stride neg z zq
+      0#usize
+  ok { z := z1, zq := zq1 }
+
+/-- [kopis::arithmetic::ntt_crt::ZETAS_Q2]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 106:0-123:2 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.ZETAS_Q2 : Array Std.I16 256#usize :=
+  Array.make 256#usize [
+    1018#i16, 223#i16, 4188#i16, (-3688)#i16, 2413#i16, (-3686)#i16, 357#i16,
+    (-376)#i16, 2695#i16, (-730)#i16, 4855#i16, 2236#i16, (-425)#i16, 4544#i16,
+    3364#i16, (-3784)#i16, 4875#i16, (-1520)#i16, (-5063)#i16, (-4035)#i16,
+    2503#i16, 918#i16, (-3012)#i16, 4347#i16, 1931#i16, (-1341)#i16,
+    (-3823)#i16, (-341)#i16, (-4095)#i16, (-5175)#i16, (-2629)#i16,
+    (-5213)#i16, (-3091)#i16, 4129#i16, (-2935)#i16, 2790#i16, 268#i16,
+    1284#i16, 4#i16, 3550#i16, 2982#i16, 1287#i16, 205#i16, 4513#i16,
+    (-2565)#i16, (-2178)#i16, 4616#i16, (-193)#i16, (-4102)#i16, 4742#i16,
+    (-4876)#i16, (-4744)#i16, (-2984)#i16, (-3062)#i16, (-847)#i16,
+    (-4379)#i16, (-2388)#i16, (-1009)#i16, (-3085)#i16, (-1299)#i16,
+    (-2576)#i16, 4189#i16, 1085#i16, 544#i16, 5023#i16, 794#i16, (-567)#i16,
+    (-3198)#i16, 4734#i16, (-2998)#i16, 3441#i16, (-5341)#i16, 675#i16,
+    2271#i16, 1615#i16, (-2213)#i16, 512#i16, 2774#i16, 3057#i16, (-2045)#i16,
+    3615#i16, (-1458)#i16, (-909)#i16, 5114#i16, 2981#i16, (-4977)#i16,
+    (-116)#i16, 4580#i16, (-454)#i16, (-5064)#i16, 4808#i16, (-1841)#i16,
+    (-886)#i16, (-1356)#i16, (-4828)#i16, (-5156)#i16, 2737#i16, 4286#i16,
+    (-3169)#i16, (-578)#i16, 5294#i16, (-636)#i16, 400#i16, 151#i16,
+    (-2884)#i16, (-336)#i16, (-1006)#i16, (-326)#i16, 1572#i16, (-2740)#i16,
+    (-779)#i16, 2206#i16, (-1586)#i16, 1068#i16, (-3715)#i16, (-1268)#i16,
+    2684#i16, (-5116)#i16, 1324#i16, 2973#i16, (-2234)#i16, (-4123)#i16,
+    3337#i16, (-864)#i16, 472#i16, (-467)#i16, 970#i16, 635#i16, (-573)#i16,
+    2230#i16, (-1132)#i16, (-4621)#i16, 2624#i16, (-4601)#i16, 3570#i16,
+    (-3760)#i16, (-5309)#i16, 3453#i16, (-5215)#i16, 854#i16, (-4250)#i16,
+    2428#i16, 1381#i16, 5172#i16, (-5015)#i16, (-4447)#i16, 3135#i16, 2662#i16,
+    3524#i16, (-1573)#i16, 2139#i16, 458#i16, (-2196)#i16, (-2657)#i16,
+    4782#i16, (-3410)#i16, 2062#i16, 2015#i16, (-4784)#i16, 1635#i16, 1349#i16,
+    (-1722)#i16, 2909#i16, (-4359)#i16, 2680#i16, 2087#i16, 40#i16, 3241#i16,
+    (-2439)#i16, 2117#i16, 2050#i16, 2118#i16, (-4144)#i16, (-274)#i16,
+    3148#i16, (-1930)#i16, 1992#i16, 4408#i16, 5005#i16, (-4428)#i16, 2419#i16,
+    1639#i16, 2283#i16, (-778)#i16, (-2374)#i16, 663#i16, 1409#i16,
+    (-2237)#i16, (-4254)#i16, (-1122)#i16, 97#i16, (-5313)#i16, (-3535)#i16,
+    (-2813)#i16, 5083#i16, 279#i16, 4328#i16, 2279#i16, 2151#i16, 355#i16,
+    (-4003)#i16, 1204#i16, (-5356)#i16, (-624)#i16, 5120#i16, (-4519)#i16,
+    (-1689)#i16, 1056#i16, 3891#i16, (-3827)#i16, 1663#i16, (-2625)#i16,
+    (-2449)#i16, 3995#i16, (-1160)#i16, 2788#i16, (-4540)#i16, 3125#i16,
+    5068#i16, 3096#i16, 1893#i16, (-2807)#i16, (-5268)#i16, 2205#i16,
+    (-4889)#i16, (-152)#i16, 569#i16, 4973#i16, (-825)#i16, 4393#i16, 4000#i16,
+    1510#i16, 3419#i16, (-3360)#i16, 693#i16, (-3260)#i16, 4967#i16, 4859#i16,
+    2963#i16, 554#i16, (-5107)#i16, (-73)#i16, (-4891)#i16, (-1927)#i16,
+    5334#i16, 2605#i16, 2487#i16, (-2529)#i16, (-834)#i16, 1782#i16, 1111#i16,
+    2113#i16, 4720#i16, (-4670)#i16, (-1053)#i16, (-4403)#i16
+    ]
+
+/-- [kopis::arithmetic::ntt_crt::Q2_INV]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 61:0-61:38 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.Q2_INV : Std.I16 := (-10751)#i16
+
+/-- [kopis::backend::avx2::ntt::FWD1_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 129:0-129:73 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD1_Q2 : Result (backend.avx2.ntt.Tbl 128#usize) :=
+  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 128#isize 1#isize 8#isize false
+
+/-- [kopis::backend::avx2::ntt::FWD2_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 128:0-128:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD2_Q2 : Result (backend.avx2.ntt.Tbl 64#usize) :=
+  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 64#isize 1#isize 4#isize false
+
+/-- [kopis::backend::avx2::ntt::FWD4_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 127:0-127:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD4_Q2 : Result (backend.avx2.ntt.Tbl 32#usize) :=
+  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 32#isize 1#isize 2#isize false
+
+/-- [kopis::backend::avx2::ntt::FWD8_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 126:0-126:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD8_Q2 : Result (backend.avx2.ntt.Tbl 16#usize) :=
+  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 16#isize 0#isize 1#isize false
+
+/-- [kopis::arithmetic::ntt_crt::ZETAS_Q1]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 85:0-102:2 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.ZETAS_Q1 : Array Std.I16 256#usize :=
+  Array.make 256#usize [
+    (-3593)#i16, 3777#i16, (-3182)#i16, 3625#i16, (-3696)#i16, (-1100)#i16,
+    2456#i16, 2194#i16, 121#i16, (-2250)#i16, 834#i16, (-2495)#i16,
+    (-2319)#i16, 2876#i16, (-1701)#i16, 1414#i16, 2816#i16, (-2088)#i16,
+    (-2237)#i16, 1986#i16, (-1599)#i16, 1993#i16, 3706#i16, (-2006)#i16,
+    (-1525)#i16, (-2557)#i16, 1296#i16, 1483#i16, (-2830)#i16, 3364#i16,
+    617#i16, 1921#i16, (-3689)#i16, (-1738)#i16, 3266#i16, (-3600)#i16,
+    810#i16, 1887#i16, (-638)#i16, (-7)#i16, (-438)#i16, (-679)#i16,
+    (-1305)#i16, (-1760)#i16, 396#i16, (-3174)#i16, (-3555)#i16, (-1881)#i16,
+    3772#i16, (-2535)#i16, (-2440)#i16, (-2555)#i16, 1535#i16, (-549)#i16,
+    3153#i16, 2310#i16, (-1399)#i16, 1321#i16, 514#i16, (-2956)#i16,
+    (-103)#i16, 2804#i16, (-2043)#i16, (-1431)#i16, (-1054)#i16, 1698#i16,
+    (-3456)#i16, 1166#i16, 2426#i16, 3831#i16, 915#i16, (-2)#i16, (-3417)#i16,
+    (-194)#i16, 2919#i16, 2789#i16, 3405#i16, 2385#i16, (-2113)#i16,
+    (-2732)#i16, 2175#i16, 373#i16, 3692#i16, (-730)#i16, (-1756)#i16,
+    3135#i16, (-2391)#i16, 660#i16, (-1497)#i16, 2572#i16, (-3145)#i16,
+    1350#i16, (-2224)#i16, (-3588)#i16, (-1681)#i16, 2883#i16, (-1390)#i16,
+    1598#i16, 3750#i16, 2762#i16, 2835#i16, 2764#i16, (-2233)#i16, 3816#i16,
+    (-1533)#i16, 1464#i16, (-727)#i16, 1521#i16, 1386#i16, (-3428)#i16,
+    (-921)#i16, (-2743)#i16, (-2160)#i16, 2649#i16, (-859)#i16, 2579#i16,
+    1532#i16, 1919#i16, (-486)#i16, 404#i16, (-1056)#i16, 783#i16, 1799#i16,
+    (-2665)#i16, 3480#i16, 2133#i16, (-3310)#i16, (-1168)#i16, (-17)#i16,
+    3744#i16, 2422#i16, 2001#i16, 1278#i16, 929#i16, (-1348)#i16, (-2230)#i16,
+    (-179)#i16, (-1242)#i16, (-2059)#i16, (-1070)#i16, 2161#i16, 1649#i16,
+    2072#i16, 3177#i16, (-2071)#i16, 1121#i16, (-436)#i16, 236#i16, 715#i16,
+    670#i16, (-658)#i16, (-1476)#i16, (-2378)#i16, 2767#i16, 3542#i16,
+    (-226)#i16, 1203#i16, 1181#i16, (-151)#i16, (-3794)#i16, 1712#i16,
+    (-222)#i16, 2786#i16, (-451)#i16, (-3547)#i16, 1779#i16, (-1151)#i16,
+    (-434)#i16, 3568#i16, (-3693)#i16, 3581#i16, (-1586)#i16, 1509#i16,
+    2918#i16, 2339#i16, (-1407)#i16, 3434#i16, (-3550)#i16, 2340#i16, 2891#i16,
+    2998#i16, (-3314)#i16, 3461#i16, (-2719)#i16, (-2247)#i16, (-2589)#i16,
+    1144#i16, 1072#i16, 1295#i16, (-2815)#i16, (-3770)#i16, 3450#i16, 3781#i16,
+    (-2258)#i16, 796#i16, 3163#i16, (-3208)#i16, (-589)#i16, 2963#i16,
+    (-124)#i16, 3214#i16, 3334#i16, (-3366)#i16, (-3745)#i16, 3723#i16,
+    1931#i16, (-429)#i16, (-402)#i16, (-3408)#i16, 83#i16, (-1526)#i16,
+    826#i16, (-1338)#i16, 2345#i16, (-2303)#i16, 2515#i16, (-642)#i16,
+    (-1837)#i16, (-2965)#i16, (-791)#i16, 370#i16, 293#i16, 3312#i16, 2083#i16,
+    (-1689)#i16, (-777)#i16, 2070#i16, 2262#i16, (-893)#i16, 2386#i16,
+    (-188)#i16, (-1519)#i16, (-2874)#i16, (-1404)#i16, 1012#i16, 2130#i16,
+    1441#i16, 2532#i16, (-3335)#i16, (-1084)#i16, (-3343)#i16, 2937#i16,
+    509#i16, (-1403)#i16, 2812#i16, 3763#i16, 592#i16, 2005#i16, 3657#i16,
+    2460#i16, (-3677)#i16, 3752#i16, 692#i16, 1669#i16, 2167#i16, (-3287)#i16
+    ]
+
+/-- [kopis::arithmetic::ntt_crt::Q1_INV]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 59:0-59:37 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.Q1_INV : Std.I16 := (-7679)#i16
+
+/-- [kopis::backend::avx2::ntt::FWD1_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 116:0-116:73 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD1_Q1 : Result (backend.avx2.ntt.Tbl 128#usize) :=
+  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 128#isize 1#isize 8#isize false
+
+/-- [kopis::backend::avx2::ntt::FWD2_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 115:0-115:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD2_Q1 : Result (backend.avx2.ntt.Tbl 64#usize) :=
+  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 64#isize 1#isize 4#isize false
+
+/-- [kopis::backend::avx2::ntt::FWD4_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 114:0-114:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD4_Q1 : Result (backend.avx2.ntt.Tbl 32#usize) :=
+  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 32#isize 1#isize 2#isize false
+
+/-- [kopis::backend::avx2::ntt::FWD8_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 113:0-113:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.FWD8_Q1 : Result (backend.avx2.ntt.Tbl 16#usize) :=
+  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 16#isize 0#isize 1#isize false
+
+/-- [kopis::backend::avx2::intrinsics::set1_epi16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 57:0-59:1 -/
+axiom backend.avx2.intrinsics.set1_epi16
+  : Std.I16 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::arithmetic::ntt_crt::zetas_qinv]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 130:4-133:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.zetas_qinv_loop
+  (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
+  (table : Array Std.I16 256#usize) (k : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  if k < 256#usize
+  then
+    let i ← Array.index_usize zetas k
+    let i1 ← lift (core.num.I16.wrapping_mul i qinv)
+    let a ← Array.update table k i1
+    let k1 ← k + 1#usize
+    arithmetic.ntt_crt.zetas_qinv_loop zetas qinv a k1
+  else ok table
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::zetas_qinv]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 127:0-135:1 -/
+def arithmetic.ntt_crt.zetas_qinv
+  (zetas : Array Std.I16 256#usize) (qinv : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let table := Array.repeat 256#usize 0#i16
+  arithmetic.ntt_crt.zetas_qinv_loop zetas qinv table 0#usize
+
+/-- [kopis::arithmetic::ntt_crt::ZETAS_Q2_QINV]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 138:0-138:75 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.ZETAS_Q2_QINV : Result (Array Std.I16 256#usize) :=
+  arithmetic.ntt_crt.zetas_qinv arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV
+
+/-- [kopis::arithmetic::ntt_crt::ZETAS_Q1_QINV]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 137:0-137:75 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.ZETAS_Q1_QINV : Result (Array Std.I16 256#usize) :=
+  arithmetic.ntt_crt.zetas_qinv arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV
+
+/-- [kopis::arithmetic::ntt_crt::zeta_q]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 174:0-180:1 -/
+def arithmetic.ntt_crt.zeta_q
+  (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
+  if SECOND
+  then let a ← arithmetic.ntt_crt.ZETAS_Q2_QINV
+       Array.index_usize a k
+  else let a ← arithmetic.ntt_crt.ZETAS_Q1_QINV
+       Array.index_usize a k
+
+/-- [kopis::arithmetic::ntt_crt::zeta]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 169:0-171:1 -/
+def arithmetic.ntt_crt.zeta
+  (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
+  if SECOND
+  then Array.index_usize arithmetic.ntt_crt.ZETAS_Q2 k
+  else Array.index_usize arithmetic.ntt_crt.ZETAS_Q1 k
+
+/-- [kopis::arithmetic::ntt_crt::Q2_BARRETT_M]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 65:0-65:43 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.Q2_BARRETT_M : Std.I16 := 12482#i16
+
+/-- [kopis::arithmetic::ntt_crt::Q1_BARRETT_M]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 63:0-63:43 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.Q1_BARRETT_M : Std.I16 := 17474#i16
+
+/-- [kopis::arithmetic::ntt_crt::barrett_m]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 155:0-157:1 -/
+def arithmetic.ntt_crt.barrett_m (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok arithmetic.ntt_crt.Q2_BARRETT_M
+  else ok arithmetic.ntt_crt.Q1_BARRETT_M
+
+/-- [kopis::arithmetic::ntt_crt::Q2]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 57:0-57:33 -/
+@[global_simps, irreducible] def arithmetic.ntt_crt.Q2 : Std.I16 := 10753#i16
+
+/-- [kopis::arithmetic::ntt_crt::Q1]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 55:0-55:32 -/
+@[global_simps, irreducible] def arithmetic.ntt_crt.Q1 : Std.I16 := 7681#i16
+
+/-- [kopis::arithmetic::ntt_crt::q]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 145:0-147:1 -/
+def arithmetic.ntt_crt.q (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok arithmetic.ntt_crt.Q2
+  else ok arithmetic.ntt_crt.Q1
+
+/-- [kopis::arithmetic::ntt_crt::BARRETT_SH]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 68:0-68:38 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.BARRETT_SH : Std.I32 := 11#i32
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 2:
+    Source: 'src/backend/avx2/ntt.rs', lines 308:12-315:13 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop0_loop0_loop0
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
+  (half : Std.Usize) (start : Std.Usize) (z : backend.avx2.intrinsics.Vec256)
+  (zq : backend.avx2.intrinsics.Vec256) (i : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i1 ← start + half
+  if i < i1
+  then
+    let lo ← backend.avx2.intrinsics.load_i16 b i
+    let i2 ← i + half
+    let hi ← backend.avx2.intrinsics.load_i16 b i2
+    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
+    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
+    let i3 ← i + 1#usize
+    backend.avx2.ntt.ntt_block_loop0_loop0_loop0 b2 q half start z zq i3
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 1:
+    Source: 'src/backend/avx2/ntt.rs', lines 303:8-317:9 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop0_loop0
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize)
+  (start : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  if start < 16#usize
+  then
+    let k1 ← k + 1#usize
+    let i ← arithmetic.ntt_crt.zeta SECOND k1
+    let z ← backend.avx2.intrinsics.set1_epi16 i
+    let i1 ← arithmetic.ntt_crt.zeta_q SECOND k1
+    let zq ← backend.avx2.intrinsics.set1_epi16 i1
+    let b1 ←
+      backend.avx2.ntt.ntt_block_loop0_loop0_loop0 b q half start z zq start
+    let i2 ← 2#usize * half
+    let start1 ← start + i2
+    backend.avx2.ntt.ntt_block_loop0_loop0 SECOND b1 q k1 half start1
+  else ok (b, k)
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 301:4-324:5 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop0
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (bm : backend.avx2.intrinsics.Vec256)
+  (round : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize)
+  (level : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  if half >= 1#usize
+  then
+    let (b1, k1) ←
+      backend.avx2.ntt.ntt_block_loop0_loop0 SECOND b q k half 0#usize
+    let b2 ←
+      if level = 2#usize
+      then backend.avx2.ntt.barrett_block b1 bm round q
+      else ok b1
+    let half1 ← half / 2#usize
+    let level1 ← level + 1#usize
+    backend.avx2.ntt.ntt_block_loop0 SECOND b2 q bm round k1 half1 level1
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 3:
+    Source: 'src/backend/avx2/ntt.rs', lines 333:74-349:5 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop1
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let (z, zq) ←
+      if SECOND
+      then
+        do
+        let t ← backend.avx2.ntt.FWD8_Q2
+        backend.avx2.ntt.ld_tbl t 0#usize
+      else
+        do
+        let t ← backend.avx2.ntt.FWD8_Q1
+        backend.avx2.ntt.ld_tbl t 0#usize
+    let lo ← backend.avx2.intrinsics.load_i16 b j
+    let i ← j + 8#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i
+    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
+    let b1 ← backend.avx2.intrinsics.store_i16 b j lo1
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i hi1
+    backend.avx2.ntt.ntt_block_loop1 SECOND iter1 b2 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 5:
+    Source: 'src/backend/avx2/ntt.rs', lines 333:74-360:9 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop2_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
+  (h : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let (z, zq) ←
+      if SECOND
+      then do
+           let t ← backend.avx2.ntt.FWD4_Q2
+           backend.avx2.ntt.ld_tbl t h
+      else do
+           let t ← backend.avx2.ntt.FWD4_Q1
+           backend.avx2.ntt.ld_tbl t h
+    let i ← 8#usize * h
+    let i1 ← i + j
+    let lo ← backend.avx2.intrinsics.load_i16 b i1
+    let i2 ← i + j
+    let i3 ← i2 + 4#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i3
+    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
+    let i4 ← i + j
+    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
+    let i5 ← i + j
+    let i6 ← i5 + 4#usize
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
+    backend.avx2.ntt.ntt_block_loop2_loop0 SECOND iter1 b2 q h
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 4:
+    Source: 'src/backend/avx2/ntt.rs', lines 333:74-361:5 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop2
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some h =>
+    let b1 ←
+      backend.avx2.ntt.ntt_block_loop2_loop0 SECOND
+        { start := 0#usize, «end» := 4#usize } b q h
+    backend.avx2.ntt.ntt_block_loop2 SECOND iter1 b1 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 7:
+    Source: 'src/backend/avx2/ntt.rs', lines 333:74-372:9 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop3_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
+  (h : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let (z, zq) ←
+      if SECOND
+      then do
+           let t ← backend.avx2.ntt.FWD2_Q2
+           backend.avx2.ntt.ld_tbl t h
+      else do
+           let t ← backend.avx2.ntt.FWD2_Q1
+           backend.avx2.ntt.ld_tbl t h
+    let i ← 4#usize * h
+    let i1 ← i + j
+    let lo ← backend.avx2.intrinsics.load_i16 b i1
+    let i2 ← i + j
+    let i3 ← i2 + 2#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i3
+    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
+    let i4 ← i + j
+    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
+    let i5 ← i + j
+    let i6 ← i5 + 2#usize
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
+    backend.avx2.ntt.ntt_block_loop3_loop0 SECOND iter1 b2 q h
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 6:
+    Source: 'src/backend/avx2/ntt.rs', lines 333:74-373:5 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop3
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some h =>
+    let b1 ←
+      backend.avx2.ntt.ntt_block_loop3_loop0 SECOND
+        { start := 0#usize, «end» := 2#usize } b q h
+    backend.avx2.ntt.ntt_block_loop3 SECOND iter1 b1 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]: loop 8:
+    Source: 'src/backend/avx2/ntt.rs', lines 333:74-380:5 -/
+@[rust_loop]
+def backend.avx2.ntt.ntt_block_loop4
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some h =>
+    let (z, zq) ←
+      if SECOND
+      then do
+           let t ← backend.avx2.ntt.FWD1_Q2
+           backend.avx2.ntt.ld_tbl t h
+      else do
+           let t ← backend.avx2.ntt.FWD1_Q1
+           backend.avx2.ntt.ld_tbl t h
+    let i ← 2#usize * h
+    let lo ← backend.avx2.intrinsics.load_i16 b i
+    let i1 ← i + 1#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i1
+    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
+    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
+    let i2 ← i + 1#usize
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
+    backend.avx2.ntt.ntt_block_loop4 SECOND iter1 b2 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::ntt_block]:
+    Source: 'src/backend/avx2/ntt.rs', lines 291:0-386:1 -/
+def backend.avx2.ntt.ntt_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← arithmetic.ntt_crt.q SECOND
+  let q ← backend.avx2.intrinsics.set1_epi16 i
+  let i1 ← arithmetic.ntt_crt.barrett_m SECOND
+  let bm ← backend.avx2.intrinsics.set1_epi16 i1
+  let i2 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
+  let i3 ← 1#i16 <<< i2
+  let round ← backend.avx2.intrinsics.set1_epi16 i3
+  let b1 ←
+    backend.avx2.ntt.ntt_block_loop0 SECOND b q bm round 0#usize 8#usize
+      0#usize
+  let b2 ← backend.avx2.ntt.transpose16 b1
+  let b3 ←
+    backend.avx2.ntt.ntt_block_loop1 SECOND
+      { start := 0#usize, «end» := 8#usize } b2 q
+  let b4 ←
+    backend.avx2.ntt.ntt_block_loop2 SECOND
+      { start := 0#usize, «end» := 2#usize } b3 q
+  let b5 ←
+    backend.avx2.ntt.ntt_block_loop3 SECOND
+      { start := 0#usize, «end» := 4#usize } b4 q
+  let b6 ← backend.avx2.ntt.barrett_block b5 bm round q
+  let b7 ←
+    backend.avx2.ntt.ntt_block_loop4 SECOND
+      { start := 0#usize, «end» := 8#usize } b6 q
+  let b8 ← backend.avx2.ntt.transpose16 b7
+  backend.avx2.ntt.barrett_block b8 bm round q
+
+/-- [kopis::backend::avx2::intrinsics::load_u16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 390:0-394:1 -/
+axiom backend.avx2.intrinsics.load_u16
+  {N : Std.Usize} :
+  Array Std.U16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::ntt::split_and_transform]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 504:4-511:5 -/
+@[rust_loop]
+def backend.avx2.ntt.split_and_transform_loop
+  (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
+  (elem : Array Std.U16 256#usize) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (bm : backend.avx2.intrinsics.Vec256)
+  (round : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let x ← backend.avx2.intrinsics.load_u16 elem i
+    let x1 ← if REDUCE
+               then backend.avx2.ntt.barrett x bm round q
+               else ok x
+    let b1 ← backend.avx2.intrinsics.store_i16 b i x1
+    backend.avx2.ntt.split_and_transform_loop REDUCE iter1 elem b1 q bm round
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::split_and_transform]:
+    Source: 'src/backend/avx2/ntt.rs', lines 497:0-514:1 -/
+def backend.avx2.ntt.split_and_transform
+  (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← arithmetic.ntt_crt.q SECOND
+  let q ← backend.avx2.intrinsics.set1_epi16 i
+  let i1 ← arithmetic.ntt_crt.barrett_m SECOND
+  let bm ← backend.avx2.intrinsics.set1_epi16 i1
+  let i2 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
+  let i3 ← 1#i16 <<< i2
+  let round ← backend.avx2.intrinsics.set1_epi16 i3
+  let b1 ←
+    backend.avx2.ntt.split_and_transform_loop REDUCE
+      { start := 0#usize, «end» := 16#usize } elem b q bm round
+  backend.avx2.ntt.ntt_block SECOND b1
+
+/-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 533:4-535:5 -/
+@[rust_loop]
+def backend.avx2.ntt.from_ring_elem_loop0
+  (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let v ← backend.avx2.intrinsics.load_i16 b i
+    let out1 ← backend.avx2.intrinsics.store_i16 out i v
+    backend.avx2.ntt.from_ring_elem_loop0 iter1 out1 b
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 1:
+    Source: 'src/backend/avx2/ntt.rs', lines 538:4-540:5 -/
+@[rust_loop]
+def backend.avx2.ntt.from_ring_elem_loop1
+  (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let i1 ← 16#usize + i
+    let v ← backend.avx2.intrinsics.load_i16 b i
+    let out1 ← backend.avx2.intrinsics.store_i16 out i1 v
+    backend.avx2.ntt.from_ring_elem_loop1 iter1 out1 b
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::from_ring_elem]:
+    Source: 'src/backend/avx2/ntt.rs', lines 528:0-543:1 -/
+def backend.avx2.ntt.from_ring_elem
+  (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let out := Array.repeat 512#usize 0#i16
+  let b := Array.repeat 256#usize 0#i16
+  let b1 ← backend.avx2.ntt.split_and_transform false REDUCE elem b
+  let out1 ←
+    backend.avx2.ntt.from_ring_elem_loop0
+      { start := 0#usize, «end» := 16#usize } out b1
+  let b2 ← backend.avx2.ntt.split_and_transform true REDUCE elem b1
+  backend.avx2.ntt.from_ring_elem_loop1
+    { start := 0#usize, «end» := 16#usize } out1 b2
+
+/-- [kopis::backend::avx2::ntt::from_uniform]:
+    Source: 'src/backend/avx2/ntt.rs', lines 551:0-553:1 -/
+def backend.avx2.ntt.from_uniform
+  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
+  backend.avx2.ntt.from_ring_elem true elem
+
+/-- [kopis::backend::avx2::cpu::available]:
+    Source: 'src/backend/avx2/cpu.rs', lines 20:0-22:1 -/
+axiom backend.avx2.cpu.available : Result Bool
+
 /-- [kopis::arithmetic::plain_arith::RingElem]
-    Source: 'src/arithmetic/plain_arith.rs', lines 16:0-16:48
+    Source: 'src/arithmetic/plain_arith.rs', lines 18:0-18:48
     Visibility: public -/
 @[reducible]
 def arithmetic.plain_arith.RingElem := Array Std.U16 256#usize
 
+/-- [kopis::consts::RING_DEG]
+    Source: 'src/consts.rs', lines 2:0-2:39 -/
+@[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
+
+/-- [kopis::arithmetic::ntt_crt::mont_mul]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 197:0-202:1 -/
+def arithmetic.ntt_crt.mont_mul
+  (a : Std.I16) (z : Std.I16) (zq : Std.I16) (q : Std.I16) :
+  Result Std.I16
+  := do
+  let t ← lift (core.num.I16.wrapping_mul a zq)
+  let i ← lift (IScalar.cast .I32 a)
+  let i1 ← lift (IScalar.cast .I32 z)
+  let i2 ← lift (core.num.I32.wrapping_mul i i1)
+  let i3 ← i2 >>> 16#i32
+  let hi ← lift (IScalar.cast .I16 i3)
+  let i4 ← lift (IScalar.cast .I32 t)
+  let i5 ← lift (IScalar.cast .I32 q)
+  let i6 ← lift (core.num.I32.wrapping_mul i4 i5)
+  let i7 ← i6 >>> 16#i32
+  let th ← lift (IScalar.cast .I16 i7)
+  ok (core.num.I16.wrapping_sub hi th)
+
+/-- [kopis::arithmetic::ntt_crt::ct_level]: loop 1:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 237:8-241:9 -/
+@[rust_loop]
+def arithmetic.ntt_crt.ct_level_loop0_loop0
+  (LEN : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : Std.I16) (z : Std.I16) (zq : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let i ← j + LEN
+    let i1 ← Array.index_usize b i
+    let t ← arithmetic.ntt_crt.mont_mul i1 z zq q
+    let i2 ← Array.index_usize b j
+    let i3 ← lift (core.num.I16.wrapping_sub i2 t)
+    let b1 ← Array.update b i i3
+    let i4 ← Array.index_usize b1 j
+    let i5 ← lift (core.num.I16.wrapping_add i4 t)
+    let a ← Array.update b1 j i5
+    arithmetic.ntt_crt.ct_level_loop0_loop0 LEN iter1 a q z zq
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::ct_level]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 233:4-243:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.ct_level_loop0
+  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (k : Std.Usize) (q : Std.I16) (start : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  if start < consts.RING_DEG
+  then
+    let k1 ← k + 1#usize
+    let z ← arithmetic.ntt_crt.zeta SECOND k1
+    let zq ← arithmetic.ntt_crt.zeta_q SECOND k1
+    let i ← start + LEN
+    let b1 ←
+      arithmetic.ntt_crt.ct_level_loop0_loop0 LEN { start, «end» := i } b q z
+        zq
+    let i1 ← 2#usize * LEN
+    let start1 ← start + i1
+    arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b1 k1 q start1
+  else ok (b, k)
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::ct_level]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 230:0-244:1 -/
+def arithmetic.ntt_crt.ct_level
+  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (k : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  let q ← arithmetic.ntt_crt.q SECOND
+  arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b k q 0#usize
+
+/-- [kopis::arithmetic::ntt_crt::barrett]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 210:0-214:1 -/
+def arithmetic.ntt_crt.barrett
+  (x : Std.I16) (m : Std.I16) (q : Std.I16) : Result Std.I16 := do
+  let i ← lift (IScalar.cast .I32 x)
+  let i1 ← lift (IScalar.cast .I32 m)
+  let i2 ← lift (core.num.I32.wrapping_mul i i1)
+  let i3 ← i2 >>> 16#i32
+  let t ← lift (IScalar.cast .I16 i3)
+  let i4 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
+  let i5 ← 1#i16 <<< i4
+  let i6 ← lift (core.num.I16.wrapping_add t i5)
+  let t1 ← i6 >>> arithmetic.ntt_crt.BARRETT_SH
+  let i7 ← lift (core.num.I16.wrapping_mul t1 q)
+  ok (core.num.I16.wrapping_sub x i7)
+
+/-- [kopis::arithmetic::ntt_crt::barrett_block]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 220:4-222:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.barrett_block_loop
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (q : Std.I16) (m : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let i1 ← Array.index_usize b i
+    let i2 ← arithmetic.ntt_crt.barrett i1 m q
+    let a ← Array.update b i i2
+    arithmetic.ntt_crt.barrett_block_loop iter1 a q m
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::barrett_block]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 217:0-223:1 -/
+def arithmetic.ntt_crt.barrett_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let q ← arithmetic.ntt_crt.q SECOND
+  let m ← arithmetic.ntt_crt.barrett_m SECOND
+  arithmetic.ntt_crt.barrett_block_loop
+    { start := 0#usize, «end» := consts.RING_DEG } b q m
+
+/-- [kopis::arithmetic::ntt_crt::ntt_block]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 271:0-286:1 -/
+def arithmetic.ntt_crt.ntt_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (b1, k) ← arithmetic.ntt_crt.ct_level 128#usize SECOND b 0#usize
+  let (b2, k1) ← arithmetic.ntt_crt.ct_level 64#usize SECOND b1 k
+  let (b3, k2) ← arithmetic.ntt_crt.ct_level 32#usize SECOND b2 k1
+  let b4 ← arithmetic.ntt_crt.barrett_block SECOND b3
+  let (b5, k3) ← arithmetic.ntt_crt.ct_level 16#usize SECOND b4 k2
+  let (b6, k4) ← arithmetic.ntt_crt.ct_level 8#usize SECOND b5 k3
+  let (b7, k5) ← arithmetic.ntt_crt.ct_level 4#usize SECOND b6 k4
+  let b8 ← arithmetic.ntt_crt.barrett_block SECOND b7
+  let (b9, k6) ← arithmetic.ntt_crt.ct_level 2#usize SECOND b8 k5
+  let (b10, _) ← arithmetic.ntt_crt.ct_level 1#usize SECOND b9 k6
+  arithmetic.ntt_crt.barrett_block SECOND b10
+
+/-- [kopis::arithmetic::ntt_crt::split_and_transform]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 327:4-330:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.split_and_transform_loop
+  (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
+  (elem : Array Std.U16 256#usize) (b : Array Std.I16 256#usize) (q : Std.I16)
+  (m : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let i1 ← Array.index_usize elem i
+    let x ← lift (UScalar.hcast .I16 i1)
+    let x1 ← if REDUCE
+               then arithmetic.ntt_crt.barrett x m q
+               else ok x
+    let a ← Array.update b i x1
+    arithmetic.ntt_crt.split_and_transform_loop REDUCE iter1 elem a q m
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::split_and_transform]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 321:0-332:1 -/
+def arithmetic.ntt_crt.split_and_transform
+  (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let q ← arithmetic.ntt_crt.q SECOND
+  let m ← arithmetic.ntt_crt.barrett_m SECOND
+  let b1 ←
+    arithmetic.ntt_crt.split_and_transform_loop REDUCE
+      { start := 0#usize, «end» := consts.RING_DEG } elem b q m
+  arithmetic.ntt_crt.ntt_block SECOND b1
+
+/-- [kopis::arithmetic::ntt_crt::from_ring_elem]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 336:0-347:1 -/
+def arithmetic.ntt_crt.from_ring_elem
+  (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
+  Result (Array Std.I16 512#usize)
+  := do
+  let out := Array.repeat 512#usize 0#i16
+  let b := Array.repeat 256#usize 0#i16
+  let b1 ← arithmetic.ntt_crt.split_and_transform false REDUCE elem b
+  let (s, index_mut_back) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.I16)) out
+      { «end» := consts.RING_DEG }
+  let s1 ← lift (Array.to_slice b1)
+  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyI16 s s1
+  let b2 ← arithmetic.ntt_crt.split_and_transform true REDUCE elem b1
+  let out1 := index_mut_back s2
+  let (s3, index_mut_back1) ←
+    core.array.Array.index_mut (core.ops.index.IndexMutSlice
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.I16)) out1
+      { start := consts.RING_DEG }
+  let s4 ← lift (Array.to_slice b2)
+  let s5 ← core.slice.Slice.copy_from_slice core.marker.CopyI16 s3 s4
+  ok (index_mut_back1 s5)
+
+/-- [kopis::arithmetic::ntt_crt::from_uniform]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 350:0-352:1 -/
+def arithmetic.ntt_crt.from_uniform
+  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
+  arithmetic.ntt_crt.from_ring_elem true elem
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttElem}::from_uniform]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 59:4-77:5 -/
+def arithmetic.ntt_arith.NttElem.from_uniform
+  (elem : arithmetic.plain_arith.RingElem) :
+  Result arithmetic.ntt_arith.NttElem
+  := do
+  let b ← backend.avx2.cpu.available
+  if b
+  then let a ← backend.avx2.ntt.from_uniform elem
+       ok a
+  else let a ← arithmetic.ntt_crt.from_uniform elem
+       ok a
+
+/-- [kopis::backend::avx2::ntt::from_secret]:
+    Source: 'src/backend/avx2/ntt.rs', lines 561:0-563:1 -/
+def backend.avx2.ntt.from_secret
+  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
+  backend.avx2.ntt.from_ring_elem false elem
+
+/-- [kopis::arithmetic::ntt_crt::from_secret]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 355:0-357:1 -/
+def arithmetic.ntt_crt.from_secret
+  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
+  arithmetic.ntt_crt.from_ring_elem false elem
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttElem}::from_secret]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 84:4-100:5 -/
+def arithmetic.ntt_arith.NttElem.from_secret
+  (elem : arithmetic.plain_arith.RingElem) :
+  Result arithmetic.ntt_arith.NttElem
+  := do
+  let b ← backend.avx2.cpu.available
+  if b
+  then let a ← backend.avx2.ntt.from_secret elem
+       ok a
+  else let a ← arithmetic.ntt_crt.from_secret elem
+       ok a
+
+/-- [kopis::arithmetic::ntt_arith::NttMatrix]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 105:0-105:90 -/
+@[reducible]
+def arithmetic.ntt_arith.NttMatrix (X : Std.Usize) (Y : Std.Usize) :=
+  Array (Array arithmetic.ntt_arith.NttElem Y) X
+
+/-- [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::clone]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 104:9-104:14
+    Visibility: public -/
+def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let a ←
+    core.array.CloneArray.clone (core.clone.CloneArray Y
+      arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone) self
+  ok a
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 104:9-104:14 -/
+@[reducible]
+def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
+  Std.Usize) : core.clone.Clone (arithmetic.ntt_arith.NttMatrix X Y) := {
+  clone := arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
+}
+
+/-- [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::zeroize]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 104:16-104:23
+    Visibility: public -/
+def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize.zeroize
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let __zeroize_field_0 ←
+    Array.Insts.ZeroizeZeroize.zeroize (Array.Insts.ZeroizeZeroize Y
+      arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize) self
+  ok __zeroize_field_0
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 104:16-104:23 -/
+@[reducible]
+def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
+  Std.Usize) : zeroize.Zeroize (arithmetic.ntt_arith.NttMatrix X Y) := {
+  zeroize := arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize.zeroize
+}
+
+/-- [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::default]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 108:4-110:5
+    Visibility: public -/
+def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default
+  (X : Std.Usize) (Y : Std.Usize) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let ne ← arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
+  let a := Array.repeat Y ne
+  let a1 := Array.repeat X a
+  ok a1
+
+/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
+    Source: 'src/arithmetic/ntt_arith.rs', lines 107:0-111:1 -/
+@[reducible]
+def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
+  : Std.Usize) : core.default.Default (arithmetic.ntt_arith.NttMatrix X Y) := {
+  default := arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default X
+    Y
+}
+
+/-- [kopis::backend::avx2::intrinsics::store_i32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 417:0-421:1 -/
+axiom backend.avx2.intrinsics.store_i32
+  {N : Std.Usize} :
+  Array Std.I32 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
+    (Array Std.I32 N)
+
+/-- [kopis::backend::avx2::intrinsics::load_i32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 408:0-412:1 -/
+axiom backend.avx2.intrinsics.load_i32
+  {N : Std.Usize} :
+  Array Std.I32 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::add_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 141:0-143:1 -/
+axiom backend.avx2.intrinsics.add_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 1:
+    Source: 'src/backend/avx2/ntt.rs', lines 582:8-602:9 -/
+@[rust_loop]
+def backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
+  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
+  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize)
+  (block : Std.Usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok acc
+  | some i =>
+    let i1 ← 16#usize * block
+    let i2 ← i1 + i
+    let l ← backend.avx2.intrinsics.load_i16 lhs i2
+    let i3 ← i1 + i
+    let r ← backend.avx2.intrinsics.load_i16 rhs i3
+    let lo ← backend.avx2.intrinsics.mullo_epi16 l r
+    let hi ← backend.avx2.intrinsics.mulhi_epi16 l r
+    let p0 ← backend.avx2.intrinsics.unpacklo_epi16 lo hi
+    let p1 ← backend.avx2.intrinsics.unpackhi_epi16 lo hi
+    let first ← backend.avx2.intrinsics.permute2x128_si256 32#i32 p0 p1
+    let second ← backend.avx2.intrinsics.permute2x128_si256 49#i32 p0 p1
+    let i4 ← 32#usize * block
+    let i5 ← 2#usize * i
+    let a0 ← i4 + i5
+    let a1 ← a0 + 1#usize
+    let v ← backend.avx2.intrinsics.load_i32 acc a0
+    let v1 ← backend.avx2.intrinsics.add_epi32 v first
+    let acc1 ← backend.avx2.intrinsics.store_i32 acc a0 v1
+    let v2 ← backend.avx2.intrinsics.load_i32 acc1 a1
+    let v3 ← backend.avx2.intrinsics.add_epi32 v2 second
+    let acc2 ← backend.avx2.intrinsics.store_i32 acc1 a1 v3
+    backend.avx2.ntt.pointwise_mul_acc_loop0_loop0 iter1 acc2 lhs rhs block
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 581:4-603:5 -/
+@[rust_loop]
+def backend.avx2.ntt.pointwise_mul_acc_loop0
+  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
+  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok acc
+  | some block =>
+    let acc1 ←
+      backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
+        { start := 0#usize, «end» := 16#usize } acc lhs rhs block
+    backend.avx2.ntt.pointwise_mul_acc_loop0 iter1 acc1 lhs rhs
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::pointwise_mul_acc]:
+    Source: 'src/backend/avx2/ntt.rs', lines 576:0-604:1 -/
+@[reducible]
+def backend.avx2.ntt.pointwise_mul_acc
+  (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
+  (rhs : Array Std.I16 512#usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  backend.avx2.ntt.pointwise_mul_acc_loop0
+    { start := 0#usize, «end» := 2#usize } acc lhs rhs
+
+/-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 369:4-371:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.pointwise_mul_acc_loop
+  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
+  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok acc
+  | some i =>
+    let i1 ← Array.index_usize acc i
+    let i2 ← Array.index_usize lhs i
+    let i3 ← lift (IScalar.cast .I32 i2)
+    let i4 ← Array.index_usize rhs i
+    let i5 ← lift (IScalar.cast .I32 i4)
+    let i6 ← lift (core.num.I32.wrapping_mul i3 i5)
+    let i7 ← lift (core.num.I32.wrapping_add i1 i6)
+    let a ← Array.update acc i i7
+    arithmetic.ntt_crt.pointwise_mul_acc_loop iter1 a lhs rhs
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 364:0-372:1 -/
+def arithmetic.ntt_crt.pointwise_mul_acc
+  (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
+  (rhs : Array Std.I16 512#usize) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let i ← 2#usize * consts.RING_DEG
+  arithmetic.ntt_crt.pointwise_mul_acc_loop { start := 0#usize, «end» := i }
+    acc lhs rhs
+
+/-- [kopis::arithmetic::ntt_arith::pointwise_mul_acc]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 118:0-136:1 -/
+def arithmetic.ntt_arith.pointwise_mul_acc
+  (acc : Array Std.I32 512#usize) (lhs : arithmetic.ntt_arith.NttElem)
+  (rhs : arithmetic.ntt_arith.NttElem) :
+  Result (Array Std.I32 512#usize)
+  := do
+  let b ← backend.avx2.cpu.available
+  if b
+  then backend.avx2.ntt.pointwise_mul_acc acc lhs rhs
+  else arithmetic.ntt_crt.pointwise_mul_acc acc lhs rhs
+
+/-- [kopis::backend::avx2::ntt::gs_butterfly]:
+    Source: 'src/backend/avx2/ntt.rs', lines 193:0-197:1 -/
+def backend.avx2.ntt.gs_butterfly
+  (lo : backend.avx2.intrinsics.Vec256) (hi : backend.avx2.intrinsics.Vec256)
+  (z : backend.avx2.intrinsics.Vec256) (zq : backend.avx2.intrinsics.Vec256)
+  (q : backend.avx2.intrinsics.Vec256) :
+  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
+  := do
+  let diff ← backend.avx2.intrinsics.sub_epi16 lo hi
+  let lo1 ← backend.avx2.intrinsics.add_epi16 lo hi
+  let hi1 ← backend.avx2.ntt.mont_mul diff z zq q
+  ok (lo1, hi1)
+
+/-- [kopis::backend::avx2::ntt::INV8_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 134:0-134:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV8_Q2 : Result (backend.avx2.ntt.Tbl 16#usize) :=
+  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 31#isize 0#isize (-1)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV4_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 133:0-133:72 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV4_Q2 : Result (backend.avx2.ntt.Tbl 32#usize) :=
+  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 63#isize (-1)#isize (-2)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV2_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 132:0-132:73 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV2_Q2 : Result (backend.avx2.ntt.Tbl 64#usize) :=
+  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 127#isize (-1)#isize (-4)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV1_Q2]
+    Source: 'src/backend/avx2/ntt.rs', lines 131:0-131:74 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV1_Q2 : Result (backend.avx2.ntt.Tbl 128#usize) :=
+  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q2
+    arithmetic.ntt_crt.Q2_INV 255#isize (-1)#isize (-8)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV8_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 124:0-124:71 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV8_Q1 : Result (backend.avx2.ntt.Tbl 16#usize) :=
+  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 31#isize 0#isize (-1)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV4_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 123:0-123:72 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV4_Q1 : Result (backend.avx2.ntt.Tbl 32#usize) :=
+  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 63#isize (-1)#isize (-2)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV2_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 122:0-122:73 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV2_Q1 : Result (backend.avx2.ntt.Tbl 64#usize) :=
+  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 127#isize (-1)#isize (-4)#isize true
+
+/-- [kopis::backend::avx2::ntt::INV1_Q1]
+    Source: 'src/backend/avx2/ntt.rs', lines 121:0-121:74 -/
+@[global_simps, irreducible]
+def backend.avx2.ntt.INV1_Q1 : Result (backend.avx2.ntt.Tbl 128#usize) :=
+  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q1
+    arithmetic.ntt_crt.Q1_INV 255#isize (-1)#isize (-8)#isize true
+
+/-- [kopis::arithmetic::ntt_crt::INVNTT_SCALE_2]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 73:0-73:44 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.INVNTT_SCALE_2 : Std.I16 := 2536#i16
+
+/-- [kopis::arithmetic::ntt_crt::INVNTT_SCALE_1]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 71:0-71:44 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.INVNTT_SCALE_1 : Std.I16 := 1912#i16
+
+/-- [kopis::arithmetic::ntt_crt::invntt_scale]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 160:0-166:1 -/
+def arithmetic.ntt_crt.invntt_scale (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok arithmetic.ntt_crt.INVNTT_SCALE_2
+  else ok arithmetic.ntt_crt.INVNTT_SCALE_1
+
+/-- [kopis::arithmetic::ntt_crt::qinv]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 150:0-152:1 -/
+def arithmetic.ntt_crt.qinv (SECOND : Bool) : Result Std.I16 := do
+  if SECOND
+  then ok arithmetic.ntt_crt.Q2_INV
+  else ok arithmetic.ntt_crt.Q1_INV
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 403:62-419:5 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some h =>
+    let (z, zq) ←
+      if SECOND
+      then do
+           let t ← backend.avx2.ntt.INV1_Q2
+           backend.avx2.ntt.ld_tbl t h
+      else do
+           let t ← backend.avx2.ntt.INV1_Q1
+           backend.avx2.ntt.ld_tbl t h
+    let i ← 2#usize * h
+    let lo ← backend.avx2.intrinsics.load_i16 b i
+    let i1 ← i + 1#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i1
+    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
+    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
+    let i2 ← i + 1#usize
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
+    backend.avx2.ntt.invntt_block_loop0 SECOND iter1 b2 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 2:
+    Source: 'src/backend/avx2/ntt.rs', lines 403:62-423:9 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop1_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
+  (h : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let (z, zq) ←
+      if SECOND
+      then do
+           let t ← backend.avx2.ntt.INV2_Q2
+           backend.avx2.ntt.ld_tbl t h
+      else do
+           let t ← backend.avx2.ntt.INV2_Q1
+           backend.avx2.ntt.ld_tbl t h
+    let i ← 4#usize * h
+    let i1 ← i + j
+    let lo ← backend.avx2.intrinsics.load_i16 b i1
+    let i2 ← i + j
+    let i3 ← i2 + 2#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i3
+    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
+    let i4 ← i + j
+    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
+    let i5 ← i + j
+    let i6 ← i5 + 2#usize
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
+    backend.avx2.ntt.invntt_block_loop1_loop0 SECOND iter1 b2 q h
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 1:
+    Source: 'src/backend/avx2/ntt.rs', lines 403:62-424:5 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop1
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some h =>
+    let b1 ←
+      backend.avx2.ntt.invntt_block_loop1_loop0 SECOND
+        { start := 0#usize, «end» := 2#usize } b q h
+    backend.avx2.ntt.invntt_block_loop1 SECOND iter1 b1 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 4:
+    Source: 'src/backend/avx2/ntt.rs', lines 403:62-431:9 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop2_loop0
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
+  (h : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let (z, zq) ←
+      if SECOND
+      then do
+           let t ← backend.avx2.ntt.INV4_Q2
+           backend.avx2.ntt.ld_tbl t h
+      else do
+           let t ← backend.avx2.ntt.INV4_Q1
+           backend.avx2.ntt.ld_tbl t h
+    let i ← 8#usize * h
+    let i1 ← i + j
+    let lo ← backend.avx2.intrinsics.load_i16 b i1
+    let i2 ← i + j
+    let i3 ← i2 + 4#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i3
+    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
+    let i4 ← i + j
+    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
+    let i5 ← i + j
+    let i6 ← i5 + 4#usize
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
+    backend.avx2.ntt.invntt_block_loop2_loop0 SECOND iter1 b2 q h
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 3:
+    Source: 'src/backend/avx2/ntt.rs', lines 403:62-432:5 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop2
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some h =>
+    let b1 ←
+      backend.avx2.ntt.invntt_block_loop2_loop0 SECOND
+        { start := 0#usize, «end» := 4#usize } b q h
+    backend.avx2.ntt.invntt_block_loop2 SECOND iter1 b1 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 5:
+    Source: 'src/backend/avx2/ntt.rs', lines 403:62-435:5 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop3
+  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let (z, zq) ←
+      if SECOND
+      then
+        do
+        let t ← backend.avx2.ntt.INV8_Q2
+        backend.avx2.ntt.ld_tbl t 0#usize
+      else
+        do
+        let t ← backend.avx2.ntt.INV8_Q1
+        backend.avx2.ntt.ld_tbl t 0#usize
+    let lo ← backend.avx2.intrinsics.load_i16 b j
+    let i ← j + 8#usize
+    let hi ← backend.avx2.intrinsics.load_i16 b i
+    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
+    let b1 ← backend.avx2.intrinsics.store_i16 b j lo1
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i hi1
+    backend.avx2.ntt.invntt_block_loop3 SECOND iter1 b2 q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 8:
+    Source: 'src/backend/avx2/ntt.rs', lines 456:12-463:13 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop4_loop0_loop0
+  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
+  (half : Std.Usize) (start : Std.Usize) (z : backend.avx2.intrinsics.Vec256)
+  (zq : backend.avx2.intrinsics.Vec256) (i : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i1 ← start + half
+  if i < i1
+  then
+    let lo ← backend.avx2.intrinsics.load_i16 b i
+    let i2 ← i + half
+    let hi ← backend.avx2.intrinsics.load_i16 b i2
+    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
+    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
+    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
+    let i3 ← i + 1#usize
+    backend.avx2.ntt.invntt_block_loop4_loop0_loop0 b2 q half start z zq i3
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 7:
+    Source: 'src/backend/avx2/ntt.rs', lines 446:8-465:9 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop4_loop0
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize)
+  (start : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  if start < 16#usize
+  then
+    let k1 ← k - 1#usize
+    let i ← arithmetic.ntt_crt.zeta SECOND k1
+    let neg_zeta ← lift (core.num.I16.wrapping_sub 0#i16 i)
+    let z ← backend.avx2.intrinsics.set1_epi16 neg_zeta
+    let i1 ← arithmetic.ntt_crt.qinv SECOND
+    let i2 ← lift (core.num.I16.wrapping_mul neg_zeta i1)
+    let zq ← backend.avx2.intrinsics.set1_epi16 i2
+    let b1 ←
+      backend.avx2.ntt.invntt_block_loop4_loop0_loop0 b q half start z zq start
+    let i3 ← 2#usize * half
+    let start1 ← start + i3
+    backend.avx2.ntt.invntt_block_loop4_loop0 SECOND b1 q k1 half start1
+  else ok (b, k)
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 6:
+    Source: 'src/backend/avx2/ntt.rs', lines 444:4-471:5 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop4
+  (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (bm : backend.avx2.intrinsics.Vec256)
+  (round : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  if half < 16#usize
+  then
+    let (b1, k1) ←
+      backend.avx2.ntt.invntt_block_loop4_loop0 SECOND b q k half 0#usize
+    let half1 ← half * 2#usize
+    if half1 = 4#usize
+    then
+      let b2 ← backend.avx2.ntt.barrett_block b1 bm round q
+      backend.avx2.ntt.invntt_block_loop4 SECOND b2 q bm round k1 half1
+    else backend.avx2.ntt.invntt_block_loop4 SECOND b1 q bm round k1 half1
+  else ok b
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]: loop 9:
+    Source: 'src/backend/avx2/ntt.rs', lines 476:4-478:5 -/
+@[rust_loop]
+def backend.avx2.ntt.invntt_block_loop5
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (scale : backend.avx2.intrinsics.Vec256)
+  (scale_q : backend.avx2.intrinsics.Vec256) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let v ← backend.avx2.intrinsics.load_i16 b i
+    let v1 ← backend.avx2.ntt.mont_mul v scale scale_q q
+    let b1 ← backend.avx2.intrinsics.store_i16 b i v1
+    backend.avx2.ntt.invntt_block_loop5 iter1 b1 q scale scale_q
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::invntt_block]:
+    Source: 'src/backend/avx2/ntt.rs', lines 395:0-479:1 -/
+def backend.avx2.ntt.invntt_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← arithmetic.ntt_crt.q SECOND
+  let q ← backend.avx2.intrinsics.set1_epi16 i
+  let i1 ← arithmetic.ntt_crt.barrett_m SECOND
+  let bm ← backend.avx2.intrinsics.set1_epi16 i1
+  let i2 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
+  let i3 ← 1#i16 <<< i2
+  let round ← backend.avx2.intrinsics.set1_epi16 i3
+  let b1 ← backend.avx2.ntt.transpose16 b
+  let b2 ←
+    backend.avx2.ntt.invntt_block_loop0 SECOND
+      { start := 0#usize, «end» := 8#usize } b1 q
+  let b3 ←
+    backend.avx2.ntt.invntt_block_loop1 SECOND
+      { start := 0#usize, «end» := 4#usize } b2 q
+  let b4 ← backend.avx2.ntt.barrett_block b3 bm round q
+  let b5 ←
+    backend.avx2.ntt.invntt_block_loop2 SECOND
+      { start := 0#usize, «end» := 2#usize } b4 q
+  let b6 ←
+    backend.avx2.ntt.invntt_block_loop3 SECOND
+      { start := 0#usize, «end» := 8#usize } b5 q
+  let b7 ← backend.avx2.ntt.barrett_block b6 bm round q
+  let b8 ← backend.avx2.ntt.transpose16 b7
+  let b9 ←
+    backend.avx2.ntt.invntt_block_loop4 SECOND b8 q bm round 16#usize 1#usize
+  let i4 ← arithmetic.ntt_crt.invntt_scale SECOND
+  let scale ← backend.avx2.intrinsics.set1_epi16 i4
+  let i5 ← arithmetic.ntt_crt.qinv SECOND
+  let i6 ← lift (core.num.I16.wrapping_mul i4 i5)
+  let scale_q ← backend.avx2.intrinsics.set1_epi16 i6
+  backend.avx2.ntt.invntt_block_loop5 { start := 0#usize, «end» := 16#usize }
+    b9 q scale scale_q
+
+/-- [kopis::backend::avx2::intrinsics::packs_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 320:0-322:1 -/
+axiom backend.avx2.intrinsics.packs_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::permute4x64_epi64]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 312:0-314:1 -/
+axiom backend.avx2.intrinsics.permute4x64_epi64
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::slli_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 208:0-210:1 -/
+axiom backend.avx2.intrinsics.slli_epi32
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::srai_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 194:0-196:1 -/
+axiom backend.avx2.intrinsics.srai_epi32
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::ntt::reduce_block]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 619:4-634:5 -/
+@[rust_loop]
+def backend.avx2.ntt.reduce_block_loop
+  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
+  (base : Std.Usize) (b : Array Std.I16 256#usize)
+  (q : backend.avx2.intrinsics.Vec256) (qinv : backend.avx2.intrinsics.Vec256)
+  :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let i1 ← 2#usize * i
+    let i2 ← base + i1
+    let a0 ← backend.avx2.intrinsics.load_i32 acc i2
+    let i3 ← base + i1
+    let i4 ← i3 + 1#usize
+    let a1 ← backend.avx2.intrinsics.load_i32 acc i4
+    let v ← backend.avx2.intrinsics.slli_epi32 16#i32 a0
+    let v1 ← backend.avx2.intrinsics.srai_epi32 16#i32 v
+    let v2 ← backend.avx2.intrinsics.slli_epi32 16#i32 a1
+    let v3 ← backend.avx2.intrinsics.srai_epi32 16#i32 v2
+    let v4 ← backend.avx2.intrinsics.packs_epi32 v1 v3
+    let lo ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 v4
+    let v5 ← backend.avx2.intrinsics.srai_epi32 16#i32 a0
+    let v6 ← backend.avx2.intrinsics.srai_epi32 16#i32 a1
+    let v7 ← backend.avx2.intrinsics.packs_epi32 v5 v6
+    let hi ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 v7
+    let t ← backend.avx2.intrinsics.mullo_epi16 lo qinv
+    let v8 ← backend.avx2.intrinsics.mulhi_epi16 t q
+    let v9 ← backend.avx2.intrinsics.sub_epi16 hi v8
+    let b1 ← backend.avx2.intrinsics.store_i16 b i v9
+    backend.avx2.ntt.reduce_block_loop iter1 acc base b1 q qinv
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::reduce_block]:
+    Source: 'src/backend/avx2/ntt.rs', lines 615:0-638:1 -/
+def backend.avx2.ntt.reduce_block
+  (SECOND : Bool) (acc : Array Std.I32 512#usize) (base : Std.Usize)
+  (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let i ← arithmetic.ntt_crt.q SECOND
+  let q ← backend.avx2.intrinsics.set1_epi16 i
+  let i1 ← arithmetic.ntt_crt.qinv SECOND
+  let qinv ← backend.avx2.intrinsics.set1_epi16 i1
+  let b1 ←
+    backend.avx2.ntt.reduce_block_loop
+      { start := 0#usize, «end» := 16#usize } acc base b q qinv
+  backend.avx2.ntt.invntt_block SECOND b1
+
+/-- [kopis::backend::avx2::intrinsics::store_u16]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 399:0-403:1 -/
+axiom backend.avx2.intrinsics.store_u16
+  {N : Std.Usize} :
+  Array Std.U16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
+    (Array Std.U16 N)
+
+/-- [kopis::backend::avx2::intrinsics::Vec128]
+    Source: 'src/backend/avx2/intrinsics.rs', lines 48:0-48:34 -/
+axiom backend.avx2.intrinsics.Vec128 : Type
+
+/-- [kopis::backend::avx2::intrinsics::extracti128_si256]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 349:0-351:1 -/
+axiom backend.avx2.intrinsics.extracti128_si256
+  (IMM : Std.I32) :
+  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
+
+/-- [kopis::backend::avx2::intrinsics::castsi256_si128]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 342:0-344:1 -/
+axiom backend.avx2.intrinsics.castsi256_si128
+  : backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
+
+/-- [kopis::backend::avx2::intrinsics::cvtepu16_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 335:0-337:1 -/
+axiom backend.avx2.intrinsics.cvtepu16_epi32
+  : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::packus_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 328:0-330:1 -/
+axiom backend.avx2.intrinsics.packus_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::cmpgt_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 176:0-178:1 -/
+axiom backend.avx2.intrinsics.cmpgt_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::mullo_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 169:0-171:1 -/
+axiom backend.avx2.intrinsics.mullo_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::sub_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 148:0-150:1 -/
+axiom backend.avx2.intrinsics.sub_epi32
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::and_si256]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 92:0-94:1 -/
+axiom backend.avx2.intrinsics.and_si256
+  :
+  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
+    backend.avx2.intrinsics.Vec256
+
+/-- [kopis::backend::avx2::intrinsics::set1_epi32]:
+    Source: 'src/backend/avx2/intrinsics.rs', lines 64:0-66:1 -/
+axiom backend.avx2.intrinsics.set1_epi32
+  : Std.I32 → Result backend.avx2.intrinsics.Vec256
+
+/-- [kopis::arithmetic::ntt_crt::CRT_Q1_INV_MONT]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 79:0-79:45 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.CRT_Q1_INV_MONT : Std.I16 := 3563#i16
+
+/-- [kopis::arithmetic::ntt_crt::CRT_Q_HALF]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 77:0-77:44 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.CRT_Q_HALF : Std.I32 := 41296896#i32
+
+/-- [kopis::arithmetic::ntt_crt::CRT_Q]
+    Source: 'src/arithmetic/ntt_crt.rs', lines 75:0-75:39 -/
+@[global_simps, irreducible]
+def arithmetic.ntt_crt.CRT_Q : Std.I32 := 82593793#i32
+
+/-- [kopis::backend::avx2::ntt::reduce_invntt]: loop 0:
+    Source: 'src/backend/avx2/ntt.rs', lines 671:16-705:5 -/
+@[rust_loop]
+def backend.avx2.ntt.reduce_invntt_loop
+  (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
+  (v2 : Array Std.I16 256#usize) (q1 : backend.avx2.intrinsics.Vec256)
+  (q2 : backend.avx2.intrinsics.Vec256)
+  (q1_inv_mont : backend.avx2.intrinsics.Vec256)
+  (q1_inv_mont_q : backend.avx2.intrinsics.Vec256)
+  (q1_wide : backend.avx2.intrinsics.Vec256)
+  (crt_q : backend.avx2.intrinsics.Vec256)
+  (crt_q_half : backend.avx2.intrinsics.Vec256)
+  (low16 : backend.avx2.intrinsics.Vec256) (out : Array Std.U16 256#usize) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let r1 ← backend.avx2.intrinsics.load_i16 v1 i
+    let r2 ← backend.avx2.intrinsics.load_i16 v2 i
+    let v ← backend.avx2.intrinsics.srai_epi16 15#i32 r1
+    let v3 ← backend.avx2.intrinsics.and_si256 v q1
+    let a1 ← backend.avx2.intrinsics.add_epi16 r1 v3
+    let v4 ← backend.avx2.intrinsics.srai_epi16 15#i32 r2
+    let v5 ← backend.avx2.intrinsics.and_si256 v4 q2
+    let a2 ← backend.avx2.intrinsics.add_epi16 r2 v5
+    let v6 ← backend.avx2.intrinsics.sub_epi16 a2 a1
+    let t ← backend.avx2.ntt.mont_mul v6 q1_inv_mont q1_inv_mont_q q2
+    let v7 ← backend.avx2.intrinsics.srai_epi16 15#i32 t
+    let v8 ← backend.avx2.intrinsics.and_si256 v7 q2
+    let t1 ← backend.avx2.intrinsics.add_epi16 t v8
+    let v9 ← backend.avx2.intrinsics.castsi256_si128 a1
+    let v10 ← backend.avx2.intrinsics.cvtepu16_epi32 v9
+    let v11 ← backend.avx2.intrinsics.castsi256_si128 t1
+    let v12 ← backend.avx2.intrinsics.cvtepu16_epi32 v11
+    let v13 ← backend.avx2.intrinsics.mullo_epi32 v12 q1_wide
+    let x ← backend.avx2.intrinsics.add_epi32 v10 v13
+    let over ← backend.avx2.intrinsics.cmpgt_epi32 x crt_q_half
+    let v14 ← backend.avx2.intrinsics.and_si256 crt_q over
+    let v15 ← backend.avx2.intrinsics.sub_epi32 x v14
+    let first ← backend.avx2.intrinsics.and_si256 v15 low16
+    let v16 ← backend.avx2.intrinsics.extracti128_si256 1#i32 a1
+    let v17 ← backend.avx2.intrinsics.cvtepu16_epi32 v16
+    let v18 ← backend.avx2.intrinsics.extracti128_si256 1#i32 t1
+    let v19 ← backend.avx2.intrinsics.cvtepu16_epi32 v18
+    let v20 ← backend.avx2.intrinsics.mullo_epi32 v19 q1_wide
+    let x1 ← backend.avx2.intrinsics.add_epi32 v17 v20
+    let over1 ← backend.avx2.intrinsics.cmpgt_epi32 x1 crt_q_half
+    let v21 ← backend.avx2.intrinsics.and_si256 crt_q over1
+    let v22 ← backend.avx2.intrinsics.sub_epi32 x1 v21
+    let second ← backend.avx2.intrinsics.and_si256 v22 low16
+    let v23 ← backend.avx2.intrinsics.packus_epi32 first second
+    let packed ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 v23
+    let out1 ← backend.avx2.intrinsics.store_u16 out i packed
+    backend.avx2.ntt.reduce_invntt_loop iter1 v1 v2 q1 q2 q1_inv_mont
+      q1_inv_mont_q q1_wide crt_q crt_q_half low16 out1
+partial_fixpoint
+
+/-- [kopis::backend::avx2::ntt::reduce_invntt]:
+    Source: 'src/backend/avx2/ntt.rs', lines 647:0-707:1 -/
+def backend.avx2.ntt.reduce_invntt
+  (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
+  let v1 := Array.repeat 256#usize 0#i16
+  let v2 := Array.repeat 256#usize 0#i16
+  let v11 ← backend.avx2.ntt.reduce_block false acc 0#usize v1
+  let v21 ← backend.avx2.ntt.reduce_block true acc 32#usize v2
+  let q1 ← backend.avx2.intrinsics.set1_epi16 arithmetic.ntt_crt.Q1
+  let q2 ← backend.avx2.intrinsics.set1_epi16 arithmetic.ntt_crt.Q2
+  let q1_inv_mont ←
+    backend.avx2.intrinsics.set1_epi16 arithmetic.ntt_crt.CRT_Q1_INV_MONT
+  let i ←
+    lift (core.num.I16.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT
+      arithmetic.ntt_crt.Q2_INV)
+  let q1_inv_mont_q ← backend.avx2.intrinsics.set1_epi16 i
+  let i1 ← lift (IScalar.cast .I32 arithmetic.ntt_crt.Q1)
+  let q1_wide ← backend.avx2.intrinsics.set1_epi32 i1
+  let crt_q ← backend.avx2.intrinsics.set1_epi32 arithmetic.ntt_crt.CRT_Q
+  let crt_q_half ←
+    backend.avx2.intrinsics.set1_epi32 arithmetic.ntt_crt.CRT_Q_HALF
+  let low16 ← backend.avx2.intrinsics.set1_epi32 65535#i32
+  let out := Array.repeat 256#usize 0#u16
+  backend.avx2.ntt.reduce_invntt_loop { start := 0#usize, «end» := 16#usize }
+    v11 v21 q1 q2 q1_inv_mont q1_inv_mont_q q1_wide crt_q crt_q_half low16 out
+
+/-- [kopis::arithmetic::ntt_crt::reduce_block]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 382:4-387:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.reduce_block_loop
+  (iter : core.ops.range.Range Std.Usize) (acc : Slice Std.I32)
+  (b : Array Std.I16 256#usize) (q : Std.I16) (qinv : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let a ← Slice.index_usize acc i
+    let i1 ← lift (IScalar.cast .I16 a)
+    let t ← lift (core.num.I16.wrapping_mul i1 qinv)
+    let i2 ← lift (IScalar.cast .I32 t)
+    let i3 ← lift (IScalar.cast .I32 q)
+    let i4 ← lift (core.num.I32.wrapping_mul i2 i3)
+    let i5 ← i4 >>> 16#i32
+    let th ← lift (IScalar.cast .I16 i5)
+    let i6 ← a >>> 16#i32
+    let i7 ← lift (IScalar.cast .I16 i6)
+    let i8 ← lift (core.num.I16.wrapping_sub i7 th)
+    let a1 ← Array.update b i i8
+    arithmetic.ntt_crt.reduce_block_loop iter1 acc a1 q qinv
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::reduce_block]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 379:0-388:1 -/
+def arithmetic.ntt_crt.reduce_block
+  (SECOND : Bool) (acc : Slice Std.I32) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let q ← arithmetic.ntt_crt.q SECOND
+  let qinv ← arithmetic.ntt_crt.qinv SECOND
+  arithmetic.ntt_crt.reduce_block_loop
+    { start := 0#usize, «end» := consts.RING_DEG } acc b q qinv
+
+/-- [kopis::arithmetic::ntt_crt::gs_level]: loop 1:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 260:8-265:9 -/
+@[rust_loop]
+def arithmetic.ntt_crt.gs_level_loop0_loop0
+  (LEN : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (b : Array Std.I16 256#usize) (q : Std.I16) (z : Std.I16) (zq : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some j =>
+    let lo ← Array.index_usize b j
+    let i ← j + LEN
+    let hi ← Array.index_usize b i
+    let i1 ← lift (core.num.I16.wrapping_add lo hi)
+    let b1 ← Array.update b j i1
+    let i2 ← lift (core.num.I16.wrapping_sub lo hi)
+    let i3 ← arithmetic.ntt_crt.mont_mul i2 z zq q
+    let a ← Array.update b1 i i3
+    arithmetic.ntt_crt.gs_level_loop0_loop0 LEN iter1 a q z zq
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::gs_level]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 252:4-267:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.gs_level_loop0
+  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (k : Std.Usize) (q : Std.I16) (qinv : Std.I16) (start : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  if start < consts.RING_DEG
+  then
+    let k1 ← k - 1#usize
+    let i ← arithmetic.ntt_crt.zeta SECOND k1
+    let z ← lift (core.num.I16.wrapping_sub 0#i16 i)
+    let zq ← lift (core.num.I16.wrapping_mul z qinv)
+    let i1 ← start + LEN
+    let b1 ←
+      arithmetic.ntt_crt.gs_level_loop0_loop0 LEN { start, «end» := i1 } b q
+        z zq
+    let i2 ← 2#usize * LEN
+    let start1 ← start + i2
+    arithmetic.ntt_crt.gs_level_loop0 LEN SECOND b1 k1 q qinv start1
+  else ok (b, k)
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::gs_level]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 248:0-268:1 -/
+def arithmetic.ntt_crt.gs_level
+  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
+  (k : Std.Usize) :
+  Result ((Array Std.I16 256#usize) × Std.Usize)
+  := do
+  let q ← arithmetic.ntt_crt.q SECOND
+  let qinv ← arithmetic.ntt_crt.qinv SECOND
+  arithmetic.ntt_crt.gs_level_loop0 LEN SECOND b k q qinv 0#usize
+
+/-- [kopis::arithmetic::ntt_crt::invntt_block]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 309:4-311:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.invntt_block_loop
+  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
+  (q : Std.I16) (scale : Std.I16) (scale_q : Std.I16) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok b
+  | some i =>
+    let i1 ← Array.index_usize b i
+    let i2 ← arithmetic.ntt_crt.mont_mul i1 scale scale_q q
+    let a ← Array.update b i i2
+    arithmetic.ntt_crt.invntt_block_loop iter1 a q scale scale_q
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::invntt_block]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 289:0-312:1 -/
+def arithmetic.ntt_crt.invntt_block
+  (SECOND : Bool) (b : Array Std.I16 256#usize) :
+  Result (Array Std.I16 256#usize)
+  := do
+  let q ← arithmetic.ntt_crt.q SECOND
+  let scale ← arithmetic.ntt_crt.invntt_scale SECOND
+  let i ← arithmetic.ntt_crt.qinv SECOND
+  let scale_q ← lift (core.num.I16.wrapping_mul scale i)
+  let (b1, k) ← arithmetic.ntt_crt.gs_level 1#usize SECOND b consts.RING_DEG
+  let (b2, k1) ← arithmetic.ntt_crt.gs_level 2#usize SECOND b1 k
+  let b3 ← arithmetic.ntt_crt.barrett_block SECOND b2
+  let (b4, k2) ← arithmetic.ntt_crt.gs_level 4#usize SECOND b3 k1
+  let (b5, k3) ← arithmetic.ntt_crt.gs_level 8#usize SECOND b4 k2
+  let b6 ← arithmetic.ntt_crt.barrett_block SECOND b5
+  let (b7, k4) ← arithmetic.ntt_crt.gs_level 16#usize SECOND b6 k3
+  let (b8, k5) ← arithmetic.ntt_crt.gs_level 32#usize SECOND b7 k4
+  let b9 ← arithmetic.ntt_crt.barrett_block SECOND b8
+  let (b10, k6) ← arithmetic.ntt_crt.gs_level 64#usize SECOND b9 k5
+  let (b11, _) ← arithmetic.ntt_crt.gs_level 128#usize SECOND b10 k6
+  arithmetic.ntt_crt.invntt_block_loop
+    { start := 0#usize, «end» := consts.RING_DEG } b11 q scale scale_q
+
+/-- [kopis::arithmetic::ntt_crt::reduce_invntt]: loop 0:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 407:4-423:5 -/
+@[rust_loop]
+def arithmetic.ntt_crt.reduce_invntt_loop
+  (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
+  (v2 : Array Std.I16 256#usize) (q1_inv_mont_q : Std.I16)
+  (out : Array Std.U16 256#usize) :
+  Result (Array Std.U16 256#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out
+  | some i =>
+    let r1 ← Array.index_usize v1 i
+    let r2 ← Array.index_usize v2 i
+    let i1 ← r1 >>> 15#i32
+    let i2 ← lift (i1 &&& arithmetic.ntt_crt.Q1)
+    let a1 ← lift (core.num.I16.wrapping_add r1 i2)
+    let i3 ← r2 >>> 15#i32
+    let i4 ← lift (i3 &&& arithmetic.ntt_crt.Q2)
+    let a2 ← lift (core.num.I16.wrapping_add r2 i4)
+    let i5 ← lift (core.num.I16.wrapping_sub a2 a1)
+    let t ←
+      arithmetic.ntt_crt.mont_mul i5 arithmetic.ntt_crt.CRT_Q1_INV_MONT
+        q1_inv_mont_q arithmetic.ntt_crt.Q2
+    let i6 ← t >>> 15#i32
+    let i7 ← lift (i6 &&& arithmetic.ntt_crt.Q2)
+    let t1 ← lift (core.num.I16.wrapping_add t i7)
+    let i8 ← lift (IScalar.cast .I32 a1)
+    let i9 ← lift (IScalar.cast .I32 t1)
+    let i10 ← lift (IScalar.cast .I32 arithmetic.ntt_crt.Q1)
+    let i11 ← lift (core.num.I32.wrapping_mul i9 i10)
+    let x ← lift (core.num.I32.wrapping_add i8 i11)
+    let i12 ←
+      lift (core.num.I32.wrapping_sub arithmetic.ntt_crt.CRT_Q_HALF x)
+    let over ← i12 >>> 31#i32
+    let i13 ← lift (arithmetic.ntt_crt.CRT_Q &&& over)
+    let i14 ← lift (core.num.I32.wrapping_sub x i13)
+    let i15 ← lift (IScalar.hcast .U16 i14)
+    let a ← Array.update out i i15
+    arithmetic.ntt_crt.reduce_invntt_loop iter1 v1 v2 q1_inv_mont_q a
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_crt::reduce_invntt]:
+    Source: 'src/arithmetic/ntt_crt.rs', lines 392:0-425:1 -/
+def arithmetic.ntt_crt.reduce_invntt
+  (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
+  let v1 := Array.repeat 256#usize 0#i16
+  let v2 := Array.repeat 256#usize 0#i16
+  let s ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.I32)) acc
+      { «end» := consts.RING_DEG }
+  let v11 ← arithmetic.ntt_crt.reduce_block false s v1
+  let s1 ←
+    core.array.Array.index (core.ops.index.IndexSlice
+      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.I32)) acc
+      { start := consts.RING_DEG }
+  let v21 ← arithmetic.ntt_crt.reduce_block true s1 v2
+  let v12 ← arithmetic.ntt_crt.invntt_block false v11
+  let v22 ← arithmetic.ntt_crt.invntt_block true v21
+  let q1_inv_mont_q ←
+    lift (core.num.I16.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT
+      arithmetic.ntt_crt.Q2_INV)
+  let out := Array.repeat 256#usize 0#u16
+  arithmetic.ntt_crt.reduce_invntt_loop
+    { start := 0#usize, «end» := consts.RING_DEG } v12 v22 q1_inv_mont_q out
+
+/-- [kopis::arithmetic::ntt_arith::reduce_invntt_to_ring_elem]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 140:0-156:1 -/
+def arithmetic.ntt_arith.reduce_invntt_to_ring_elem
+  (acc : Array Std.I32 512#usize) :
+  Result arithmetic.plain_arith.RingElem
+  := do
+  let b ← backend.avx2.cpu.available
+  if b
+  then let a ← backend.avx2.ntt.reduce_invntt acc
+       ok a
+  else let a ← arithmetic.ntt_crt.reduce_invntt acc
+       ok a
+
 /-- [kopis::arithmetic::plain_arith::Matrix]
-    Source: 'src/arithmetic/plain_arith.rs', lines 13:0-13:88 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 148:0-148:88 -/
 @[reducible]
 def arithmetic.plain_arith.Matrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.plain_arith.RingElem Y) X
 
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]: loop 1:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 163:12-165:13 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (mat : arithmetic.plain_arith.Matrix X Y)
+  (ret : arithmetic.ntt_arith.NttMatrix X Y) (i : Std.Usize) :
+  Result ((arithmetic.plain_arith.Matrix X Y) ×
+    (arithmetic.ntt_arith.NttMatrix X Y))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (mat, ret)
+  | some j =>
+    let a ← Array.index_usize mat i
+    let re ← Array.index_usize a j
+    let ne ← arithmetic.ntt_arith.NttElem.from_uniform re
+    let (a1, index_mut_back) ← Array.index_mut_usize ret i
+    let a2 ← Array.update a1 j ne
+    let a3 := index_mut_back a2
+    arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0 iter1 mat a3
+      i
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]: loop 0:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 162:8-166:9 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0
+  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (mat : arithmetic.plain_arith.Matrix X Y)
+  (ret : arithmetic.ntt_arith.NttMatrix X Y) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ret
+  | some i =>
+    let (mat1, ret1) ←
+      arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0
+        { start := 0#usize, «end» := Y } mat ret i
+    arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0 iter1 mat1 ret1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 160:4-168:5 -/
+def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix
+  {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.plain_arith.Matrix X Y) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let ret ←
+    arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default X Y
+  arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0
+    { start := 0#usize, «end» := X } mat ret
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]: loop 1:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 174:12-176:13 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (mat : arithmetic.plain_arith.Matrix X Y)
+  (ret : arithmetic.ntt_arith.NttMatrix X Y) (i : Std.Usize) :
+  Result ((arithmetic.plain_arith.Matrix X Y) ×
+    (arithmetic.ntt_arith.NttMatrix X Y))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (mat, ret)
+  | some j =>
+    let a ← Array.index_usize mat i
+    let re ← Array.index_usize a j
+    let ne ← arithmetic.ntt_arith.NttElem.from_secret re
+    let (a1, index_mut_back) ← Array.index_mut_usize ret i
+    let a2 ← Array.update a1 j ne
+    let a3 := index_mut_back a2
+    arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0 iter1 mat a3
+      i
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]: loop 0:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 173:8-177:9 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0
+  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (mat : arithmetic.plain_arith.Matrix X Y)
+  (ret : arithmetic.ntt_arith.NttMatrix X Y) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok ret
+  | some i =>
+    let (mat1, ret1) ←
+      arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0
+        { start := 0#usize, «end» := Y } mat ret i
+    arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0 iter1 mat1 ret1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 171:4-179:5 -/
+def arithmetic.ntt_arith.NttMatrix.from_secret_matrix
+  {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.plain_arith.Matrix X Y) :
+  Result (arithmetic.ntt_arith.NttMatrix X Y)
+  := do
+  let ret ←
+    arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default X Y
+  arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0
+    { start := 0#usize, «end» := X } mat ret
+
+/-- [kopis::consts::MAX_L]
+    Source: 'src/consts.rs', lines 24:0-24:34 -/
+@[global_simps, irreducible] def consts.MAX_L : Std.Usize := 4#usize
+
+/-- [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::RingElem}::default]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 21:4-23:5
+    Visibility: public -/
+def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
+  : Result arithmetic.plain_arith.RingElem := do
+  let a := Array.repeat 256#usize 0#u16
+  ok a
+
+/-- [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::Matrix<X, Y>}::default]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 151:4-153:5
+    Visibility: public -/
+def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default
+  (X : Std.Usize) (Y : Std.Usize) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let re ← arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
+  let a := Array.repeat Y re
+  let a1 := Array.repeat X a
+  ok a1
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 2:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 191:16-193:17 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix Y Z) (i : Std.Usize) (k : Std.Usize)
+  (acc : Array Std.I32 512#usize) :
+  Result ((arithmetic.ntt_arith.NttMatrix X Y) ×
+    (arithmetic.ntt_arith.NttMatrix Y Z) × (Array Std.I32 512#usize))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, acc)
+  | some j =>
+    let a ← Array.index_usize self i
+    let ne ← Array.index_usize a j
+    let a1 ← Array.index_usize other j
+    let ne1 ← Array.index_usize a1 k
+    let acc1 ← arithmetic.ntt_arith.pointwise_mul_acc acc ne ne1
+    arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0 iter1 self other i k
+      acc1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 1:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 189:12-195:13 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix Y Z)
+  (result : arithmetic.plain_arith.Matrix X Z) (i : Std.Usize) :
+  Result ((arithmetic.ntt_arith.NttMatrix X Y) ×
+    (arithmetic.ntt_arith.NttMatrix Y Z) × (arithmetic.plain_arith.Matrix X
+    Z))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, result)
+  | some k =>
+    let (self1, other1, acc) ←
+      arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
+        { start := 0#usize, «end» := Y } self other i k
+        arithmetic.ntt_arith.ACC_ZERO
+    let re ← arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
+    let (a, index_mut_back) ← Array.index_mut_usize result i
+    let a1 ← Array.update a k re
+    let a2 := index_mut_back a1
+    arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0 iter1 self1 other1 a2 i
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 0:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 188:8-196:9 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.mul_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix Y Z)
+  (result : arithmetic.plain_arith.Matrix X Z) :
+  Result (arithmetic.plain_arith.Matrix X Z)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some i =>
+    let (self1, other1, result1) ←
+      arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0
+        { start := 0#usize, «end» := Z } self other result i
+    arithmetic.ntt_arith.NttMatrix.mul_loop0 iter1 self1 other1 result1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 183:4-198:5 -/
+def arithmetic.ntt_arith.NttMatrix.mul
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix Y Z) :
+  Result (arithmetic.plain_arith.Matrix X Z)
+  := do
+  massert (Y <= consts.MAX_L)
+  let result ←
+    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Z
+  arithmetic.ntt_arith.NttMatrix.mul_loop0 { start := 0#usize, «end» := X }
+    self other result
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 2:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 210:16-212:17 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix X Z) (j : Std.Usize) (k : Std.Usize)
+  (acc : Array Std.I32 512#usize) :
+  Result ((arithmetic.ntt_arith.NttMatrix X Y) ×
+    (arithmetic.ntt_arith.NttMatrix X Z) × (Array Std.I32 512#usize))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, acc)
+  | some i =>
+    let a ← Array.index_usize self i
+    let ne ← Array.index_usize a j
+    let a1 ← Array.index_usize other i
+    let ne1 ← Array.index_usize a1 k
+    let acc1 ← arithmetic.ntt_arith.pointwise_mul_acc acc ne ne1
+    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0 iter1 self
+      other j k acc1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 1:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 208:12-214:13 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix X Z)
+  (result : arithmetic.plain_arith.Matrix Y Z) (j : Std.Usize) :
+  Result ((arithmetic.ntt_arith.NttMatrix X Y) ×
+    (arithmetic.ntt_arith.NttMatrix X Z) × (arithmetic.plain_arith.Matrix Y
+    Z))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, other, result)
+  | some k =>
+    let (self1, other1, acc) ←
+      arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
+        { start := 0#usize, «end» := X } self other j k
+        arithmetic.ntt_arith.ACC_ZERO
+    let re ← arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
+    let (a, index_mut_back) ← Array.index_mut_usize result j
+    let a1 ← Array.update a k re
+    let a2 := index_mut_back a1
+    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0 iter1 self1 other1
+      a2 j
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 0:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 207:8-215:9 -/
+@[rust_loop]
+def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix X Z)
+  (result : arithmetic.plain_arith.Matrix Y Z) :
+  Result (arithmetic.plain_arith.Matrix Y Z)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some j =>
+    let (self1, other1, result1) ←
+      arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0
+        { start := 0#usize, «end» := Z } self other result j
+    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0 iter1 self1 other1
+      result1
+partial_fixpoint
+
+/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]:
+    Source: 'src/arithmetic/ntt_arith.rs', lines 202:4-217:5 -/
+def arithmetic.ntt_arith.NttMatrix.mul_transpose
+  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
+  (self : arithmetic.ntt_arith.NttMatrix X Y)
+  (other : arithmetic.ntt_arith.NttMatrix X Z) :
+  Result (arithmetic.plain_arith.Matrix Y Z)
+  := do
+  massert (X <= consts.MAX_L)
+  let result ←
+    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default Y Z
+  arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
+    { start := 0#usize, «end» := Y } self other result
+
 /-- [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::RingElem> for kopis::arithmetic::plain_arith::RingElem}::eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:13-15:22
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:13-17:22
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
   (self : arithmetic.plain_arith.RingElem)
@@ -361,7 +3108,7 @@ def arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
   core.array.equality.PartialEqArray.eq core.cmp.PartialEqU16 self other
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::RingElem> for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:13-15:22 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:13-17:22 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem :
   core.cmp.PartialEq arithmetic.plain_arith.RingElem
@@ -369,56 +3116,33 @@ def arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem :
   eq := arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
 }
 
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::Matrix<X, Y>> for kopis::arithmetic::plain_arith::Matrix<X, Y>}::eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:13-12:22
+/-- [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::RingElem}::assert_fields_are_eq]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:9-17:11
     Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Y) :
-  Result Bool
-  := do
-  core.array.equality.PartialEqArray.eq (Array.Insts.CoreCmpPartialEqArray Y
-    arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem) self other
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::Matrix<X, Y>> for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:13-12:22 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
-  (Y : Std.Usize) : core.cmp.PartialEq (arithmetic.plain_arith.Matrix X Y)
-  (arithmetic.plain_arith.Matrix X Y) := {
-  eq := arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
-}
-
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::Matrix<X, Y>}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:9-12:11
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
-  Result Unit
-  := do
+def arithmetic.plain_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
+  (self : arithmetic.plain_arith.RingElem) : Result Unit := do
   ok ()
 
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:9-12:11 -/
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::RingElem}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:9-17:11 -/
 @[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
-  Std.Usize) : core.cmp.Eq (arithmetic.plain_arith.Matrix X Y) := {
-  partialEqInst := arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix
-    X Y
+def arithmetic.plain_arith.RingElem.Insts.CoreCmpEq : core.cmp.Eq
+  arithmetic.plain_arith.RingElem := {
+  partialEqInst :=
+    arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem
   assert_fields_are_eq :=
-    arithmetic.plain_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
+    arithmetic.plain_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
 }
 
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:13-12:22 -/
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::plain_arith::RingElem}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:13-17:22 -/
 @[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreMarkerStructuralPartialEq (X :
-  Std.Usize) (Y : Std.Usize) : core.marker.StructuralPartialEq
-  (arithmetic.plain_arith.Matrix X Y) := {
+def arithmetic.plain_arith.RingElem.Insts.CoreMarkerStructuralPartialEq :
+  core.marker.StructuralPartialEq arithmetic.plain_arith.RingElem := {
 }
 
 /-- [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::RingElem}::fmt]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:24-15:29
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:24-17:29
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug.fmt
   (self : arithmetic.plain_arith.RingElem) (f : core.fmt.Formatter) :
@@ -430,37 +3154,15 @@ def arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "RingElem") dyn
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:24-15:29 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:24-17:29 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug : core.fmt.Debug
   arithmetic.plain_arith.RingElem := {
   fmt := arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug.fmt
 }
 
-/-- [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::Matrix<X, Y>}::fmt]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:24-12:29
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug.fmt
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn :=
-    Dyn.mk _ (core.fmt.DebugShared (Array.Insts.CoreFmtDebug X
-      (Array.Insts.CoreFmtDebug Y
-      arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug))) self
-  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Matrix") dyn
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:24-12:29 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug (X : Std.Usize) (Y :
-  Std.Usize) : core.fmt.Debug (arithmetic.plain_arith.Matrix X Y) := {
-  fmt := arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug.fmt
-}
-
 /-- [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::RingElem}::clone]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:31-15:36
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:31-17:36
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone.clone
   (self : arithmetic.plain_arith.RingElem) :
@@ -469,35 +3171,23 @@ def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone.clone
   ok self
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:31-15:36 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:31-17:36 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone : core.clone.Clone
   arithmetic.plain_arith.RingElem := {
   clone := arithmetic.plain_arith.RingElem.Insts.CoreCloneClone.clone
 }
 
-/-- [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::Matrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:31-12:36
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let a ←
-    core.array.CloneArray.clone (core.clone.CloneArray Y
-      arithmetic.plain_arith.RingElem.Insts.CoreCloneClone) self
-  ok a
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:31-12:36 -/
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::Copy for kopis::arithmetic::plain_arith::RingElem}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:38-17:42 -/
 @[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
-  Std.Usize) : core.clone.Clone (arithmetic.plain_arith.Matrix X Y) := {
-  clone := arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
+def arithmetic.plain_arith.RingElem.Insts.CoreMarkerCopy : core.marker.Copy
+  arithmetic.plain_arith.RingElem := {
+  cloneInst := arithmetic.plain_arith.RingElem.Insts.CoreCloneClone
 }
 
 /-- [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::RingElem}::zeroize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:44-15:51
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:44-17:51
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize.zeroize
   (self : arithmetic.plain_arith.RingElem) :
@@ -509,877 +3199,30 @@ def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:44-15:51 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:44-17:51 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize : zeroize.Zeroize
   arithmetic.plain_arith.RingElem := {
   zeroize := arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize.zeroize
 }
 
-/-- [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::Matrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:38-12:45
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize.zeroize
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let __zeroize_field_0 ←
-    Array.Insts.ZeroizeZeroize.zeroize (Array.Insts.ZeroizeZeroize Y
-      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize) self
-  ok __zeroize_field_0
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 12:38-12:45 -/
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::RingElem}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 20:0-24:1 -/
 @[reducible]
-def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
-  Std.Usize) : zeroize.Zeroize (arithmetic.plain_arith.Matrix X Y) := {
-  zeroize := arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize.zeroize
+def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault :
+  core.default.Default arithmetic.plain_arith.RingElem := {
+  default := arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
 }
-
-/-- [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::RingElem}::default]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 19:4-21:5
-    Visibility: public -/
-def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-  : Result arithmetic.plain_arith.RingElem := do
-  let a := Array.repeat 256#usize 0#u16
-  ok a
-
-/-- [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::Matrix<X, Y>}::default]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 16:4-18:5
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default
-  (X : Std.Usize) (Y : Std.Usize) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let re ← arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-  let a := Array.repeat Y re
-  let a1 := Array.repeat X a
-  ok a1
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:0-19:1 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
-  : Std.Usize) : core.default.Default (arithmetic.plain_arith.Matrix X Y) := {
-  default := arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X
-    Y
-}
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_right]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 96:8-98:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.RingElem.shift_right_loop
-  (iter : core.slice.iter.IterMut Std.U16)
-  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
-  (shift : Std.Usize) :
-  Result (core.slice.iter.IterMut Std.U16)
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (let im := next_back iter1 none
-                back im)
-  | some coeff =>
-    let coeff1 ← coeff >>> shift
-    arithmetic.plain_arith.RingElem.shift_right_loop iter1
-      (fun im => let im1 := next_back im (some coeff1)
-                 back im1) shift
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_right]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 95:4-99:5 -/
-def arithmetic.plain_arith.RingElem.shift_right
-  (self : arithmetic.plain_arith.RingElem) (shift : Std.Usize) :
-  Result arithmetic.plain_arith.RingElem
-  := do
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
-  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-  let back ←
-    arithmetic.plain_arith.RingElem.shift_right_loop iter (fun im => im) shift
-  let s1 := iter_mut_back back
-  let a := to_slice_mut_back s1
-  ok a
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 25:12-27:13 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.shift_right_loop0_loop0
-  (iter : core.slice.iter.IterMut arithmetic.plain_arith.RingElem)
-  (back : core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
-  core.slice.iter.IterMut arithmetic.plain_arith.RingElem) (shift : Std.Usize) :
-  Result ((core.slice.iter.IterMut arithmetic.plain_arith.RingElem) ×
-    (core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
-    core.slice.iter.IterMut arithmetic.plain_arith.RingElem))
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (iter1, fun im => let im1 := next_back im none
-                                 back im1)
-  | some elem =>
-    let elem1 ← arithmetic.plain_arith.RingElem.shift_right elem shift
-    arithmetic.plain_arith.Matrix.shift_right_loop0_loop0 iter1
-      (fun im => let im1 := next_back im (some elem1)
-                 back im1) shift
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 24:8-28:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.shift_right_loop0
-  {Y : Std.Usize}
-  (iter : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
-  (back : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y) →
-  core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
-  (shift : Std.Usize) :
-  Result (core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (let im := next_back iter1 none
-                back im)
-  | some row =>
-    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut row)
-    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
-    let (im, back1) ←
-      arithmetic.plain_arith.Matrix.shift_right_loop0_loop0 iter2
-        (fun im1 => im1) shift
-    arithmetic.plain_arith.Matrix.shift_right_loop0 iter1
-      (fun im1 =>
-        let im2 := back1 im
-        let s1 := iter_mut_back im2
-        let a := to_slice_mut_back s1
-        let im3 := next_back im1 (some a)
-        back im3) shift
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 23:4-29:5 -/
-def arithmetic.plain_arith.Matrix.shift_right
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (shift : Std.Usize) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
-  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-  let back ←
-    arithmetic.plain_arith.Matrix.shift_right_loop0 iter (fun im => im) shift
-  let s1 := iter_mut_back back
-  let a := to_slice_mut_back s1
-  ok a
-
-/-- [kopis::consts::RING_DEG]
-    Source: 'src/consts.rs', lines 2:0-2:39 -/
-@[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
-
-/-- [kopis::arithmetic::plain_arith::HALF]
-    Source: 'src/arithmetic/plain_arith.rs', lines 131:0-131:33 -/
-@[global_simps, irreducible]
-def arithmetic.plain_arith.HALF : Result Std.Usize := consts.RING_DEG / 2#usize
-
-/-- [kopis::arithmetic::plain_arith::schoolbook_128]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 145:8-147:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.schoolbook_128_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (out : Array Std.U16 256#usize)
-  (b : Array Std.U16 128#usize) (i : Std.Usize) (ai : Std.U16) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some j =>
-    let i1 ← i + j
-    let i2 ← Array.index_usize out i1
-    let i3 ← Array.index_usize b j
-    let i4 ← lift (core.num.U16.wrapping_mul ai i3)
-    let i5 ← lift (core.num.U16.wrapping_add i2 i4)
-    let a ← Array.update out i1 i5
-    arithmetic.plain_arith.schoolbook_128_loop0_loop0 iter1 a b i ai
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::schoolbook_128]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 143:4-148:5 -/
-@[rust_loop]
-def arithmetic.plain_arith.schoolbook_128_loop0
-  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
-  (b : Array Std.U16 128#usize) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some i1 =>
-    let ai ← Array.index_usize a i1
-    let out1 ←
-      arithmetic.plain_arith.schoolbook_128_loop0_loop0
-        { start := 0#usize, «end» := i } out b i1 ai
-    arithmetic.plain_arith.schoolbook_128_loop0 i iter1 out1 a b
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::schoolbook_128]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 140:0-149:1 -/
-def arithmetic.plain_arith.schoolbook_128
-  (out : Array Std.U16 256#usize) (a : Array Std.U16 128#usize)
-  (b : Array Std.U16 128#usize) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let i ← arithmetic.plain_arith.HALF
-  arithmetic.plain_arith.schoolbook_128_loop0 i
-    { start := 0#usize, «end» := i } out a b
-
-/-- [kopis::arithmetic::plain_arith::ring_mul_acc]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 185:4-188:5 -/
-@[rust_loop]
-def arithmetic.plain_arith.ring_mul_acc_loop0
-  (iter : core.ops.range.Range Std.Usize) (a_lo : Array Std.U16 128#usize)
-  (a_hi : Array Std.U16 128#usize) (b_lo : Array Std.U16 128#usize)
-  (b_hi : Array Std.U16 128#usize) (a_sum : Array Std.U16 128#usize)
-  (b_sum : Array Std.U16 128#usize) :
-  Result ((Array Std.U16 128#usize) × (Array Std.U16 128#usize))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (a_sum, b_sum)
-  | some i =>
-    let i1 ← Array.index_usize a_lo i
-    let i2 ← Array.index_usize a_hi i
-    let i3 ← lift (core.num.U16.wrapping_add i1 i2)
-    let a ← Array.update a_sum i i3
-    let i4 ← Array.index_usize b_lo i
-    let i5 ← Array.index_usize b_hi i
-    let i6 ← lift (core.num.U16.wrapping_add i4 i5)
-    let a1 ← Array.update b_sum i i6
-    arithmetic.plain_arith.ring_mul_acc_loop0 iter1 a_lo a_hi b_lo b_hi a a1
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::ring_mul_acc]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 194:4-214:5 -/
-@[rust_loop]
-def arithmetic.plain_arith.ring_mul_acc_loop1
-  (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (acc : arithmetic.plain_arith.RingElem) (z0 : Array Std.U16 256#usize)
-  (z2 : Array Std.U16 256#usize) (z3 : Array Std.U16 256#usize) :
-  Result arithmetic.plain_arith.RingElem
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok acc
-  | some j =>
-    let i1 ← j + i
-    let i2 ← Array.index_usize z3 i1
-    let i3 ← j + i
-    let i4 ← Array.index_usize z0 i3
-    let i5 ← lift (core.num.U16.wrapping_sub i2 i4)
-    let i6 ← j + i
-    let i7 ← Array.index_usize z2 i6
-    let z1_wrap ← lift (core.num.U16.wrapping_sub i5 i7)
-    let i8 ← Array.index_usize acc j
-    let i9 ← Array.index_usize z0 j
-    let i10 ← lift (core.num.U16.wrapping_add i8 i9)
-    let i11 ← Array.index_usize z2 j
-    let i12 ← lift (core.num.U16.wrapping_sub i10 i11)
-    let i13 ← lift (core.num.U16.wrapping_sub i12 z1_wrap)
-    let a ← Array.update acc j i13
-    let i14 ← Array.index_usize z3 j
-    let i15 ← lift (core.num.U16.wrapping_sub i14 i9)
-    let z1_direct ← lift (core.num.U16.wrapping_sub i15 i11)
-    let i16 ← j + i
-    let i17 ← Array.index_usize a i16
-    let i18 ← j + i
-    let i19 ← Array.index_usize z0 i18
-    let i20 ← lift (core.num.U16.wrapping_add i17 i19)
-    let i21 ← j + i
-    let i22 ← Array.index_usize z2 i21
-    let i23 ← lift (core.num.U16.wrapping_sub i20 i22)
-    let i24 ← lift (core.num.U16.wrapping_add i23 z1_direct)
-    let i25 ← j + i
-    let a1 ← Array.update a i25 i24
-    arithmetic.plain_arith.ring_mul_acc_loop1 i iter1 a1 z0 z2 z3
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::ring_mul_acc]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 156:0-215:1 -/
-def arithmetic.plain_arith.ring_mul_acc
-  (acc : arithmetic.plain_arith.RingElem) (a : arithmetic.plain_arith.RingElem)
-  (b : arithmetic.plain_arith.RingElem) :
-  Result arithmetic.plain_arith.RingElem
-  := do
-  let i ← arithmetic.plain_arith.HALF
-  let s ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U16)) a
-      { «end» := i }
-  let r ← core.array.TryFromSharedArraySlice.try_from 128#usize s
-  let a_lo ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-  let s1 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U16)) a
-      { start := i }
-  let r1 ← core.array.TryFromSharedArraySlice.try_from 128#usize s1
-  let a_hi ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r1
-  let s2 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U16)) b
-      { «end» := i }
-  let r2 ← core.array.TryFromSharedArraySlice.try_from 128#usize s2
-  let b_lo ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r2
-  let s3 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.U16)) b
-      { start := i }
-  let r3 ← core.array.TryFromSharedArraySlice.try_from 128#usize s3
-  let b_hi ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r3
-  let z0 := Array.repeat 256#usize 0#u16
-  let z2 := Array.repeat 256#usize 0#u16
-  let z01 ← arithmetic.plain_arith.schoolbook_128 z0 a_lo b_lo
-  let z21 ← arithmetic.plain_arith.schoolbook_128 z2 a_hi b_hi
-  let a_sum := Array.repeat 128#usize 0#u16
-  let b_sum := Array.repeat 128#usize 0#u16
-  let (a_sum1, b_sum1) ←
-    arithmetic.plain_arith.ring_mul_acc_loop0 { start := 0#usize, «end» := i }
-      a_lo a_hi b_lo b_hi a_sum b_sum
-  let z3 := Array.repeat 256#usize 0#u16
-  let z31 ← arithmetic.plain_arith.schoolbook_128 z3 a_sum1 b_sum1
-  arithmetic.plain_arith.ring_mul_acc_loop1 i { start := 0#usize, «end» := i }
-    acc z01 z21 z31
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul]: loop 2:
-    Source: 'src/arithmetic/plain_arith.rs', lines 45:16-47:17 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.mul_loop0_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix Y Z)
-  (result : arithmetic.plain_arith.Matrix X Z) (i : Std.Usize) (j : Std.Usize)
-  :
-  Result ((arithmetic.plain_arith.Matrix X Y) ×
-    (arithmetic.plain_arith.Matrix Y Z) × (arithmetic.plain_arith.Matrix X
-    Z))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some k =>
-    let (a, index_mut_back) ← Array.index_mut_usize result i
-    let (re, index_mut_back1) ← Array.index_mut_usize a k
-    let a1 ← Array.index_usize self i
-    let re1 ← Array.index_usize a1 j
-    let a2 ← Array.index_usize other j
-    let re2 ← Array.index_usize a2 k
-    let re3 ← arithmetic.plain_arith.ring_mul_acc re re1 re2
-    let a3 := index_mut_back1 re3
-    let a4 := index_mut_back a3
-    arithmetic.plain_arith.Matrix.mul_loop0_loop0_loop0 iter1 self other a4 i
-      j
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 44:12-48:13 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.mul_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix Y Z)
-  (result : arithmetic.plain_arith.Matrix X Z) (i : Std.Usize) :
-  Result ((arithmetic.plain_arith.Matrix X Y) ×
-    (arithmetic.plain_arith.Matrix Y Z) × (arithmetic.plain_arith.Matrix X
-    Z))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some j =>
-    let (self1, other1, result1) ←
-      arithmetic.plain_arith.Matrix.mul_loop0_loop0_loop0
-        { start := 0#usize, «end» := Z } self other result i j
-    arithmetic.plain_arith.Matrix.mul_loop0_loop0 iter1 self1 other1 result1 i
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 43:8-49:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.mul_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix Y Z)
-  (result : arithmetic.plain_arith.Matrix X Z) :
-  Result (arithmetic.plain_arith.Matrix X Z)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok result
-  | some i =>
-    let (self1, other1, result1) ←
-      arithmetic.plain_arith.Matrix.mul_loop0_loop0
-        { start := 0#usize, «end» := Y } self other result i
-    arithmetic.plain_arith.Matrix.mul_loop0 iter1 self1 other1 result1
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 41:4-52:5 -/
-def arithmetic.plain_arith.Matrix.mul
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix Y Z) :
-  Result (arithmetic.plain_arith.Matrix X Z)
-  := do
-  let result ←
-    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Z
-  arithmetic.plain_arith.Matrix.mul_loop0 { start := 0#usize, «end» := X }
-    self other result
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul_transpose]: loop 2:
-    Source: 'src/arithmetic/plain_arith.rs', lines 62:16-64:17 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Z)
-  (result : arithmetic.plain_arith.Matrix Y Z) (i : Std.Usize) (j : Std.Usize)
-  :
-  Result ((arithmetic.plain_arith.Matrix X Y) ×
-    (arithmetic.plain_arith.Matrix X Z) × (arithmetic.plain_arith.Matrix Y
-    Z))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some k =>
-    let (a, index_mut_back) ← Array.index_mut_usize result j
-    let (re, index_mut_back1) ← Array.index_mut_usize a k
-    let a1 ← Array.index_usize self i
-    let re1 ← Array.index_usize a1 j
-    let a2 ← Array.index_usize other i
-    let re2 ← Array.index_usize a2 k
-    let re3 ← arithmetic.plain_arith.ring_mul_acc re re1 re2
-    let a3 := index_mut_back1 re3
-    let a4 := index_mut_back a3
-    arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0_loop0 iter1 self
-      other a4 i j
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul_transpose]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 61:12-65:13 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Z)
-  (result : arithmetic.plain_arith.Matrix Y Z) (i : Std.Usize) :
-  Result ((arithmetic.plain_arith.Matrix X Y) ×
-    (arithmetic.plain_arith.Matrix X Z) × (arithmetic.plain_arith.Matrix Y
-    Z))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some j =>
-    let (self1, other1, result1) ←
-      arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0_loop0
-        { start := 0#usize, «end» := Z } self other result i j
-    arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0 iter1 self1 other1
-      result1 i
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul_transpose]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 60:8-66:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.mul_transpose_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Z)
-  (result : arithmetic.plain_arith.Matrix Y Z) :
-  Result (arithmetic.plain_arith.Matrix Y Z)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok result
-  | some i =>
-    let (self1, other1, result1) ←
-      arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0
-        { start := 0#usize, «end» := Y } self other result i
-    arithmetic.plain_arith.Matrix.mul_transpose_loop0 iter1 self1 other1
-      result1
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::mul_transpose]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 58:4-69:5 -/
-def arithmetic.plain_arith.Matrix.mul_transpose
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Z) :
-  Result (arithmetic.plain_arith.Matrix Y Z)
-  := do
-  let result ←
-    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default Y Z
-  arithmetic.plain_arith.Matrix.mul_transpose_loop0
-    { start := 0#usize, «end» := X } self other result
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 112:8-114:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop
-  (iter : core.slice.iter.IterMut Std.U16)
-  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
-  (val : Std.U16) :
-  Result (core.slice.iter.IterMut Std.U16)
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (let im := next_back iter1 none
-                back im)
-  | some coeff =>
-    let coeff1 ← lift (core.num.U16.wrapping_add coeff val)
-    arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop iter1
-      (fun im => let im1 := next_back im (some coeff1)
-                 back im1) val
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 111:4-115:5 -/
-def arithmetic.plain_arith.RingElem.wrapping_add_to_all
-  (self : arithmetic.plain_arith.RingElem) (val : Std.U16) :
-  Result arithmetic.plain_arith.RingElem
-  := do
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
-  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-  let back ←
-    arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop iter (fun im => im)
-      val
-  let s1 := iter_mut_back back
-  let a := to_slice_mut_back s1
-  ok a
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 74:12-76:13 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0
-  (iter : core.slice.iter.IterMut arithmetic.plain_arith.RingElem)
-  (back : core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
-  core.slice.iter.IterMut arithmetic.plain_arith.RingElem) (val : Std.U16) :
-  Result ((core.slice.iter.IterMut arithmetic.plain_arith.RingElem) ×
-    (core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
-    core.slice.iter.IterMut arithmetic.plain_arith.RingElem))
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (iter1, fun im => let im1 := next_back im none
-                                 back im1)
-  | some elem =>
-    let elem1 ← arithmetic.plain_arith.RingElem.wrapping_add_to_all elem val
-    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0 iter1
-      (fun im => let im1 := next_back im (some elem1)
-                 back im1) val
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 73:8-77:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0
-  {Y : Std.Usize}
-  (iter : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
-  (back : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y) →
-  core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
-  (val : Std.U16) :
-  Result (core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
-  := do
-  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
-  match o with
-  | none => ok (let im := next_back iter1 none
-                back im)
-  | some row =>
-    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut row)
-    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
-    let (im, back1) ←
-      arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0 iter2
-        (fun im1 => im1) val
-    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0 iter1
-      (fun im1 =>
-        let im2 := back1 im
-        let s1 := iter_mut_back im2
-        let a := to_slice_mut_back s1
-        let im3 := next_back im1 (some a)
-        back im3) val
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 72:4-78:5 -/
-def arithmetic.plain_arith.Matrix.wrapping_add_to_all
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (val : Std.U16) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
-  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
-  let back ←
-    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0 iter
-      (fun im => im) val
-  let s1 := iter_mut_back back
-  let a := to_slice_mut_back s1
-  ok a
-
-/-- [kopis::ser::serialize]: loop 1:
-    Source: 'src/ser.rs', lines 111:8-116:9 -/
-@[rust_loop]
-def ser.serialize_loop0_loop0
-  (out_buf : Slice Std.U8) (window : Std.U32) (bits_in_window : Std.Usize)
-  (byte_pos : Std.Usize) :
-  Result ((Slice Std.U8) × Std.U32 × Std.Usize × Std.Usize)
-  := do
-  if bits_in_window >= 8#usize
-  then
-    let i ← lift (UScalar.cast .U8 window)
-    let s ← Slice.update out_buf byte_pos i
-    let window1 ← window >>> 8#i32
-    let bits_in_window1 ← bits_in_window - 8#usize
-    let byte_pos1 ← byte_pos + 1#usize
-    ser.serialize_loop0_loop0 s window1 bits_in_window1 byte_pos1
-  else ok (out_buf, window, bits_in_window, byte_pos)
-partial_fixpoint
-
-/-- [kopis::ser::serialize]: loop 0:
-    Source: 'src/ser.rs', lines 105:4-117:5 -/
-@[rust_loop]
-def ser.serialize_loop0
-  (iter : core.slice.iter.Iter Std.U16) (out_buf : Slice Std.U8)
-  (bits_per_elem : Std.Usize) (bitmask : Std.U32) (window : Std.U32)
-  (bits_in_window : Std.Usize) (byte_pos : Std.Usize) :
-  Result ((Slice Std.U8) × Std.Usize)
-  := do
-  let (o, iter1) ← core.slice.iter.IteratorSliceIter.next iter
-  match o with
-  | none => ok (out_buf, bits_in_window)
-  | some elem =>
-    let i ← lift (UScalar.cast .U32 elem)
-    let i1 ← lift (i &&& bitmask)
-    let i2 ← i1 <<< bits_in_window
-    let window1 ← lift (window ||| i2)
-    let bits_in_window1 ← bits_in_window + bits_per_elem
-    let (out_buf1, window2, bits_in_window2, byte_pos1) ←
-      ser.serialize_loop0_loop0 out_buf window1 bits_in_window1 byte_pos
-    ser.serialize_loop0 iter1 out_buf1 bits_per_elem bitmask window2
-      bits_in_window2 byte_pos1
-partial_fixpoint
-
-/-- [kopis::ser::serialize]:
-    Source: 'src/ser.rs', lines 94:0-121:1 -/
-def ser.serialize
-  (data : Slice Std.U16) (out_buf : Slice Std.U8) (bits_per_elem : Std.Usize) :
-  Result (Slice Std.U8)
-  := do
-  let left_val := Slice.len out_buf
-  let i := Slice.len data
-  let i1 ← bits_per_elem * i
-  let right_val ← i1 / 8#usize
-  massert (left_val = right_val)
-  let i2 ← 1#u32 <<< bits_per_elem
-  let bitmask ← i2 - 1#u32
-  let iter ← core.slice.Slice.iter data
-  let (out_buf1, bits_in_window) ←
-    ser.serialize_loop0 iter out_buf bits_per_elem bitmask 0#u32 0#usize
-      0#usize
-  massert (bits_in_window = 0#usize)
-  ok out_buf1
-
-/-- [kopis::ser::serialize_10::closure]
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
-def ser.serialize_10.closure := Array Std.U16 256#usize × Std.Usize
-
-/-- [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call]:
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
-def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
-  (c : ser.serialize_10.closure) (tupled_args : Std.Usize) :
-  Result Std.U16
-  := do
-  let (a, i) := c
-  let i1 ← i + tupled_args
-  let i2 ← Array.index_usize a i1
-  ok (i2 &&& 1023#u16)
-
-/-- [kopis::ser::serialize_10]: loop 0:
-    Source: 'src/ser.rs', lines 79:4-90:5 -/
-@[rust_loop]
-def ser.serialize_10_loop
-  (iter : core.ops.range.Range Std.Usize) (data : Array Std.U16 256#usize)
-  (out_buf : Array Std.U8 320#usize) :
-  Result (Array Std.U8 320#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out_buf
-  | some g =>
-    let o1 ← 4#usize * g
-    let b ← 5#usize * g
-    let i ←
-      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
-        o1) 0#usize
-    let i1 ← lift (UScalar.cast .U8 i)
-    let out_buf1 ← Array.update out_buf b i1
-    let i2 ← i >>> 8#i32
-    let i3 ←
-      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
-        o1) 1#usize
-    let i4 ← i3 <<< 2#i32
-    let i5 ← lift (i2 ||| i4)
-    let i6 ← b + 1#usize
-    let i7 ← lift (UScalar.cast .U8 i5)
-    let out_buf2 ← Array.update out_buf1 i6 i7
-    let i8 ← i3 >>> 6#i32
-    let i9 ←
-      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
-        o1) 2#usize
-    let i10 ← i9 <<< 4#i32
-    let i11 ← lift (i8 ||| i10)
-    let i12 ← b + 2#usize
-    let i13 ← lift (UScalar.cast .U8 i11)
-    let out_buf3 ← Array.update out_buf2 i12 i13
-    let i14 ← i9 >>> 4#i32
-    let i15 ←
-      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
-        o1) 3#usize
-    let i16 ← i15 <<< 6#i32
-    let i17 ← lift (i14 ||| i16)
-    let i18 ← b + 3#usize
-    let i19 ← lift (UScalar.cast .U8 i17)
-    let out_buf4 ← Array.update out_buf3 i18 i19
-    let i20 ← i15 >>> 2#i32
-    let i21 ← b + 4#usize
-    let i22 ← lift (UScalar.cast .U8 i20)
-    let a ← Array.update out_buf4 i21 i22
-    ser.serialize_10_loop iter1 data a
-partial_fixpoint
-
-/-- [kopis::ser::serialize_10]:
-    Source: 'src/ser.rs', lines 77:0-91:1 -/
-@[reducible]
-def ser.serialize_10
-  (data : Array Std.U16 256#usize) (out_buf : Array Std.U8 320#usize) :
-  Result (Array Std.U8 320#usize)
-  := do
-  ser.serialize_10_loop { start := 0#usize, «end» := 64#usize } data out_buf
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::serialize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 80:4-90:5 -/
-def arithmetic.plain_arith.RingElem.serialize
-  (self : arithmetic.plain_arith.RingElem) (out_buf : Slice Std.U8)
-  (bits_per_elem : Std.Usize) :
-  Result (Slice Std.U8)
-  := do
-  let left_val := Slice.len out_buf
-  let i ← bits_per_elem * consts.RING_DEG
-  let right_val ← i / 8#usize
-  massert (left_val = right_val)
-  if bits_per_elem = 10#usize
-  then
-    let (r, try_from_back) ←
-      core.array.TryFromMutArraySlice.try_from 320#usize out_buf
-    let (arr, unwrap_back) ←
-      core.result.Result.unwrap.mut core.fmt.DebugTryFromSliceError r
-    let arr1 ← ser.serialize_10 self arr
-    let r1 := unwrap_back arr1
-    ok (try_from_back r1)
-  else
-    let s ← lift (Array.to_slice self)
-    ser.serialize s out_buf bits_per_elem
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 98:12-102:13 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.serialize_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y) (out_buf : Slice Std.U8)
-  (bits_per_elem : Std.Usize) (chunk_len : Std.Usize) (i : Std.Usize) :
-  Result ((arithmetic.plain_arith.Matrix X Y) × (Slice Std.U8))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, out_buf)
-  | some j =>
-    let i1 ← i * Y
-    let idx ← i1 + j
-    let i2 ← idx * chunk_len
-    let i3 ← idx + 1#usize
-    let i4 ← i3 * chunk_len
-    let (out_chunk, index_mut_back) ←
-      core.slice.index.Slice.index_mut
-        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
-        { start := i2, «end» := i4 }
-    let a ← Array.index_usize self i
-    let re ← Array.index_usize a j
-    let out_chunk1 ←
-      arithmetic.plain_arith.RingElem.serialize re out_chunk bits_per_elem
-    let out_buf1 := index_mut_back out_chunk1
-    arithmetic.plain_arith.Matrix.serialize_loop0_loop0 iter1 self out_buf1
-      bits_per_elem chunk_len i
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 97:8-103:9 -/
-@[rust_loop]
-def arithmetic.plain_arith.Matrix.serialize_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y) (out_buf : Slice Std.U8)
-  (bits_per_elem : Std.Usize) (chunk_len : Std.Usize) :
-  Result (Slice Std.U8)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out_buf
-  | some i =>
-    let (self1, out_buf1) ←
-      arithmetic.plain_arith.Matrix.serialize_loop0_loop0
-        { start := 0#usize, «end» := Y } self out_buf bits_per_elem chunk_len
-        i
-    arithmetic.plain_arith.Matrix.serialize_loop0 iter1 self1 out_buf1
-      bits_per_elem chunk_len
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 83:4-104:5 -/
-def arithmetic.plain_arith.Matrix.serialize
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (out_buf : Slice Std.U8) (bits_per_elem : Std.Usize) :
-  Result (Slice Std.U8)
-  := do
-  let left_val := Slice.len out_buf
-  let i ← X * Y
-  let i1 ← i * bits_per_elem
-  let i2 ← i1 * consts.RING_DEG
-  let right_val ← i2 / 8#usize
-  massert (left_val = right_val)
-  let i3 ← bits_per_elem * consts.RING_DEG
-  let chunk_len ← i3 / 8#usize
-  arithmetic.plain_arith.Matrix.serialize_loop0
-    { start := 0#usize, «end» := X } self out_buf bits_per_elem chunk_len
 
 /-- [kopis::ser::deserialize_generic]: loop 1:
-    Source: 'src/ser.rs', lines 61:8-65:9 -/
+    Source: 'src/ser.rs', lines 63:8-67:9 -/
 @[rust_loop]
 def ser.deserialize_generic_loop0_loop0
-  (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) (window : Std.U32)
+  (BITS_PER_ELEM : Std.Usize) (bytes : Slice Std.U8) (window : Std.U32)
   (bits_in_window : Std.Usize) (byte_pos : Std.Usize) :
   Result (Std.U32 × Std.Usize × Std.Usize)
   := do
-  if bits_in_window < bits_per_elem
+  if bits_in_window < BITS_PER_ELEM
   then
     let i ← Slice.index_usize bytes byte_pos
     let i1 ← lift (UScalar.cast .U32 i)
@@ -1387,19 +3230,19 @@ def ser.deserialize_generic_loop0_loop0
     let window1 ← lift (window ||| i2)
     let byte_pos1 ← byte_pos + 1#usize
     let bits_in_window1 ← bits_in_window + 8#usize
-    ser.deserialize_generic_loop0_loop0 bytes bits_per_elem window1
+    ser.deserialize_generic_loop0_loop0 BITS_PER_ELEM bytes window1
       bits_in_window1 byte_pos1
   else ok (window, bits_in_window, byte_pos)
 partial_fixpoint
 
 /-- [kopis::ser::deserialize_generic]: loop 0:
-    Source: 'src/ser.rs', lines 59:4-71:5 -/
+    Source: 'src/ser.rs', lines 61:4-73:5 -/
 @[rust_loop]
 def ser.deserialize_generic_loop0
-  {N : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) (out : Array Std.U16 N)
-  (bitmask : Std.U32) (window : Std.U32) (bits_in_window : Std.Usize)
-  (byte_pos : Std.Usize) :
+  {N : Std.Usize} (BITS_PER_ELEM : Std.Usize)
+  (iter : core.ops.range.Range Std.Usize) (bytes : Slice Std.U8)
+  (out : Array Std.U16 N) (bitmask : Std.U32) (window : Std.U32)
+  (bits_in_window : Std.Usize) (byte_pos : Std.Usize) :
   Result (Array Std.U16 N)
   := do
   let (o, iter1) ←
@@ -1408,34 +3251,36 @@ def ser.deserialize_generic_loop0
   | none => ok out
   | some idx =>
     let (window1, bits_in_window1, byte_pos1) ←
-      ser.deserialize_generic_loop0_loop0 bytes bits_per_elem window
+      ser.deserialize_generic_loop0_loop0 BITS_PER_ELEM bytes window
         bits_in_window byte_pos
     let i ← lift (window1 &&& bitmask)
     let i1 ← lift (UScalar.cast .U16 i)
     let a ← Array.update out idx i1
-    let window2 ← window1 >>> bits_per_elem
-    let bits_in_window2 ← bits_in_window1 - bits_per_elem
-    ser.deserialize_generic_loop0 iter1 bytes bits_per_elem a bitmask window2
+    let window2 ← window1 >>> BITS_PER_ELEM
+    let bits_in_window2 ← bits_in_window1 - BITS_PER_ELEM
+    ser.deserialize_generic_loop0 BITS_PER_ELEM iter1 bytes a bitmask window2
       bits_in_window2 byte_pos1
 partial_fixpoint
 
 /-- [kopis::ser::deserialize_generic]:
-    Source: 'src/ser.rs', lines 45:0-74:1 -/
+    Source: 'src/ser.rs', lines 45:0-76:1 -/
 def ser.deserialize_generic
-  (N : Std.Usize) (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) :
+  (N : Std.Usize) (BITS_PER_ELEM : Std.Usize) (bytes : Slice Std.U8) :
   Result (Array Std.U16 N)
   := do
-  let i ← bits_per_elem * N
+  let _ ← BITS_PER_ELEM * N
+  let i ← lift (Std.Usize.wrapping_mul BITS_PER_ELEM N)
   let left_val ← i % 8#usize
   massert (left_val = 0#usize)
   let left_val1 := Slice.len bytes
-  let right_val ← i / 8#usize
+  let i1 ← lift (Std.Usize.wrapping_mul BITS_PER_ELEM N)
+  let right_val ← i1 / 8#usize
   massert (left_val1 = right_val)
   let out := Array.repeat N 0#u16
-  let i1 ← 1#u32 <<< bits_per_elem
-  let bitmask ← i1 - 1#u32
-  ser.deserialize_generic_loop0 { start := 0#usize, «end» := N } bytes
-    bits_per_elem out bitmask 0#u32 0#usize 0#usize
+  let i2 ← 1#u32 <<< BITS_PER_ELEM
+  let bitmask ← i2 - 1#u32
+  ser.deserialize_generic_loop0 BITS_PER_ELEM
+    { start := 0#usize, «end» := N } bytes out bitmask 0#u32 0#usize 0#usize
 
 /-- [kopis::ser::deserialize_10::closure]
     Source: 'src/ser.rs', lines 32:16-32:38 -/
@@ -1740,7 +3585,7 @@ def backend.avx2.ser.plans
   backend.avx2.ser.plans_loop plans 1#usize
 
 /-- [kopis::backend::avx2::ser::PLANS]
-    Source: 'src/backend/avx2/ser.rs', lines 82:0-82:44 -/
+    Source: 'src/backend/avx2/ser.rs', lines 83:0-83:44 -/
 @[global_simps, irreducible]
 def backend.avx2.ser.PLANS : Result (Array backend.avx2.ser.Plan 14#usize) :=
   backend.avx2.ser.plans
@@ -1750,93 +3595,47 @@ def backend.avx2.ser.PLANS : Result (Array backend.avx2.ser.Plan 14#usize) :=
 @[global_simps, irreducible]
 def backend.avx2.ser.GROUPS : Result Std.Usize := consts.RING_DEG / 8#usize
 
-/-- [kopis::backend::avx2::intrinsics::Vec128]
-    Source: 'src/backend/avx2/intrinsics.rs', lines 56:0-56:34 -/
-axiom backend.avx2.intrinsics.Vec128 : Type
-
 /-- [kopis::backend::avx2::intrinsics::load_u8x16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 446:0-450:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 438:0-442:1 -/
 axiom backend.avx2.intrinsics.load_u8x16
   : Slice Std.U8 → Std.Usize → Result backend.avx2.intrinsics.Vec128
 
-/-- [kopis::backend::avx2::intrinsics::Vec256]
-    Source: 'src/backend/avx2/intrinsics.rs', lines 51:0-51:34 -/
-axiom backend.avx2.intrinsics.Vec256 : Type
-
 /-- [kopis::backend::avx2::intrinsics::load_u8]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 434:0-438:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 426:0-430:1 -/
 axiom backend.avx2.intrinsics.load_u8
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
-/-- [kopis::backend::avx2::intrinsics::load_i32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 416:0-420:1 -/
-axiom backend.avx2.intrinsics.load_i32
-  {N : Std.Usize} :
-  Array Std.I32 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::store_u16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 407:0-411:1 -/
-axiom backend.avx2.intrinsics.store_u16
-  {N : Std.Usize} :
-  Array Std.U16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
-    (Array Std.U16 N)
-
 /-- [kopis::backend::avx2::intrinsics::broadcastsi128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 364:0-366:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 356:0-358:1 -/
 axiom backend.avx2.intrinsics.broadcastsi128_si256
   : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
 
-/-- [kopis::backend::avx2::intrinsics::packus_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 336:0-338:1 -/
-axiom backend.avx2.intrinsics.packus_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::permute4x64_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 320:0-322:1 -/
-axiom backend.avx2.intrinsics.permute4x64_epi64
-  (IMM : Std.I32) :
-  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
-
 /-- [kopis::backend::avx2::intrinsics::shuffle_epi8]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 263:0-265:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 255:0-257:1 -/
 axiom backend.avx2.intrinsics.shuffle_epi8
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srlv_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 251:0-253:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 243:0-245:1 -/
 axiom backend.avx2.intrinsics.srlv_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
-/-- [kopis::backend::avx2::intrinsics::and_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 100:0-102:1 -/
-axiom backend.avx2.intrinsics.and_si256
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
 /-- [kopis::backend::avx2::intrinsics::setzero_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 86:0-88:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 78:0-80:1 -/
 axiom backend.avx2.intrinsics.setzero_si256
   : Result backend.avx2.intrinsics.Vec256
 
-/-- [kopis::backend::avx2::intrinsics::set1_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 72:0-74:1 -/
-axiom backend.avx2.intrinsics.set1_epi32
-  : Std.I32 → Result backend.avx2.intrinsics.Vec256
-
 /-- [kopis::backend::avx2::ser::deserialize]: loop 1:
-    Source: 'src/backend/avx2/ser.rs', lines 115:8-128:9 -/
+    Source: 'src/backend/avx2/ser.rs', lines 116:8-130:9 -/
 @[rust_loop]
 def backend.avx2.ser.deserialize_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (bytes : Slice Std.U8)
-  (bits : Std.Usize) (shuffle : backend.avx2.intrinsics.Vec256)
+  (BITS_PER_ELEM : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (bytes : Slice Std.U8) (shuffle : backend.avx2.intrinsics.Vec256)
   (shift : backend.avx2.intrinsics.Vec256)
   (mask : backend.avx2.intrinsics.Vec256) (head_groups : Std.Usize)
   (tail_start : Std.Usize) (tail : Array Std.U8 32#usize) (pair : Std.Usize)
@@ -1854,13 +3653,13 @@ def backend.avx2.ser.deserialize_loop0_loop0
       if group < head_groups
       then
         do
-        let i1 ← group * bits
+        let i1 ← group * BITS_PER_ELEM
         let v ← backend.avx2.intrinsics.load_u8x16 bytes i1
         backend.avx2.intrinsics.broadcastsi128_si256 v
       else
         do
         let s ← lift (Array.to_slice tail)
-        let i1 ← group * bits
+        let i1 ← group * BITS_PER_ELEM
         let i2 ← i1 - tail_start
         let v ← backend.avx2.intrinsics.load_u8x16 s i2
         backend.avx2.intrinsics.broadcastsi128_si256 v
@@ -1868,16 +3667,16 @@ def backend.avx2.ser.deserialize_loop0_loop0
     let v ← backend.avx2.intrinsics.srlv_epi32 windows shift
     let v1 ← backend.avx2.intrinsics.and_si256 v mask
     let a ← Array.update wide half v1
-    backend.avx2.ser.deserialize_loop0_loop0 iter1 bytes bits shuffle shift
-      mask head_groups tail_start tail pair a
+    backend.avx2.ser.deserialize_loop0_loop0 BITS_PER_ELEM iter1 bytes shuffle
+      shift mask head_groups tail_start tail pair a
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ser::deserialize]: loop 0:
-    Source: 'src/backend/avx2/ser.rs', lines 113:4-135:5 -/
+    Source: 'src/backend/avx2/ser.rs', lines 114:4-137:5 -/
 @[rust_loop]
 def backend.avx2.ser.deserialize_loop0
-  (iter : core.ops.range.Range Std.Usize) (bytes : Slice Std.U8)
-  (bits : Std.Usize) (shuffle : backend.avx2.intrinsics.Vec256)
+  (BITS_PER_ELEM : Std.Usize) (iter : core.ops.range.Range Std.Usize)
+  (bytes : Slice Std.U8) (shuffle : backend.avx2.intrinsics.Vec256)
   (shift : backend.avx2.intrinsics.Vec256)
   (mask : backend.avx2.intrinsics.Vec256) (head_groups : Std.Usize)
   (tail_start : Std.Usize) (tail : Array Std.U8 32#usize)
@@ -1892,35 +3691,35 @@ def backend.avx2.ser.deserialize_loop0
     let v ← backend.avx2.intrinsics.setzero_si256
     let wide := Array.repeat 2#usize v
     let wide1 ←
-      backend.avx2.ser.deserialize_loop0_loop0
-        { start := 0#usize, «end» := 2#usize } bytes bits shuffle shift mask
+      backend.avx2.ser.deserialize_loop0_loop0 BITS_PER_ELEM
+        { start := 0#usize, «end» := 2#usize } bytes shuffle shift mask
         head_groups tail_start tail pair wide
     let v1 ← Array.index_usize wide1 0#usize
     let v2 ← Array.index_usize wide1 1#usize
     let packed ← backend.avx2.intrinsics.packus_epi32 v1 v2
     let v3 ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 packed
     let out1 ← backend.avx2.intrinsics.store_u16 out pair v3
-    backend.avx2.ser.deserialize_loop0 iter1 bytes bits shuffle shift mask
-      head_groups tail_start tail out1
+    backend.avx2.ser.deserialize_loop0 BITS_PER_ELEM iter1 bytes shuffle shift
+      mask head_groups tail_start tail out1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ser::deserialize]:
-    Source: 'src/backend/avx2/ser.rs', lines 94:0-138:1 -/
+    Source: 'src/backend/avx2/ser.rs', lines 95:0-140:1 -/
 def backend.avx2.ser.deserialize
-  (bytes : Slice Std.U8) (bits : Std.Usize) :
+  (BITS_PER_ELEM : Std.Usize) (bytes : Slice Std.U8) :
   Result (Array Std.U16 256#usize)
   := do
   let a ← backend.avx2.ser.PLANS
-  let plan ← Array.index_usize a bits
+  let plan ← Array.index_usize a BITS_PER_ELEM
   let shuffle ← backend.avx2.intrinsics.load_u8 plan.shuffle 0#usize
   let shift ← backend.avx2.intrinsics.load_i32 plan.shift 0#usize
-  let i ← 1#i32 <<< bits
+  let i ← 1#i32 <<< BITS_PER_ELEM
   let i1 ← i - 1#i32
   let mask ← backend.avx2.intrinsics.set1_epi32 i1
-  let tail_groups ← 15#usize / bits
+  let tail_groups ← 15#usize / BITS_PER_ELEM
   let i2 ← backend.avx2.ser.GROUPS
   let head_groups ← i2 - tail_groups
-  let tail_start ← head_groups * bits
+  let tail_start ← head_groups * BITS_PER_ELEM
   let tail := Array.repeat 32#usize 0#u8
   let i3 := Slice.len bytes
   let i4 ← i3 - tail_start
@@ -1936,2950 +3735,253 @@ def backend.avx2.ser.deserialize
   let out := Array.repeat 256#usize 0#u16
   let i5 ← i2 / 2#usize
   let tail1 := index_mut_back s2
-  backend.avx2.ser.deserialize_loop0 { start := 0#usize, «end» := i5 } bytes
-    bits shuffle shift mask head_groups tail_start tail1 out
-
-/-- [kopis::backend::avx2::cpu::available]:
-    Source: 'src/backend/avx2/cpu.rs', lines 30:0-44:1 -/
-axiom backend.avx2.cpu.available : Result Bool
+  backend.avx2.ser.deserialize_loop0 BITS_PER_ELEM
+    { start := 0#usize, «end» := i5 } bytes shuffle shift mask head_groups
+    tail_start tail1 out
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::deserialize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 41:4-75:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 44:4-85:5 -/
 def arithmetic.plain_arith.RingElem.deserialize
-  (bytes : Slice Std.U8) (bits_per_elem : Std.Usize) :
+  (BITS_PER_ELEM : Std.Usize) (bytes : Slice Std.U8) :
   Result arithmetic.plain_arith.RingElem
   := do
-  let left_val := Slice.len bytes
-  let i ← bits_per_elem * consts.RING_DEG
-  let right_val ← i / 8#usize
-  massert (left_val = right_val)
   let ri ← core.ops.range.RangeInclusive.new 1#usize 13#usize
   let b ←
     core.ops.range.RangeInclusive.contains core.cmp.PartialOrdUsize
-      core.cmp.PartialOrdUsize core.cmp.PartialOrdUsize ri bits_per_elem
-  if b
-  then
-    let b1 ← backend.avx2.cpu.available
-    if b1
-    then let a ← backend.avx2.ser.deserialize bytes bits_per_elem
-         ok a
-    else
-      if bits_per_elem = 13#usize
-      then
-        let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
-        let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-        let a ← ser.deserialize_13 arr
-        ok a
-      else
-        if bits_per_elem = 10#usize
-        then
-          let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
-          let arr ←
-            core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-          let a ← ser.deserialize_10 arr
-          ok a
-        else
-          let a ← ser.deserialize_generic 256#usize bytes bits_per_elem
-          ok a
+      core.cmp.PartialOrdUsize core.cmp.PartialOrdUsize ri BITS_PER_ELEM
+  massert b
+  let left_val := Slice.len bytes
+  let _ ← BITS_PER_ELEM * consts.RING_DEG
+  let i ← lift (Std.Usize.wrapping_mul BITS_PER_ELEM consts.RING_DEG)
+  let right_val ← i / 8#usize
+  massert (left_val = right_val)
+  let b1 ← backend.avx2.cpu.available
+  if b1
+  then let a ← backend.avx2.ser.deserialize BITS_PER_ELEM bytes
+       ok a
   else
-    if bits_per_elem = 13#usize
-    then
+    match BITS_PER_ELEM.val with
+    | 13 =>
       let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
       let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
       let a ← ser.deserialize_13 arr
       ok a
-    else
-      if bits_per_elem = 10#usize
-      then
-        let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
-        let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
-        let a ← ser.deserialize_10 arr
-        ok a
-      else let a ← ser.deserialize_generic 256#usize bytes bits_per_elem
+    | 10 =>
+      let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
+      let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+      let a ← ser.deserialize_10 arr
+      ok a
+    | _ => let a ← ser.deserialize_generic 256#usize BITS_PER_ELEM bytes
            ok a
 
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 125:12-129:13 -/
+/-- [kopis::ser::serialize_generic]: loop 1:
+    Source: 'src/ser.rs', lines 113:8-118:9 -/
 @[rust_loop]
-def arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (bytes : Slice Std.U8) (result : arithmetic.plain_arith.Matrix X Y)
-  (chunk_len : Std.Usize) (i : Std.Usize) :
-  Result (arithmetic.plain_arith.Matrix X Y)
+def ser.serialize_generic_loop0_loop0
+  (out_buf : Slice Std.U8) (window : Std.U32) (bits_in_window : Std.Usize)
+  (byte_pos : Std.Usize) :
+  Result ((Slice Std.U8) × Std.U32 × Std.Usize × Std.Usize)
   := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok result
-  | some j =>
-    let i1 ← i * Y
-    let idx ← i1 + j
-    let i2 ← idx * chunk_len
-    let i3 ← idx + 1#usize
-    let i4 ← i3 * chunk_len
-    let chunk ←
-      core.slice.index.Slice.index (core.slice.index.SliceIndexRangeUsizeSlice
-        Std.U8) bytes { start := i2, «end» := i4 }
-    let re ← arithmetic.plain_arith.RingElem.deserialize chunk 10#usize
-    let (a, index_mut_back) ← Array.index_mut_usize result i
-    let a1 ← Array.update a j re
-    let a2 := index_mut_back a1
-    arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0 iter1 bytes a2
-      chunk_len i
+  if bits_in_window >= 8#usize
+  then
+    let i ← lift (UScalar.cast .U8 window)
+    let s ← Slice.update out_buf byte_pos i
+    let window1 ← window >>> 8#i32
+    let bits_in_window1 ← bits_in_window - 8#usize
+    let byte_pos1 ← byte_pos + 1#usize
+    ser.serialize_generic_loop0_loop0 s window1 bits_in_window1 byte_pos1
+  else ok (out_buf, window, bits_in_window, byte_pos)
 partial_fixpoint
 
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 124:8-130:9 -/
+/-- [kopis::ser::serialize_generic]: loop 0:
+    Source: 'src/ser.rs', lines 107:4-119:5 -/
 @[rust_loop]
-def arithmetic.plain_arith.Matrix.deserialize_10_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (bytes : Slice Std.U8) (result : arithmetic.plain_arith.Matrix X Y)
-  (chunk_len : Std.Usize) :
-  Result (arithmetic.plain_arith.Matrix X Y)
+def ser.serialize_generic_loop0
+  (BITS_PER_ELEM : Std.Usize) (iter : core.slice.iter.Iter Std.U16)
+  (out_buf : Slice Std.U8) (bitmask : Std.U32) (window : Std.U32)
+  (bits_in_window : Std.Usize) (byte_pos : Std.Usize) :
+  Result ((Slice Std.U8) × Std.Usize)
   := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  let (o, iter1) ← core.slice.iter.IteratorSliceIter.next iter
   match o with
-  | none => ok result
-  | some i =>
-    let result1 ←
-      arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
-        { start := 0#usize, «end» := Y } bytes result chunk_len i
-    arithmetic.plain_arith.Matrix.deserialize_10_loop0 iter1 bytes result1
-      chunk_len
+  | none => ok (out_buf, bits_in_window)
+  | some elem =>
+    let i ← lift (UScalar.cast .U32 elem)
+    let i1 ← lift (i &&& bitmask)
+    let i2 ← i1 <<< bits_in_window
+    let window1 ← lift (window ||| i2)
+    let bits_in_window1 ← bits_in_window + BITS_PER_ELEM
+    let (out_buf1, window2, bits_in_window2, byte_pos1) ←
+      ser.serialize_generic_loop0_loop0 out_buf window1 bits_in_window1
+        byte_pos
+    ser.serialize_generic_loop0 BITS_PER_ELEM iter1 out_buf1 bitmask window2
+      bits_in_window2 byte_pos1
 partial_fixpoint
 
-/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 107:4-133:5 -/
-def arithmetic.plain_arith.Matrix.deserialize_10
-  (X : Std.Usize) (Y : Std.Usize) (bytes : Slice Std.U8) :
-  Result (arithmetic.plain_arith.Matrix X Y)
+/-- [kopis::ser::serialize_generic]:
+    Source: 'src/ser.rs', lines 96:0-123:1 -/
+def ser.serialize_generic
+  (BITS_PER_ELEM : Std.Usize) (data : Slice Std.U16) (out_buf : Slice Std.U8) :
+  Result (Slice Std.U8)
   := do
-  let left_val := Slice.len bytes
-  let i ← X * Y
-  let i1 ← i * 10#usize
-  let _ ← i1 * consts.RING_DEG
-  let i2 ← lift (Std.Usize.wrapping_mul X Y)
-  let i3 ← lift (Std.Usize.wrapping_mul i2 10#usize)
-  let i4 ← lift (Std.Usize.wrapping_mul i3 consts.RING_DEG)
-  let right_val ← i4 / 8#usize
+  let left_val := Slice.len out_buf
+  let i := Slice.len data
+  let i1 ← BITS_PER_ELEM * i
+  let right_val ← i1 / 8#usize
   massert (left_val = right_val)
-  let result ←
-    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Y
-  let i5 ← 10#usize * consts.RING_DEG
-  let chunk_len ← i5 / 8#usize
-  arithmetic.plain_arith.Matrix.deserialize_10_loop0
-    { start := 0#usize, «end» := X } bytes result chunk_len
+  let i2 ← 1#u32 <<< BITS_PER_ELEM
+  let bitmask ← i2 - 1#u32
+  let iter ← core.slice.Slice.iter data
+  let (out_buf1, bits_in_window) ←
+    ser.serialize_generic_loop0 BITS_PER_ELEM iter out_buf bitmask 0#u32
+      0#usize 0#usize
+  massert (bits_in_window = 0#usize)
+  ok out_buf1
 
-/-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::add]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 222:8-224:9
-    Visibility: public -/
+/-- [kopis::ser::serialize_10::closure]
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
+def ser.serialize_10.closure := Array Std.U16 256#usize × Std.Usize
+
+/-- [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call]:
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
+def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call
+  (c : ser.serialize_10.closure) (tupled_args : Std.Usize) :
+  Result Std.U16
+  := do
+  let (a, i) := c
+  let i1 ← i + tupled_args
+  let i2 ← Array.index_usize a i1
+  ok (i2 &&& 1023#u16)
+
+/-- [kopis::ser::serialize_10]: loop 0:
+    Source: 'src/ser.rs', lines 81:4-92:5 -/
 @[rust_loop]
-def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
-  (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.RingElem)
-  (other : arithmetic.plain_arith.RingElem)
-  (ret : arithmetic.plain_arith.RingElem) :
+def ser.serialize_10_loop
+  (iter : core.ops.range.Range Std.Usize) (data : Array Std.U16 256#usize)
+  (out_buf : Array Std.U8 320#usize) :
+  Result (Array Std.U8 320#usize)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out_buf
+  | some g =>
+    let o1 ← 4#usize * g
+    let b ← 5#usize * g
+    let i ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 0#usize
+    let i1 ← lift (UScalar.cast .U8 i)
+    let out_buf1 ← Array.update out_buf b i1
+    let i2 ← i >>> 8#i32
+    let i3 ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 1#usize
+    let i4 ← i3 <<< 2#i32
+    let i5 ← lift (i2 ||| i4)
+    let i6 ← b + 1#usize
+    let i7 ← lift (UScalar.cast .U8 i5)
+    let out_buf2 ← Array.update out_buf1 i6 i7
+    let i8 ← i3 >>> 6#i32
+    let i9 ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 2#usize
+    let i10 ← i9 <<< 4#i32
+    let i11 ← lift (i8 ||| i10)
+    let i12 ← b + 2#usize
+    let i13 ← lift (UScalar.cast .U8 i11)
+    let out_buf3 ← Array.update out_buf2 i12 i13
+    let i14 ← i9 >>> 4#i32
+    let i15 ←
+      ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16.call (data,
+        o1) 3#usize
+    let i16 ← i15 <<< 6#i32
+    let i17 ← lift (i14 ||| i16)
+    let i18 ← b + 3#usize
+    let i19 ← lift (UScalar.cast .U8 i17)
+    let out_buf4 ← Array.update out_buf3 i18 i19
+    let i20 ← i15 >>> 2#i32
+    let i21 ← b + 4#usize
+    let i22 ← lift (UScalar.cast .U8 i20)
+    let a ← Array.update out_buf4 i21 i22
+    ser.serialize_10_loop iter1 data a
+partial_fixpoint
+
+/-- [kopis::ser::serialize_10]:
+    Source: 'src/ser.rs', lines 79:0-93:1 -/
+@[reducible]
+def ser.serialize_10
+  (data : Array Std.U16 256#usize) (out_buf : Array Std.U8 320#usize) :
+  Result (Array Std.U8 320#usize)
+  := do
+  ser.serialize_10_loop { start := 0#usize, «end» := 64#usize } data out_buf
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::serialize]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 90:4-104:5 -/
+def arithmetic.plain_arith.RingElem.serialize
+  (BITS_PER_ELEM : Std.Usize) (self : arithmetic.plain_arith.RingElem)
+  (out_buf : Slice Std.U8) :
+  Result (Slice Std.U8)
+  := do
+  let ri ← core.ops.range.RangeInclusive.new 1#usize 13#usize
+  let b ←
+    core.ops.range.RangeInclusive.contains core.cmp.PartialOrdUsize
+      core.cmp.PartialOrdUsize core.cmp.PartialOrdUsize ri BITS_PER_ELEM
+  massert b
+  let left_val := Slice.len out_buf
+  let _ ← BITS_PER_ELEM * consts.RING_DEG
+  let i ← lift (Std.Usize.wrapping_mul BITS_PER_ELEM consts.RING_DEG)
+  let right_val ← i / 8#usize
+  massert (left_val = right_val)
+  match BITS_PER_ELEM.val with
+  | 10 =>
+    let (r, try_from_back) ←
+      core.array.TryFromMutArraySlice.try_from 320#usize out_buf
+    let (arr, unwrap_back) ←
+      core.result.Result.unwrap.mut core.fmt.DebugTryFromSliceError r
+    let arr1 ← ser.serialize_10 self arr
+    let r1 := unwrap_back arr1
+    ok (try_from_back r1)
+  | _ =>
+    let s ← lift (Array.to_slice self)
+    ser.serialize_generic BITS_PER_ELEM s out_buf
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_right]: loop 0:
+    Source: 'src/arithmetic/plain_arith.rs', lines 110:8-112:9 -/
+@[rust_loop]
+def arithmetic.plain_arith.RingElem.shift_right_loop
+  (iter : core.slice.iter.IterMut Std.U16)
+  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
+  (shift : Std.Usize) :
+  Result (core.slice.iter.IterMut Std.U16)
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some coeff =>
+    let coeff1 ← coeff >>> shift
+    arithmetic.plain_arith.RingElem.shift_right_loop iter1
+      (fun im => let im1 := next_back im (some coeff1)
+                 back im1) shift
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_right]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 109:4-113:5 -/
+def arithmetic.plain_arith.RingElem.shift_right
+  (self : arithmetic.plain_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.plain_arith.RingElem
   := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok ret
-  | some i =>
-    let i1 ← Array.index_usize self i
-    let i2 ← Array.index_usize other i
-    let i3 ← lift (core.num.U16.wrapping_add i1 i2)
-    let a ← Array.update ret i i3
-    SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop iter1
-      self other a
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::add]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 220:4-226:5
-    Visibility: public -/
-def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
-  (self : arithmetic.plain_arith.RingElem)
-  (other : arithmetic.plain_arith.RingElem) :
-  Result arithmetic.plain_arith.RingElem
-  := do
-  let ret ← arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-  SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add_loop
-    { start := 0#usize, «end» := consts.RING_DEG } self other ret
-
-/-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::Matrix<X, Y>, kopis::arithmetic::plain_arith::Matrix<X, Y>> for &'a kopis::arithmetic::plain_arith::Matrix<X, Y>}::add]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 142:12-144:13
-    Visibility: public -/
-@[rust_loop]
-def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Y)
-  (result : arithmetic.plain_arith.Matrix X Y) (i : Std.Usize) :
-  Result ((arithmetic.plain_arith.Matrix X Y) ×
-    (arithmetic.plain_arith.Matrix X Y) × (arithmetic.plain_arith.Matrix X
-    Y))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some j =>
-    let a ← Array.index_usize self i
-    let re ← Array.index_usize a j
-    let a1 ← Array.index_usize other i
-    let re1 ← Array.index_usize a1 j
-    let re2 ←
-      SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add re re1
-    let (a2, index_mut_back) ← Array.index_mut_usize result i
-    let a3 ← Array.update a2 j re2
-    let a4 := index_mut_back a3
-    SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
-      iter1 self other a4 i
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::Matrix<X, Y>, kopis::arithmetic::plain_arith::Matrix<X, Y>> for &'a kopis::arithmetic::plain_arith::Matrix<X, Y>}::add]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 141:8-145:9
-    Visibility: public -/
-@[rust_loop]
-def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Y)
-  (result : arithmetic.plain_arith.Matrix X Y) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok result
-  | some i =>
-    let (self1, other1, result1) ←
-      SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0_loop0
-        { start := 0#usize, «end» := Y } self other result i
-    SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0 iter1
-      self1 other1 result1
-partial_fixpoint
-
-/-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::Matrix<X, Y>, kopis::arithmetic::plain_arith::Matrix<X, Y>> for &'a kopis::arithmetic::plain_arith::Matrix<X, Y>}::add]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 139:4-148:5
-    Visibility: public -/
-def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Y) :
-  Result (arithmetic.plain_arith.Matrix X Y)
-  := do
-  let result ←
-    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Y
-  SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add_loop0
-    { start := 0#usize, «end» := X } self other result
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::Matrix<X, Y>, kopis::arithmetic::plain_arith::Matrix<X, Y>> for &'a kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 136:0-149:1 -/
-@[reducible]
-def SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix (X : Std.Usize) (Y :
-  Std.Usize) : core.ops.arith.Add (arithmetic.plain_arith.Matrix X Y)
-  (arithmetic.plain_arith.Matrix X Y) (arithmetic.plain_arith.Matrix X Y)
-  := {
-  add := SharedAMatrix.Insts.CoreOpsArithAddSharedAMatrixMatrix.add
-}
-
-/-- [kopis::arithmetic::ntt_arith::NttElem]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 251:0-251:58 -/
-@[reducible]
-def arithmetic.ntt_arith.NttElem := Array Std.I16 512#usize
-
-/-- [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttElem}::clone]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 250:9-250:14
-    Visibility: public -/
-def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone.clone
-  (self : arithmetic.ntt_arith.NttElem) : Result arithmetic.ntt_arith.NttElem := do
-  ok self
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 250:9-250:14 -/
-@[reducible]
-def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone : core.clone.Clone
-  arithmetic.ntt_arith.NttElem := {
-  clone := arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone.clone
-}
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::marker::Copy for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 250:16-250:20 -/
-@[reducible]
-def arithmetic.ntt_arith.NttElem.Insts.CoreMarkerCopy : core.marker.Copy
-  arithmetic.ntt_arith.NttElem := {
-  cloneInst := arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone
-}
-
-/-- [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttElem}::zeroize]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 250:22-250:29
-    Visibility: public -/
-def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize.zeroize
-  (self : arithmetic.ntt_arith.NttElem) : Result arithmetic.ntt_arith.NttElem := do
-  let __zeroize_field_0 ←
-    Array.Insts.ZeroizeZeroize.zeroize (zeroize.Zeroize.Blanket
-      I16.Insts.ZeroizeDefaultIsZeroes) self
-  ok __zeroize_field_0
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 250:22-250:29 -/
-@[reducible]
-def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize : zeroize.Zeroize
-  arithmetic.ntt_arith.NttElem := {
-  zeroize := arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize.zeroize
-}
-
-/-- [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttElem}::default]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 254:4-256:5
-    Visibility: public -/
-def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
-  : Result arithmetic.ntt_arith.NttElem := do
-  let a := Array.repeat 512#usize 0#i16
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
+  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+  let back ←
+    arithmetic.plain_arith.RingElem.shift_right_loop iter (fun im => im) shift
+  let s1 := iter_mut_back back
+  let a := to_slice_mut_back s1
   ok a
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 253:0-257:1 -/
-@[reducible]
-def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault : core.default.Default
-  arithmetic.ntt_arith.NttElem := {
-  default := arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
-}
-
-/-- [kopis::arithmetic::ntt_arith::ACC_ZERO]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 264:0-264:54 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_arith.ACC_ZERO : Array Std.I32 512#usize :=
-  Array.repeat 512#usize 0#i32
-
-/-- [kopis::arithmetic::ntt_crt::Q2_BARRETT_M]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 100:0-100:43 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.Q2_BARRETT_M : Std.I16 := 12482#i16
-
-/-- [kopis::arithmetic::ntt_crt::Q1_BARRETT_M]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 98:0-98:43 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.Q1_BARRETT_M : Std.I16 := 17474#i16
-
-/-- [kopis::arithmetic::ntt_crt::barrett_m]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 209:0-211:1 -/
-def arithmetic.ntt_crt.barrett_m (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok arithmetic.ntt_crt.Q2_BARRETT_M
-  else ok arithmetic.ntt_crt.Q1_BARRETT_M
-
-/-- [kopis::arithmetic::ntt_crt::Q2]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 92:0-92:33 -/
-@[global_simps, irreducible] def arithmetic.ntt_crt.Q2 : Std.I16 := 10753#i16
-
-/-- [kopis::arithmetic::ntt_crt::Q1]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 90:0-90:32 -/
-@[global_simps, irreducible] def arithmetic.ntt_crt.Q1 : Std.I16 := 7681#i16
-
-/-- [kopis::arithmetic::ntt_crt::q]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 199:0-201:1 -/
-def arithmetic.ntt_crt.q (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok arithmetic.ntt_crt.Q2
-  else ok arithmetic.ntt_crt.Q1
-
-/-- [kopis::arithmetic::ntt_crt::BARRETT_SH]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 106:0-106:38 -/
-@[global_simps, irreducible] def arithmetic.ntt_crt.BARRETT_SH : Std.I32 := 11#i32
-
-/-- [kopis::arithmetic::ntt_crt::zetas_qinv]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 169:4-172:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.zetas_qinv_loop
-  (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
-  (table : Array Std.I16 256#usize) (k : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  if k < 256#usize
-  then
-    let i ← Array.index_usize zetas k
-    let i1 ← lift (core.num.I16.wrapping_mul i qinv)
-    let a ← Array.update table k i1
-    let k1 ← k + 1#usize
-    arithmetic.ntt_crt.zetas_qinv_loop zetas qinv a k1
-  else ok table
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::zetas_qinv]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 166:0-174:1 -/
-def arithmetic.ntt_crt.zetas_qinv
-  (zetas : Array Std.I16 256#usize) (qinv : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let table := Array.repeat 256#usize 0#i16
-  arithmetic.ntt_crt.zetas_qinv_loop zetas qinv table 0#usize
-
-/-- [kopis::arithmetic::ntt_crt::ZETAS_Q2]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 145:0-162:2 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.ZETAS_Q2 : Array Std.I16 256#usize :=
-  Array.make 256#usize [
-    1018#i16, 223#i16, 4188#i16, (-3688)#i16, 2413#i16, (-3686)#i16, 357#i16,
-    (-376)#i16, 2695#i16, (-730)#i16, 4855#i16, 2236#i16, (-425)#i16, 4544#i16,
-    3364#i16, (-3784)#i16, 4875#i16, (-1520)#i16, (-5063)#i16, (-4035)#i16,
-    2503#i16, 918#i16, (-3012)#i16, 4347#i16, 1931#i16, (-1341)#i16,
-    (-3823)#i16, (-341)#i16, (-4095)#i16, (-5175)#i16, (-2629)#i16,
-    (-5213)#i16, (-3091)#i16, 4129#i16, (-2935)#i16, 2790#i16, 268#i16,
-    1284#i16, 4#i16, 3550#i16, 2982#i16, 1287#i16, 205#i16, 4513#i16,
-    (-2565)#i16, (-2178)#i16, 4616#i16, (-193)#i16, (-4102)#i16, 4742#i16,
-    (-4876)#i16, (-4744)#i16, (-2984)#i16, (-3062)#i16, (-847)#i16,
-    (-4379)#i16, (-2388)#i16, (-1009)#i16, (-3085)#i16, (-1299)#i16,
-    (-2576)#i16, 4189#i16, 1085#i16, 544#i16, 5023#i16, 794#i16, (-567)#i16,
-    (-3198)#i16, 4734#i16, (-2998)#i16, 3441#i16, (-5341)#i16, 675#i16,
-    2271#i16, 1615#i16, (-2213)#i16, 512#i16, 2774#i16, 3057#i16, (-2045)#i16,
-    3615#i16, (-1458)#i16, (-909)#i16, 5114#i16, 2981#i16, (-4977)#i16,
-    (-116)#i16, 4580#i16, (-454)#i16, (-5064)#i16, 4808#i16, (-1841)#i16,
-    (-886)#i16, (-1356)#i16, (-4828)#i16, (-5156)#i16, 2737#i16, 4286#i16,
-    (-3169)#i16, (-578)#i16, 5294#i16, (-636)#i16, 400#i16, 151#i16,
-    (-2884)#i16, (-336)#i16, (-1006)#i16, (-326)#i16, 1572#i16, (-2740)#i16,
-    (-779)#i16, 2206#i16, (-1586)#i16, 1068#i16, (-3715)#i16, (-1268)#i16,
-    2684#i16, (-5116)#i16, 1324#i16, 2973#i16, (-2234)#i16, (-4123)#i16,
-    3337#i16, (-864)#i16, 472#i16, (-467)#i16, 970#i16, 635#i16, (-573)#i16,
-    2230#i16, (-1132)#i16, (-4621)#i16, 2624#i16, (-4601)#i16, 3570#i16,
-    (-3760)#i16, (-5309)#i16, 3453#i16, (-5215)#i16, 854#i16, (-4250)#i16,
-    2428#i16, 1381#i16, 5172#i16, (-5015)#i16, (-4447)#i16, 3135#i16, 2662#i16,
-    3524#i16, (-1573)#i16, 2139#i16, 458#i16, (-2196)#i16, (-2657)#i16,
-    4782#i16, (-3410)#i16, 2062#i16, 2015#i16, (-4784)#i16, 1635#i16, 1349#i16,
-    (-1722)#i16, 2909#i16, (-4359)#i16, 2680#i16, 2087#i16, 40#i16, 3241#i16,
-    (-2439)#i16, 2117#i16, 2050#i16, 2118#i16, (-4144)#i16, (-274)#i16,
-    3148#i16, (-1930)#i16, 1992#i16, 4408#i16, 5005#i16, (-4428)#i16, 2419#i16,
-    1639#i16, 2283#i16, (-778)#i16, (-2374)#i16, 663#i16, 1409#i16,
-    (-2237)#i16, (-4254)#i16, (-1122)#i16, 97#i16, (-5313)#i16, (-3535)#i16,
-    (-2813)#i16, 5083#i16, 279#i16, 4328#i16, 2279#i16, 2151#i16, 355#i16,
-    (-4003)#i16, 1204#i16, (-5356)#i16, (-624)#i16, 5120#i16, (-4519)#i16,
-    (-1689)#i16, 1056#i16, 3891#i16, (-3827)#i16, 1663#i16, (-2625)#i16,
-    (-2449)#i16, 3995#i16, (-1160)#i16, 2788#i16, (-4540)#i16, 3125#i16,
-    5068#i16, 3096#i16, 1893#i16, (-2807)#i16, (-5268)#i16, 2205#i16,
-    (-4889)#i16, (-152)#i16, 569#i16, 4973#i16, (-825)#i16, 4393#i16, 4000#i16,
-    1510#i16, 3419#i16, (-3360)#i16, 693#i16, (-3260)#i16, 4967#i16, 4859#i16,
-    2963#i16, 554#i16, (-5107)#i16, (-73)#i16, (-4891)#i16, (-1927)#i16,
-    5334#i16, 2605#i16, 2487#i16, (-2529)#i16, (-834)#i16, 1782#i16, 1111#i16,
-    2113#i16, 4720#i16, (-4670)#i16, (-1053)#i16, (-4403)#i16
-    ]
-
-/-- [kopis::arithmetic::ntt_crt::Q2_INV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 96:0-96:38 -/
-@[global_simps, irreducible] def arithmetic.ntt_crt.Q2_INV : Std.I16 := (-10751)#i16
-
-/-- [kopis::arithmetic::ntt_crt::ZETAS_Q2_QINV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 177:0-177:75 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.ZETAS_Q2_QINV : Result (Array Std.I16 256#usize) :=
-  arithmetic.ntt_crt.zetas_qinv arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-
-/-- [kopis::arithmetic::ntt_crt::ZETAS_Q1]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 124:0-141:2 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.ZETAS_Q1 : Array Std.I16 256#usize :=
-  Array.make 256#usize [
-    (-3593)#i16, 3777#i16, (-3182)#i16, 3625#i16, (-3696)#i16, (-1100)#i16,
-    2456#i16, 2194#i16, 121#i16, (-2250)#i16, 834#i16, (-2495)#i16,
-    (-2319)#i16, 2876#i16, (-1701)#i16, 1414#i16, 2816#i16, (-2088)#i16,
-    (-2237)#i16, 1986#i16, (-1599)#i16, 1993#i16, 3706#i16, (-2006)#i16,
-    (-1525)#i16, (-2557)#i16, 1296#i16, 1483#i16, (-2830)#i16, 3364#i16,
-    617#i16, 1921#i16, (-3689)#i16, (-1738)#i16, 3266#i16, (-3600)#i16,
-    810#i16, 1887#i16, (-638)#i16, (-7)#i16, (-438)#i16, (-679)#i16,
-    (-1305)#i16, (-1760)#i16, 396#i16, (-3174)#i16, (-3555)#i16, (-1881)#i16,
-    3772#i16, (-2535)#i16, (-2440)#i16, (-2555)#i16, 1535#i16, (-549)#i16,
-    3153#i16, 2310#i16, (-1399)#i16, 1321#i16, 514#i16, (-2956)#i16,
-    (-103)#i16, 2804#i16, (-2043)#i16, (-1431)#i16, (-1054)#i16, 1698#i16,
-    (-3456)#i16, 1166#i16, 2426#i16, 3831#i16, 915#i16, (-2)#i16, (-3417)#i16,
-    (-194)#i16, 2919#i16, 2789#i16, 3405#i16, 2385#i16, (-2113)#i16,
-    (-2732)#i16, 2175#i16, 373#i16, 3692#i16, (-730)#i16, (-1756)#i16,
-    3135#i16, (-2391)#i16, 660#i16, (-1497)#i16, 2572#i16, (-3145)#i16,
-    1350#i16, (-2224)#i16, (-3588)#i16, (-1681)#i16, 2883#i16, (-1390)#i16,
-    1598#i16, 3750#i16, 2762#i16, 2835#i16, 2764#i16, (-2233)#i16, 3816#i16,
-    (-1533)#i16, 1464#i16, (-727)#i16, 1521#i16, 1386#i16, (-3428)#i16,
-    (-921)#i16, (-2743)#i16, (-2160)#i16, 2649#i16, (-859)#i16, 2579#i16,
-    1532#i16, 1919#i16, (-486)#i16, 404#i16, (-1056)#i16, 783#i16, 1799#i16,
-    (-2665)#i16, 3480#i16, 2133#i16, (-3310)#i16, (-1168)#i16, (-17)#i16,
-    3744#i16, 2422#i16, 2001#i16, 1278#i16, 929#i16, (-1348)#i16, (-2230)#i16,
-    (-179)#i16, (-1242)#i16, (-2059)#i16, (-1070)#i16, 2161#i16, 1649#i16,
-    2072#i16, 3177#i16, (-2071)#i16, 1121#i16, (-436)#i16, 236#i16, 715#i16,
-    670#i16, (-658)#i16, (-1476)#i16, (-2378)#i16, 2767#i16, 3542#i16,
-    (-226)#i16, 1203#i16, 1181#i16, (-151)#i16, (-3794)#i16, 1712#i16,
-    (-222)#i16, 2786#i16, (-451)#i16, (-3547)#i16, 1779#i16, (-1151)#i16,
-    (-434)#i16, 3568#i16, (-3693)#i16, 3581#i16, (-1586)#i16, 1509#i16,
-    2918#i16, 2339#i16, (-1407)#i16, 3434#i16, (-3550)#i16, 2340#i16, 2891#i16,
-    2998#i16, (-3314)#i16, 3461#i16, (-2719)#i16, (-2247)#i16, (-2589)#i16,
-    1144#i16, 1072#i16, 1295#i16, (-2815)#i16, (-3770)#i16, 3450#i16, 3781#i16,
-    (-2258)#i16, 796#i16, 3163#i16, (-3208)#i16, (-589)#i16, 2963#i16,
-    (-124)#i16, 3214#i16, 3334#i16, (-3366)#i16, (-3745)#i16, 3723#i16,
-    1931#i16, (-429)#i16, (-402)#i16, (-3408)#i16, 83#i16, (-1526)#i16,
-    826#i16, (-1338)#i16, 2345#i16, (-2303)#i16, 2515#i16, (-642)#i16,
-    (-1837)#i16, (-2965)#i16, (-791)#i16, 370#i16, 293#i16, 3312#i16, 2083#i16,
-    (-1689)#i16, (-777)#i16, 2070#i16, 2262#i16, (-893)#i16, 2386#i16,
-    (-188)#i16, (-1519)#i16, (-2874)#i16, (-1404)#i16, 1012#i16, 2130#i16,
-    1441#i16, 2532#i16, (-3335)#i16, (-1084)#i16, (-3343)#i16, 2937#i16,
-    509#i16, (-1403)#i16, 2812#i16, 3763#i16, 592#i16, 2005#i16, 3657#i16,
-    2460#i16, (-3677)#i16, 3752#i16, 692#i16, 1669#i16, 2167#i16, (-3287)#i16
-    ]
-
-/-- [kopis::arithmetic::ntt_crt::Q1_INV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 94:0-94:37 -/
-@[global_simps, irreducible] def arithmetic.ntt_crt.Q1_INV : Std.I16 := (-7679)#i16
-
-/-- [kopis::arithmetic::ntt_crt::ZETAS_Q1_QINV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 176:0-176:75 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.ZETAS_Q1_QINV : Result (Array Std.I16 256#usize) :=
-  arithmetic.ntt_crt.zetas_qinv arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-
-/-- [kopis::arithmetic::ntt_crt::zeta_q]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 228:0-234:1 -/
-def arithmetic.ntt_crt.zeta_q (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
-  if SECOND
-  then let a ← arithmetic.ntt_crt.ZETAS_Q2_QINV
-       Array.index_usize a k
-  else let a ← arithmetic.ntt_crt.ZETAS_Q1_QINV
-       Array.index_usize a k
-
-/-- [kopis::arithmetic::ntt_crt::zeta]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 223:0-225:1 -/
-def arithmetic.ntt_crt.zeta (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
-  if SECOND
-  then Array.index_usize arithmetic.ntt_crt.ZETAS_Q2 k
-  else Array.index_usize arithmetic.ntt_crt.ZETAS_Q1 k
-
-/-- [kopis::backend::avx2::intrinsics::unpackhi_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 305:0-307:1 -/
-axiom backend.avx2.intrinsics.unpackhi_epi64
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::unpacklo_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 298:0-300:1 -/
-axiom backend.avx2.intrinsics.unpacklo_epi64
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::unpackhi_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 291:0-293:1 -/
-axiom backend.avx2.intrinsics.unpackhi_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::unpacklo_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 284:0-286:1 -/
-axiom backend.avx2.intrinsics.unpacklo_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::unpackhi_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 277:0-279:1 -/
-axiom backend.avx2.intrinsics.unpackhi_epi16
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::unpacklo_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 270:0-272:1 -/
-axiom backend.avx2.intrinsics.unpacklo_epi16
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::inlane_transpose8]:
-    Source: 'src/backend/avx2/ntt.rs', lines 273:0-300:1 -/
-def backend.avx2.ntt.inlane_transpose8
-  (v : Array backend.avx2.intrinsics.Vec256 8#usize) :
-  Result (Array backend.avx2.intrinsics.Vec256 8#usize)
-  := do
-  let v1 ← Array.index_usize v 0#usize
-  let v2 ← Array.index_usize v 1#usize
-  let a0 ← backend.avx2.intrinsics.unpacklo_epi16 v1 v2
-  let a1 ← backend.avx2.intrinsics.unpackhi_epi16 v1 v2
-  let v3 ← Array.index_usize v 2#usize
-  let v4 ← Array.index_usize v 3#usize
-  let a2 ← backend.avx2.intrinsics.unpacklo_epi16 v3 v4
-  let a3 ← backend.avx2.intrinsics.unpackhi_epi16 v3 v4
-  let v5 ← Array.index_usize v 4#usize
-  let v6 ← Array.index_usize v 5#usize
-  let a4 ← backend.avx2.intrinsics.unpacklo_epi16 v5 v6
-  let a5 ← backend.avx2.intrinsics.unpackhi_epi16 v5 v6
-  let v7 ← Array.index_usize v 6#usize
-  let v8 ← Array.index_usize v 7#usize
-  let a6 ← backend.avx2.intrinsics.unpacklo_epi16 v7 v8
-  let a7 ← backend.avx2.intrinsics.unpackhi_epi16 v7 v8
-  let b0 ← backend.avx2.intrinsics.unpacklo_epi32 a0 a2
-  let b1 ← backend.avx2.intrinsics.unpackhi_epi32 a0 a2
-  let b2 ← backend.avx2.intrinsics.unpacklo_epi32 a1 a3
-  let b3 ← backend.avx2.intrinsics.unpackhi_epi32 a1 a3
-  let b4 ← backend.avx2.intrinsics.unpacklo_epi32 a4 a6
-  let b5 ← backend.avx2.intrinsics.unpackhi_epi32 a4 a6
-  let b6 ← backend.avx2.intrinsics.unpacklo_epi32 a5 a7
-  let b7 ← backend.avx2.intrinsics.unpackhi_epi32 a5 a7
-  let v9 ← backend.avx2.intrinsics.unpacklo_epi64 b0 b4
-  let v10 ← Array.update v 0#usize v9
-  let v11 ← backend.avx2.intrinsics.unpackhi_epi64 b0 b4
-  let v12 ← Array.update v10 1#usize v11
-  let v13 ← backend.avx2.intrinsics.unpacklo_epi64 b1 b5
-  let v14 ← Array.update v12 2#usize v13
-  let v15 ← backend.avx2.intrinsics.unpackhi_epi64 b1 b5
-  let v16 ← Array.update v14 3#usize v15
-  let v17 ← backend.avx2.intrinsics.unpacklo_epi64 b2 b6
-  let v18 ← Array.update v16 4#usize v17
-  let v19 ← backend.avx2.intrinsics.unpackhi_epi64 b2 b6
-  let v20 ← Array.update v18 5#usize v19
-  let v21 ← backend.avx2.intrinsics.unpacklo_epi64 b3 b7
-  let v22 ← Array.update v20 6#usize v21
-  let v23 ← backend.avx2.intrinsics.unpackhi_epi64 b3 b7
-  Array.update v22 7#usize v23
-
-/-- [kopis::backend::avx2::intrinsics::store_i16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 389:0-393:1 -/
-axiom backend.avx2.intrinsics.store_i16
-  {N : Std.Usize} :
-  Array Std.I16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
-    (Array Std.I16 N)
-
-/-- [kopis::backend::avx2::intrinsics::load_i16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 380:0-384:1 -/
-axiom backend.avx2.intrinsics.load_i16
-  {N : Std.Usize} :
-  Array Std.I16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::permute2x128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 313:0-315:1 -/
-axiom backend.avx2.intrinsics.permute2x128_si256
-  (IMM : Std.I32) :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::transpose16]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 327:8-329:9 -/
-@[rust_loop]
-def backend.avx2.ntt.transpose16_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (scratch : Array Std.I16 256#usize)
-  (half : Std.Usize) (v : Array backend.avx2.intrinsics.Vec256 8#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok scratch
-  | some j =>
-    let i ← 8#usize * half
-    let i1 ← i + j
-    let v1 ← Array.index_usize v j
-    let scratch1 ← backend.avx2.intrinsics.store_i16 scratch i1 v1
-    backend.avx2.ntt.transpose16_loop0_loop0 iter1 scratch1 half v
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::transpose16]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 315:4-330:5 -/
-@[rust_loop]
-def backend.avx2.ntt.transpose16_loop0
-  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
-  (scratch : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok scratch
-  | some half =>
-    let i ← 8#usize * half
-    let v ← backend.avx2.intrinsics.load_i16 b i
-    let i1 ← i + 1#usize
-    let v1 ← backend.avx2.intrinsics.load_i16 b i1
-    let i2 ← i + 2#usize
-    let v2 ← backend.avx2.intrinsics.load_i16 b i2
-    let i3 ← i + 3#usize
-    let v3 ← backend.avx2.intrinsics.load_i16 b i3
-    let i4 ← i + 4#usize
-    let v4 ← backend.avx2.intrinsics.load_i16 b i4
-    let i5 ← i + 5#usize
-    let v5 ← backend.avx2.intrinsics.load_i16 b i5
-    let i6 ← i + 6#usize
-    let v6 ← backend.avx2.intrinsics.load_i16 b i6
-    let i7 ← i + 7#usize
-    let v7 ← backend.avx2.intrinsics.load_i16 b i7
-    let v8 ←
-      backend.avx2.ntt.inlane_transpose8
-        (Array.make 8#usize [ v, v1, v2, v3, v4, v5, v6, v7 ])
-    let scratch1 ←
-      backend.avx2.ntt.transpose16_loop0_loop0
-        { start := 0#usize, «end» := 8#usize } scratch half v8
-    backend.avx2.ntt.transpose16_loop0 iter1 b scratch1
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::transpose16]: loop 2:
-    Source: 'src/backend/avx2/ntt.rs', lines 332:4-337:5 -/
-@[rust_loop]
-def backend.avx2.ntt.transpose16_loop1
-  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
-  (scratch : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some r =>
-    let a ← backend.avx2.intrinsics.load_i16 scratch r
-    let i ← 8#usize + r
-    let c ← backend.avx2.intrinsics.load_i16 scratch i
-    let v ← backend.avx2.intrinsics.permute2x128_si256 32#i32 a c
-    let b1 ← backend.avx2.intrinsics.store_i16 b r v
-    let v1 ← backend.avx2.intrinsics.permute2x128_si256 49#i32 a c
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i v1
-    backend.avx2.ntt.transpose16_loop1 iter1 b2 scratch
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::transpose16]:
-    Source: 'src/backend/avx2/ntt.rs', lines 313:0-338:1 -/
-def backend.avx2.ntt.transpose16
-  (b : Array Std.I16 256#usize) : Result (Array Std.I16 256#usize) := do
-  let scratch := Array.repeat 256#usize 0#i16
-  let scratch1 ←
-    backend.avx2.ntt.transpose16_loop0 { start := 0#usize, «end» := 2#usize }
-      b scratch
-  backend.avx2.ntt.transpose16_loop1 { start := 0#usize, «end» := 8#usize } b
-    scratch1
-
-/-- [kopis::backend::avx2::intrinsics::srai_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 195:0-197:1 -/
-axiom backend.avx2.intrinsics.srai_epi16
-  (IMM : Std.I32) :
-  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::mulhi_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 170:0-172:1 -/
-axiom backend.avx2.intrinsics.mulhi_epi16
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::mullo_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 163:0-165:1 -/
-axiom backend.avx2.intrinsics.mullo_epi16
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::sub_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 142:0-144:1 -/
-axiom backend.avx2.intrinsics.sub_epi16
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::add_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 135:0-137:1 -/
-axiom backend.avx2.intrinsics.add_epi16
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::barrett]:
-    Source: 'src/backend/avx2/ntt.rs', lines 233:0-237:1 -/
-def backend.avx2.ntt.barrett
-  (x : backend.avx2.intrinsics.Vec256) (m : backend.avx2.intrinsics.Vec256)
-  (round : backend.avx2.intrinsics.Vec256) (q : backend.avx2.intrinsics.Vec256)
-  :
-  Result backend.avx2.intrinsics.Vec256
-  := do
-  let v ← backend.avx2.intrinsics.mulhi_epi16 x m
-  let t ← backend.avx2.intrinsics.add_epi16 v round
-  let t1 ← backend.avx2.intrinsics.srai_epi16 11#i32 t
-  let v1 ← backend.avx2.intrinsics.mullo_epi16 t1 q
-  backend.avx2.intrinsics.sub_epi16 x v1
-
-/-- [kopis::backend::avx2::ntt::barrett_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 262:4-264:5 -/
-@[rust_loop]
-def backend.avx2.ntt.barrett_block_loop
-  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
-  (m : backend.avx2.intrinsics.Vec256) (round : backend.avx2.intrinsics.Vec256)
-  (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let v ← backend.avx2.intrinsics.load_i16 b i
-    let v1 ← backend.avx2.ntt.barrett v m round q
-    let b1 ← backend.avx2.intrinsics.store_i16 b i v1
-    backend.avx2.ntt.barrett_block_loop iter1 b1 m round q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::barrett_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 261:0-265:1 -/
-@[reducible]
-def backend.avx2.ntt.barrett_block
-  (b : Array Std.I16 256#usize) (m : backend.avx2.intrinsics.Vec256)
-  (round : backend.avx2.intrinsics.Vec256) (q : backend.avx2.intrinsics.Vec256)
-  :
-  Result (Array Std.I16 256#usize)
-  := do
-  backend.avx2.ntt.barrett_block_loop { start := 0#usize, «end» := 16#usize }
-    b m round q
-
-/-- [kopis::backend::avx2::ntt::mont_mul]:
-    Source: 'src/backend/avx2/ntt.rs', lines 221:0-224:1 -/
-def backend.avx2.ntt.mont_mul
-  (a : backend.avx2.intrinsics.Vec256) (z : backend.avx2.intrinsics.Vec256)
-  (zq : backend.avx2.intrinsics.Vec256) (q : backend.avx2.intrinsics.Vec256) :
-  Result backend.avx2.intrinsics.Vec256
-  := do
-  let t ← backend.avx2.intrinsics.mullo_epi16 a zq
-  let v ← backend.avx2.intrinsics.mulhi_epi16 a z
-  let v1 ← backend.avx2.intrinsics.mulhi_epi16 t q
-  backend.avx2.intrinsics.sub_epi16 v v1
-
-/-- [kopis::backend::avx2::ntt::ct_butterfly]:
-    Source: 'src/backend/avx2/ntt.rs', lines 242:0-246:1 -/
-def backend.avx2.ntt.ct_butterfly
-  (lo : backend.avx2.intrinsics.Vec256) (hi : backend.avx2.intrinsics.Vec256)
-  (z : backend.avx2.intrinsics.Vec256) (zq : backend.avx2.intrinsics.Vec256)
-  (q : backend.avx2.intrinsics.Vec256) :
-  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
-  := do
-  let t ← backend.avx2.ntt.mont_mul hi z zq q
-  let hi1 ← backend.avx2.intrinsics.sub_epi16 lo t
-  let lo1 ← backend.avx2.intrinsics.add_epi16 lo t
-  ok (lo1, hi1)
-
-/-- [kopis::backend::avx2::ntt::Tbl]
-    Source: 'src/backend/avx2/ntt.rs', lines 131:0-134:1 -/
-structure backend.avx2.ntt.Tbl (N : Std.Usize) where
-  z : Array Std.I16 N
-  zq : Array Std.I16 N
-
-/-- [kopis::backend::avx2::ntt::ld_tbl]:
-    Source: 'src/backend/avx2/ntt.rs', lines 209:0-211:1 -/
-def backend.avx2.ntt.ld_tbl
-  {N : Std.Usize} (table : backend.avx2.ntt.Tbl N) (h : Std.Usize) :
-  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
-  := do
-  let v ← backend.avx2.intrinsics.load_i16 table.z h
-  let v1 ← backend.avx2.intrinsics.load_i16 table.zq h
-  ok (v, v1)
-
-/-- [kopis::backend::avx2::ntt::lane_tbl]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 151:8-158:9 -/
-@[rust_loop]
-def backend.avx2.ntt.lane_tbl_loop0_loop0
-  {N : Std.Usize} (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
-  (base : Std.Isize) (h_stride : Std.Isize) (m_stride : Std.Isize) (neg : Bool)
-  (z : Array Std.I16 N) (zq : Array Std.I16 N) (h : Std.Usize) (m : Std.Usize)
-  :
-  Result ((Array Std.I16 N) × (Array Std.I16 N))
-  := do
-  if m < 16#usize
-  then
-    let i ← lift (UScalar.hcast .Isize h)
-    let i1 ← i * h_stride
-    let i2 ← base + i1
-    let i3 ← lift (UScalar.hcast .Isize m)
-    let i4 ← i3 * m_stride
-    let idx ← i2 + i4
-    let i5 ← lift (IScalar.hcast .Usize idx)
-    let value ← Array.index_usize zetas i5
-    let value1 ← if neg
-                   then -. value
-                   else ok value
-    let i6 ← h * 16#usize
-    let i7 ← i6 + m
-    let a ← Array.update z i7 value1
-    let i8 ← lift (core.num.I16.wrapping_mul value1 qinv)
-    let i9 ← i6 + m
-    let a1 ← Array.update zq i9 i8
-    let m1 ← m + 1#usize
-    backend.avx2.ntt.lane_tbl_loop0_loop0 zetas qinv base h_stride m_stride neg
-      a a1 h m1
-  else ok (z, zq)
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::lane_tbl]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 149:4-160:5 -/
-@[rust_loop]
-def backend.avx2.ntt.lane_tbl_loop0
-  {N : Std.Usize} (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
-  (base : Std.Isize) (h_stride : Std.Isize) (m_stride : Std.Isize) (neg : Bool)
-  (z : Array Std.I16 N) (zq : Array Std.I16 N) (h : Std.Usize) :
-  Result ((Array Std.I16 N) × (Array Std.I16 N))
-  := do
-  let i ← h * 16#usize
-  if i < N
-  then
-    let (z1, zq1) ←
-      backend.avx2.ntt.lane_tbl_loop0_loop0 zetas qinv base h_stride m_stride
-        neg z zq h 0#usize
-    let h1 ← h + 1#usize
-    backend.avx2.ntt.lane_tbl_loop0 zetas qinv base h_stride m_stride neg z1
-      zq1 h1
-  else ok (z, zq)
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::lane_tbl]:
-    Source: 'src/backend/avx2/ntt.rs', lines 138:0-162:1 -/
-def backend.avx2.ntt.lane_tbl
-  (N : Std.Usize) (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
-  (base : Std.Isize) (h_stride : Std.Isize) (m_stride : Std.Isize) (neg : Bool)
-  :
-  Result (backend.avx2.ntt.Tbl N)
-  := do
-  let z := Array.repeat N 0#i16
-  let zq := Array.repeat N 0#i16
-  let (z1, zq1) ←
-    backend.avx2.ntt.lane_tbl_loop0 zetas qinv base h_stride m_stride neg z zq
-      0#usize
-  ok { z := z1, zq := zq1 }
-
-/-- [kopis::backend::avx2::ntt::FWD1_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 189:0-189:73 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD1_Q2 : Result (backend.avx2.ntt.Tbl 128#usize) :=
-  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    128#isize 1#isize 8#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD2_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 188:0-188:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD2_Q2 : Result (backend.avx2.ntt.Tbl 64#usize) :=
-  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    64#isize 1#isize 4#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD4_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 187:0-187:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD4_Q2 : Result (backend.avx2.ntt.Tbl 32#usize) :=
-  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    32#isize 1#isize 2#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD8_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 186:0-186:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD8_Q2 : Result (backend.avx2.ntt.Tbl 16#usize) :=
-  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    16#isize 0#isize 1#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD1_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 176:0-176:73 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD1_Q1 : Result (backend.avx2.ntt.Tbl 128#usize) :=
-  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    128#isize 1#isize 8#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD2_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 175:0-175:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD2_Q1 : Result (backend.avx2.ntt.Tbl 64#usize) :=
-  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    64#isize 1#isize 4#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD4_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 174:0-174:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD4_Q1 : Result (backend.avx2.ntt.Tbl 32#usize) :=
-  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    32#isize 1#isize 2#isize false
-
-/-- [kopis::backend::avx2::ntt::FWD8_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 173:0-173:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.FWD8_Q1 : Result (backend.avx2.ntt.Tbl 16#usize) :=
-  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    16#isize 0#isize 1#isize false
-
-/-- [kopis::backend::avx2::intrinsics::set1_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 65:0-67:1 -/
-axiom backend.avx2.intrinsics.set1_epi16
-  : Std.I16 → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 2:
-    Source: 'src/backend/avx2/ntt.rs', lines 367:12-374:13 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop0_loop0_loop0
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
-  (half : Std.Usize) (start : Std.Usize) (z : backend.avx2.intrinsics.Vec256)
-  (zq : backend.avx2.intrinsics.Vec256) (i : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let i1 ← start + half
-  if i < i1
-  then
-    let lo ← backend.avx2.intrinsics.load_i16 b i
-    let i2 ← i + half
-    let hi ← backend.avx2.intrinsics.load_i16 b i2
-    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
-    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
-    let i3 ← i + 1#usize
-    backend.avx2.ntt.ntt_block_loop0_loop0_loop0 b2 q half start z zq i3
-  else ok b
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 362:8-376:9 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop0_loop0
-  (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize)
-  (start : Std.Usize) :
-  Result ((Array Std.I16 256#usize) × Std.Usize)
-  := do
-  if start < 16#usize
-  then
-    let k1 ← k + 1#usize
-    let i ← arithmetic.ntt_crt.zeta SECOND k1
-    let z ← backend.avx2.intrinsics.set1_epi16 i
-    let i1 ← arithmetic.ntt_crt.zeta_q SECOND k1
-    let zq ← backend.avx2.intrinsics.set1_epi16 i1
-    let b1 ←
-      backend.avx2.ntt.ntt_block_loop0_loop0_loop0 b q half start z zq start
-    let i2 ← 2#usize * half
-    let start1 ← start + i2
-    backend.avx2.ntt.ntt_block_loop0_loop0 SECOND b1 q k1 half start1
-  else ok (b, k)
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 360:4-383:5 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop0
-  (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (bm : backend.avx2.intrinsics.Vec256)
-  (round : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize)
-  (level : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  if half >= 1#usize
-  then
-    let (b1, k1) ←
-      backend.avx2.ntt.ntt_block_loop0_loop0 SECOND b q k half 0#usize
-    let b2 ←
-      if level = 2#usize
-      then backend.avx2.ntt.barrett_block b1 bm round q
-      else ok b1
-    let half1 ← half / 2#usize
-    let level1 ← level + 1#usize
-    backend.avx2.ntt.ntt_block_loop0 SECOND b2 q bm round k1 half1 level1
-  else ok b
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 3:
-    Source: 'src/backend/avx2/ntt.rs', lines 392:74-408:5 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop1
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let (z, zq) ←
-      if SECOND
-      then
-        do
-        let t ← backend.avx2.ntt.FWD8_Q2
-        backend.avx2.ntt.ld_tbl t 0#usize
-      else
-        do
-        let t ← backend.avx2.ntt.FWD8_Q1
-        backend.avx2.ntt.ld_tbl t 0#usize
-    let lo ← backend.avx2.intrinsics.load_i16 b j
-    let i ← j + 8#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i
-    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
-    let b1 ← backend.avx2.intrinsics.store_i16 b j lo1
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i hi1
-    backend.avx2.ntt.ntt_block_loop1 SECOND iter1 b2 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 5:
-    Source: 'src/backend/avx2/ntt.rs', lines 392:74-419:9 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop2_loop0
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
-  (h : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let (z, zq) ←
-      if SECOND
-      then do
-           let t ← backend.avx2.ntt.FWD4_Q2
-           backend.avx2.ntt.ld_tbl t h
-      else do
-           let t ← backend.avx2.ntt.FWD4_Q1
-           backend.avx2.ntt.ld_tbl t h
-    let i ← 8#usize * h
-    let i1 ← i + j
-    let lo ← backend.avx2.intrinsics.load_i16 b i1
-    let i2 ← i + j
-    let i3 ← i2 + 4#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i3
-    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
-    let i4 ← i + j
-    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
-    let i5 ← i + j
-    let i6 ← i5 + 4#usize
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
-    backend.avx2.ntt.ntt_block_loop2_loop0 SECOND iter1 b2 q h
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 4:
-    Source: 'src/backend/avx2/ntt.rs', lines 392:74-420:5 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop2
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some h =>
-    let b1 ←
-      backend.avx2.ntt.ntt_block_loop2_loop0 SECOND
-        { start := 0#usize, «end» := 4#usize } b q h
-    backend.avx2.ntt.ntt_block_loop2 SECOND iter1 b1 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 7:
-    Source: 'src/backend/avx2/ntt.rs', lines 392:74-431:9 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop3_loop0
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
-  (h : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let (z, zq) ←
-      if SECOND
-      then do
-           let t ← backend.avx2.ntt.FWD2_Q2
-           backend.avx2.ntt.ld_tbl t h
-      else do
-           let t ← backend.avx2.ntt.FWD2_Q1
-           backend.avx2.ntt.ld_tbl t h
-    let i ← 4#usize * h
-    let i1 ← i + j
-    let lo ← backend.avx2.intrinsics.load_i16 b i1
-    let i2 ← i + j
-    let i3 ← i2 + 2#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i3
-    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
-    let i4 ← i + j
-    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
-    let i5 ← i + j
-    let i6 ← i5 + 2#usize
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
-    backend.avx2.ntt.ntt_block_loop3_loop0 SECOND iter1 b2 q h
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 6:
-    Source: 'src/backend/avx2/ntt.rs', lines 392:74-432:5 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop3
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some h =>
-    let b1 ←
-      backend.avx2.ntt.ntt_block_loop3_loop0 SECOND
-        { start := 0#usize, «end» := 2#usize } b q h
-    backend.avx2.ntt.ntt_block_loop3 SECOND iter1 b1 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]: loop 8:
-    Source: 'src/backend/avx2/ntt.rs', lines 392:74-439:5 -/
-@[rust_loop]
-def backend.avx2.ntt.ntt_block_loop4
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some h =>
-    let (z, zq) ←
-      if SECOND
-      then do
-           let t ← backend.avx2.ntt.FWD1_Q2
-           backend.avx2.ntt.ld_tbl t h
-      else do
-           let t ← backend.avx2.ntt.FWD1_Q1
-           backend.avx2.ntt.ld_tbl t h
-    let i ← 2#usize * h
-    let lo ← backend.avx2.intrinsics.load_i16 b i
-    let i1 ← i + 1#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i1
-    let (lo1, hi1) ← backend.avx2.ntt.ct_butterfly lo hi z zq q
-    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
-    let i2 ← i + 1#usize
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
-    backend.avx2.ntt.ntt_block_loop4 SECOND iter1 b2 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::ntt_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 350:0-445:1 -/
-def backend.avx2.ntt.ntt_block
-  (SECOND : Bool) (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let i ← arithmetic.ntt_crt.q SECOND
-  let q ← backend.avx2.intrinsics.set1_epi16 i
-  let i1 ← arithmetic.ntt_crt.barrett_m SECOND
-  let bm ← backend.avx2.intrinsics.set1_epi16 i1
-  let i2 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
-  let i3 ← 1#i16 <<< i2
-  let round ← backend.avx2.intrinsics.set1_epi16 i3
-  let b1 ←
-    backend.avx2.ntt.ntt_block_loop0 SECOND b q bm round 0#usize 8#usize
-      0#usize
-  let b2 ← backend.avx2.ntt.transpose16 b1
-  let b3 ←
-    backend.avx2.ntt.ntt_block_loop1 SECOND
-      { start := 0#usize, «end» := 8#usize } b2 q
-  let b4 ←
-    backend.avx2.ntt.ntt_block_loop2 SECOND
-      { start := 0#usize, «end» := 2#usize } b3 q
-  let b5 ←
-    backend.avx2.ntt.ntt_block_loop3 SECOND
-      { start := 0#usize, «end» := 4#usize } b4 q
-  let b6 ← backend.avx2.ntt.barrett_block b5 bm round q
-  let b7 ←
-    backend.avx2.ntt.ntt_block_loop4 SECOND
-      { start := 0#usize, «end» := 8#usize } b6 q
-  let b8 ← backend.avx2.ntt.transpose16 b7
-  backend.avx2.ntt.barrett_block b8 bm round q
-
-/-- [kopis::backend::avx2::intrinsics::load_u16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 398:0-402:1 -/
-axiom backend.avx2.intrinsics.load_u16
-  {N : Std.Usize} :
-  Array Std.U16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::split_and_transform]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 564:4-571:5 -/
-@[rust_loop]
-def backend.avx2.ntt.split_and_transform_loop
-  (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
-  (elem : Array Std.U16 256#usize) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (bm : backend.avx2.intrinsics.Vec256)
-  (round : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let x ← backend.avx2.intrinsics.load_u16 elem i
-    let x1 ← if REDUCE
-               then backend.avx2.ntt.barrett x bm round q
-               else ok x
-    let b1 ← backend.avx2.intrinsics.store_i16 b i x1
-    backend.avx2.ntt.split_and_transform_loop REDUCE iter1 elem b1 q bm round
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::split_and_transform]:
-    Source: 'src/backend/avx2/ntt.rs', lines 557:0-574:1 -/
-def backend.avx2.ntt.split_and_transform
-  (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
-  (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let i ← arithmetic.ntt_crt.q SECOND
-  let q ← backend.avx2.intrinsics.set1_epi16 i
-  let i1 ← arithmetic.ntt_crt.barrett_m SECOND
-  let bm ← backend.avx2.intrinsics.set1_epi16 i1
-  let i2 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
-  let i3 ← 1#i16 <<< i2
-  let round ← backend.avx2.intrinsics.set1_epi16 i3
-  let b1 ←
-    backend.avx2.ntt.split_and_transform_loop REDUCE
-      { start := 0#usize, «end» := 16#usize } elem b q bm round
-  backend.avx2.ntt.ntt_block SECOND b1
-
-/-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 592:4-594:5 -/
-@[rust_loop]
-def backend.avx2.ntt.from_ring_elem_loop0
-  (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
-  (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 512#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some i =>
-    let v ← backend.avx2.intrinsics.load_i16 b i
-    let out1 ← backend.avx2.intrinsics.store_i16 out i v
-    backend.avx2.ntt.from_ring_elem_loop0 iter1 out1 b
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 597:4-599:5 -/
-@[rust_loop]
-def backend.avx2.ntt.from_ring_elem_loop1
-  (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
-  (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 512#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some i =>
-    let i1 ← 16#usize + i
-    let v ← backend.avx2.intrinsics.load_i16 b i
-    let out1 ← backend.avx2.intrinsics.store_i16 out i1 v
-    backend.avx2.ntt.from_ring_elem_loop1 iter1 out1 b
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::from_ring_elem]:
-    Source: 'src/backend/avx2/ntt.rs', lines 587:0-602:1 -/
-def backend.avx2.ntt.from_ring_elem
-  (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
-  Result (Array Std.I16 512#usize)
-  := do
-  let out := Array.repeat 512#usize 0#i16
-  let b := Array.repeat 256#usize 0#i16
-  let b1 ← backend.avx2.ntt.split_and_transform false REDUCE elem b
-  let out1 ←
-    backend.avx2.ntt.from_ring_elem_loop0
-      { start := 0#usize, «end» := 16#usize } out b1
-  let b2 ← backend.avx2.ntt.split_and_transform true REDUCE elem b1
-  backend.avx2.ntt.from_ring_elem_loop1
-    { start := 0#usize, «end» := 16#usize } out1 b2
-
-/-- [kopis::backend::avx2::ntt::from_uniform]:
-    Source: 'src/backend/avx2/ntt.rs', lines 610:0-612:1 -/
-def backend.avx2.ntt.from_uniform
-  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
-  backend.avx2.ntt.from_ring_elem true elem
-
-/-- [kopis::arithmetic::ntt_crt::mont_mul]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 74:0-79:1 -/
-def arithmetic.ntt_crt.mont_mul
-  (a : Std.I16) (z : Std.I16) (zq : Std.I16) (q : Std.I16) :
-  Result Std.I16
-  := do
-  let t ← lift (core.num.I16.wrapping_mul a zq)
-  let i ← lift (IScalar.cast .I32 a)
-  let i1 ← lift (IScalar.cast .I32 z)
-  let i2 ← lift (core.num.I32.wrapping_mul i i1)
-  let i3 ← i2 >>> 16#i32
-  let hi ← lift (IScalar.cast .I16 i3)
-  let i4 ← lift (IScalar.cast .I32 t)
-  let i5 ← lift (IScalar.cast .I32 q)
-  let i6 ← lift (core.num.I32.wrapping_mul i4 i5)
-  let i7 ← i6 >>> 16#i32
-  let th ← lift (IScalar.cast .I16 i7)
-  ok (core.num.I16.wrapping_sub hi th)
-
-/-- [kopis::arithmetic::ntt_crt::ct_level]: loop 1:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 115:8-119:9 -/
-@[rust_loop]
-def arithmetic.ntt_crt.ct_level_loop0_loop0
-  (LEN : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : Std.I16) (z : Std.I16) (zq : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let i ← j + LEN
-    let i1 ← Array.index_usize b i
-    let t ← arithmetic.ntt_crt.mont_mul i1 z zq q
-    let i2 ← Array.index_usize b j
-    let i3 ← lift (core.num.I16.wrapping_sub i2 t)
-    let b1 ← Array.update b i i3
-    let i4 ← Array.index_usize b1 j
-    let i5 ← lift (core.num.I16.wrapping_add i4 t)
-    let a ← Array.update b1 j i5
-    arithmetic.ntt_crt.ct_level_loop0_loop0 LEN iter1 a q z zq
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::ct_level]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 111:4-121:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.ct_level_loop0
-  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (k : Std.Usize) (q : Std.I16) (start : Std.Usize) :
-  Result ((Array Std.I16 256#usize) × Std.Usize)
-  := do
-  if start < consts.RING_DEG
-  then
-    let k1 ← k + 1#usize
-    let z ← arithmetic.ntt_crt.zeta SECOND k1
-    let zq ← arithmetic.ntt_crt.zeta_q SECOND k1
-    let i ← start + LEN
-    let b1 ←
-      arithmetic.ntt_crt.ct_level_loop0_loop0 LEN { start, «end» := i } b q z
-        zq
-    let i1 ← 2#usize * LEN
-    let start1 ← start + i1
-    arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b1 k1 q start1
-  else ok (b, k)
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::ct_level]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 108:0-122:1 -/
-def arithmetic.ntt_crt.ct_level
-  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (k : Std.Usize) :
-  Result ((Array Std.I16 256#usize) × Std.Usize)
-  := do
-  let q ← arithmetic.ntt_crt.q SECOND
-  arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b k q 0#usize
-
-/-- [kopis::arithmetic::ntt_crt::barrett]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 87:0-91:1 -/
-def arithmetic.ntt_crt.barrett
-  (x : Std.I16) (m : Std.I16) (q : Std.I16) : Result Std.I16 := do
-  let i ← lift (IScalar.cast .I32 x)
-  let i1 ← lift (IScalar.cast .I32 m)
-  let i2 ← lift (core.num.I32.wrapping_mul i i1)
-  let i3 ← i2 >>> 16#i32
-  let t ← lift (IScalar.cast .I16 i3)
-  let i4 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
-  let i5 ← 1#i16 <<< i4
-  let i6 ← lift (core.num.I16.wrapping_add t i5)
-  let t1 ← i6 >>> arithmetic.ntt_crt.BARRETT_SH
-  let i7 ← lift (core.num.I16.wrapping_mul t1 q)
-  ok (core.num.I16.wrapping_sub x i7)
-
-/-- [kopis::arithmetic::ntt_crt::barrett_block]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 97:4-99:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.barrett_block_loop
-  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
-  (q : Std.I16) (m : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let i1 ← Array.index_usize b i
-    let i2 ← arithmetic.ntt_crt.barrett i1 m q
-    let a ← Array.update b i i2
-    arithmetic.ntt_crt.barrett_block_loop iter1 a q m
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::barrett_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 94:0-100:1 -/
-def arithmetic.ntt_crt.barrett_block
-  (SECOND : Bool) (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let q ← arithmetic.ntt_crt.q SECOND
-  let m ← arithmetic.ntt_crt.barrett_m SECOND
-  arithmetic.ntt_crt.barrett_block_loop
-    { start := 0#usize, «end» := consts.RING_DEG } b q m
-
-/-- [kopis::arithmetic::ntt_crt::ntt_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 152:0-167:1 -/
-def arithmetic.ntt_crt.ntt_block
-  (SECOND : Bool) (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (b1, k) ← arithmetic.ntt_crt.ct_level 128#usize SECOND b 0#usize
-  let (b2, k1) ← arithmetic.ntt_crt.ct_level 64#usize SECOND b1 k
-  let (b3, k2) ← arithmetic.ntt_crt.ct_level 32#usize SECOND b2 k1
-  let b4 ← arithmetic.ntt_crt.barrett_block SECOND b3
-  let (b5, k3) ← arithmetic.ntt_crt.ct_level 16#usize SECOND b4 k2
-  let (b6, k4) ← arithmetic.ntt_crt.ct_level 8#usize SECOND b5 k3
-  let (b7, k5) ← arithmetic.ntt_crt.ct_level 4#usize SECOND b6 k4
-  let b8 ← arithmetic.ntt_crt.barrett_block SECOND b7
-  let (b9, k6) ← arithmetic.ntt_crt.ct_level 2#usize SECOND b8 k5
-  let (b10, _) ← arithmetic.ntt_crt.ct_level 1#usize SECOND b9 k6
-  arithmetic.ntt_crt.barrett_block SECOND b10
-
-/-- [kopis::arithmetic::ntt_crt::split_and_transform]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 208:4-211:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.split_and_transform_loop
-  (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
-  (elem : Array Std.U16 256#usize) (b : Array Std.I16 256#usize) (q : Std.I16)
-  (m : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let i1 ← Array.index_usize elem i
-    let x ← lift (UScalar.hcast .I16 i1)
-    let x1 ← if REDUCE
-               then arithmetic.ntt_crt.barrett x m q
-               else ok x
-    let a ← Array.update b i x1
-    arithmetic.ntt_crt.split_and_transform_loop REDUCE iter1 elem a q m
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::split_and_transform]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 202:0-213:1 -/
-def arithmetic.ntt_crt.split_and_transform
-  (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
-  (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let q ← arithmetic.ntt_crt.q SECOND
-  let m ← arithmetic.ntt_crt.barrett_m SECOND
-  let b1 ←
-    arithmetic.ntt_crt.split_and_transform_loop REDUCE
-      { start := 0#usize, «end» := consts.RING_DEG } elem b q m
-  arithmetic.ntt_crt.ntt_block SECOND b1
-
-/-- [kopis::arithmetic::ntt_crt::from_ring_elem]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 217:0-228:1 -/
-def arithmetic.ntt_crt.from_ring_elem
-  (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
-  Result (Array Std.I16 512#usize)
-  := do
-  let out := Array.repeat 512#usize 0#i16
-  let b := Array.repeat 256#usize 0#i16
-  let b1 ← arithmetic.ntt_crt.split_and_transform false REDUCE elem b
-  let (s, index_mut_back) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.I16)) out
-      { «end» := consts.RING_DEG }
-  let s1 ← lift (Array.to_slice b1)
-  let s2 ← core.slice.Slice.copy_from_slice core.marker.CopyI16 s s1
-  let b2 ← arithmetic.ntt_crt.split_and_transform true REDUCE elem b1
-  let out1 := index_mut_back s2
-  let (s3, index_mut_back1) ←
-    core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.I16)) out1
-      { start := consts.RING_DEG }
-  let s4 ← lift (Array.to_slice b2)
-  let s5 ← core.slice.Slice.copy_from_slice core.marker.CopyI16 s3 s4
-  ok (index_mut_back1 s5)
-
-/-- [kopis::arithmetic::ntt_crt::from_uniform]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 231:0-233:1 -/
-def arithmetic.ntt_crt.from_uniform
-  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
-  arithmetic.ntt_crt.from_ring_elem true elem
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttElem}::from_uniform]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 269:4-287:5 -/
-def arithmetic.ntt_arith.NttElem.from_uniform
-  (elem : arithmetic.plain_arith.RingElem) : Result arithmetic.ntt_arith.NttElem := do
-  let b ← backend.avx2.cpu.available
-  if b
-  then let a ← backend.avx2.ntt.from_uniform elem
-       ok a
-  else let a ← arithmetic.ntt_crt.from_uniform elem
-       ok a
-
-/-- [kopis::backend::avx2::ntt::from_secret]:
-    Source: 'src/backend/avx2/ntt.rs', lines 620:0-622:1 -/
-def backend.avx2.ntt.from_secret
-  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
-  backend.avx2.ntt.from_ring_elem false elem
-
-/-- [kopis::arithmetic::ntt_crt::from_secret]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 236:0-238:1 -/
-def arithmetic.ntt_crt.from_secret
-  (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
-  arithmetic.ntt_crt.from_ring_elem false elem
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttElem}::from_secret]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 294:4-310:5 -/
-def arithmetic.ntt_arith.NttElem.from_secret
-  (elem : arithmetic.plain_arith.RingElem) : Result arithmetic.ntt_arith.NttElem := do
-  let b ← backend.avx2.cpu.available
-  if b
-  then let a ← backend.avx2.ntt.from_secret elem
-       ok a
-  else let a ← arithmetic.ntt_crt.from_secret elem
-       ok a
-
-/-- [kopis::arithmetic::ntt_arith::NttMatrix]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 315:0-315:90 -/
-@[reducible]
-def arithmetic.ntt_arith.NttMatrix (X : Std.Usize) (Y : Std.Usize) :=
-  Array (Array arithmetic.ntt_arith.NttElem Y) X
-
-/-- [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 314:9-314:14
-    Visibility: public -/
-def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
-  Result (arithmetic.ntt_arith.NttMatrix X Y)
-  := do
-  let a ←
-    core.array.CloneArray.clone (core.clone.CloneArray Y
-      arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone) self
-  ok a
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 314:9-314:14 -/
-@[reducible]
-def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
-  Std.Usize) : core.clone.Clone (arithmetic.ntt_arith.NttMatrix X Y) := {
-  clone := arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
-}
-
-/-- [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 314:16-314:23
-    Visibility: public -/
-def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize.zeroize
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
-  Result (arithmetic.ntt_arith.NttMatrix X Y)
-  := do
-  let __zeroize_field_0 ←
-    Array.Insts.ZeroizeZeroize.zeroize (Array.Insts.ZeroizeZeroize Y
-      arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize) self
-  ok __zeroize_field_0
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 314:16-314:23 -/
-@[reducible]
-def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
-  Std.Usize) : zeroize.Zeroize (arithmetic.ntt_arith.NttMatrix X Y) := {
-  zeroize := arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize.zeroize
-}
-
-/-- [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::default]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 318:4-320:5
-    Visibility: public -/
-def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default
-  (X : Std.Usize) (Y : Std.Usize) : Result (arithmetic.ntt_arith.NttMatrix X Y) := do
-  let ne ← arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
-  let a := Array.repeat Y ne
-  let a1 := Array.repeat X a
-  ok a1
-
-/-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 317:0-321:1 -/
-@[reducible]
-def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
-  Std.Usize) : core.default.Default (arithmetic.ntt_arith.NttMatrix X Y) := {
-  default := arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default X Y
-}
-
-/-- [kopis::backend::avx2::intrinsics::store_i32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 425:0-429:1 -/
-axiom backend.avx2.intrinsics.store_i32
-  {N : Std.Usize} :
-  Array Std.I32 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
-    (Array Std.I32 N)
-
-/-- [kopis::backend::avx2::intrinsics::add_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 149:0-151:1 -/
-axiom backend.avx2.intrinsics.add_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 641:8-661:9 -/
-@[rust_loop]
-def backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
-  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
-  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize)
-  (block : Std.Usize) :
-  Result (Array Std.I32 512#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok acc
-  | some i =>
-    let i1 ← 16#usize * block
-    let i2 ← i1 + i
-    let l ← backend.avx2.intrinsics.load_i16 lhs i2
-    let i3 ← i1 + i
-    let r ← backend.avx2.intrinsics.load_i16 rhs i3
-    let lo ← backend.avx2.intrinsics.mullo_epi16 l r
-    let hi ← backend.avx2.intrinsics.mulhi_epi16 l r
-    let p0 ← backend.avx2.intrinsics.unpacklo_epi16 lo hi
-    let p1 ← backend.avx2.intrinsics.unpackhi_epi16 lo hi
-    let first ← backend.avx2.intrinsics.permute2x128_si256 32#i32 p0 p1
-    let second ← backend.avx2.intrinsics.permute2x128_si256 49#i32 p0 p1
-    let i4 ← 32#usize * block
-    let i5 ← 2#usize * i
-    let a0 ← i4 + i5
-    let a1 ← a0 + 1#usize
-    let v ← backend.avx2.intrinsics.load_i32 acc a0
-    let v1 ← backend.avx2.intrinsics.add_epi32 v first
-    let acc1 ← backend.avx2.intrinsics.store_i32 acc a0 v1
-    let v2 ← backend.avx2.intrinsics.load_i32 acc1 a1
-    let v3 ← backend.avx2.intrinsics.add_epi32 v2 second
-    let acc2 ← backend.avx2.intrinsics.store_i32 acc1 a1 v3
-    backend.avx2.ntt.pointwise_mul_acc_loop0_loop0 iter1 acc2 lhs rhs block
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 640:4-662:5 -/
-@[rust_loop]
-def backend.avx2.ntt.pointwise_mul_acc_loop0
-  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
-  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize) :
-  Result (Array Std.I32 512#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok acc
-  | some block =>
-    let acc1 ←
-      backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
-        { start := 0#usize, «end» := 16#usize } acc lhs rhs block
-    backend.avx2.ntt.pointwise_mul_acc_loop0 iter1 acc1 lhs rhs
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::pointwise_mul_acc]:
-    Source: 'src/backend/avx2/ntt.rs', lines 635:0-663:1 -/
-@[reducible]
-def backend.avx2.ntt.pointwise_mul_acc
-  (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
-  (rhs : Array Std.I16 512#usize) :
-  Result (Array Std.I32 512#usize)
-  := do
-  backend.avx2.ntt.pointwise_mul_acc_loop0
-    { start := 0#usize, «end» := 2#usize } acc lhs rhs
-
-/-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 250:4-252:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.pointwise_mul_acc_loop
-  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
-  (lhs : Array Std.I16 512#usize) (rhs : Array Std.I16 512#usize) :
-  Result (Array Std.I32 512#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok acc
-  | some i =>
-    let i1 ← Array.index_usize acc i
-    let i2 ← Array.index_usize lhs i
-    let i3 ← lift (IScalar.cast .I32 i2)
-    let i4 ← Array.index_usize rhs i
-    let i5 ← lift (IScalar.cast .I32 i4)
-    let i6 ← lift (core.num.I32.wrapping_mul i3 i5)
-    let i7 ← lift (core.num.I32.wrapping_add i1 i6)
-    let a ← Array.update acc i i7
-    arithmetic.ntt_crt.pointwise_mul_acc_loop iter1 a lhs rhs
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 245:0-253:1 -/
-def arithmetic.ntt_crt.pointwise_mul_acc
-  (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
-  (rhs : Array Std.I16 512#usize) :
-  Result (Array Std.I32 512#usize)
-  := do
-  let i ← 2#usize * consts.RING_DEG
-  arithmetic.ntt_crt.pointwise_mul_acc_loop { start := 0#usize, «end» := i }
-    acc lhs rhs
-
-/-- [kopis::arithmetic::ntt_arith::pointwise_mul_acc]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 328:0-346:1 -/
-def arithmetic.ntt_arith.pointwise_mul_acc
-  (acc : Array Std.I32 512#usize) (lhs : arithmetic.ntt_arith.NttElem)
-  (rhs : arithmetic.ntt_arith.NttElem) :
-  Result (Array Std.I32 512#usize)
-  := do
-  let b ← backend.avx2.cpu.available
-  if b
-  then backend.avx2.ntt.pointwise_mul_acc acc lhs rhs
-  else arithmetic.ntt_crt.pointwise_mul_acc acc lhs rhs
-
-/-- [kopis::arithmetic::ntt_crt::CRT_Q1_INV_MONT]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 117:0-117:45 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.CRT_Q1_INV_MONT : Std.I16 := 3563#i16
-
-/-- [kopis::arithmetic::ntt_crt::CRT_Q_HALF]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 115:0-115:44 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.CRT_Q_HALF : Std.I32 := 41296896#i32
-
-/-- [kopis::arithmetic::ntt_crt::CRT_Q]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 113:0-113:39 -/
-@[global_simps, irreducible] def arithmetic.ntt_crt.CRT_Q : Std.I32 := 82593793#i32
-
-/-- [kopis::arithmetic::ntt_crt::qinv]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 204:0-206:1 -/
-def arithmetic.ntt_crt.qinv (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok arithmetic.ntt_crt.Q2_INV
-  else ok arithmetic.ntt_crt.Q1_INV
-
-/-- [kopis::arithmetic::ntt_crt::INVNTT_SCALE_2]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 111:0-111:44 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.INVNTT_SCALE_2 : Std.I16 := 2536#i16
-
-/-- [kopis::arithmetic::ntt_crt::INVNTT_SCALE_1]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 109:0-109:44 -/
-@[global_simps, irreducible]
-def arithmetic.ntt_crt.INVNTT_SCALE_1 : Std.I16 := 1912#i16
-
-/-- [kopis::arithmetic::ntt_crt::invntt_scale]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 214:0-220:1 -/
-def arithmetic.ntt_crt.invntt_scale (SECOND : Bool) : Result Std.I16 := do
-  if SECOND
-  then ok arithmetic.ntt_crt.INVNTT_SCALE_2
-  else ok arithmetic.ntt_crt.INVNTT_SCALE_1
-
-/-- [kopis::backend::avx2::ntt::gs_butterfly]:
-    Source: 'src/backend/avx2/ntt.rs', lines 252:0-256:1 -/
-def backend.avx2.ntt.gs_butterfly
-  (lo : backend.avx2.intrinsics.Vec256) (hi : backend.avx2.intrinsics.Vec256)
-  (z : backend.avx2.intrinsics.Vec256) (zq : backend.avx2.intrinsics.Vec256)
-  (q : backend.avx2.intrinsics.Vec256) :
-  Result (backend.avx2.intrinsics.Vec256 × backend.avx2.intrinsics.Vec256)
-  := do
-  let diff ← backend.avx2.intrinsics.sub_epi16 lo hi
-  let lo1 ← backend.avx2.intrinsics.add_epi16 lo hi
-  let hi1 ← backend.avx2.ntt.mont_mul diff z zq q
-  ok (lo1, hi1)
-
-/-- [kopis::backend::avx2::ntt::INV8_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 194:0-194:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV8_Q2 : Result (backend.avx2.ntt.Tbl 16#usize) :=
-  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    31#isize 0#isize (-1)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV4_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 193:0-193:72 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV4_Q2 : Result (backend.avx2.ntt.Tbl 32#usize) :=
-  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    63#isize (-1)#isize (-2)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV2_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 192:0-192:73 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV2_Q2 : Result (backend.avx2.ntt.Tbl 64#usize) :=
-  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    127#isize (-1)#isize (-4)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV1_Q2]
-    Source: 'src/backend/avx2/ntt.rs', lines 191:0-191:74 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV1_Q2 : Result (backend.avx2.ntt.Tbl 128#usize) :=
-  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
-    255#isize (-1)#isize (-8)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV8_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 184:0-184:71 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV8_Q1 : Result (backend.avx2.ntt.Tbl 16#usize) :=
-  backend.avx2.ntt.lane_tbl 16#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    31#isize 0#isize (-1)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV4_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 183:0-183:72 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV4_Q1 : Result (backend.avx2.ntt.Tbl 32#usize) :=
-  backend.avx2.ntt.lane_tbl 32#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    63#isize (-1)#isize (-2)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV2_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 182:0-182:73 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV2_Q1 : Result (backend.avx2.ntt.Tbl 64#usize) :=
-  backend.avx2.ntt.lane_tbl 64#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    127#isize (-1)#isize (-4)#isize true
-
-/-- [kopis::backend::avx2::ntt::INV1_Q1]
-    Source: 'src/backend/avx2/ntt.rs', lines 181:0-181:74 -/
-@[global_simps, irreducible]
-def backend.avx2.ntt.INV1_Q1 : Result (backend.avx2.ntt.Tbl 128#usize) :=
-  backend.avx2.ntt.lane_tbl 128#usize arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
-    255#isize (-1)#isize (-8)#isize true
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 462:62-478:5 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop0
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some h =>
-    let (z, zq) ←
-      if SECOND
-      then do
-           let t ← backend.avx2.ntt.INV1_Q2
-           backend.avx2.ntt.ld_tbl t h
-      else do
-           let t ← backend.avx2.ntt.INV1_Q1
-           backend.avx2.ntt.ld_tbl t h
-    let i ← 2#usize * h
-    let lo ← backend.avx2.intrinsics.load_i16 b i
-    let i1 ← i + 1#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i1
-    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
-    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
-    let i2 ← i + 1#usize
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
-    backend.avx2.ntt.invntt_block_loop0 SECOND iter1 b2 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 2:
-    Source: 'src/backend/avx2/ntt.rs', lines 462:62-482:9 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop1_loop0
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
-  (h : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let (z, zq) ←
-      if SECOND
-      then do
-           let t ← backend.avx2.ntt.INV2_Q2
-           backend.avx2.ntt.ld_tbl t h
-      else do
-           let t ← backend.avx2.ntt.INV2_Q1
-           backend.avx2.ntt.ld_tbl t h
-    let i ← 4#usize * h
-    let i1 ← i + j
-    let lo ← backend.avx2.intrinsics.load_i16 b i1
-    let i2 ← i + j
-    let i3 ← i2 + 2#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i3
-    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
-    let i4 ← i + j
-    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
-    let i5 ← i + j
-    let i6 ← i5 + 2#usize
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
-    backend.avx2.ntt.invntt_block_loop1_loop0 SECOND iter1 b2 q h
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 462:62-483:5 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop1
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some h =>
-    let b1 ←
-      backend.avx2.ntt.invntt_block_loop1_loop0 SECOND
-        { start := 0#usize, «end» := 2#usize } b q h
-    backend.avx2.ntt.invntt_block_loop1 SECOND iter1 b1 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 4:
-    Source: 'src/backend/avx2/ntt.rs', lines 462:62-490:9 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop2_loop0
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
-  (h : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let (z, zq) ←
-      if SECOND
-      then do
-           let t ← backend.avx2.ntt.INV4_Q2
-           backend.avx2.ntt.ld_tbl t h
-      else do
-           let t ← backend.avx2.ntt.INV4_Q1
-           backend.avx2.ntt.ld_tbl t h
-    let i ← 8#usize * h
-    let i1 ← i + j
-    let lo ← backend.avx2.intrinsics.load_i16 b i1
-    let i2 ← i + j
-    let i3 ← i2 + 4#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i3
-    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
-    let i4 ← i + j
-    let b1 ← backend.avx2.intrinsics.store_i16 b i4 lo1
-    let i5 ← i + j
-    let i6 ← i5 + 4#usize
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i6 hi1
-    backend.avx2.ntt.invntt_block_loop2_loop0 SECOND iter1 b2 q h
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 3:
-    Source: 'src/backend/avx2/ntt.rs', lines 462:62-491:5 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop2
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some h =>
-    let b1 ←
-      backend.avx2.ntt.invntt_block_loop2_loop0 SECOND
-        { start := 0#usize, «end» := 4#usize } b q h
-    backend.avx2.ntt.invntt_block_loop2 SECOND iter1 b1 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 5:
-    Source: 'src/backend/avx2/ntt.rs', lines 462:62-494:5 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop3
-  (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let (z, zq) ←
-      if SECOND
-      then
-        do
-        let t ← backend.avx2.ntt.INV8_Q2
-        backend.avx2.ntt.ld_tbl t 0#usize
-      else
-        do
-        let t ← backend.avx2.ntt.INV8_Q1
-        backend.avx2.ntt.ld_tbl t 0#usize
-    let lo ← backend.avx2.intrinsics.load_i16 b j
-    let i ← j + 8#usize
-    let hi ← backend.avx2.intrinsics.load_i16 b i
-    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
-    let b1 ← backend.avx2.intrinsics.store_i16 b j lo1
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i hi1
-    backend.avx2.ntt.invntt_block_loop3 SECOND iter1 b2 q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 8:
-    Source: 'src/backend/avx2/ntt.rs', lines 516:12-523:13 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop4_loop0_loop0
-  (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
-  (half : Std.Usize) (start : Std.Usize) (z : backend.avx2.intrinsics.Vec256)
-  (zq : backend.avx2.intrinsics.Vec256) (i : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let i1 ← start + half
-  if i < i1
-  then
-    let lo ← backend.avx2.intrinsics.load_i16 b i
-    let i2 ← i + half
-    let hi ← backend.avx2.intrinsics.load_i16 b i2
-    let (lo1, hi1) ← backend.avx2.ntt.gs_butterfly lo hi z zq q
-    let b1 ← backend.avx2.intrinsics.store_i16 b i lo1
-    let b2 ← backend.avx2.intrinsics.store_i16 b1 i2 hi1
-    let i3 ← i + 1#usize
-    backend.avx2.ntt.invntt_block_loop4_loop0_loop0 b2 q half start z zq i3
-  else ok b
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 7:
-    Source: 'src/backend/avx2/ntt.rs', lines 505:8-525:9 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop4_loop0
-  (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize)
-  (start : Std.Usize) :
-  Result ((Array Std.I16 256#usize) × Std.Usize)
-  := do
-  if start < 16#usize
-  then
-    let k1 ← k - 1#usize
-    let i ← arithmetic.ntt_crt.zeta SECOND k1
-    let neg_zeta ← lift (core.num.I16.wrapping_sub 0#i16 i)
-    let z ← backend.avx2.intrinsics.set1_epi16 neg_zeta
-    let i1 ← arithmetic.ntt_crt.qinv SECOND
-    let i2 ← lift (core.num.I16.wrapping_mul neg_zeta i1)
-    let zq ← backend.avx2.intrinsics.set1_epi16 i2
-    let b1 ←
-      backend.avx2.ntt.invntt_block_loop4_loop0_loop0 b q half start z zq start
-    let i3 ← 2#usize * half
-    let start1 ← start + i3
-    backend.avx2.ntt.invntt_block_loop4_loop0 SECOND b1 q k1 half start1
-  else ok (b, k)
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 6:
-    Source: 'src/backend/avx2/ntt.rs', lines 503:4-531:5 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop4
-  (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (bm : backend.avx2.intrinsics.Vec256)
-  (round : backend.avx2.intrinsics.Vec256) (k : Std.Usize) (half : Std.Usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  if half < 16#usize
-  then
-    let (b1, k1) ←
-      backend.avx2.ntt.invntt_block_loop4_loop0 SECOND b q k half 0#usize
-    let half1 ← half * 2#usize
-    if half1 = 4#usize
-    then
-      let b2 ← backend.avx2.ntt.barrett_block b1 bm round q
-      backend.avx2.ntt.invntt_block_loop4 SECOND b2 q bm round k1 half1
-    else backend.avx2.ntt.invntt_block_loop4 SECOND b1 q bm round k1 half1
-  else ok b
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]: loop 9:
-    Source: 'src/backend/avx2/ntt.rs', lines 536:4-538:5 -/
-@[rust_loop]
-def backend.avx2.ntt.invntt_block_loop5
-  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (scale : backend.avx2.intrinsics.Vec256)
-  (scale_q : backend.avx2.intrinsics.Vec256) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let v ← backend.avx2.intrinsics.load_i16 b i
-    let v1 ← backend.avx2.ntt.mont_mul v scale scale_q q
-    let b1 ← backend.avx2.intrinsics.store_i16 b i v1
-    backend.avx2.ntt.invntt_block_loop5 iter1 b1 q scale scale_q
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::invntt_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 454:0-539:1 -/
-def backend.avx2.ntt.invntt_block
-  (SECOND : Bool) (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let i ← arithmetic.ntt_crt.q SECOND
-  let q ← backend.avx2.intrinsics.set1_epi16 i
-  let i1 ← arithmetic.ntt_crt.barrett_m SECOND
-  let bm ← backend.avx2.intrinsics.set1_epi16 i1
-  let i2 ← arithmetic.ntt_crt.BARRETT_SH - 1#i32
-  let i3 ← 1#i16 <<< i2
-  let round ← backend.avx2.intrinsics.set1_epi16 i3
-  let b1 ← backend.avx2.ntt.transpose16 b
-  let b2 ←
-    backend.avx2.ntt.invntt_block_loop0 SECOND
-      { start := 0#usize, «end» := 8#usize } b1 q
-  let b3 ←
-    backend.avx2.ntt.invntt_block_loop1 SECOND
-      { start := 0#usize, «end» := 4#usize } b2 q
-  let b4 ← backend.avx2.ntt.barrett_block b3 bm round q
-  let b5 ←
-    backend.avx2.ntt.invntt_block_loop2 SECOND
-      { start := 0#usize, «end» := 2#usize } b4 q
-  let b6 ←
-    backend.avx2.ntt.invntt_block_loop3 SECOND
-      { start := 0#usize, «end» := 8#usize } b5 q
-  let b7 ← backend.avx2.ntt.barrett_block b6 bm round q
-  let b8 ← backend.avx2.ntt.transpose16 b7
-  let b9 ←
-    backend.avx2.ntt.invntt_block_loop4 SECOND b8 q bm round 16#usize 1#usize
-  let i4 ← arithmetic.ntt_crt.invntt_scale SECOND
-  let scale ← backend.avx2.intrinsics.set1_epi16 i4
-  let i5 ← arithmetic.ntt_crt.qinv SECOND
-  let i6 ← lift (core.num.I16.wrapping_mul i4 i5)
-  let scale_q ← backend.avx2.intrinsics.set1_epi16 i6
-  backend.avx2.ntt.invntt_block_loop5 { start := 0#usize, «end» := 16#usize }
-    b9 q scale scale_q
-
-/-- [kopis::backend::avx2::intrinsics::packs_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 328:0-330:1 -/
-axiom backend.avx2.intrinsics.packs_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::slli_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 216:0-218:1 -/
-axiom backend.avx2.intrinsics.slli_epi32
-  (IMM : Std.I32) :
-  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::srai_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 202:0-204:1 -/
-axiom backend.avx2.intrinsics.srai_epi32
-  (IMM : Std.I32) :
-  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::reduce_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 678:4-693:5 -/
-@[rust_loop]
-def backend.avx2.ntt.reduce_block_loop
-  (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
-  (base : Std.Usize) (b : Array Std.I16 256#usize)
-  (q : backend.avx2.intrinsics.Vec256) (qinv : backend.avx2.intrinsics.Vec256)
-  :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let i1 ← 2#usize * i
-    let i2 ← base + i1
-    let a0 ← backend.avx2.intrinsics.load_i32 acc i2
-    let i3 ← base + i1
-    let i4 ← i3 + 1#usize
-    let a1 ← backend.avx2.intrinsics.load_i32 acc i4
-    let v ← backend.avx2.intrinsics.slli_epi32 16#i32 a0
-    let v1 ← backend.avx2.intrinsics.srai_epi32 16#i32 v
-    let v2 ← backend.avx2.intrinsics.slli_epi32 16#i32 a1
-    let v3 ← backend.avx2.intrinsics.srai_epi32 16#i32 v2
-    let v4 ← backend.avx2.intrinsics.packs_epi32 v1 v3
-    let lo ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 v4
-    let v5 ← backend.avx2.intrinsics.srai_epi32 16#i32 a0
-    let v6 ← backend.avx2.intrinsics.srai_epi32 16#i32 a1
-    let v7 ← backend.avx2.intrinsics.packs_epi32 v5 v6
-    let hi ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 v7
-    let t ← backend.avx2.intrinsics.mullo_epi16 lo qinv
-    let v8 ← backend.avx2.intrinsics.mulhi_epi16 t q
-    let v9 ← backend.avx2.intrinsics.sub_epi16 hi v8
-    let b1 ← backend.avx2.intrinsics.store_i16 b i v9
-    backend.avx2.ntt.reduce_block_loop iter1 acc base b1 q qinv
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::reduce_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 674:0-697:1 -/
-def backend.avx2.ntt.reduce_block
-  (SECOND : Bool) (acc : Array Std.I32 512#usize) (base : Std.Usize)
-  (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let i ← arithmetic.ntt_crt.q SECOND
-  let q ← backend.avx2.intrinsics.set1_epi16 i
-  let i1 ← arithmetic.ntt_crt.qinv SECOND
-  let qinv ← backend.avx2.intrinsics.set1_epi16 i1
-  let b1 ←
-    backend.avx2.ntt.reduce_block_loop
-      { start := 0#usize, «end» := 16#usize } acc base b q qinv
-  backend.avx2.ntt.invntt_block SECOND b1
-
-/-- [kopis::backend::avx2::intrinsics::extracti128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 357:0-359:1 -/
-axiom backend.avx2.intrinsics.extracti128_si256
-  (IMM : Std.I32) :
-  backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
-
-/-- [kopis::backend::avx2::intrinsics::castsi256_si128]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 350:0-352:1 -/
-axiom backend.avx2.intrinsics.castsi256_si128
-  : backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
-
-/-- [kopis::backend::avx2::intrinsics::cvtepu16_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 343:0-345:1 -/
-axiom backend.avx2.intrinsics.cvtepu16_epi32
-  : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::cmpgt_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 184:0-186:1 -/
-axiom backend.avx2.intrinsics.cmpgt_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::mullo_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 177:0-179:1 -/
-axiom backend.avx2.intrinsics.mullo_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::intrinsics::sub_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 156:0-158:1 -/
-axiom backend.avx2.intrinsics.sub_epi32
-  :
-  backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
-    backend.avx2.intrinsics.Vec256
-
-/-- [kopis::backend::avx2::ntt::reduce_invntt]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 731:16-765:5 -/
-@[rust_loop]
-def backend.avx2.ntt.reduce_invntt_loop
-  (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
-  (v2 : Array Std.I16 256#usize) (q1 : backend.avx2.intrinsics.Vec256)
-  (q2 : backend.avx2.intrinsics.Vec256)
-  (q1_inv_mont : backend.avx2.intrinsics.Vec256)
-  (q1_inv_mont_q : backend.avx2.intrinsics.Vec256)
-  (q1_wide : backend.avx2.intrinsics.Vec256)
-  (crt_q : backend.avx2.intrinsics.Vec256)
-  (crt_q_half : backend.avx2.intrinsics.Vec256)
-  (low16 : backend.avx2.intrinsics.Vec256) (out : Array Std.U16 256#usize) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some i =>
-    let r1 ← backend.avx2.intrinsics.load_i16 v1 i
-    let r2 ← backend.avx2.intrinsics.load_i16 v2 i
-    let v ← backend.avx2.intrinsics.srai_epi16 15#i32 r1
-    let v3 ← backend.avx2.intrinsics.and_si256 v q1
-    let a1 ← backend.avx2.intrinsics.add_epi16 r1 v3
-    let v4 ← backend.avx2.intrinsics.srai_epi16 15#i32 r2
-    let v5 ← backend.avx2.intrinsics.and_si256 v4 q2
-    let a2 ← backend.avx2.intrinsics.add_epi16 r2 v5
-    let v6 ← backend.avx2.intrinsics.sub_epi16 a2 a1
-    let t ← backend.avx2.ntt.mont_mul v6 q1_inv_mont q1_inv_mont_q q2
-    let v7 ← backend.avx2.intrinsics.srai_epi16 15#i32 t
-    let v8 ← backend.avx2.intrinsics.and_si256 v7 q2
-    let t1 ← backend.avx2.intrinsics.add_epi16 t v8
-    let v9 ← backend.avx2.intrinsics.castsi256_si128 a1
-    let v10 ← backend.avx2.intrinsics.cvtepu16_epi32 v9
-    let v11 ← backend.avx2.intrinsics.castsi256_si128 t1
-    let v12 ← backend.avx2.intrinsics.cvtepu16_epi32 v11
-    let v13 ← backend.avx2.intrinsics.mullo_epi32 v12 q1_wide
-    let x ← backend.avx2.intrinsics.add_epi32 v10 v13
-    let over ← backend.avx2.intrinsics.cmpgt_epi32 x crt_q_half
-    let v14 ← backend.avx2.intrinsics.and_si256 crt_q over
-    let v15 ← backend.avx2.intrinsics.sub_epi32 x v14
-    let first ← backend.avx2.intrinsics.and_si256 v15 low16
-    let v16 ← backend.avx2.intrinsics.extracti128_si256 1#i32 a1
-    let v17 ← backend.avx2.intrinsics.cvtepu16_epi32 v16
-    let v18 ← backend.avx2.intrinsics.extracti128_si256 1#i32 t1
-    let v19 ← backend.avx2.intrinsics.cvtepu16_epi32 v18
-    let v20 ← backend.avx2.intrinsics.mullo_epi32 v19 q1_wide
-    let x1 ← backend.avx2.intrinsics.add_epi32 v17 v20
-    let over1 ← backend.avx2.intrinsics.cmpgt_epi32 x1 crt_q_half
-    let v21 ← backend.avx2.intrinsics.and_si256 crt_q over1
-    let v22 ← backend.avx2.intrinsics.sub_epi32 x1 v21
-    let second ← backend.avx2.intrinsics.and_si256 v22 low16
-    let v23 ← backend.avx2.intrinsics.packus_epi32 first second
-    let packed ← backend.avx2.intrinsics.permute4x64_epi64 216#i32 v23
-    let out1 ← backend.avx2.intrinsics.store_u16 out i packed
-    backend.avx2.ntt.reduce_invntt_loop iter1 v1 v2 q1 q2 q1_inv_mont
-      q1_inv_mont_q q1_wide crt_q crt_q_half low16 out1
-partial_fixpoint
-
-/-- [kopis::backend::avx2::ntt::reduce_invntt]:
-    Source: 'src/backend/avx2/ntt.rs', lines 706:0-767:1 -/
-def backend.avx2.ntt.reduce_invntt
-  (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
-  let v1 := Array.repeat 256#usize 0#i16
-  let v2 := Array.repeat 256#usize 0#i16
-  let v11 ← backend.avx2.ntt.reduce_block false acc 0#usize v1
-  let v21 ← backend.avx2.ntt.reduce_block true acc 32#usize v2
-  let q1 ← backend.avx2.intrinsics.set1_epi16 arithmetic.ntt_crt.Q1
-  let q2 ← backend.avx2.intrinsics.set1_epi16 arithmetic.ntt_crt.Q2
-  let q1_inv_mont ←
-    backend.avx2.intrinsics.set1_epi16 arithmetic.ntt_crt.CRT_Q1_INV_MONT
-  let i ←
-    lift (core.num.I16.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT
-      arithmetic.ntt_crt.Q2_INV)
-  let q1_inv_mont_q ← backend.avx2.intrinsics.set1_epi16 i
-  let i1 ← lift (IScalar.cast .I32 arithmetic.ntt_crt.Q1)
-  let q1_wide ← backend.avx2.intrinsics.set1_epi32 i1
-  let crt_q ← backend.avx2.intrinsics.set1_epi32 arithmetic.ntt_crt.CRT_Q
-  let crt_q_half ← backend.avx2.intrinsics.set1_epi32 arithmetic.ntt_crt.CRT_Q_HALF
-  let low16 ← backend.avx2.intrinsics.set1_epi32 65535#i32
-  let out := Array.repeat 256#usize 0#u16
-  backend.avx2.ntt.reduce_invntt_loop { start := 0#usize, «end» := 16#usize }
-    v11 v21 q1 q2 q1_inv_mont q1_inv_mont_q q1_wide crt_q crt_q_half low16 out
-
-/-- [kopis::arithmetic::ntt_crt::reduce_block]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 263:4-268:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.reduce_block_loop
-  (iter : core.ops.range.Range Std.Usize) (acc : Slice Std.I32)
-  (b : Array Std.I16 256#usize) (q : Std.I16) (qinv : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let a ← Slice.index_usize acc i
-    let i1 ← lift (IScalar.cast .I16 a)
-    let t ← lift (core.num.I16.wrapping_mul i1 qinv)
-    let i2 ← lift (IScalar.cast .I32 t)
-    let i3 ← lift (IScalar.cast .I32 q)
-    let i4 ← lift (core.num.I32.wrapping_mul i2 i3)
-    let i5 ← i4 >>> 16#i32
-    let th ← lift (IScalar.cast .I16 i5)
-    let i6 ← a >>> 16#i32
-    let i7 ← lift (IScalar.cast .I16 i6)
-    let i8 ← lift (core.num.I16.wrapping_sub i7 th)
-    let a1 ← Array.update b i i8
-    arithmetic.ntt_crt.reduce_block_loop iter1 acc a1 q qinv
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::reduce_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 260:0-269:1 -/
-def arithmetic.ntt_crt.reduce_block
-  (SECOND : Bool) (acc : Slice Std.I32) (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let q ← arithmetic.ntt_crt.q SECOND
-  let qinv ← arithmetic.ntt_crt.qinv SECOND
-  arithmetic.ntt_crt.reduce_block_loop
-    { start := 0#usize, «end» := consts.RING_DEG } acc b q qinv
-
-/-- [kopis::arithmetic::ntt_crt::gs_level]: loop 1:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 141:8-146:9 -/
-@[rust_loop]
-def arithmetic.ntt_crt.gs_level_loop0_loop0
-  (LEN : Std.Usize) (iter : core.ops.range.Range Std.Usize)
-  (b : Array Std.I16 256#usize) (q : Std.I16) (z : Std.I16) (zq : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some j =>
-    let lo ← Array.index_usize b j
-    let i ← j + LEN
-    let hi ← Array.index_usize b i
-    let i1 ← lift (core.num.I16.wrapping_add lo hi)
-    let b1 ← Array.update b j i1
-    let i2 ← lift (core.num.I16.wrapping_sub lo hi)
-    let i3 ← arithmetic.ntt_crt.mont_mul i2 z zq q
-    let a ← Array.update b1 i i3
-    arithmetic.ntt_crt.gs_level_loop0_loop0 LEN iter1 a q z zq
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::gs_level]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 130:4-148:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.gs_level_loop0
-  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (k : Std.Usize) (q : Std.I16) (qinv : Std.I16) (start : Std.Usize) :
-  Result ((Array Std.I16 256#usize) × Std.Usize)
-  := do
-  if start < consts.RING_DEG
-  then
-    let k1 ← k - 1#usize
-    let i ← arithmetic.ntt_crt.zeta SECOND k1
-    let z ← lift (core.num.I16.wrapping_sub 0#i16 i)
-    let zq ← lift (core.num.I16.wrapping_mul z qinv)
-    let i1 ← start + LEN
-    let b1 ←
-      arithmetic.ntt_crt.gs_level_loop0_loop0 LEN { start, «end» := i1 } b q
-        z zq
-    let i2 ← 2#usize * LEN
-    let start1 ← start + i2
-    arithmetic.ntt_crt.gs_level_loop0 LEN SECOND b1 k1 q qinv start1
-  else ok (b, k)
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::gs_level]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 126:0-149:1 -/
-def arithmetic.ntt_crt.gs_level
-  (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
-  (k : Std.Usize) :
-  Result ((Array Std.I16 256#usize) × Std.Usize)
-  := do
-  let q ← arithmetic.ntt_crt.q SECOND
-  let qinv ← arithmetic.ntt_crt.qinv SECOND
-  arithmetic.ntt_crt.gs_level_loop0 LEN SECOND b k q qinv 0#usize
-
-/-- [kopis::arithmetic::ntt_crt::invntt_block]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 190:4-192:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.invntt_block_loop
-  (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
-  (q : Std.I16) (scale : Std.I16) (scale_q : Std.I16) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok b
-  | some i =>
-    let i1 ← Array.index_usize b i
-    let i2 ← arithmetic.ntt_crt.mont_mul i1 scale scale_q q
-    let a ← Array.update b i i2
-    arithmetic.ntt_crt.invntt_block_loop iter1 a q scale scale_q
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::invntt_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 170:0-193:1 -/
-def arithmetic.ntt_crt.invntt_block
-  (SECOND : Bool) (b : Array Std.I16 256#usize) :
-  Result (Array Std.I16 256#usize)
-  := do
-  let q ← arithmetic.ntt_crt.q SECOND
-  let scale ← arithmetic.ntt_crt.invntt_scale SECOND
-  let i ← arithmetic.ntt_crt.qinv SECOND
-  let scale_q ← lift (core.num.I16.wrapping_mul scale i)
-  let (b1, k) ← arithmetic.ntt_crt.gs_level 1#usize SECOND b consts.RING_DEG
-  let (b2, k1) ← arithmetic.ntt_crt.gs_level 2#usize SECOND b1 k
-  let b3 ← arithmetic.ntt_crt.barrett_block SECOND b2
-  let (b4, k2) ← arithmetic.ntt_crt.gs_level 4#usize SECOND b3 k1
-  let (b5, k3) ← arithmetic.ntt_crt.gs_level 8#usize SECOND b4 k2
-  let b6 ← arithmetic.ntt_crt.barrett_block SECOND b5
-  let (b7, k4) ← arithmetic.ntt_crt.gs_level 16#usize SECOND b6 k3
-  let (b8, k5) ← arithmetic.ntt_crt.gs_level 32#usize SECOND b7 k4
-  let b9 ← arithmetic.ntt_crt.barrett_block SECOND b8
-  let (b10, k6) ← arithmetic.ntt_crt.gs_level 64#usize SECOND b9 k5
-  let (b11, _) ← arithmetic.ntt_crt.gs_level 128#usize SECOND b10 k6
-  arithmetic.ntt_crt.invntt_block_loop
-    { start := 0#usize, «end» := consts.RING_DEG } b11 q scale scale_q
-
-/-- [kopis::arithmetic::ntt_crt::reduce_invntt]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 289:4-305:5 -/
-@[rust_loop]
-def arithmetic.ntt_crt.reduce_invntt_loop
-  (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
-  (v2 : Array Std.I16 256#usize) (q1_inv_mont_q : Std.I16)
-  (out : Array Std.U16 256#usize) :
-  Result (Array Std.U16 256#usize)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok out
-  | some i =>
-    let r1 ← Array.index_usize v1 i
-    let r2 ← Array.index_usize v2 i
-    let i1 ← r1 >>> 15#i32
-    let i2 ← lift (i1 &&& arithmetic.ntt_crt.Q1)
-    let a1 ← lift (core.num.I16.wrapping_add r1 i2)
-    let i3 ← r2 >>> 15#i32
-    let i4 ← lift (i3 &&& arithmetic.ntt_crt.Q2)
-    let a2 ← lift (core.num.I16.wrapping_add r2 i4)
-    let i5 ← lift (core.num.I16.wrapping_sub a2 a1)
-    let t ←
-      arithmetic.ntt_crt.mont_mul i5 arithmetic.ntt_crt.CRT_Q1_INV_MONT q1_inv_mont_q
-        arithmetic.ntt_crt.Q2
-    let i6 ← t >>> 15#i32
-    let i7 ← lift (i6 &&& arithmetic.ntt_crt.Q2)
-    let t1 ← lift (core.num.I16.wrapping_add t i7)
-    let i8 ← lift (IScalar.cast .I32 a1)
-    let i9 ← lift (IScalar.cast .I32 t1)
-    let i10 ← lift (IScalar.cast .I32 arithmetic.ntt_crt.Q1)
-    let i11 ← lift (core.num.I32.wrapping_mul i9 i10)
-    let x ← lift (core.num.I32.wrapping_add i8 i11)
-    let i12 ← lift (core.num.I32.wrapping_sub arithmetic.ntt_crt.CRT_Q_HALF x)
-    let over ← i12 >>> 31#i32
-    let i13 ← lift (arithmetic.ntt_crt.CRT_Q &&& over)
-    let i14 ← lift (core.num.I32.wrapping_sub x i13)
-    let i15 ← lift (IScalar.hcast .U16 i14)
-    let a ← Array.update out i i15
-    arithmetic.ntt_crt.reduce_invntt_loop iter1 v1 v2 q1_inv_mont_q a
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_crt::reduce_invntt]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 273:0-307:1 -/
-def arithmetic.ntt_crt.reduce_invntt
-  (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
-  let v1 := Array.repeat 256#usize 0#i16
-  let v2 := Array.repeat 256#usize 0#i16
-  let s ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.I32)) acc
-      { «end» := consts.RING_DEG }
-  let v11 ← arithmetic.ntt_crt.reduce_block false s v1
-  let s1 ←
-    core.array.Array.index (core.ops.index.IndexSlice
-      (core.slice.index.SliceIndexRangeFromUsizeSlice Std.I32)) acc
-      { start := consts.RING_DEG }
-  let v21 ← arithmetic.ntt_crt.reduce_block true s1 v2
-  let v12 ← arithmetic.ntt_crt.invntt_block false v11
-  let v22 ← arithmetic.ntt_crt.invntt_block true v21
-  let q1_inv_mont_q ←
-    lift (core.num.I16.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT
-      arithmetic.ntt_crt.Q2_INV)
-  let out := Array.repeat 256#usize 0#u16
-  arithmetic.ntt_crt.reduce_invntt_loop
-    { start := 0#usize, «end» := consts.RING_DEG } v12 v22 q1_inv_mont_q out
-
-/-- [kopis::arithmetic::ntt_arith::reduce_invntt_to_ring_elem]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 350:0-366:1 -/
-def arithmetic.ntt_arith.reduce_invntt_to_ring_elem
-  (acc : Array Std.I32 512#usize) : Result arithmetic.plain_arith.RingElem := do
-  let b ← backend.avx2.cpu.available
-  if b
-  then let a ← backend.avx2.ntt.reduce_invntt acc
-       ok a
-  else let a ← arithmetic.ntt_crt.reduce_invntt acc
-       ok a
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 373:12-375:13 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (mat : arithmetic.plain_arith.Matrix X Y)
-  (ret : arithmetic.ntt_arith.NttMatrix X Y) (i : Std.Usize) :
-  Result ((arithmetic.plain_arith.Matrix X Y) × (arithmetic.ntt_arith.NttMatrix X
-    Y))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (mat, ret)
-  | some j =>
-    let a ← Array.index_usize mat i
-    let re ← Array.index_usize a j
-    let ne ← arithmetic.ntt_arith.NttElem.from_uniform re
-    let (a1, index_mut_back) ← Array.index_mut_usize ret i
-    let a2 ← Array.update a1 j ne
-    let a3 := index_mut_back a2
-    arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0 iter1 mat a3 i
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 372:8-376:9 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (mat : arithmetic.plain_arith.Matrix X Y)
-  (ret : arithmetic.ntt_arith.NttMatrix X Y) :
-  Result (arithmetic.ntt_arith.NttMatrix X Y)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok ret
-  | some i =>
-    let (mat1, ret1) ←
-      arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0
-        { start := 0#usize, «end» := Y } mat ret i
-    arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0 iter1 mat1 ret1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 370:4-378:5 -/
-def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix
-  {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.plain_arith.Matrix X Y) :
-  Result (arithmetic.ntt_arith.NttMatrix X Y)
-  := do
-  let ret ← arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default X Y
-  arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0
-    { start := 0#usize, «end» := X } mat ret
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 384:12-386:13 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (mat : arithmetic.plain_arith.Matrix X Y)
-  (ret : arithmetic.ntt_arith.NttMatrix X Y) (i : Std.Usize) :
-  Result ((arithmetic.plain_arith.Matrix X Y) × (arithmetic.ntt_arith.NttMatrix X
-    Y))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (mat, ret)
-  | some j =>
-    let a ← Array.index_usize mat i
-    let re ← Array.index_usize a j
-    let ne ← arithmetic.ntt_arith.NttElem.from_secret re
-    let (a1, index_mut_back) ← Array.index_mut_usize ret i
-    let a2 ← Array.update a1 j ne
-    let a3 := index_mut_back a2
-    arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0 iter1 mat a3 i
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 383:8-387:9 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0
-  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
-  (mat : arithmetic.plain_arith.Matrix X Y)
-  (ret : arithmetic.ntt_arith.NttMatrix X Y) :
-  Result (arithmetic.ntt_arith.NttMatrix X Y)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok ret
-  | some i =>
-    let (mat1, ret1) ←
-      arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0
-        { start := 0#usize, «end» := Y } mat ret i
-    arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0 iter1 mat1 ret1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 381:4-389:5 -/
-def arithmetic.ntt_arith.NttMatrix.from_secret_matrix
-  {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.plain_arith.Matrix X Y) :
-  Result (arithmetic.ntt_arith.NttMatrix X Y)
-  := do
-  let ret ← arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default X Y
-  arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0
-    { start := 0#usize, «end» := X } mat ret
-
-/-- [kopis::consts::MAX_L]
-    Source: 'src/consts.rs', lines 24:0-24:34 -/
-@[global_simps, irreducible] def consts.MAX_L : Std.Usize := 4#usize
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 2:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 401:16-403:17 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize) (self : arithmetic.ntt_arith.NttMatrix X Y)
-  (other : arithmetic.ntt_arith.NttMatrix Y Z) (i : Std.Usize) (k : Std.Usize)
-  (acc : Array Std.I32 512#usize) :
-  Result ((arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix Y Z) ×
-    (Array Std.I32 512#usize))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, acc)
-  | some j =>
-    let a ← Array.index_usize self i
-    let ne ← Array.index_usize a j
-    let a1 ← Array.index_usize other j
-    let ne1 ← Array.index_usize a1 k
-    let acc1 ← arithmetic.ntt_arith.pointwise_mul_acc acc ne ne1
-    arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0 iter1 self other i k acc1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 399:12-405:13 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize) (self : arithmetic.ntt_arith.NttMatrix X Y)
-  (other : arithmetic.ntt_arith.NttMatrix Y Z)
-  (result : arithmetic.plain_arith.Matrix X Z) (i : Std.Usize) :
-  Result ((arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix Y Z) ×
-    (arithmetic.plain_arith.Matrix X Z))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some k =>
-    let (self1, other1, acc) ←
-      arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
-        { start := 0#usize, «end» := Y } self other i k
-        arithmetic.ntt_arith.ACC_ZERO
-    let re ← arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
-    let (a, index_mut_back) ← Array.index_mut_usize result i
-    let a1 ← Array.update a k re
-    let a2 := index_mut_back a1
-    arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0 iter1 self1 other1 a2 i
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 398:8-406:9 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.mul_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize) (self : arithmetic.ntt_arith.NttMatrix X Y)
-  (other : arithmetic.ntt_arith.NttMatrix Y Z)
-  (result : arithmetic.plain_arith.Matrix X Z) :
-  Result (arithmetic.plain_arith.Matrix X Z)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok result
-  | some i =>
-    let (self1, other1, result1) ←
-      arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0
-        { start := 0#usize, «end» := Z } self other result i
-    arithmetic.ntt_arith.NttMatrix.mul_loop0 iter1 self1 other1 result1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 393:4-408:5 -/
-def arithmetic.ntt_arith.NttMatrix.mul
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (self : arithmetic.ntt_arith.NttMatrix X Y) (other : arithmetic.ntt_arith.NttMatrix Y Z)
-  :
-  Result (arithmetic.plain_arith.Matrix X Z)
-  := do
-  massert (Y <= consts.MAX_L)
-  let result ←
-    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Z
-  arithmetic.ntt_arith.NttMatrix.mul_loop0 { start := 0#usize, «end» := X } self
-    other result
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 2:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 420:16-422:17 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize) (self : arithmetic.ntt_arith.NttMatrix X Y)
-  (other : arithmetic.ntt_arith.NttMatrix X Z) (j : Std.Usize) (k : Std.Usize)
-  (acc : Array Std.I32 512#usize) :
-  Result ((arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix X Z) ×
-    (Array Std.I32 512#usize))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, acc)
-  | some i =>
-    let a ← Array.index_usize self i
-    let ne ← Array.index_usize a j
-    let a1 ← Array.index_usize other i
-    let ne1 ← Array.index_usize a1 k
-    let acc1 ← arithmetic.ntt_arith.pointwise_mul_acc acc ne ne1
-    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0 iter1 self other j
-      k acc1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 418:12-424:13 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize) (self : arithmetic.ntt_arith.NttMatrix X Y)
-  (other : arithmetic.ntt_arith.NttMatrix X Z)
-  (result : arithmetic.plain_arith.Matrix Y Z) (j : Std.Usize) :
-  Result ((arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix X Z) ×
-    (arithmetic.plain_arith.Matrix Y Z))
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok (self, other, result)
-  | some k =>
-    let (self1, other1, acc) ←
-      arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
-        { start := 0#usize, «end» := X } self other j k
-        arithmetic.ntt_arith.ACC_ZERO
-    let re ← arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
-    let (a, index_mut_back) ← Array.index_mut_usize result j
-    let a1 ← Array.update a k re
-    let a2 := index_mut_back a1
-    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0 iter1 self1 other1 a2 j
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 417:8-425:9 -/
-@[rust_loop]
-def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (iter : core.ops.range.Range Std.Usize) (self : arithmetic.ntt_arith.NttMatrix X Y)
-  (other : arithmetic.ntt_arith.NttMatrix X Z)
-  (result : arithmetic.plain_arith.Matrix Y Z) :
-  Result (arithmetic.plain_arith.Matrix Y Z)
-  := do
-  let (o, iter1) ←
-    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
-  match o with
-  | none => ok result
-  | some j =>
-    let (self1, other1, result1) ←
-      arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0
-        { start := 0#usize, «end» := Z } self other result j
-    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0 iter1 self1 other1 result1
-partial_fixpoint
-
-/-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 412:4-427:5 -/
-def arithmetic.ntt_arith.NttMatrix.mul_transpose
-  {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
-  (self : arithmetic.ntt_arith.NttMatrix X Y) (other : arithmetic.ntt_arith.NttMatrix X Z)
-  :
-  Result (arithmetic.plain_arith.Matrix Y Z)
-  := do
-  massert (X <= consts.MAX_L)
-  let result ←
-    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default Y Z
-  arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
-    { start := 0#usize, «end» := Y } self other result
-
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::RingElem}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:9-15:11
-    Visibility: public -/
-def arithmetic.plain_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
-  (self : arithmetic.plain_arith.RingElem) : Result Unit := do
-  ok ()
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:9-15:11 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreCmpEq : core.cmp.Eq
-  arithmetic.plain_arith.RingElem := {
-  partialEqInst :=
-    arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem
-  assert_fields_are_eq :=
-    arithmetic.plain_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
-}
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:13-15:22 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreMarkerStructuralPartialEq :
-  core.marker.StructuralPartialEq arithmetic.plain_arith.RingElem := {
-}
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::Copy for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 15:38-15:42 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreMarkerCopy : core.marker.Copy
-  arithmetic.plain_arith.RingElem := {
-  cloneInst := arithmetic.plain_arith.RingElem.Insts.CoreCloneClone
-}
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 18:0-22:1 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault :
-  core.default.Default arithmetic.plain_arith.RingElem := {
-  default := arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-}
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_left]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 105:8-107:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 119:8-121:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.RingElem.shift_left_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -4899,7 +4001,7 @@ def arithmetic.plain_arith.RingElem.shift_left_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_left]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 104:4-108:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 118:4-122:5 -/
 def arithmetic.plain_arith.RingElem.shift_left
   (self : arithmetic.plain_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.plain_arith.RingElem
@@ -4912,37 +4014,43 @@ def arithmetic.plain_arith.RingElem.shift_left
   let a := to_slice_mut_back s1
   ok a
 
-/-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::mul]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 121:4-125:5
-    Visibility: public -/
-def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
-  (self : arithmetic.plain_arith.RingElem)
-  (other : arithmetic.plain_arith.RingElem) :
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::wrapping_add_to_all]: loop 0:
+    Source: 'src/arithmetic/plain_arith.rs', lines 126:8-128:9 -/
+@[rust_loop]
+def arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop
+  (iter : core.slice.iter.IterMut Std.U16)
+  (back : core.slice.iter.IterMut Std.U16 → core.slice.iter.IterMut Std.U16)
+  (val : Std.U16) :
+  Result (core.slice.iter.IterMut Std.U16)
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some coeff =>
+    let coeff1 ← lift (core.num.U16.wrapping_add coeff val)
+    arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop iter1
+      (fun im => let im1 := next_back im (some coeff1)
+                 back im1) val
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::wrapping_add_to_all]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 125:4-129:5 -/
+def arithmetic.plain_arith.RingElem.wrapping_add_to_all
+  (self : arithmetic.plain_arith.RingElem) (val : Std.U16) :
   Result arithmetic.plain_arith.RingElem
   := do
-  let ret ← arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-  arithmetic.plain_arith.ring_mul_acc ret self other
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::ops::arith::Mul<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 118:0-126:1 -/
-@[reducible]
-def SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem :
-  core.ops.arith.Mul arithmetic.plain_arith.RingElem
-  arithmetic.plain_arith.RingElem arithmetic.plain_arith.RingElem := {
-  mul := SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
-}
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::ops::arith::Add<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 217:0-227:1 -/
-@[reducible]
-def SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem :
-  core.ops.arith.Add arithmetic.plain_arith.RingElem
-  arithmetic.plain_arith.RingElem arithmetic.plain_arith.RingElem := {
-  add := SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
-}
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
+  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+  let back ←
+    arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop iter
+      (fun im => im) val
+  let s1 := iter_mut_back back
+  let a := to_slice_mut_back s1
+  ok a
 
 /-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::sub]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 234:8-236:9
+    Source: 'src/arithmetic/plain_arith.rs', lines 137:8-139:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
@@ -4966,7 +4074,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::sub]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 232:4-238:5
+    Source: 'src/arithmetic/plain_arith.rs', lines 135:4-141:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   (self : arithmetic.plain_arith.RingElem)
@@ -4978,7 +4086,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 229:0-239:1 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 132:0-142:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   core.ops.arith.Sub arithmetic.plain_arith.RingElem
@@ -4986,70 +4094,473 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   sub := SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
 }
 
+/-- [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::Matrix<X, Y>> for kopis::arithmetic::plain_arith::Matrix<X, Y>}::eq]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:13-147:22
+    Visibility: public -/
+def arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
+  (other : arithmetic.plain_arith.Matrix X Y) :
+  Result Bool
+  := do
+  core.array.equality.PartialEqArray.eq (Array.Insts.CoreCmpPartialEqArray Y
+    arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem) self other
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::Matrix<X, Y>> for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:13-147:22 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
+  (Y : Std.Usize) : core.cmp.PartialEq (arithmetic.plain_arith.Matrix X Y)
+  (arithmetic.plain_arith.Matrix X Y) := {
+  eq := arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
+}
+
+/-- [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::Matrix<X, Y>}::assert_fields_are_eq]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:9-147:11
+    Visibility: public -/
+def arithmetic.plain_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
+  Result Unit
+  := do
+  ok ()
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:9-147:11 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
+  Std.Usize) : core.cmp.Eq (arithmetic.plain_arith.Matrix X Y) := {
+  partialEqInst := arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix X
+    Y
+  assert_fields_are_eq :=
+    arithmetic.plain_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
+}
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:13-147:22 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.CoreMarkerStructuralPartialEq (X :
+  Std.Usize) (Y : Std.Usize) : core.marker.StructuralPartialEq
+  (arithmetic.plain_arith.Matrix X Y) := {
+}
+
+/-- [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::Matrix<X, Y>}::fmt]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:24-147:29
+    Visibility: public -/
+def arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug.fmt
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
+  (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn :=
+    Dyn.mk _ (core.fmt.DebugShared (Array.Insts.CoreFmtDebug X
+      (Array.Insts.CoreFmtDebug Y
+      arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug))) self
+  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Matrix") dyn
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:24-147:29 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug (X : Std.Usize) (Y :
+  Std.Usize) : core.fmt.Debug (arithmetic.plain_arith.Matrix X Y) := {
+  fmt := arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug.fmt
+}
+
+/-- [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::Matrix<X, Y>}::clone]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:31-147:36
+    Visibility: public -/
+def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let a ←
+    core.array.CloneArray.clone (core.clone.CloneArray Y
+      arithmetic.plain_arith.RingElem.Insts.CoreCloneClone) self
+  ok a
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:31-147:36 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
+  Std.Usize) : core.clone.Clone (arithmetic.plain_arith.Matrix X Y) := {
+  clone := arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
+}
+
+/-- [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::Matrix<X, Y>}::zeroize]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:38-147:45
+    Visibility: public -/
+def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize.zeroize
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let __zeroize_field_0 ←
+    Array.Insts.ZeroizeZeroize.zeroize (Array.Insts.ZeroizeZeroize Y
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize) self
+  ok __zeroize_field_0
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 147:38-147:45 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
+  Std.Usize) : zeroize.Zeroize (arithmetic.plain_arith.Matrix X Y) := {
+  zeroize := arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize.zeroize
+}
+
+/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
+    Source: 'src/arithmetic/plain_arith.rs', lines 150:0-154:1 -/
+@[reducible]
+def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
+  Std.Usize) : core.default.Default (arithmetic.plain_arith.Matrix X Y) := {
+  default := arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Y
+}
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]: loop 1:
+    Source: 'src/arithmetic/plain_arith.rs', lines 160:12-162:13 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.shift_right_loop0_loop0
+  (iter : core.slice.iter.IterMut arithmetic.plain_arith.RingElem)
+  (back : core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
+  core.slice.iter.IterMut arithmetic.plain_arith.RingElem) (shift : Std.Usize)
+  :
+  Result ((core.slice.iter.IterMut arithmetic.plain_arith.RingElem) ×
+    (core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
+    core.slice.iter.IterMut arithmetic.plain_arith.RingElem))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (iter1, fun im => let im1 := next_back im none
+                                 back im1)
+  | some elem =>
+    let elem1 ← arithmetic.plain_arith.RingElem.shift_right elem shift
+    arithmetic.plain_arith.Matrix.shift_right_loop0_loop0 iter1
+      (fun im => let im1 := next_back im (some elem1)
+                 back im1) shift
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]: loop 0:
+    Source: 'src/arithmetic/plain_arith.rs', lines 159:8-163:9 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.shift_right_loop0
+  {Y : Std.Usize}
+  (iter : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+  (back : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y) →
+  core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+  (shift : Std.Usize) :
+  Result (core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some row =>
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut row)
+    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
+    let (im, back1) ←
+      arithmetic.plain_arith.Matrix.shift_right_loop0_loop0 iter2
+        (fun im1 => im1) shift
+    arithmetic.plain_arith.Matrix.shift_right_loop0 iter1
+      (fun im1 =>
+        let im2 := back1 im
+        let s1 := iter_mut_back im2
+        let a := to_slice_mut_back s1
+        let im3 := next_back im1 (some a)
+        back im3) shift
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 158:4-164:5 -/
+def arithmetic.plain_arith.Matrix.shift_right
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
+  (shift : Std.Usize) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
+  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+  let back ←
+    arithmetic.plain_arith.Matrix.shift_right_loop0 iter (fun im => im) shift
+  let s1 := iter_mut_back back
+  let a := to_slice_mut_back s1
+  ok a
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 1:
+    Source: 'src/arithmetic/plain_arith.rs', lines 169:12-171:13 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0
+  (iter : core.slice.iter.IterMut arithmetic.plain_arith.RingElem)
+  (back : core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
+  core.slice.iter.IterMut arithmetic.plain_arith.RingElem) (val : Std.U16) :
+  Result ((core.slice.iter.IterMut arithmetic.plain_arith.RingElem) ×
+    (core.slice.iter.IterMut arithmetic.plain_arith.RingElem →
+    core.slice.iter.IterMut arithmetic.plain_arith.RingElem))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (iter1, fun im => let im1 := next_back im none
+                                 back im1)
+  | some elem =>
+    let elem1 ← arithmetic.plain_arith.RingElem.wrapping_add_to_all elem val
+    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0 iter1
+      (fun im => let im1 := next_back im (some elem1)
+                 back im1) val
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 0:
+    Source: 'src/arithmetic/plain_arith.rs', lines 168:8-172:9 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0
+  {Y : Std.Usize}
+  (iter : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+  (back : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y) →
+  core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+  (val : Std.U16) :
+  Result (core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+  := do
+  let (o, iter1, next_back) ← core.slice.iter.IteratorIterMut.next iter
+  match o with
+  | none => ok (let im := next_back iter1 none
+                back im)
+  | some row =>
+    let (s, to_slice_mut_back) ← lift (Array.to_slice_mut row)
+    let (iter2, iter_mut_back) ← core.slice.Slice.iter_mut s
+    let (im, back1) ←
+      arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0 iter2
+        (fun im1 => im1) val
+    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0 iter1
+      (fun im1 =>
+        let im2 := back1 im
+        let s1 := iter_mut_back im2
+        let a := to_slice_mut_back s1
+        let im3 := next_back im1 (some a)
+        back im3) val
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 167:4-173:5 -/
+def arithmetic.plain_arith.Matrix.wrapping_add_to_all
+  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
+  (val : Std.U16) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut self)
+  let (iter, iter_mut_back) ← core.slice.Slice.iter_mut s
+  let back ←
+    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0 iter (fun im => im)
+      val
+  let s1 := iter_mut_back back
+  let a := to_slice_mut_back s1
+  ok a
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]: loop 1:
+    Source: 'src/arithmetic/plain_arith.rs', lines 192:12-196:13 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.serialize_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} (BITS_PER_ELEM : Std.Usize)
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.plain_arith.Matrix X Y) (out_buf : Slice Std.U8)
+  (chunk_len : Std.Usize) (i : Std.Usize) :
+  Result ((arithmetic.plain_arith.Matrix X Y) × (Slice Std.U8))
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok (self, out_buf)
+  | some j =>
+    let i1 ← i * Y
+    let idx ← i1 + j
+    let i2 ← idx * chunk_len
+    let i3 ← idx + 1#usize
+    let i4 ← i3 * chunk_len
+    let (out_chunk, index_mut_back) ←
+      core.slice.index.Slice.index_mut
+        (core.slice.index.SliceIndexRangeUsizeSlice Std.U8) out_buf
+        { start := i2, «end» := i4 }
+    let a ← Array.index_usize self i
+    let re ← Array.index_usize a j
+    let out_chunk1 ←
+      arithmetic.plain_arith.RingElem.serialize BITS_PER_ELEM re out_chunk
+    let out_buf1 := index_mut_back out_chunk1
+    arithmetic.plain_arith.Matrix.serialize_loop0_loop0 BITS_PER_ELEM iter1
+      self out_buf1 chunk_len i
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]: loop 0:
+    Source: 'src/arithmetic/plain_arith.rs', lines 191:8-197:9 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.serialize_loop0
+  {X : Std.Usize} {Y : Std.Usize} (BITS_PER_ELEM : Std.Usize)
+  (iter : core.ops.range.Range Std.Usize)
+  (self : arithmetic.plain_arith.Matrix X Y) (out_buf : Slice Std.U8)
+  (chunk_len : Std.Usize) :
+  Result (Slice Std.U8)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok out_buf
+  | some i =>
+    let (self1, out_buf1) ←
+      arithmetic.plain_arith.Matrix.serialize_loop0_loop0 BITS_PER_ELEM
+        { start := 0#usize, «end» := Y } self out_buf chunk_len i
+    arithmetic.plain_arith.Matrix.serialize_loop0 BITS_PER_ELEM iter1 self1
+      out_buf1 chunk_len
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 177:4-198:5 -/
+def arithmetic.plain_arith.Matrix.serialize
+  {X : Std.Usize} {Y : Std.Usize} (BITS_PER_ELEM : Std.Usize)
+  (self : arithmetic.plain_arith.Matrix X Y) (out_buf : Slice Std.U8) :
+  Result (Slice Std.U8)
+  := do
+  let left_val := Slice.len out_buf
+  let i ← X * Y
+  let i1 ← i * BITS_PER_ELEM
+  let _ ← i1 * consts.RING_DEG
+  let i2 ← lift (Std.Usize.wrapping_mul X Y)
+  let i3 ← lift (Std.Usize.wrapping_mul i2 BITS_PER_ELEM)
+  let i4 ← lift (Std.Usize.wrapping_mul i3 consts.RING_DEG)
+  let right_val ← i4 / 8#usize
+  massert (left_val = right_val)
+  let i5 ← BITS_PER_ELEM * consts.RING_DEG
+  let chunk_len ← i5 / 8#usize
+  arithmetic.plain_arith.Matrix.serialize_loop0 BITS_PER_ELEM
+    { start := 0#usize, «end» := X } self out_buf chunk_len
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]: loop 1:
+    Source: 'src/arithmetic/plain_arith.rs', lines 219:12-223:13 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
+  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (bytes : Slice Std.U8) (result : arithmetic.plain_arith.Matrix X Y)
+  (chunk_len : Std.Usize) (i : Std.Usize) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some j =>
+    let i1 ← i * Y
+    let idx ← i1 + j
+    let i2 ← idx * chunk_len
+    let i3 ← idx + 1#usize
+    let i4 ← i3 * chunk_len
+    let chunk ←
+      core.slice.index.Slice.index (core.slice.index.SliceIndexRangeUsizeSlice
+        Std.U8) bytes { start := i2, «end» := i4 }
+    let re ← arithmetic.plain_arith.RingElem.deserialize 10#usize chunk
+    let (a, index_mut_back) ← Array.index_mut_usize result i
+    let a1 ← Array.update a j re
+    let a2 := index_mut_back a1
+    arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0 iter1 bytes a2
+      chunk_len i
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]: loop 0:
+    Source: 'src/arithmetic/plain_arith.rs', lines 218:8-224:9 -/
+@[rust_loop]
+def arithmetic.plain_arith.Matrix.deserialize_10_loop0
+  {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
+  (bytes : Slice Std.U8) (result : arithmetic.plain_arith.Matrix X Y)
+  (chunk_len : Std.Usize) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let (o, iter1) ←
+    core.iter.range.IteratorRange.next core.iter.range.StepUsize iter
+  match o with
+  | none => ok result
+  | some i =>
+    let result1 ←
+      arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
+        { start := 0#usize, «end» := Y } bytes result chunk_len i
+    arithmetic.plain_arith.Matrix.deserialize_10_loop0 iter1 bytes result1
+      chunk_len
+partial_fixpoint
+
+/-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]:
+    Source: 'src/arithmetic/plain_arith.rs', lines 201:4-227:5 -/
+def arithmetic.plain_arith.Matrix.deserialize_10
+  (X : Std.Usize) (Y : Std.Usize) (bytes : Slice Std.U8) :
+  Result (arithmetic.plain_arith.Matrix X Y)
+  := do
+  let left_val := Slice.len bytes
+  let i ← X * Y
+  let i1 ← i * 10#usize
+  let _ ← i1 * consts.RING_DEG
+  let i2 ← lift (Std.Usize.wrapping_mul X Y)
+  let i3 ← lift (Std.Usize.wrapping_mul i2 10#usize)
+  let i4 ← lift (Std.Usize.wrapping_mul i3 consts.RING_DEG)
+  let right_val ← i4 / 8#usize
+  massert (left_val = right_val)
+  let result ←
+    arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Y
+  let i5 ← 10#usize * consts.RING_DEG
+  let chunk_len ← i5 / 8#usize
+  arithmetic.plain_arith.Matrix.deserialize_10_loop0
+    { start := 0#usize, «end» := X } bytes result chunk_len
+
 /-- [kopis::backend::avx2::intrinsics::set1_epi64x]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 79:0-81:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 71:0-73:1 -/
 axiom backend.avx2.intrinsics.set1_epi64x
   : Std.I64 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::cvtsi32_si128]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 93:0-95:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 85:0-87:1 -/
 axiom backend.avx2.intrinsics.cvtsi32_si128
   : Std.I32 → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::xor_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 107:0-109:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 99:0-101:1 -/
 axiom backend.avx2.intrinsics.xor_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::or_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 114:0-116:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 106:0-108:1 -/
 axiom backend.avx2.intrinsics.or_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::andnot_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 124:0-126:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 116:0-118:1 -/
 axiom backend.avx2.intrinsics.andnot_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srli_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 209:0-211:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 201:0-203:1 -/
 axiom backend.avx2.intrinsics.srli_epi16
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::slli_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 226:0-228:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 218:0-220:1 -/
 axiom backend.avx2.intrinsics.slli_epi64
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srli_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 235:0-237:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 227:0-229:1 -/
 axiom backend.avx2.intrinsics.srli_epi64
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srl_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 244:0-246:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 236:0-238:1 -/
 axiom backend.avx2.intrinsics.srl_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec128 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::load_u8x32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 459:0-463:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 451:0-455:1 -/
 axiom backend.avx2.intrinsics.load_u8x32
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::store_u8x32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 468:0-472:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 460:0-464:1 -/
 axiom backend.avx2.intrinsics.store_u8x32
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
@@ -5827,7 +5338,7 @@ def backend.avx2.sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) :
   Result arithmetic.plain_arith.RingElem
   := do
-  let fields ← backend.avx2.ser.deserialize buf MU
+  let fields ← backend.avx2.ser.deserialize MU buf
   let a := backend.avx2.sample.NIBBLE_POPCOUNT
   let lut ← backend.avx2.intrinsics.load_u8 a 0#usize
   let i ← MU / 2#usize
@@ -5893,7 +5404,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
         core.array.Array.index (core.ops.index.IndexSlice
           (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a
           { «end» := i }
-      let a1 ← backend.avx2.ser.deserialize s 13#usize
+      let a1 ← backend.avx2.ser.deserialize 13#usize s
       let i1 ← entry / L
       let i2 ← entry % L
       let (a2, index_mut_back) ← Array.index_mut_usize mat i1
@@ -6122,7 +5633,8 @@ def backend.avx2.ser.Plan.Insts.CoreMarkerCopy : core.marker.Copy
 /-- [kopis::pke::PkeSecretKey]
     Source: 'src/pke.rs', lines 22:0-22:64 -/
 @[reducible]
-def pke.PkeSecretKey (L : Std.Usize) := arithmetic.ntt_arith.NttMatrix L 1#usize
+def pke.PkeSecretKey (L : Std.Usize) :=
+  arithmetic.ntt_arith.NttMatrix L 1#usize
 
 /-- [kopis::pke::PkePublicKey]
     Source: 'src/pke.rs', lines 26:0-38:1
@@ -6251,7 +5763,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
       turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s3
     let buf1 := to_slice_mut_back s4
     let s5 ← lift (Array.to_slice buf1)
-    let re ← arithmetic.plain_arith.RingElem.deserialize s5 13#usize
+    let re ← arithmetic.plain_arith.RingElem.deserialize 13#usize s5
     let (a, index_mut_back) ← Array.index_mut_usize mat i
     let a1 ← Array.update a j re
     let a2 := index_mut_back a1
@@ -6611,7 +6123,7 @@ def pke.expand_secret_key_loop
     let re ← Array.index_usize a 0#usize
     let (a1, index_mut_back) ← Array.index_mut_usize vec_bytes i
     let (s, to_slice_mut_back) ← lift (Array.to_slice_mut a1)
-    let s1 ← arithmetic.plain_arith.RingElem.serialize re s 10#usize
+    let s1 ← arithmetic.plain_arith.RingElem.serialize 10#usize re s
     let a2 := to_slice_mut_back s1
     let a3 := index_mut_back a2
     pke.expand_secret_key_loop iter1 b a3
@@ -7000,17 +6512,19 @@ def pke.encrypt_deterministic
   let right_val ← pke.ciphertext_len L T
   massert (left_val = right_val)
   let vec_sprime ← sample.gen_secret_from_seed L MU randomness
-  let sprime_ntt ← arithmetic.ntt_arith.NttMatrix.from_secret_matrix vec_sprime
+  let sprime_ntt ←
+    arithmetic.ntt_arith.NttMatrix.from_secret_matrix vec_sprime
   let prod ← arithmetic.ntt_arith.NttMatrix.mul pk.mat_a_ntt sprime_ntt
   let i ← pke.H1_VAL
   let prod1 ← arithmetic.plain_arith.Matrix.wrapping_add_to_all prod i
   let i1 ← 13#usize - 10#usize
   let prod2 ← arithmetic.plain_arith.Matrix.shift_right prod1 i1
-  let vprime ← arithmetic.ntt_arith.NttMatrix.mul_transpose pk.vec_ntt sprime_ntt
+  let vprime ←
+    arithmetic.ntt_arith.NttMatrix.mul_transpose pk.vec_ntt sprime_ntt
   let a ← Array.index_usize vprime 0#usize
   let vprime1 ← Array.index_usize a 0#usize
   let s ← lift (Array.to_slice msg)
-  let a1 ← ser.deserialize_generic 256#usize s 1#usize
+  let a1 ← ser.deserialize_generic 256#usize 1#usize s
   let i2 ← 10#usize - 1#usize
   let msg_polyn ← arithmetic.plain_arith.RingElem.shift_left a1 i2
   let c ←
@@ -7025,8 +6539,8 @@ def pke.encrypt_deterministic
   let ((bprime_buf, c_buf), split_at_mut_back) ←
     core.slice.Slice.split_at_mut out_buf i6
   let bprime_buf1 ←
-    arithmetic.plain_arith.Matrix.serialize prod2 bprime_buf 10#usize
-  let c_buf1 ← arithmetic.plain_arith.RingElem.serialize c2 c_buf T
+    arithmetic.plain_arith.Matrix.serialize 10#usize prod2 bprime_buf
+  let c_buf1 ← arithmetic.plain_arith.RingElem.serialize T c2 c_buf
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
 /-- [kopis::kem::encap_deterministic]:
@@ -7184,7 +6698,7 @@ def pke.decrypt
   let bprime ←
     arithmetic.plain_arith.Matrix.deserialize_10 L 1#usize bprime_bytes
   let bprime_ntt ← arithmetic.ntt_arith.NttMatrix.from_uniform_matrix bprime
-  let c ← arithmetic.plain_arith.RingElem.deserialize c_bytes T
+  let c ← arithmetic.plain_arith.RingElem.deserialize T c_bytes
   let i3 ← 10#usize - T
   let c1 ← arithmetic.plain_arith.RingElem.shift_left c i3
   let v ← arithmetic.ntt_arith.NttMatrix.mul_transpose bprime_ntt sk
@@ -7207,7 +6721,7 @@ def pke.decrypt
   let mprime2 ← arithmetic.plain_arith.RingElem.shift_right mprime1 i12
   let m := Array.repeat 32#usize 0#u8
   let (s, to_slice_mut_back) ← lift (Array.to_slice_mut m)
-  let s1 ← arithmetic.plain_arith.RingElem.serialize mprime2 s 1#usize
+  let s1 ← arithmetic.plain_arith.RingElem.serialize 1#usize mprime2 s
   ok (to_slice_mut_back s1)
 
 /-- [kopis::turboshake256_hash]:
@@ -7321,8 +6835,10 @@ def pke.PkePublicKey.Insts.CoreCloneClone.clone
   Result (pke.PkePublicKey L)
   := do
   let a ← core.array.CloneArray.clone core.clone.CloneU8 self.matrix_seed
-  let nm ← arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone self.mat_a_ntt
-  let nm1 ← arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone self.vec_ntt
+  let nm ←
+    arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone self.mat_a_ntt
+  let nm1 ←
+    arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone self.vec_ntt
   let a1 ←
     core.array.CloneArray.clone (core.clone.CloneArray 320#usize
       core.clone.CloneU8) self.vec_bytes
@@ -7549,7 +7065,7 @@ def ser.deserialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
 }
 
 /-- [kopis::ser::serialize_10::{impl core::ops::function::FnMut<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call_mut]:
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut
   (state : ser.serialize_10.closure) (args : Std.Usize) :
   Result (Std.U16 × ser.serialize_10.closure)
@@ -7560,7 +7076,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16.call_mut
   ok (i, state)
 
 /-- [kopis::ser::serialize_10::{impl core::ops::function::FnOnce<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}::call_once]:
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16.call_once
   (c : ser.serialize_10.closure) (i : Std.Usize) : Result Std.U16 := do
   let (i1, _) ←
@@ -7569,7 +7085,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16.call_once
   ok i1
 
 /-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::FnOnce<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
 @[reducible]
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16 :
   core.ops.function.FnOnce ser.serialize_10.closure Std.Usize Std.U16 := {
@@ -7578,7 +7094,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnOnceTupleUsizeU16 :
 }
 
 /-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::FnMut<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
 @[reducible]
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16 :
   core.ops.function.FnMut ser.serialize_10.closure Std.Usize Std.U16 := {
@@ -7589,7 +7105,7 @@ def ser.serialize_10.closure.Insts.CoreOpsFunctionFnMutTupleUsizeU16 :
 }
 
 /-- Trait implementation: [kopis::ser::serialize_10::{impl core::ops::function::Fn<(usize,), u16> for kopis::ser::serialize_10::closure<'_0, '_1>}]
-    Source: 'src/ser.rs', lines 83:16-83:46 -/
+    Source: 'src/ser.rs', lines 85:16-85:46 -/
 @[reducible]
 def ser.serialize_10.closure.Insts.CoreOpsFunctionFnTupleUsizeU16 :
   core.ops.function.Fn ser.serialize_10.closure Std.Usize Std.U16 := {

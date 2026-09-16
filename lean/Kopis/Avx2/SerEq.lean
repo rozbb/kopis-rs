@@ -30,11 +30,11 @@ open Kopis.Properties (streamNat)
 crate uses (`1 ≤ bits ≤ 13`) and every correctly-sized input. -/
 theorem avx2_deserialize_eq (bytes : Slice U8) (n : ℕ) (hn1 : 1 ≤ n) (hn13 : n ≤ 13)
     (hlen : bytes.length = 32 * n) (bitsU : Usize) (hbitsU : bitsU.val = n) :
-    backend.avx2.ser.deserialize bytes bitsU = ser.deserialize_generic 256#usize bytes bitsU := by
+    backend.avx2.ser.deserialize bitsU bytes = ser.deserialize_generic 256#usize bitsU bytes := by
   have hbeq : bitsU = n#usize := UScalar.eq_of_val_eq (by rw [hbitsU]; simp)
   obtain ⟨r1, hr1, hp1⟩ :=
     WP.spec_imp_exists (deserialize_streamNat bytes n hn1 hn13 hlen bitsU hbitsU)
-  have hgen : ser.deserialize_generic 256#usize bytes bitsU
+  have hgen : ser.deserialize_generic 256#usize bitsU bytes
       ⦃ (r : Array U16 256#usize) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (n * j) n ⦄ := by
     rw [hbeq]

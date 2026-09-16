@@ -129,7 +129,7 @@ theorem inner_loop_spec (bytes : Slice U8) (w : ℕ) (hw1 : 1 ≤ w) (hw13 : w �
     (pair : Usize) (hpair : pair.val < 16)
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 2)
     (wide : Array Vec256 2#usize) :
-    backend.avx2.ser.deserialize_loop0_loop0 iter bytes bitsU shuffleV shiftV maskV headG tailS
+    backend.avx2.ser.deserialize_loop0_loop0 bitsU iter bytes shuffleV shiftV maskV headG tailS
       tailArr pair wide
       ⦃ (r : Array Vec256 2#usize) =>
           (∀ h (hh : h < 2), h < iter.start.val → wAt r h hh = wAt wide h hh) ∧
@@ -232,7 +232,7 @@ theorem outer_loop_spec (bytes : Slice U8) (w : ℕ) (hw1 : 1 ≤ w) (hw13 : w �
     (htail : ∀ p < 32, (tailArr.val[p]!).val = streamByte bytes (tailStart w + p))
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 16)
     (out : Array U16 256#usize) :
-    backend.avx2.ser.deserialize_loop0 iter bytes bitsU shuffleV shiftV maskV headG tailS
+    backend.avx2.ser.deserialize_loop0 bitsU iter bytes shuffleV shiftV maskV headG tailS
       tailArr out
       ⦃ (r : Array U16 256#usize) => ∀ j < 256,
           (r.val[j]!).val =
@@ -363,7 +363,7 @@ result is the `bits`-bit window at bit `bits·j`, which is exactly what
 `ser::deserialize_generic` produces. -/
 theorem deserialize_streamNat (bytes : Slice U8) (w : ℕ) (hw1 : 1 ≤ w) (hw13 : w ≤ 13)
     (hlen : bytes.length = 32 * w) (bitsU : Usize) (hbitsU : bitsU.val = w) :
-    backend.avx2.ser.deserialize bytes bitsU
+    backend.avx2.ser.deserialize bitsU bytes
       ⦃ (r : Array U16 256#usize) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (w * j) w ⦄ := by
   have hblen : bytes.val.length = 32 * w := by simpa [Slice.length] using hlen

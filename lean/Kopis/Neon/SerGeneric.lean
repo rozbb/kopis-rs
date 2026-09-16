@@ -34,7 +34,7 @@ theorem deserialize_refill_spec_gen (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12)
     (hlo : 8 * bp.val = lo + biw.val)
     (hwin : window.val = streamNat bytes lo biw.val)
     (hbytes : lo + n ≤ 8 * bytes.length) :
-    ser.deserialize_generic_loop0_loop0 bytes n#usize window biw bp
+    ser.deserialize_generic_loop0_loop0 n#usize bytes window biw bp
       ⦃ (r : U32 × Usize × Usize) =>
           n ≤ r.2.1.val ∧ r.2.1.val ≤ n + 7 ∧ 8 * r.2.2.val = lo + r.2.1.val ∧
           r.1.val = streamNat bytes lo r.2.1.val ⦄ := by
@@ -95,7 +95,7 @@ theorem deserialize_outer_spec_gen (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12) {N : Us
     (hlo : 8 * bp.val = n * iter.start.val + biw.val)
     (hwin : window.val = streamNat bytes (n * iter.start.val) biw.val)
     (hbytes : n * 256 ≤ 8 * bytes.length) :
-    ser.deserialize_generic_loop0 iter bytes n#usize out bitmask window biw bp
+    ser.deserialize_generic_loop0 n#usize iter bytes out bitmask window biw bp
       ⦃ (r : Array U16 N) =>
           ∀ j (hj : j < 256),
             (r.val[j]'(by have := r.property; grind)).val
@@ -177,7 +177,7 @@ theorem deserialize_refill_spec (bytes : Slice U8) (window : U32) (biw bp : Usiz
     (hlo : 8 * bp.val = lo + biw.val)
     (hwin : window.val = streamNat bytes lo biw.val)
     (hbytes : lo + 13 ≤ 8 * bytes.length) :
-    ser.deserialize_generic_loop0_loop0 bytes 13#usize window biw bp
+    ser.deserialize_generic_loop0_loop0 13#usize bytes window biw bp
       ⦃ (r : U32 × Usize × Usize) =>
           13 ≤ r.2.1.val ∧ r.2.1.val ≤ 20 ∧ 8 * r.2.2.val = lo + r.2.1.val ∧
           r.1.val = streamNat bytes lo r.2.1.val ⦄ := by
@@ -234,7 +234,7 @@ theorem deserialize_outer_spec {N : Usize} (hN : N.val = 256)
     (hlo : 8 * bp.val = 13 * iter.start.val + biw.val)
     (hwin : window.val = streamNat bytes (13 * iter.start.val) biw.val)
     (hbytes : 13 * 256 ≤ 8 * bytes.length) :
-    ser.deserialize_generic_loop0 iter bytes 13#usize out bitmask window biw bp
+    ser.deserialize_generic_loop0 13#usize iter bytes out bitmask window biw bp
       ⦃ (r : Array U16 N) =>
           ∀ j (hj : j < 256),
             (r.val[j]'(by have := r.property; grind)).val
@@ -310,13 +310,25 @@ is proved through. -/
 
 theorem generic_streamNat (bytes : Slice U8) (n : ℕ) (hn1 : 1 ≤ n) (hn13 : n ≤ 13)
     (hlen : bytes.length = 32 * n) :
-    ser.deserialize_generic 256#usize bytes n#usize
+    ser.deserialize_generic 256#usize n#usize bytes
       ⦃ (r : Array U16 256#usize) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (n * j) n ⦄ := by
   have hnv : (n#usize).val = n := by simp
   unfold ser.deserialize_generic
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
-  have hiv : i.val = n * 256 := hi
+  -- `let _ ← BITS_PER_ELEM * N`: the overflow check whose value the body discards.  Since
+  -- `BITS_PER_ELEM` is a const generic the product is then *recomputed*, twice, as a wrapping
+  -- multiply; `mul_spec` succeeding is what says the wrap never happens.
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hlt : (n#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [hnv, h256, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul n#usize 256#usize).val = n * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, hnv, h256]
+  -- one `rw` covers both occurrences: the body recomputes the same wrapping product twice
+  rw [show lift (Std.Usize.wrapping_mul n#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul n#usize 256#usize) from rfl, bind_tc_ok]
   let* ⟨ lv, hlv ⟩ ← Std.Usize.rem_spec
   have hlvv : lv.val = 0 := by rw [hlv, hiv]; omega
   rw [show massert (lv = 0#usize) = ok () from by

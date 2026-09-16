@@ -4,7 +4,7 @@
 import Kopis.Bits.Stream
 import Kopis.Neon.Properties.MatVecMul
 import Kopis.Neon.Properties.CoerceBridge
-import Kopis.Neon.Properties.MulTranspose
+import Kopis.Neon.Properties.MatrixArith
 import Kopis.Neon.Properties.GenSecretTop
 open Aeneas Aeneas.Std Result RustKopisNeon
 open scoped BigOperators

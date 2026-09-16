@@ -7,11 +7,10 @@ import Kopis.Neon.Properties.ProdBridgeNT
 import Kopis.Neon.Properties.InnerProduct
 import Kopis.Neon.Properties.EncryptGlue
 import Kopis.Neon.Properties.DeserializeMsg
-import Kopis.Neon.Properties.MatrixMul
+import Kopis.Neon.Properties.MatrixArith
 import Kopis.Neon.Properties.MatrixSerialize
 import Kopis.Neon.Properties.SerializeTop
 import Kopis.Neon.Properties.RingArith
-import Kopis.Neon.Properties.MulTranspose
 import Kopis.Neon.Properties.GenSecretTop
 import Kopis.Neon.Properties.ExpandSecretKey
 open Aeneas Aeneas.Std Result RustKopisNeon

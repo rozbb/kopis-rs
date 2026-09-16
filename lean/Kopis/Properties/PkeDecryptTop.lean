@@ -2,7 +2,7 @@ import Kopis.Properties.DecodeMsg
 import Kopis.Properties.DecryptGlue
 import Kopis.Properties.InnerProduct
 import Kopis.Properties.EncryptGlue
-import Kopis.Properties.MulTranspose
+import Kopis.Properties.MatrixArith
 import Kopis.Properties.RingArith
 import Kopis.Properties.SerializeTop
 import Kopis.Properties.ExpandSecretKey

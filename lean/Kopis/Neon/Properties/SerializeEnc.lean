@@ -18,7 +18,7 @@ theorem serialize_loop0_loop0_spec (out_buf : Slice U8) (window : U32)
     (bits_in_window byte_pos : Usize)
     (hbnd : byte_pos.val + bits_in_window.val / 8 ≤ out_buf.length)
     (hbiw : bits_in_window.val ≤ 32) :
-    ser.serialize_loop0_loop0 out_buf window bits_in_window byte_pos
+    ser.serialize_generic_loop0_loop0 out_buf window bits_in_window byte_pos
       ⦃ (r : Slice U8 × U32 × Usize × Usize) =>
           r.2.2.1.val = bits_in_window.val % 8 ∧
           r.2.2.2.val = byte_pos.val + bits_in_window.val / 8 ∧
@@ -28,7 +28,7 @@ theorem serialize_loop0_loop0_spec (out_buf : Slice U8) (window : U32)
              (r.1.val[byte_pos.val + t]!).val = (window.val >>> (8 * t)) % 256) ∧
           (∀ q, (q < byte_pos.val ∨ byte_pos.val + bits_in_window.val / 8 ≤ q) →
              r.1.val[q]! = out_buf.val[q]!) ⦄ := by
-  unfold ser.serialize_loop0_loop0
+  unfold ser.serialize_generic_loop0_loop0
   by_cases h8 : bits_in_window.val ≥ 8
   · rw [if_pos (by scalar_tac)]
     have hlen : out_buf.length = out_buf.val.length := by simp [Slice.length]

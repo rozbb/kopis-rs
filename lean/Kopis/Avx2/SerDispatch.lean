@@ -39,53 +39,72 @@ set_option maxHeartbeats 1000000
 here and the three call sites (widths 13, 10, and the generic path) differ only in what they
 supply for the two branches. -/
 
-/-- The portable else-branch of `RingElem::deserialize`, exactly as the extraction writes it. -/
+/-- The portable else-branch of `RingElem::deserialize`, exactly as the extraction writes it.
+(`BITS_PER_ELEM` is a const generic now, so the width dispatch is a `match` on its value rather
+than the chain of `if`s it used to be.) -/
 def portableDeserialize (bytes : Slice U8) (bits : Usize) : Result RingElem :=
-  if bits = 13#usize then
+  match bits.val with
+  | 13 =>
     (do let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
         let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
         let a ← ser.deserialize_13 arr
         ok a)
-  else if bits = 10#usize then
+  | 10 =>
     (do let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
         let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
         let a ← ser.deserialize_10 arr
         ok a)
-  else
-    (do let a ← ser.deserialize_generic 256#usize bytes bits
+  | _ =>
+    (do let a ← ser.deserialize_generic 256#usize bits bytes
         ok a)
 
-/-- **The dispatch.**  Both guards are opaque and neither's value is assumed: if the portable
+/-- **The dispatch.**  The CPU probe is opaque and its value is not assumed: if the portable
 path and the vector path both satisfy `P`, so does `RingElem::deserialize`. -/
 theorem ringElem_deserialize_dispatch (bytes : Slice U8) (bits : Usize)
-    (hbits : bits.val ≤ 13) (hlen : bytes.length = 32 * bits.val) {P : RingElem → Prop}
+    (hbits1 : 1 ≤ bits.val) (hbits : bits.val ≤ 13) (hlen : bytes.length = 32 * bits.val)
+    {P : RingElem → Prop}
     (hport : portableDeserialize bytes bits ⦃ P ⦄)
-    (havx : backend.avx2.ser.deserialize bytes bits ⦃ P ⦄) :
-    arithmetic.plain_arith.RingElem.deserialize bytes bits ⦃ P ⦄ := by
+    (havx : backend.avx2.ser.deserialize bits bytes ⦃ P ⦄) :
+    arithmetic.plain_arith.RingElem.deserialize bits bytes ⦃ P ⦄ := by
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
+  -- The width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))` now fronts the body as a
+  -- `massert`, so it has to be discharged rather than case-split; see
+  -- `rangeInclusive_contains_usize_eq` in `Intrinsics.lean`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val) = true) = ok ()
+        from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  -- `BITS_PER_ELEM * RING_DEG` is an overflow check whose value the body discards, then the same
+  -- product recomputed as a wrapping multiply; `mul_spec` succeeding is what rules out the wrap.
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hlt : bits.val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul bits 256#usize).val = bits.val * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256]
+  rw [show lift (Std.Usize.wrapping_mul bits 256#usize)
+        = ok (Std.Usize.wrapping_mul bits 256#usize) from rfl, bind_tc_ok]
   let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
   have hmeq : Slice.len bytes = rv :=
-    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hi]; omega)
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
   rw [show massert (Slice.len bytes = rv) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
-  let* ⟨ ri, hri ⟩ ← core.ops.range.RangeInclusive.new_spec
-  obtain ⟨bw, hbw⟩ := rangeInclusive_contains_ok _ _ _ _ _
-  rw [hbw, bind_tc_ok]
-  cases bw
-  · simpa only [Bool.false_eq_true, reduceIte, portableDeserialize] using hport
+  obtain ⟨b1, hb1⟩ := available_ok
+  rw [hb1, bind_tc_ok]
+  cases b1
+  · -- no AVX2: the portable path, which `portableDeserialize` is by definition
+    simp only [Bool.false_eq_true, reduceIte]
+    exact hport
   · simp only [reduceIte]
-    obtain ⟨b1, hb1⟩ := available_ok
-    rw [hb1, bind_tc_ok]
-    cases b1
-    · simpa only [Bool.false_eq_true, reduceIte, portableDeserialize] using hport
-    · simp only [reduceIte]
-      apply WP.spec_bind havx
-      intro r hr
-      simp only [WP.spec_ok]
-      exact hr
-
+    apply WP.spec_bind havx
+    intro r hr
+    simp only [WP.spec_ok]
+    exact hr
 
 /-- **Dispatch point at width 10.** -/
 theorem ringElem_deserialize_10_streamNat (bytes : Slice U8) (hlen : bytes.length = 32 * 10)
@@ -93,12 +112,16 @@ theorem ringElem_deserialize_10_streamNat (bytes : Slice U8) (hlen : bytes.lengt
         ser.deserialize_10 arr
           ⦃ (r : Array U16 256#usize) => ∀ j < 256,
               (r.val[j]!).val = streamNat bytes (10 * j) 10 ⦄) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize 10#usize bytes
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (10 * j) 10 ⦄ := by
-  refine ringElem_deserialize_dispatch bytes 10#usize (by simp) (by simpa using hlen) ?_ ?_
-  · unfold portableDeserialize
-    rw [if_neg (by decide), if_pos rfl]
+  refine ringElem_deserialize_dispatch bytes 10#usize (by simp) (by simp) (by simpa using hlen)
+    ?_ ?_
+  · rw [show portableDeserialize bytes 10#usize =
+          (do let r ← core.array.TryFromSharedArraySlice.try_from 320#usize bytes
+              let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+              let a ← ser.deserialize_10 arr
+              ok a) from rfl]
     have hb : bytes.len = 320#usize := by scalar_tac
     simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
       core.result.Result.unwrap]
@@ -112,26 +135,23 @@ theorem ringElem_deserialize_10_streamNat (bytes : Slice U8) (hlen : bytes.lengt
 /-- **Dispatch point at the generic widths** (`1 ≤ n ≤ 12`, `n ≠ 10`). -/
 theorem ringElem_deserialize_gen_streamNat (bytes : Slice U8) (n : ℕ) (hn1 : 1 ≤ n) (hn12 : n ≤ 12)
     (hne10 : n ≠ 10) (hlen : bytes.length = 32 * n)
-    (hgen : ser.deserialize_generic 256#usize bytes n#usize
+    (hgen : ser.deserialize_generic 256#usize n#usize bytes
         ⦃ (r : Array U16 256#usize) => ∀ j < 256,
             (r.val[j]!).val = streamNat bytes (n * j) n ⦄) :
-    arithmetic.plain_arith.RingElem.deserialize bytes n#usize
+    arithmetic.plain_arith.RingElem.deserialize n#usize bytes
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (n * j) n ⦄ := by
   have hnv : (n#usize).val = n := by simp
-  have h13 : n#usize ≠ 13#usize := by
-    intro h
-    have := congrArg UScalar.val h
-    simp at this
-    omega
-  have h10 : n#usize ≠ 10#usize := by
-    intro h
-    have := congrArg UScalar.val h
-    simp at this
-    omega
-  refine ringElem_deserialize_dispatch bytes n#usize (by omega) (by rw [hnv]; exact hlen) ?_ ?_
-  · unfold portableDeserialize
-    rw [if_neg h13, if_neg h10]
+  refine ringElem_deserialize_dispatch bytes n#usize (by omega) (by omega)
+    (by rw [hnv]; exact hlen) ?_ ?_
+  · -- `1 ≤ n ≤ 12` and `n ≠ 10`, so the width `match` lands in its default branch
+    rw [show portableDeserialize bytes n#usize =
+          (do let a ← ser.deserialize_generic 256#usize n#usize bytes; ok a) from by
+        unfold portableDeserialize
+        rw [hnv]
+        have hn : n = 1 ∨ n = 2 ∨ n = 3 ∨ n = 4 ∨ n = 5 ∨ n = 6 ∨ n = 7 ∨ n = 8 ∨ n = 9
+            ∨ n = 11 ∨ n = 12 := by omega
+        rcases hn with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl <;> rfl]
     apply WP.spec_bind hgen
     intro r hr
     simp only [WP.spec_ok]
@@ -140,61 +160,35 @@ theorem ringElem_deserialize_gen_streamNat (bytes : Slice U8) (n : ℕ) (hn1 : 1
     intro r hr
     exact hr
 
-/-- **Dispatch point 1.**  Whichever branch runs, `RingElem::deserialize` at width 13 produces
-the 13-bit windows of the byte stream.  The portable width-13 unpacker's spec is taken as a
-hypothesis so that this proof does not have to live in the file that proves it. -/
+/-- **Dispatch point at width 13**, reached from `from_bytes`.  The portable width-13 unpacker's
+spec is taken as a hypothesis so that this proof does not have to live in the file that proves
+it.  (This used to unfold `RingElem::deserialize` by hand, because the old body nested three
+copies of the portable path and case-splitting it here was cheaper than doing it in
+`Properties/Serialize.lean`.  The const-generic body has the portable path once, behind the CPU
+probe, so it goes through `ringElem_deserialize_dispatch` like the other two widths.) -/
 theorem ringElem_deserialize_13_streamNat (bytes : Slice U8) (hlen : bytes.length = 32 * 13)
     (h13 : ∀ (arr : Array U8 416#usize), arr.val = bytes.val →
         ser.deserialize_13 arr
           ⦃ (r : Array U16 256#usize) => ∀ j < 256,
               (r.val[j]!).val = streamNat bytes (13 * j) 13 ⦄) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
+    arithmetic.plain_arith.RingElem.deserialize 13#usize bytes
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (13 * j) 13 ⦄ := by
-  have hlen416 : bytes.length = 416 := by omega
-  have hportable : ∀ (arr : Array U8 416#usize), arr.val = bytes.val →
-      (do let a ← ser.deserialize_13 arr; ok a)
-        ⦃ (r : RingElem) => ∀ j < 256,
-            (r.val[j]!).val = streamNat bytes (13 * j) 13 ⦄ := by
-    intro arr harr
-    apply WP.spec_bind (h13 arr harr)
+  refine ringElem_deserialize_dispatch bytes 13#usize (by simp) (by simp) (by simpa using hlen)
+    ?_ ?_
+  · rw [show portableDeserialize bytes 13#usize =
+          (do let r ← core.array.TryFromSharedArraySlice.try_from 416#usize bytes
+              let arr ← core.result.Result.unwrap core.fmt.DebugTryFromSliceError r
+              let a ← ser.deserialize_13 arr
+              ok a) from rfl]
+    have hb : bytes.len = 416#usize := by scalar_tac
+    simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
+      core.result.Result.unwrap]
+    apply WP.spec_bind (h13 _ rfl)
     intro r hr
     simp only [WP.spec_ok]
     exact hr
-  unfold arithmetic.plain_arith.RingElem.deserialize
-  simp only [consts.RING_DEG]
-  -- the length assertion, by hand: `step*` walks the whole nested dispatch
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
-  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
-  have hmeq : Slice.len bytes = rv :=
-    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hi]; omega)
-  rw [show massert (Slice.len bytes = rv) = ok () from by
-    simp only [massert, if_pos hmeq], bind_tc_ok]
-  let* ⟨ ri, hri ⟩ ← core.ops.range.RangeInclusive.new_spec
-  obtain ⟨bw, hbw⟩ := rangeInclusive_contains_ok _ _ _ _ _
-  rw [hbw, bind_tc_ok]
-  have hb : bytes.len = 416#usize := by scalar_tac
-  cases bw
-  · -- width guard false: the portable width-13 unpacker
-    simp only [Bool.false_eq_true, reduceIte,
-      core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
-      core.result.Result.unwrap]
-    exact hportable _ rfl
-  · simp only [reduceIte]
-    obtain ⟨b1, hb1⟩ := available_ok
-    rw [hb1, bind_tc_ok]
-    cases b1
-    · -- no AVX2: the same portable unpacker
-      simp only [Bool.false_eq_true, reduceIte,
-        core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
-        core.result.Result.unwrap]
-      exact hportable _ rfl
-    · -- the vector path: phase C
-      simp only [reduceIte]
-      apply WP.spec_bind
-        (deserialize_streamNat bytes 13 (by omega) (by omega) hlen 13#usize (by simp))
-      intro r hr
-      simp only [WP.spec_ok]
-      exact hr
+  · exact deserialize_streamNat bytes 13 (by omega) (by omega) (by simpa using hlen) 13#usize
+      (by simp)
 
 end Kopis.Avx2

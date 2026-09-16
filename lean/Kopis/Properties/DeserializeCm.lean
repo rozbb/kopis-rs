@@ -63,7 +63,7 @@ theorem deserialize_refill_spec_gen (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12)
     (hlo : 8 * bp.val = lo + biw.val)
     (hwin : window.val = streamNat bytes lo biw.val)
     (hbytes : lo + n ≤ 8 * bytes.length) :
-    ser.deserialize_generic_loop0_loop0 bytes n#usize window biw bp
+    ser.deserialize_generic_loop0_loop0 n#usize bytes window biw bp
       ⦃ (r : U32 × Usize × Usize) =>
           n ≤ r.2.1.val ∧ r.2.1.val ≤ n + 7 ∧ 8 * r.2.2.val = lo + r.2.1.val ∧
           r.1.val = streamNat bytes lo r.2.1.val ⦄ := by
@@ -124,7 +124,7 @@ theorem deserialize_outer_spec_gen (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12) {N : Us
     (hlo : 8 * bp.val = n * iter.start.val + biw.val)
     (hwin : window.val = streamNat bytes (n * iter.start.val) biw.val)
     (hbytes : n * 256 ≤ 8 * bytes.length) :
-    ser.deserialize_generic_loop0 iter bytes n#usize out bitmask window biw bp
+    ser.deserialize_generic_loop0 n#usize iter bytes out bitmask window biw bp
       ⦃ (r : Array U16 N) =>
           ∀ j (hj : j < 256),
             (r.val[j]'(by have := r.property; grind)).val
@@ -206,15 +206,26 @@ decreasing_by scalar_decr_tac
 `bits_per_elem = n` yields the spec ring element `deserialize n`. -/
 theorem deserialize_generic_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12)
     (hlen : bytes.length = 32 * n) :
-    ser.deserialize_generic 256#usize bytes n#usize
+    ser.deserialize_generic 256#usize n#usize bytes
       ⦃ (r : Array U16 256#usize) =>
           toPolyN n r = Spec.Kopis.deserialize n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
   obtain ⟨hn1, hn2⟩ := hn
   have hnv : (n#usize).val = n := by simp
   unfold ser.deserialize_generic
-  -- i = n * 256
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
-  have hiv : i.val = n * 256 := hi
+  -- `let _ ← BITS_PER_ELEM * N`: the overflow check whose value the body discards.  Since
+  -- `BITS_PER_ELEM` is a const generic the product is then *recomputed*, twice, as a wrapping
+  -- multiply; `mul_spec` succeeding is what says the wrap never happens.
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hlt : (n#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [hnv, h256, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul n#usize 256#usize).val = n * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, hnv, h256]
+  -- one `rw` covers both occurrences: the body recomputes the same wrapping product twice
+  rw [show lift (Std.Usize.wrapping_mul n#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul n#usize 256#usize) from rfl, bind_tc_ok]
   -- left_val = i % 8 = 0, discharge first massert
   let* ⟨ lv, hlv ⟩ ← Std.Usize.rem_spec
   have hlvv : lv.val = 0 := by rw [hlv, hiv]; omega
@@ -260,30 +271,45 @@ decode width `t ∈ {3, 4, 6}` (all `≤ 12` and `≠ 10, 13`), `RingElem::deser
 generic else-branch and computes the audited `Spec.Kopis.deserialize n`. -/
 theorem ringElem_deserialize_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12)
     (hne13 : n ≠ 13) (hne10 : n ≠ 10) (hlen : bytes.length = 32 * n) :
-    arithmetic.plain_arith.RingElem.deserialize bytes n#usize
+    arithmetic.plain_arith.RingElem.deserialize n#usize bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
           toPolyN n r = Spec.Kopis.deserialize n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
   obtain ⟨hn1, hn2⟩ := hn
   have hnv : (n#usize).val = n := by simp
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
-  -- i = n * 256, right_val = 32·n, discharge the length massert
-  let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
-  have hiv : i.val = n * 256 := hi
+  -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2, hnv]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  -- the discarded overflow check, then the same product as a wrapping multiply
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hlt : (n#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hnv, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul n#usize 256#usize).val = n * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hnv]
+  rw [show lift (Std.Usize.wrapping_mul n#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul n#usize 256#usize) from rfl, bind_tc_ok]
+  -- right_val = 32·n, discharge the length massert
   let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
   have hrvv : rv.val = 32 * n := by rw [hrv, hiv]; omega
   have hmeq : Slice.len bytes = rv := UScalar.eq_of_val_eq (by rw [Slice.len_val, hrvv]; exact hlen)
   rw [show massert (Slice.len bytes = rv) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
   -- neither the 13-bit nor the 10-bit fast path: take the generic else-branch
-  have hne13' : n#usize ≠ 13#usize := by
-    intro h; exact hne13 (by have := congrArg UScalar.val h; simpa using this)
-  have hne10' : n#usize ≠ 10#usize := by
-    intro h; exact hne10 (by have := congrArg UScalar.val h; simpa using this)
-  rw [if_neg hne13', if_neg hne10']
-  -- delegate to the generic decoder and thread the postcondition through `ok a`
-  let* ⟨ a, ha ⟩ ← deserialize_generic_gen_spec bytes n ⟨hn1, hn2⟩ hlen
-  exact ha
+  rw [hnv]
+  split
+  · exact absurd rfl hne13
+  · exact absurd rfl hne10
+  · -- delegate to the generic decoder and thread the postcondition through `ok a`
+    let* ⟨ a, ha ⟩ ← deserialize_generic_gen_spec bytes n ⟨hn1, hn2⟩ hlen
+    exact ha
 
 /-- **`RingElem::deserialize` at a `Usize` width `bits` (generic branch).**  Usize-parameterised
 wrapper around `ringElem_deserialize_gen_spec`, so callers with a runtime width `bits : Usize`
@@ -291,7 +317,7 @@ wrapper around `ringElem_deserialize_gen_spec`, so callers with a runtime width 
 theorem ringElem_deserialize_gen_spec' (bytes : Slice U8) (bits : Usize) (n : ℕ)
     (hbn : bits.val = n) (hn : 1 ≤ n ∧ n ≤ 12) (hne13 : n ≠ 13) (hne10 : n ≠ 10)
     (hlen : bytes.length = 32 * n) :
-    arithmetic.plain_arith.RingElem.deserialize bytes bits
+    arithmetic.plain_arith.RingElem.deserialize bits bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
           toPolyN n r = Spec.Kopis.deserialize n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
   have hbeq : bits = n#usize := UScalar.eq_of_val_eq (by rw [hbn]; simp)

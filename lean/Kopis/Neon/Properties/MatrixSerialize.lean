@@ -55,7 +55,7 @@ theorem serialize_col_inner_spec {L : Usize}
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hchunk : chunk_len.val = 32 * n)
     (hi : i.val < L.val) (hlen : out_buf.length = L.val * (32 * n))
     (hstart : iter.start.val ≤ 1) (hend : iter.«end».val = 1) :
-    arithmetic.plain_arith.Matrix.serialize_loop0_loop0 iter self out_buf bits chunk_len i
+    arithmetic.plain_arith.Matrix.serialize_loop0_loop0 bits iter self out_buf chunk_len i
       ⦃ (p : (arithmetic.plain_arith.Matrix L 1#usize) × (Slice U8)) =>
           p.1 = self ∧ ∃ _h : p.2.length = L.val * (32 * n),
             ∀ q, q < L.val * (32 * n) →
@@ -164,7 +164,7 @@ theorem serialize_col_outer_spec {L : Usize}
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hchunk : chunk_len.val = 32 * n)
     (hlen : out_buf.length = L.val * (32 * n))
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    arithmetic.plain_arith.Matrix.serialize_loop0 iter self out_buf bits chunk_len
+    arithmetic.plain_arith.Matrix.serialize_loop0 bits iter self out_buf chunk_len
       ⦃ (r : Slice U8) => ∃ _h : r.length = L.val * (32 * n),
           ∀ q, q < L.val * (32 * n) →
             (r.val[q]!).bv
@@ -228,24 +228,41 @@ theorem matrix_serialize_col_spec {L : Usize}
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13)
     (hlen : out.val.length = L.val * (32 * n))
     (hfit : L.val * n * 256 ≤ Usize.max) :
-    arithmetic.plain_arith.Matrix.serialize self out bits
+    arithmetic.plain_arith.Matrix.serialize bits self out
       ⦃ (r : Slice U8) => ∃ h : r.length = L.val * (32 * n),
           sliceToBytes r (L.val * (32 * n)) h = Spec.Kopis.PolyVector.serialize n (toVecN n self) ⦄ := by
   unfold arithmetic.plain_arith.Matrix.serialize
   simp only [consts.RING_DEG]
   have hm : 0 < 32 * n := by omega
+  have hbufmax : L.val * (32 * n) ≤ Usize.max := hlen ▸ out.property
+  have hLmax : L.val ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ hm) hbufmax
+  have hb1 : L.val * n ≤ Usize.max := le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit
+  have hsz : ∀ x : ℕ, x ≤ Usize.max → x < UScalar.size .Usize := by
+    intro x hx
+    have h1 : UScalar.size .Usize = 2 ^ System.Platform.numBits := by
+      simp only [UScalar.size, UScalarTy.Usize_numBits_eq]
+    have h2 : (Usize.max : ℕ) = 2 ^ System.Platform.numBits - 1 := by
+      simp only [Usize.max, Usize.numBits, UScalarTy.Usize_numBits_eq]
+    have h3 : 0 < 2 ^ System.Platform.numBits := by positivity
+    omega
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show L.val * (1#usize).val ≤ Usize.max from by
-    simpa using le_trans (Nat.le_mul_of_pos_right _ hm) (hlen ▸ out.property))
+    simpa using hLmax)
   have hiv : i.val = L.val := by rw [hi]; simp
   let* ⟨ i1, hi1 ⟩ ← Std.Usize.mul_spec (show i.val * bits.val ≤ Usize.max from by
-    rw [hiv, hn]; exact le_trans (Nat.le_mul_of_pos_right _ (by norm_num)) hfit)
+    rw [hiv, hn]; exact hb1)
   have hi1v : i1.val = L.val * n := by rw [hi1, hiv, hn]
-  let* ⟨ i2, hi2 ⟩ ← Std.Usize.mul_spec (show i1.val * (256#usize).val ≤ Usize.max from by
+  -- the checked `X * Y * BITS_PER_ELEM * RING_DEG` whose value the const-generic body discards
+  let* ⟨ iu, hiu ⟩ ← Std.Usize.mul_spec (show i1.val * (256#usize).val ≤ Usize.max from by
     rw [hi1v]; exact hfit)
-  have hi2v : i2.val = L.val * n * 256 := by rw [hi2, hi1v]
+  -- the same three products, recomputed as wrapping multiplies
+  simp only [lift, bind_tc_ok]
   let* ⟨ right_val, hrv ⟩ ← Std.Usize.div_spec
   have hrvv : right_val.val = L.val * (32 * n) := by
-    rw [hrv, hi2v,
+    rw [hrv]
+    simp only [Std.Usize.wrapping_mul_val_eq, show (1#usize).val = 1 from rfl,
+      show (256#usize).val = 256 from rfl, Nat.mul_one, hn]
+    rw [Nat.mod_eq_of_lt (hsz _ hLmax), Nat.mod_eq_of_lt (hsz _ hb1),
+      Nat.mod_eq_of_lt (hsz _ hfit),
       show L.val * n * 256 = L.val * (32 * n) * 8 from by ring,
       Nat.mul_div_cancel _ (by norm_num)]
   have hmeq : Slice.len out = right_val :=

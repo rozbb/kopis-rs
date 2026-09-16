@@ -291,12 +291,35 @@ theorem deserialize_10_spec (bytes : Slice U8) (arr : Array U8 320#usize)
 /-- **Correctness of `RingElem::deserialize` at 10 bits.**  Decoding a 320-byte
 buffer yields the spec ring element `deserialize 10`. -/
 theorem ringElem_deserialize_10_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize 10#usize bytes
       ⦃ (r : RingElem) => toPolyN 10 r = Spec.Kopis.deserialize 10 (sliceToBytes bytes (32 * 10) hlen) ⦄ := by
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (10#usize).val = 10 := by simp
+  have hlt : (10#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 10#usize 256#usize).val = 10 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 10#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 10#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   have hb : bytes.len = 320#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
     core.result.Result.unwrap]

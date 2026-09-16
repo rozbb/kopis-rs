@@ -4,7 +4,7 @@
 import Kopis.Bits.Stream
 import Kopis.Neon.Properties.PkeHash
 import Kopis.Neon.Properties.CompressTop
-import Kopis.Neon.Properties.MulTranspose
+import Kopis.Neon.Properties.MatrixArith
 import Kopis.Neon.Properties.NttBridge
 open Aeneas Aeneas.Std Result RustKopisNeon
 open Spec (𝔹)

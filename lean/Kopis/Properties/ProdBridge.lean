@@ -1,6 +1,6 @@
 import Kopis.Properties.MatVecMul
 import Kopis.Properties.CoerceBridge
-import Kopis.Properties.MulTranspose
+import Kopis.Properties.MatrixArith
 import Kopis.Properties.GenSecretTop
 open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators

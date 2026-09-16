@@ -1,6 +1,6 @@
 import Kopis.Properties.PkeHash
 import Kopis.Properties.CompressTop
-import Kopis.Properties.MulTranspose
+import Kopis.Properties.MatrixArith
 import Kopis.Properties.NttBridge
 open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)

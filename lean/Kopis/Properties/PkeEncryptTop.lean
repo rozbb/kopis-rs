@@ -3,11 +3,10 @@ import Kopis.Properties.ProdBridgeNT
 import Kopis.Properties.InnerProduct
 import Kopis.Properties.EncryptGlue
 import Kopis.Properties.DeserializeMsg
-import Kopis.Properties.MatrixMul
+import Kopis.Properties.MatrixArith
 import Kopis.Properties.MatrixSerialize
 import Kopis.Properties.SerializeTop
 import Kopis.Properties.RingArith
-import Kopis.Properties.MulTranspose
 import Kopis.Properties.GenSecretTop
 import Kopis.Properties.ExpandSecretKey
 open Aeneas Aeneas.Std Result RustKopisSerial

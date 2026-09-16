@@ -2,11 +2,11 @@
   # Kopis/Properties/Ntt.lean — the NTT multiplication bridge.
 
   Production Kopis multiplies ring elements through a negacyclic NTT over the auxiliary prime
-  `p = 50330113` (`src/arithmetic/ntt_arith.rs`), not through the schoolbook `Matrix::mul` /
-  `Matrix::mul_transpose`.  Those schoolbook functions are still extracted, and
-  `MatrixMul.lean` / `MulTranspose.lean` prove they compute the spec's matrix product; this
-  file's job is to give the NTT pipeline a postcondition of *exactly the same shape*, so the
-  downstream key-generation / encryption / decryption proofs can quote it interchangeably.
+  `p = 50330113` (`src/arithmetic/ntt_arith.rs`).  It used to do so through a schoolbook
+  `Matrix::mul` / `Matrix::mul_transpose`, and `MatrixMul.lean` / `MulTranspose.lean` proved
+  those computed the spec's matrix product; both the Rust and those proofs are gone, and this
+  file's postcondition — deliberately kept in *exactly the same shape* — is what the downstream
+  key-generation / encryption / decryption proofs quote in their place.
 
   ## Why an auxiliary prime works at all
 
@@ -51,7 +51,7 @@
   the forward direction (`nttFwdU`/`nttFwdS`, in `NttBridge`), so `invNTT ∘ NTT = id` and NTT
   injectivity are never needed; the convolution theorem is the whole of the mathematics.
 -/
-import Kopis.Properties.MulTranspose
+import Kopis.Properties.MatrixArith
 import Kopis.Properties.GenMatrix
 import Kopis.Properties.DeserializeVec
 import Kopis.Properties.GenSecretTop
@@ -245,9 +245,9 @@ regression that reopened any of it would fail the build. -/
 
 /-! ### The bridge interface
 
-The transform-level correctness, stated as a **drop-in for `matrix_mul_transpose_spec`**: the
-Rust path `from_uniform A → from_secret s → mul_transpose` produces exactly the schoolbook
-product that `matrix_mul_transpose_spec` proves `Matrix.mul_transpose A s` produces. Downstream
+The transform-level correctness, stated as a **drop-in for the former
+`matrix_mul_transpose_spec`**: the Rust path `from_uniform A → from_secret s → mul_transpose`
+produces exactly the schoolbook product that the deleted `Matrix.mul_transpose` did. Downstream
 proofs (`ExpandSecretKey`, `PkeEncryptTop`, `PkeDecryptTop`) can then replace the schoolbook step
 with this one, discharging the magnitude preconditions from the `gen_matrix` / `gen_secret`
 magnitude lemmas (still to be proved — see `NTT_REFACTOR_STATUS.md`).
@@ -302,13 +302,36 @@ private theorem ntt_getElem!_list_set {α : Type _} [Inhabited α] (l : List α)
 
 /-- A 13-bit `from_bytes` deserialization has every `u16` coefficient `< 2^13`. -/
 private theorem ntt_from_bytes_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
+    arithmetic.plain_arith.RingElem.deserialize 13#usize bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 13 ⦄ := by
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑13#usize` down to `13`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (13#usize).val = 13 := by simp
+  have hlt : (13#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 13#usize 256#usize).val = 13 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 13#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 13#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   have hb : bytes.len = 416#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
     core.result.Result.unwrap]
@@ -449,13 +472,36 @@ set_option maxRecDepth 20000
 
 /-- A 10-bit `RingElem.deserialize` has every `u16` coefficient `< 2^10`. -/
 private theorem ntt_ringElem_deser10_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
-    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize 10#usize bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 10 ⦄ := by
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
-  step*
+  -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
+  -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
+  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
+  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
+    rw [hri1, hri2]; constructor <;> scalar_tac
+  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
+  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
+        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
+  have h256 : (256#usize).val = 256 := by simp
+  have hw : (10#usize).val = 10 := by simp
+  have hlt : (10#usize).val * (256#usize).val < UScalar.size UScalarTy.Usize := by
+    rw [h256, hw, UScalar.size_def]
+    have := UScalar.hBounds chk
+    omega
+  have hiv : (Std.Usize.wrapping_mul 10#usize 256#usize).val = 10 * 256 := by
+    rw [Std.Usize.wrapping_mul_val_eq, Nat.mod_eq_of_lt hlt, h256, hw]
+  rw [show lift (Std.Usize.wrapping_mul 10#usize 256#usize)
+        = ok (Std.Usize.wrapping_mul 10#usize 256#usize) from rfl, bind_tc_ok]
+  let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
+  have hmeq : Slice.len bytes = rv :=
+    UScalar.eq_of_val_eq (by rw [Slice.len_val, hrv, hiv]; omega)
+  rw [show massert (Slice.len bytes = rv) = ok () from by
+    simp only [massert, if_pos hmeq], bind_tc_ok]
   have hb : bytes.len = 320#usize := by scalar_tac
   simp only [core.array.TryFromSharedArraySlice.try_from, dif_pos hb, bind_tc_ok,
     core.result.Result.unwrap]
