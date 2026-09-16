@@ -52,3 +52,6 @@ aws-lc-rs = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-de
 aws-lc-sys = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-derand" }
 sha3-selkie = { git = "https://github.com/rozbb/sha3-selkie.git", branch = "backend-override" }
 mlkem-selkie = { git = "https://github.com/rozbb/mlkem-selkie.git", branch = "backend-override" }
+
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+cpufeatures = "0.3"

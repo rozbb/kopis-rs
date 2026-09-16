@@ -1,21 +1,19 @@
-//! Build script for `kopis`.
+//! Build script for `kopis`
 //!
-//! Its only job is to decide which arithmetic backend the crate compiles: the portable
-//! `serial` backend (which is also what gets extracted to Lean), or the x86-64 `avx2`
-//! backend layered on top of it.
+//! Its only job is to decide which arithmetic backend the crate compiles: the portable `serial`
+//! backend, or a vector backend layered on top of it.
 //!
 //! # Selection
 //!
-//! By default the choice is made automatically: on x86/x86-64 targets the AVX2 backend is
-//! compiled in alongside the serial one and selected at *runtime* by a CPUID check, and on
-//! AArch64 targets that carry the `neon` and `sha3` target features with a hardfloat ABI the
-//! NEON backend is compiled in (it is always selected there, since the features are confirmed
-//! at build time). Either way the resulting binary runs everywhere for its architecture. On
-//! every other target — AArch64 without the ARMv8.2 SHA3 extension included, and softfloat
-//! AArch64 targets such as `aarch64-unknown-none-softfloat`, where enabling NEON is
-//! ABI-unsound — only the serial backend exists.
+//! By default the choice is automatic. On x86/x86-64 the AVX2 backend is compiled in alongside
+//! the serial one and selected at runtime via `cpufeatures`. On AArch64 targets that carry the
+//! `neon` and `sha3` target features with a hardfloat ABI, the NEON backend is compiled in and
+//! always selected, since the features are confirmed at build time. Either way the resulting
+//! binary runs everywhere for its architecture. Every other target gets the serial backend alone
+//! — including AArch64 without the ARMv8.2 SHA3 extension, and softfloat AArch64 targets such as
+//! `aarch64-unknown-none-softfloat`, where enabling NEON is ABI-unsound.
 //!
-//! The choice can be overridden with the `kopis_backend` cfg, e.g.
+//! The choice can be overridden with the `kopis_backend` cfg:
 //!
 //! ```sh
 //! RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
@@ -23,29 +21,10 @@
 //! RUSTFLAGS='--cfg kopis_backend="neon"'   cargo build
 //! ```
 //!
-//! * `serial` compiles only the portable backend; no `unsafe`, no runtime dispatch.
-//! * `avx2` asserts at build time that AVX2 really is available for the target and then
-//!   compiles the AVX2 backend *unconditionally*, with no runtime check and no fallback.
-//!   If AVX2 is not available the build fails with a panic from this script.
-//! * `neon` does the same for AArch64 NEON: it asserts NEON and FEAT_SHA3 are available for
-//!   the target and compiles the NEON backend unconditionally, or fails the build if they are
-//!   not.
-//!
-//! Every backend, the portable one included, transforms over the same two 16-bit primes
-//! combined by the CRT: see `src/backend/crt.rs` for the scheme and `src/arithmetic/ntt_crt.rs`
-//! for the portable implementation. So this choice is only about which instruction set does the
-//! work, not about which arithmetic gets used.
-//!
-//! "Available" is decided at build time, because that is the only time a compile-time panic
-//! can happen. For AVX2 it means: the target is x86/x86-64, and either `avx2` is in the
-//! target's enabled feature set (e.g. `-C target-feature=+avx2` or `-C target-cpu=native`), or
-//! we are not cross-compiling and the build host's CPU reports AVX2 support. For NEON it
-//! means: the target is AArch64, both `neon` and `sha3` are in the target's enabled feature
-//! set, and the ABI is not softfloat. NEON is a mandatory part of the AArch64 base ISA, but
-//! rustc also supports softfloat AArch64 targets whose ABI is incompatible with the vector
-//! registers — enabling the `neon` feature there is unsound and slated to become a hard error
-//! (rust-lang/rust#134375) — so the architecture alone is not enough. `sha3` is not baseline
-//! either, and the backend is not worth carrying without it; see [`neon_is_available`].
+//! * `serial` compiles only the portable backend
+//! * `avx2` and `neon` assert at build time that the instruction set really is available for the
+//!   target, then compile that backend *unconditionally*, with no runtime check and no fallback.
+//!   If it is not available the build fails with a panic from this script.
 
 use std::env;
 
@@ -132,34 +111,27 @@ fn main() {
     }
 }
 
-/// Whether the NEON backend can be used for the target being built.
+/// Whether the NEON backend can be used for the target being built. Two things have to hold:
 ///
-/// Two things have to hold, and both are decided here rather than at run time because the crate
-/// is `no_std` and `core` has no AArch64 feature detection to call.
+/// **NEON, soundly.** AArch64 mandates NEON in the base ISA, but rustc also supports softfloat
+/// AArch64 targets (e.g. `aarch64-unknown-none-softfloat`) whose ABI is incompatible with the
+/// vector registers, where enabling the `neon` target feature is unsound and slated to become a
+/// hard error (rust-lang/rust#134375). So require the target to actually enable `neon` *and* to
+/// not use the softfloat ABI.
 ///
-/// **NEON, soundly.** AArch64 mandates NEON in the base ISA, but that alone is not sufficient:
-/// rustc supports softfloat AArch64 targets (e.g. `aarch64-unknown-none-softfloat`) whose ABI is
-/// incompatible with the vector registers, where enabling the `neon` target feature is unsound
-/// and slated to become a hard error (rust-lang/rust#134375). So require the target to actually
-/// enable the `neon` feature *and* to not use the softfloat ABI.
-///
-/// **The ARMv8.2 SHA3 extension.** FEAT_SHA3 adds `eor3`, `rax1`, `xar` and `bcax`, each of which
-/// is a Keccak step rather than a general bit trick — the xor-and-rotate that θ/ρ needs is a
-/// single `xar`, and χ's and-not-xor a single `bcax`. That brings a round down to 66 vector
-/// instructions covering *two lanes at once*, which measures at about 1.7x per lane against the
-/// scalar sponge. Without it a two-way NEON permutation is not clearly better than the two scalar
-/// sponges it would replace, since scalar AArch64 gets its rotates free in the operand — and the
-/// batched XOF is the bulk of what this backend is for. Rather than carry a second, weaker NEON
+/// **The ARMv8.2 SHA3 extension.** The batched XOF is the bulk of what this backend is for, and
+/// without FEAT_SHA3 a two-way NEON permutation is not clearly better than the two scalar sponges
+/// it would replace; see `src/backend/neon/keccak.rs`. Rather than carry a second, weaker NEON
 /// configuration, targets without the extension get the portable serial backend.
 ///
-/// That costs nothing on the targets that matter: `aarch64-apple-darwin` enables `sha3` by
-/// default (every Apple silicon core has it), so a plain `cargo build` picks the backend up.
+/// `aarch64-apple-darwin` enables `sha3` by default, so a plain `cargo build` picks the backend up.
 /// Generic targets such as `aarch64-unknown-linux-gnu` do not, and stay serial unless the caller
 /// opts in with `-C target-feature=+sha3` or `-C target-cpu=native`.
 fn neon_is_available(is_aarch64: bool) -> bool {
     if !is_aarch64 {
         return false;
     }
+
     let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
     let has_neon = features.split(',').any(|feature| feature == "neon");
     let has_sha3 = features.split(',').any(|feature| feature == "sha3");
