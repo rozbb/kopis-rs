@@ -4,8 +4,7 @@
 //! accumulator — and the four entry points the rest of the crate goes through. The arithmetic
 //! underneath them lives elsewhere: [`crate::arithmetic::ntt_crt`] portably, or a vector backend
 //! when the CPU has one. All of those transform over *two* 16-bit primes combined by the CRT;
-//! see [`crate::backend::crt`] for that scheme and `ntt_crt` for why it is what the portable path
-//! uses too.
+//! `ntt_crt` holds that scheme, and why it is what the portable path uses too.
 //!
 //! # Why the products come out exact
 //!

@@ -1,11 +1,11 @@
-//! Contains modules for ring and matrix arithmetic
+//! Contains the crate's arithmetic: [`plain_arith`] for ring elements and matrices in the
+//! coefficient domain, [`ntt_arith`] for the NTT-domain types the rest of the crate multiplies
+//! through, and [`ntt_crt`] for the two-prime transform underneath them.
 
-mod matrix_arith;
-pub(crate) mod ntt;
+pub(crate) mod ntt_arith;
 pub(crate) mod ntt_crt;
-mod ring_arith;
+mod plain_arith;
 
 // Export all the underlying types
-pub(crate) use matrix_arith::*;
-pub(crate) use ntt::*;
-pub(crate) use ring_arith::*;
+pub(crate) use ntt_arith::*;
+pub(crate) use plain_arith::*;

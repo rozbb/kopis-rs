@@ -4,12 +4,13 @@
 //! bit-identical output; the tests in each check that against the serial code directly, which
 //! is what keeps the Lean correspondence proof meaningful for them.
 //!
-//! [`ntt`] is not. It transforms over the two 16-bit primes of [`super::crt`] rather than the
-//! portable code's single 26-bit one, so only the endpoints of the pipeline agree and it is
-//! tested end to end by `neon_matches_serial` in [`crate::arithmetic::ntt`]. That module makes
-//! the argument for the trade; both vector backends do the same thing, and differ only in
-//! vector width — 8 `i16` here against AVX2's 16, so the NTT's whole-vector levels run down to
-//! `len = 8` and the last three live inside a vector.
+//! [`ntt`] is not. It transforms over the two 16-bit primes of
+//! [`crate::arithmetic::ntt_crt`] with its own intrinsics and per-lane tables, so only the
+//! endpoints of the pipeline agree with the portable code and it is tested end to end by
+//! `neon_matches_serial` in [`crate::arithmetic::ntt_arith`]. That module makes the argument
+//! for the trade; both vector backends do the same thing, and differ only in vector width —
+//! 8 `i16` here against AVX2's 16, so the NTT's whole-vector levels run down to `len = 8` and
+//! the last three live inside a vector.
 //!
 //! [`keccak`] is a two-way TurboSHAKE: two independent sponges, one per 64-bit lane, which is the
 //! shape Kopis samples in (ℓ² independent XOF calls for the matrix, ℓ more for the secret). It is

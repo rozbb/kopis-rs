@@ -8,11 +8,12 @@
 //! meaningful for them.
 //!
 //! [`ntt`] is not, and this is the one place in the crate where an accelerated backend departs
-//! from the portable code it stands in for. It transforms over two 16-bit primes rather than
-//! one 26-bit one, because AVX2 has a 16-bit high-multiply and no 32-bit equivalent; only the
-//! endpoints of the pipeline agree with the portable version, so it is tested end to end and
-//! the Lean proof does not cover it. [`super::crt`] makes the full argument; the NEON backend
-//! does the same thing with the same constants.
+//! from the portable code it stands in for. Both transform over the same two 16-bit primes, but
+//! this one brings its own intrinsics, its own per-lane ψ tables and its own reduction
+//! schedule, so only the endpoints of the pipeline agree with the portable version; it is
+//! tested end to end and the Lean proof does not cover it.
+//! [`crate::arithmetic::ntt_crt`] makes the full argument and holds the shared constants; the
+//! NEON backend does the same thing with them.
 //!
 //! [`keccak`] is a four-way TurboSHAKE: four independent sponges, one per 64-bit lane, which is
 //! the shape Kopis samples in (ℓ² independent XOF calls for the matrix, ℓ more for the secret).

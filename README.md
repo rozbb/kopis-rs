@@ -77,18 +77,17 @@ butterfly loops, and baseline SSE2 has no 64-bit multiply for the single-prime p
 it has to emulate it, while the 16-bit butterfly is one `pmullw` and one `pmulhw` over eight
 lanes. Switching the serial backend to two primes made its forward transform 1.68× faster and
 its inverse 2.40× faster, which is 20–45% off every serial KEM operation. The scheme, its
-constants and its correctness argument live in `src/backend/crt.rs`; the portable
-implementation is `src/arithmetic/ntt_crt.rs`.
+constants and its correctness argument live in `src/arithmetic/ntt_crt.rs`, alongside the
+portable implementation built on them.
 
-These transforms compute the same ring products as the single-prime one, and are tested against
-it directly (`crt_matches_single`, `avx2_matches_serial`, `neon_matches_serial`), against
-schoolbook multiplication over all three parameter sets, and by the KATs. But their intermediate
-values are different integers, so the Lean correspondence proof — which is about the
-single-prime transform in `src/arithmetic/ntt.rs` — does not extend to them. Since that
-transform no longer ships in any configuration (it is retained as a `#[cfg(test)]` reference,
-precisely to be the oracle for `crt_matches_single`), **the proofs do not currently cover the
-ring multiplication in any build**. Re-establishing that coverage means porting the proof to the
-two-prime transform; there is no longer a build configuration that gets it for free.
+These transforms are tested against schoolbook multiplication over all three parameter sets,
+against each other (`avx2_matches_serial`, `neon_matches_serial` pin each vector backend to the
+portable pipeline), and by the KATs. But their intermediate values are different integers from
+the older single-prime transform the Lean correspondence proof was written about, so that proof
+does not extend to them. Since the single-prime transform no longer ships in any configuration,
+**the proofs do not currently cover the ring multiplication in any build**. Re-establishing that
+coverage means porting the proof to the two-prime transform; there is no longer a build
+configuration that gets it for free.
 
 Hashing is a path on both vector backends. `src/backend/avx2/keccak.rs` runs four independent
 TurboSHAKE sponges side by side, one per 64-bit lane, which is the shape Kopis samples in: the

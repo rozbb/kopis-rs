@@ -1,6 +1,6 @@
 //! AVX2 negacyclic NTT over *two* 16-bit primes, combined by the CRT.
 //!
-//! This computes the same ring products as [`crate::arithmetic::ntt`] — the same `[u16; 256]`
+//! This computes the same ring products as [`crate::arithmetic::ntt_arith`] — the same `[u16; 256]`
 //! come out — but by a different route: instead of one 26-bit prime in `i32` lanes, it runs the
 //! transform twice in `i16` lanes, over q₁ = 7681 and q₂ = 10753, and reconstructs the exact
 //! integer product from the two residues. This is the arrangement Chung, Hwang, Kannwischer,
@@ -15,7 +15,8 @@
 //! density is a net win.
 //!
 //! Every other path arrives at the same answer by its own route, so all of them are two-prime
-//! now — see [`crate::backend::crt`] for the shared scheme. NEON has `sqdmulh` at both widths,
+//! now — see [`crate::arithmetic::ntt_crt`] for the shared scheme. NEON has `sqdmulh` at both
+//! widths,
 //! so the lane-width argument above cancels there, but the single-prime code reached for
 //! widening `vmull_s32` (two lanes) against `vmulhq_s16`'s eight, which does not. The portable
 //! code compiles to baseline SSE2 on x86-64, which has no 64-bit multiply at all and must
@@ -31,7 +32,7 @@
 //! # Correctness
 //!
 //! q₁·q₂ = 82_593_793, so the centered range ±41_296_896 comfortably covers the exactness
-//! bound ℓ·256·(2^13 − 1)·(μ/2) ≤ 25_162_752 that [`crate::arithmetic::ntt`] establishes; the
+//! bound ℓ·256·(2^13 − 1)·(μ/2) ≤ 25_162_752 that [`crate::arithmetic::ntt_arith`] establishes; the
 //! margin is 16_134_144. Both primes are 1 mod 512, so X^256 + 1 splits completely over each
 //! and the same complete 8-layer transform applies, with the same ψ-table layout and the same
 //! Cooley-Tukey / Gentleman-Sande structure as the serial code.
@@ -45,7 +46,7 @@
 //!
 //! The two-prime NTT breaks that, here and everywhere else it is used. Its NTT-domain values
 //! are different integers entirely; only the endpoints agree, so `avx2_matches_serial` in
-//! [`crate::arithmetic::ntt`] checks the pipeline end to end rather than stage by stage.
+//! [`crate::arithmetic::ntt_arith`] checks the pipeline end to end rather than stage by stage.
 //!
 //! Note the scope carefully: the Lean proof was about an older *single-prime* transform, and
 //! every path — portable included (see [`crate::arithmetic::ntt_crt`]) — now uses two primes.
@@ -59,7 +60,7 @@
 //!
 //! # Layout
 //!
-//! [`crate::arithmetic::ntt::NttElem`] is `[i16; 512]`: two 256-coefficient blocks, residues
+//! [`crate::arithmetic::ntt_arith::NttElem`] is `[i16; 512]`: two 256-coefficient blocks, residues
 //! mod q₁ in the first and mod q₂ in the second. The pointwise accumulator is `[i32; 512]`,
 //! split the same way. Those are the types the portable two-prime transform in
 //! [`crate::arithmetic::ntt_crt`] uses too, so this backend and the portable path agree on the
@@ -82,11 +83,12 @@
 //!
 //! * Forward: inputs are centered, |a| ≤ q/2. Barrett after levels 3 and 7 re-centers to q/2,
 //!   and the final Barrett leaves the output at |a| ≤ q/2. Note the second run is *four*
-//!   levels (len = 16, 8, 4, 2): the crude 0.75q-per-level budget in [`crate::backend::crt`]
+//!   levels (len = 16, 8, 4, 2): the crude 0.75q-per-level budget in [`crate::arithmetic::ntt_crt`]
 //!   does not cover it (it predicts 3.5q > 3.05q). The run is safe because the ψ magnitudes at
 //!   levels 4–7 are small enough — interval propagation with the actual per-butterfly ψ values
 //!   bounds the worst lane below 30_700 of 32_767. This differs from NEON, which re-centers
-//!   after levels 3 and 6; see [`crate::backend::crt`] for the shared argument and the caveat
+//!   after levels 3 and 6; see [`crate::arithmetic::ntt_crt`] for the shared argument and the
+//!   caveat
 //!   about re-deriving the bound if the schedule or tables change.
 //! * Inverse: the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so
 //!   the usable bound is 1.52q. Starting under 0.7q, two levels reach 2.66q — as a *sum*,
@@ -103,8 +105,8 @@
 
 use crate::consts::RING_DEG;
 
-use crate::backend::crt::{
-    self, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
+use crate::arithmetic::ntt_crt::{
+    self as crt, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
     ZETAS_Q2,
 };
 
@@ -119,7 +121,8 @@ use super::intrinsics::{
 /// One prime's 256 centered residues, as 16 vectors of 16 `i16`.
 ///
 /// The transform works in these blocks throughout; the two-blocks-in-one-buffer layout that
-/// [`crate::arithmetic::ntt::NttElem`] presents to the rest of the crate is applied only at this
+/// [`crate::arithmetic::ntt_arith::NttElem`] presents to the rest of the crate is applied only
+/// at this
 /// module's entry points, by the `*_of_*` accessors in [`super::intrinsics`].
 type Block = [i16; RING_DEG];
 
@@ -192,7 +195,8 @@ static INV2_Q2: Tbl<64> = lane_tbl(&ZETAS_Q2, Q2_INV, 127, -1, -4, true);
 static INV4_Q2: Tbl<32> = lane_tbl(&ZETAS_Q2, Q2_INV, 63, -1, -2, true);
 static INV8_Q2: Tbl<16> = lane_tbl(&ZETAS_Q2, Q2_INV, 31, 0, -1, true);
 
-// Unlike everything in [`crate::backend::crt`], these tables are specific to this backend: their
+// Unlike everything in [`crate::arithmetic::ntt_crt`], these tables are specific to this
+// backend: their
 // grouping is by AVX2's 16 `i16` lanes. They are selected between at each use site, by the
 // `vertical!` macros below, rather than through a `&'static Tbl<N>` returned from an accessor:
 // a function that returns a reference to a static is one of the things aeneas cannot translate.
@@ -539,7 +543,7 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
 
 // ---------------------------------------------------------------------------------------
 // Entry points. These have exactly the signatures of their `super::ntt` twins, so the dispatch
-// in `crate::arithmetic::ntt` is unchanged; only the meaning of the bytes differs.
+// in `crate::arithmetic::ntt_arith` is unchanged; only the meaning of the bytes differs.
 // ---------------------------------------------------------------------------------------
 
 /// Reduces a ring element into one prime's centered residue block and transforms it.
@@ -575,7 +579,8 @@ fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
 /// Splits a ring element into both residue blocks and transforms each
 ///
 /// The two blocks are written into the halves of one `[i16; 512]`, which is what
-/// [`crate::arithmetic::ntt::NttElem`] is: the q₁ block occupies `i16` vectors 0..16 and the q₂
+/// [`crate::arithmetic::ntt_arith::NttElem`] is: the q₁ block occupies `i16` vectors 0..16 and
+/// the q₂
 /// block vectors 16..32.
 ///
 /// # Safety

@@ -1,7 +1,7 @@
 //! NEON negacyclic NTT over two 16-bit primes, combined by the CRT.
 //!
 //! The scheme, its constants and its correctness argument are shared with the other backends and
-//! live in [`crate::backend::crt`]; this file is the AArch64 half — the intrinsics and the
+//! live in [`crate::arithmetic::ntt_crt`]; this file is the AArch64 half — the intrinsics and the
 //! per-lane ψ tables, whose grouping depends on how many coefficients fit a vector.
 //!
 //! # Why two primes here too
@@ -27,7 +27,7 @@
 //!
 //! Reductions, stated by level number: forward, a Barrett pass after level 3 and one at the end
 //! (runs of 4, 4); inverse, after levels 2, 4 and 6. Four levels to a run is more than the
-//! crude 0.75q-per-level budget in [`crate::backend::crt`] allows, and rests on the sharper
+//! crude 0.75q-per-level budget in [`crate::arithmetic::ntt_crt`] allows, and rests on the sharper
 //! multiplicative bound stated there — [`test::forward_growth_fits_an_i16_lane`] re-derives it.
 //! Note this forward schedule does *not* match AVX2's, which re-centers after levels 3 and 7 on
 //! a table-dependent bound: growth bounds do not transfer between the two backends.
@@ -39,8 +39,8 @@
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
 
-use crate::backend::crt::{
-    self, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
+use crate::arithmetic::ntt_crt::{
+    self as crt, BARRETT_SH, CRT_Q, CRT_Q_HALF, CRT_Q1_INV_MONT, Q1, Q1_INV, Q2, Q2_INV, ZETAS_Q1,
     ZETAS_Q2,
 };
 use crate::consts::RING_DEG;
@@ -55,7 +55,8 @@ use super::intrinsics::{
 /// One prime's 256 centered residues, as 32 vectors of 8 `i16`.
 ///
 /// The transform works in these blocks throughout; the two-blocks-in-one-buffer layout that
-/// [`crate::arithmetic::ntt::NttElem`] presents to the rest of the crate is applied only at this
+/// [`crate::arithmetic::ntt_arith::NttElem`] presents to the rest of the crate is applied only
+/// at this
 /// module's entry points.
 type Block = [i16; RING_DEG];
 
@@ -136,7 +137,8 @@ static INV1_Q2: Tbl<128> = lane_tbl(&ZETAS_Q2, Q2_INV, 255, -32, -1, -4, 4, true
 static INV2_Q2: Tbl<64> = lane_tbl(&ZETAS_Q2, Q2_INV, 127, -16, -1, -2, 2, true);
 static INV4_Q2: Tbl<32> = lane_tbl(&ZETAS_Q2, Q2_INV, 63, -8, 0, -1, 1, true);
 
-// Unlike everything in [`crate::backend::crt`], these tables are specific to this backend: their
+// Unlike everything in [`crate::arithmetic::ntt_crt`], these tables are specific to this
+// backend: their
 // grouping is by NEON's 8 `i16` lanes. They are reached through the six value-returning
 // accessors below rather than through a `&'static Tbl<N>` held in a struct or returned from one:
 // a function that returns a reference to a static is one of the things aeneas cannot translate,
@@ -457,7 +459,7 @@ fn ntt_block<const SECOND: bool, const N: usize>(b: &mut [i16; N], base: usize) 
         }
 
         // Four levels of Cooley-Tukey growth since the last centering; re-center before a
-        // fifth. See the forward-growth note in [`crate::backend::crt`] for why four fit.
+        // fifth. See the forward-growth note in [`crate::arithmetic::ntt_crt`] for why four fit.
         for slot in v.iter_mut() {
             *slot = barrett(*slot, bm, round, q);
         }
@@ -713,7 +715,8 @@ fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
 /// Splits a ring element into both residue blocks and transforms each
 ///
 /// The two blocks are written into the halves of one `[i16; 512]`, which is what
-/// [`crate::arithmetic::ntt::NttElem`] is: the q₁ block occupies `i16` vectors 0..32 and the q₂
+/// [`crate::arithmetic::ntt_arith::NttElem`] is: the q₁ block occupies `i16` vectors 0..32 and
+/// the q₂
 /// block vectors 32..64.
 ///
 /// # Safety
@@ -881,7 +884,8 @@ mod test {
 
     // The forward transform runs four Cooley-Tukey levels between Barrett passes, which fits an
     // `i16` lane only because the growth per level is `|a|·q/2^17 + q/2` rather than the flat
-    // 0.75q the crude budget in `crate::backend::crt` charges. That is a bound on all inputs,
+    // 0.75q the crude budget in `crate::arithmetic::ntt_crt` charges. That is a bound on all
+    // inputs,
     // not a property of any particular one, so check it as such: propagate the bound itself
     // through the schedule and confirm the largest value it permits still fits.
     //
