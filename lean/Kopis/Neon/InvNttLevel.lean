@@ -75,9 +75,9 @@ functional and are equal by unfolding. -/
 
 /-- **`neg_zeta` broadcasts `−ζ(k)`,** with the Montgomery pairing every butterfly needs. -/
 theorem neg_zeta_spec (SECOND : Bool) (Q Zb : ℤ) (kk : Usize)
-    (zi : I16) (hzie : backend.crt.zeta SECOND kk = ok zi) (hzib : |zi.val| ≤ Zb)
+    (zi : I16) (hzie : arithmetic.ntt_crt.zeta SECOND kk = ok zi) (hzib : |zi.val| ≤ Zb)
     (hZb : Zb ≤ 2 ^ 14)
-    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+    (qic : I16) (hqinv : arithmetic.ntt_crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1)) :
     ∃ z zq : Vec128, backend.neon.ntt.neg_zeta SECOND kk = ok (z, zq) ∧
       (∀ i < 8, (lane16 z i).toInt = -zi.val) ∧
@@ -670,8 +670,8 @@ theorem invntt_start_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv : Vec128)
     (hBt : 2 * B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt) (hfit : 2 * B ≤ 32767)
     (hC1 : 2 * B ≤ C) (hC2 : Bt ≤ C)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
-    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
+    (qic : I16) (hqinv : arithmetic.ntt_crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
     (iv k half start : Usize) (hiv : iv.val = 32)
     (hhalf : 1 ≤ half.val) (hhalfdvd : 2 * half.val ∣ 32) (hdvd : 2 * half.val ∣ start.val)
@@ -828,8 +828,8 @@ theorem invntt_lvl3_bnd (SECOND : Bool) (qv : Vec128) (Q Zb B Bt C : ℤ)
     (hBt : 2 * B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt) (hfit : 2 * B ≤ 32767)
     (hC1 : 2 * B ≤ C) (hC2 : Bt ≤ C)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
-    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
+    (qic : I16) (hqinv : arithmetic.ntt_crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
     (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 4)
@@ -919,8 +919,8 @@ theorem invntt_lvl4_bnd (SECOND : Bool) (qv : Vec128) (Q Zb B Bt C : ℤ)
     (hBt : 2 * B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt) (hfit : 2 * B ≤ 32767)
     (hC1 : 2 * B ≤ C) (hC2 : Bt ≤ C) (hCB : B ≤ C)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
-    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
+    (qic : I16) (hqinv : arithmetic.ntt_crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
     (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 2)
@@ -991,8 +991,8 @@ theorem invntt_horizontal_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv : Ve
     (hQ : ∀ i < 8, (lane16 qv i).toInt = Q) (hQpos : 0 < Q) (hQ14 : Q < 2 ^ 14)
     (hZb : Zb ≤ 2 ^ 14)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
-    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
+    (qic : I16) (hqinv : arithmetic.ntt_crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
     (hB0 : 0 ≤ B0) (hC6 : 0 ≤ C6)
     (l6 : GSLevel Q Zb B0 T6 C6) (l7 : GSLevel Q Zb C6 T7 C7)
@@ -1056,8 +1056,8 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     (hD : |2 ^ 27 - Q * M| ≤ 2047)
     (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
-    (qic : I16) (hqinv : backend.crt.qinv SECOND = ok qic)
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
+    (qic : I16) (hqinv : arithmetic.ntt_crt.qinv SECOND = ok qic)
     (hqinvu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
         backend.neon.ntt.inv4 SECOND kk = ok (z, zq) ∧ PsiOk z zq Q Zb)
@@ -1497,15 +1497,15 @@ The scaling pass then takes `Chi` to `Bt`. -/
 
 theorem invntt_block_bnd (SECOND : Bool) (b : Array I16 256#usize)
     (Q Zb M Ain T0 C0 T1 C1 Ar Tlo Clo Thi Chi Bt : ℤ) (qc mc rc sc qic : I16)
-    (hq : backend.crt.q SECOND = ok qc) (hqv : qc.val = Q)
-    (hm : backend.crt.barrett_m SECOND = ok mc) (hmv : mc.val = M)
+    (hq : arithmetic.ntt_crt.q SECOND = ok qc) (hqv : qc.val = Q)
+    (hm : arithmetic.ntt_crt.barrett_m SECOND = ok mc) (hmv : mc.val = M)
     (hrc : (1#i16 : I16) <<< (10#i32 : Std.I32) = ok rc) (hrcv : rc.val = 2 ^ 10)
-    (hsc : backend.crt.invntt_scale SECOND = ok sc) (hscb : |sc.val| ≤ Zb)
-    (hqi : backend.crt.qinv SECOND = ok qic) (hqiu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
+    (hsc : arithmetic.ntt_crt.invntt_scale SECOND = ok sc) (hscb : |sc.val| ≤ Zb)
+    (hqi : arithmetic.ntt_crt.qinv SECOND = ok qic) (hqiu : (2 ^ 16 : ℤ) ∣ (qic.val * Q - 1))
     (hQpos : 0 < Q) (hQ14 : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q)) (hZb : Zb ≤ 2 ^ 14)
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb)
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
         backend.neon.ntt.inv4 SECOND kk = ok (z, zq) ∧ PsiOk z zq Q Zb)
     (htbl2 : ∀ kk : Usize, kk.val < 8 → ∃ z zq : Vec128,
@@ -1526,8 +1526,8 @@ theorem invntt_block_bnd (SECOND : Bool) (b : Array I16 256#usize)
   rw [hqe, bind_tc_ok, hm, bind_tc_ok]
   obtain ⟨bm, hbme, hbml⟩ := dup_n_s16_spec mc
   rw [hbme, bind_tc_ok]
-  have hsh : backend.crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
-    simp only [backend.crt.BARRETT_SH]
+  have hsh : arithmetic.ntt_crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]
     rfl
   rw [hsh, bind_tc_ok, hrc, bind_tc_ok]
   obtain ⟨round, hre, hrl⟩ := dup_n_s16_spec rc
@@ -1589,7 +1589,7 @@ doubling *is* the growth.  Three re-centrings keep the run length at two, which 
 `Chi = 4·Ar` — comfortably inside an `i16` lane at both primes — and the final scaling brings
 that back down below `q`. -/
 
-unseal backend.crt.INVNTT_SCALE_1 in
+unseal arithmetic.ntt_crt.INVNTT_SCALE_1 in
 /-- **The inverse transform on the first prime.** -/
 theorem invntt_block_bnd_q1 (b : Array I16 256#usize) (hb : BlockBnd b 4741) :
     backend.neon.ntt.invntt_block false b
@@ -1603,17 +1603,17 @@ theorem invntt_block_bnd_q1 (b : Array I16 256#usize) (hb : BlockBnd b 4741) :
     rw [← q1_val]
     exact q1_inv_unit
   have hzt : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-      backend.crt.zeta false kk = ok zi ∧ |zi.val| ≤ 3840 := by
+      arithmetic.ntt_crt.zeta false kk = ok zi ∧ |zi.val| ≤ 3840 := by
     intro kk hkk
     obtain ⟨zi, _, hzi, -, hzib, -, -⟩ := zeta_table_ok_q1 kk hkk
     exact ⟨zi, hzi, hzib⟩
   refine invntt_block_bnd false b 7681 3840 17474 4741 4397 9482 4952 18964 3840 4291 7680 4741 15360 4741
-    backend.crt.Q1 backend.crt.Q1_BARRETT_M 1024#i16 backend.crt.INVNTT_SCALE_1 backend.crt.Q1_INV
-    (by simp only [backend.crt.q, Bool.false_eq_true, if_false]) q1_val
-    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
+    arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_BARRETT_M 1024#i16 arithmetic.ntt_crt.INVNTT_SCALE_1 arithmetic.ntt_crt.Q1_INV
+    (by simp only [arithmetic.ntt_crt.q, Bool.false_eq_true, if_false]) q1_val
+    (by simp only [arithmetic.ntt_crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
     round_const (by decide)
-    (by simp only [backend.crt.invntt_scale, Bool.false_eq_true, if_false]) (by decide)
-    (by simp only [backend.crt.qinv, Bool.false_eq_true, if_false]) (by rw [← q1_val]; exact q1_inv_unit)
+    (by simp only [arithmetic.ntt_crt.invntt_scale, Bool.false_eq_true, if_false]) (by decide)
+    (by simp only [arithmetic.ntt_crt.qinv, Bool.false_eq_true, if_false]) (by rw [← q1_val]; exact q1_inv_unit)
     (by norm_num) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num)
     hzt
@@ -1627,7 +1627,7 @@ theorem invntt_block_bnd_q1 (b : Array I16 256#usize) (hb : BlockBnd b 4741) :
     ⟨⟨by norm_num, by norm_num, by norm_num⟩, by norm_num, by norm_num, by norm_num⟩
     (by norm_num) (by norm_num) (by norm_num) hb
 
-unseal backend.crt.INVNTT_SCALE_2 in
+unseal arithmetic.ntt_crt.INVNTT_SCALE_2 in
 /-- **The inverse transform on the second prime.** -/
 theorem invntt_block_bnd_q2 (b : Array I16 256#usize) (hb : BlockBnd b 7141) :
     backend.neon.ntt.invntt_block true b
@@ -1641,17 +1641,17 @@ theorem invntt_block_bnd_q2 (b : Array I16 256#usize) (hb : BlockBnd b 7141) :
     rw [← q2_val]
     exact q2_inv_unit
   have hzt : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-      backend.crt.zeta true kk = ok zi ∧ |zi.val| ≤ 5376 := by
+      arithmetic.ntt_crt.zeta true kk = ok zi ∧ |zi.val| ≤ 5376 := by
     intro kk hkk
     obtain ⟨zi, _, hzi, -, hzib, -, -⟩ := zeta_table_ok_q2 kk hkk
     exact ⟨zi, hzi, hzib⟩
   refine invntt_block_bnd true b 10753 5376 12482 7141 6549 14282 7720 28564 5376 6259 10752 7141 21504 7141
-    backend.crt.Q2 backend.crt.Q2_BARRETT_M 1024#i16 backend.crt.INVNTT_SCALE_2 backend.crt.Q2_INV
-    (by simp only [backend.crt.q, if_true]) q2_val
-    (by simp only [backend.crt.barrett_m, if_true]) q2_m_val
+    arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_BARRETT_M 1024#i16 arithmetic.ntt_crt.INVNTT_SCALE_2 arithmetic.ntt_crt.Q2_INV
+    (by simp only [arithmetic.ntt_crt.q, if_true]) q2_val
+    (by simp only [arithmetic.ntt_crt.barrett_m, if_true]) q2_m_val
     round_const (by decide)
-    (by simp only [backend.crt.invntt_scale, if_true]) (by decide)
-    (by simp only [backend.crt.qinv, if_true]) (by rw [← q2_val]; exact q2_inv_unit)
+    (by simp only [arithmetic.ntt_crt.invntt_scale, if_true]) (by decide)
+    (by simp only [arithmetic.ntt_crt.qinv, if_true]) (by rw [← q2_val]; exact q2_inv_unit)
     (by norm_num) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num)
     hzt

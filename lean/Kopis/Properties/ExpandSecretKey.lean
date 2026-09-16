@@ -69,7 +69,7 @@ private theorem sliceToBytes_getElem! (s : Slice U8) (m : ℕ) (h : s.length = m
 /-- Loop invariant of `expand_secret_key_loop`: iterating `i ∈ [start, L)` serializes row
 `b[i][0]` (10-bit coefficients) into `vec_bytes[i]`, leaving rows before `start` untouched. -/
 theorem expand_secret_key_loop_spec {L : Usize}
-    (iter : core.ops.range.Range Usize) (b : arithmetic.matrix_arith.Matrix L 1#usize)
+    (iter : core.ops.range.Range Usize) (b : arithmetic.plain_arith.Matrix L 1#usize)
     (vec_bytes : Array (Array U8 320#usize) L)
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val)
     (hfit : L.val * 10 * 256 ≤ Usize.max) :
@@ -139,7 +139,7 @@ theorem expand_secret_key_loop_spec {L : Usize}
 /-- The flattened `vec_bytes` produced by `expand_secret_key_loop` (from `start = 0`) is exactly
 the spec's `PolyVector.serialize 10` of the rounded vector. -/
 theorem vecBytesFlat_of_loop {L : Usize} (self : pke.PkePublicKey L)
-    (b : arithmetic.matrix_arith.Matrix L 1#usize)
+    (b : arithmetic.plain_arith.Matrix L 1#usize)
     (hbytes : ∀ i, i < L.val → ∀ c, c < 320 →
       ((self.vec_bytes.val[i]!).val[c]!).bv
         = (Spec.Kopis.serialize 10 (toPolyN 10 ((b.val[i]!).val[0]!)))[c]!) :

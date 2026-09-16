@@ -126,9 +126,9 @@ theorem cbd_loop_spec (buf : Slice U8) (mu half : ℕ) (hmu : mu = 2 * half) (hh
     (hmask : ∀ m < 8, (lane16 half_mask m).toNat = 2 ^ half - 1)
     (hshift : ∀ m < 8, shiftAmount (lane16 half_shift m) = -(half : ℤ))
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 32)
-    (out : arithmetic.ring_arith.RingElem) :
+    (out : arithmetic.plain_arith.RingElem) :
     backend.neon.sample.cbd_lanes_loop iter fields half_mask half_shift out
-      ⦃ (r : arithmetic.ring_arith.RingElem) => ∀ j < 256,
+      ⦃ (r : arithmetic.plain_arith.RingElem) => ∀ j < 256,
           (r.val[j]!).val =
             if j < 8 * iter.start.val then (out.val[j]!).val
             else Kopis.Properties.cbdU16 buf half (mu * j) ⦄ := by
@@ -254,7 +254,7 @@ popcount of the low `MU/2` bits of its field minus that of the high `MU/2`, as a
 theorem cbd_streamNat (buf : Slice U8) (mu half : ℕ) (hmu : mu = 2 * half) (hhalf : 1 ≤ half)
     (hhalf5 : half ≤ 5) (hlen : buf.length = 32 * mu) (MU : Usize) (hMU : MU.val = mu) :
     backend.neon.sample.cbd_lanes MU buf
-      ⦃ (r : arithmetic.ring_arith.RingElem) => ∀ j < 256,
+      ⦃ (r : arithmetic.plain_arith.RingElem) => ∀ j < 256,
           (r.val[j]!).val = Kopis.Properties.cbdU16 buf half (mu * j) ⦄ := by
   have hmu13 : mu ≤ 13 := by omega
   unfold backend.neon.sample.cbd_lanes
@@ -299,7 +299,7 @@ theorem cbd_streamNat (buf : Slice U8) (mu half : ℕ) (hmu : mu = 2 * half) (hh
     show (i4 : I16).val = _
     rw [hi4, hi3v]
   -- the zero output, and the trip count
-  obtain ⟨out, hout⟩ : ∃ o, arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default
+  obtain ⟨out, hout⟩ : ∃ o, arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
       = ok o := ⟨Array.repeat 256#usize 0#u16, rfl⟩
   rw [hout, bind_tc_ok]
   have hrd : (consts.RING_DEG : Usize) / 8#usize = ok 32#usize := by

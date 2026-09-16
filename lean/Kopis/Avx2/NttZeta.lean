@@ -24,36 +24,36 @@ set_option maxRecDepth 40000
 
 /-! ## The finite checks, on this extraction's tables -/
 
-unseal backend.crt.ZETAS_Q1 in
-theorem rootOK_q1 : rootOKq backend.crt.ZETAS_Q1 7681 4088 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem rootOK_q1 : rootOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
-unseal backend.crt.ZETAS_Q1 in
-theorem treeOK_q1 : treeOKq backend.crt.ZETAS_Q1 7681 4088 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem treeOK_q1 : treeOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem rootOK_q2 : rootOKq backend.crt.ZETAS_Q2 10753 1018 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem rootOK_q2 : rootOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem treeOK_q2 : treeOKq backend.crt.ZETAS_Q2 10753 1018 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem treeOK_q2 : treeOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
-unseal backend.crt.ZETAS_Q1 in
-theorem pairOK_q1 : pairOKq backend.crt.ZETAS_Q1 7681 4088 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem pairOK_q1 : pairOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem pairOK_q2 : pairOKq backend.crt.ZETAS_Q2 10753 1018 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem pairOK_q2 : pairOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
 /-! ## …instantiated at the two primes -/
 
 /-- The plain `q₁` twiddles. -/
-def zeta1 : ℕ → ZMod 7681 := zetaQ backend.crt.ZETAS_Q1 (900 : ZMod 7681)
+def zeta1 : ℕ → ZMod 7681 := zetaQ arithmetic.ntt_crt.ZETAS_Q1 (900 : ZMod 7681)
 /-- The plain `q₂` twiddles. -/
-def zeta2 : ℕ → ZMod 10753 := zetaQ backend.crt.ZETAS_Q2 (1764 : ZMod 10753)
+def zeta2 : ℕ → ZMod 10753 := zetaQ arithmetic.ntt_crt.ZETAS_Q2 (1764 : ZMod 10753)
 
 theorem zeta1_sq : ∀ k, 1 ≤ k → k < 256 → zeta1 k ^ 2 = cst zeta1 k :=
-  zetaQ_sq backend.crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) rootOK_q1 treeOK_q1
+  zetaQ_sq arithmetic.ntt_crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) rootOK_q1 treeOK_q1
 
 theorem zeta2_sq : ∀ k, 1 ≤ k → k < 256 → zeta2 k ^ 2 = cst zeta2 k :=
-  zetaQ_sq backend.crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) rootOK_q2 treeOK_q2
+  zetaQ_sq arithmetic.ntt_crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) rootOK_q2 treeOK_q2
 
 /-! ## …so the transform algebra applies at both primes
 
@@ -63,11 +63,11 @@ two facts phase F4 needs about each prime; everything else is about the code. -/
 
 theorem zeta1_pair : ∀ nb b : ℕ, (∃ j, j < 8 ∧ nb = 2 ^ j) → b < nb →
     zeta1 (nb + b) * zeta1 (2 * nb - 1 - b) = -1 :=
-  zetaQ_pair backend.crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) pairOK_q1
+  zetaQ_pair arithmetic.ntt_crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) pairOK_q1
 
 theorem zeta2_pair : ∀ nb b : ℕ, (∃ j, j < 8 ∧ nb = 2 ^ j) → b < nb →
     zeta2 (nb + b) * zeta2 (2 * nb - 1 - b) = -1 :=
-  zetaQ_pair backend.crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) pairOK_q2
+  zetaQ_pair arithmetic.ntt_crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) pairOK_q2
 
 /-- One GS layer, at `q₁`. -/
 theorem State_gs_q1 {nb m' : ℕ} (hnb1 : 1 ≤ nb) (hnb : 2 * nb ≤ 256)

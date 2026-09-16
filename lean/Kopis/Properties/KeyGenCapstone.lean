@@ -65,31 +65,31 @@ theorem kopis1024_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 14
 
 
 @[step]
-theorem matrix_clone_spec {X Y : Usize} (self : arithmetic.matrix_arith.Matrix X Y) :
-    arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone self
-      ⦃ (r : arithmetic.matrix_arith.Matrix X Y) => r = self ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.Insts.CoreCloneClone.clone
+theorem matrix_clone_spec {X Y : Usize} (self : arithmetic.plain_arith.Matrix X Y) :
+    arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone self
+      ⦃ (r : arithmetic.plain_arith.Matrix X Y) => r = self ⦄ := by
+  unfold arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
   let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec
-    (core.clone.CloneArray Y arithmetic.ring_arith.RingElem.Insts.CoreCloneClone) self (by
+    (core.clone.CloneArray Y arithmetic.plain_arith.RingElem.Insts.CoreCloneClone) self (by
     intro x _
-    show core.array.CloneArray.clone arithmetic.ring_arith.RingElem.Insts.CoreCloneClone x = ok x
+    show core.array.CloneArray.clone arithmetic.plain_arith.RingElem.Insts.CoreCloneClone x = ok x
     obtain ⟨x', hx', hxx'⟩ :=
       Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
-        arithmetic.ring_arith.RingElem.Insts.CoreCloneClone x (fun y _ => rfl))
+        arithmetic.plain_arith.RingElem.Insts.CoreCloneClone x (fun y _ => rfl))
     rw [hx', ← hxx'])
   exact ha.symm
 
-theorem ntt_matrix_clone_spec {X Y : Usize} (self : arithmetic.ntt.NttMatrix X Y) :
-    arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone self
-      ⦃ (r : arithmetic.ntt.NttMatrix X Y) => r = self ⦄ := by
-  unfold arithmetic.ntt.NttMatrix.Insts.CoreCloneClone.clone
+theorem ntt_matrix_clone_spec {X Y : Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
+    arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone self
+      ⦃ (r : arithmetic.ntt_arith.NttMatrix X Y) => r = self ⦄ := by
+  unfold arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
   let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec
-    (core.clone.CloneArray Y arithmetic.ntt.NttElem.Insts.CoreCloneClone) self (by
+    (core.clone.CloneArray Y arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone) self (by
     intro x _
-    show core.array.CloneArray.clone arithmetic.ntt.NttElem.Insts.CoreCloneClone x = ok x
+    show core.array.CloneArray.clone arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone x = ok x
     obtain ⟨x', hx', hxx'⟩ :=
       Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
-        arithmetic.ntt.NttElem.Insts.CoreCloneClone x (fun y _ => rfl))
+        arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone x (fun y _ => rfl))
     rw [hx', ← hxx'])
   exact ha.symm
 

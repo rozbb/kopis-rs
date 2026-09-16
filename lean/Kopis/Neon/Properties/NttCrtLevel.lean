@@ -259,7 +259,7 @@ exactly `State_ct`'s `hbut`. -/
 twiddle they denote.  `Kopis/Properties/NttCrtZeta.lean` discharges it for both primes. -/
 def ZetaOK {q : ℕ} (SECOND : Bool) (Q Zb : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q) : Prop :=
   ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-    backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+    arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
     |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val) ∧
     ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val
 
@@ -372,7 +372,7 @@ theorem ct_level_spec {q : ℕ} {nb lenv : ℕ}
     (Q Zb B Bt : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
     (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
     (hk : k.val + 1 = nb)
-    (hqSel : backend.crt.q SECOND = ok qv)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
     (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
     (hzeta : ZetaOK SECOND Q Zb Rinv ζ) (hZb : 0 ≤ Zb)
@@ -457,7 +457,7 @@ decreasing_by scalar_decr_tac
 
 theorem barrett_block_spec {q : ℕ} (SECOND : Bool) (b : Array I16 256#usize) (qv m : I16)
     (Q M : ℤ)
-    (hqSel : backend.crt.q SECOND = ok qv) (hmSel : backend.crt.barrett_m SECOND = ok m)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hmSel : arithmetic.ntt_crt.barrett_m SECOND = ok m)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hm : m.val = M)
     (hQpos : 0 < Q) (hQlt : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047) :
@@ -488,7 +488,7 @@ they denote.  The Montgomery companion is *computed* here rather than read from 
 needs `q⁻¹·q ≡ 1` instead. -/
 def ZetaVal {q : ℕ} (SECOND : Bool) (Zb : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q) : Prop :=
   ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-    backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+    arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
     ((zi.val : ℤ) : ZMod q) * Rinv = ζ kk.val
 
 /-- `zq ≡ z·q⁻¹` and `q⁻¹·q ≡ 1` give the Montgomery pairing `zq·q ≡ z (mod 2¹⁶)` that
@@ -773,7 +773,7 @@ theorem gs_level_spec {q : ℕ} {nb lenv : ℕ}
     (Q Zb B Bt B2 : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
     (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
     (hk : k.val = 2 * nb)
-    (hqSel : backend.crt.q SECOND = ok qv) (hqiSel : backend.crt.qinv SECOND = ok qiv)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hqiSel : arithmetic.ntt_crt.qinv SECOND = ok qiv)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
     (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
     (hqiv : (2 ^ 16 : ℤ) ∣ (qiv.val * Q - 1))

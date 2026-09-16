@@ -6,7 +6,7 @@ namespace Kopis.Properties
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
 
-abbrev Mat (X Y : Usize) := arithmetic.matrix_arith.Matrix X Y
+abbrev Mat (X Y : Usize) := arithmetic.plain_arith.Matrix X Y
 -- `AddCommMonoid (Polynomial m)` now comes from `Spec.Kopis` (single canonical `+`).
 
 private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j : ℕ)
@@ -32,7 +32,7 @@ theorem mul_transpose_loop0_loop0_loop0_spec {X Y Z : Usize}
     (self : Mat X Y) (other : Mat X Z) (result : Mat Y Z) (i j : Usize)
     (hi : i.val < X.val) (hj : j.val < Y.val)
     (hstart : iter.start.val ≤ Z.val) (hend : iter.«end».val = Z.val) :
-    arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0 iter self other result i j
+    arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0_loop0 iter self other result i j
       ⦃ (p : (Mat X Y) × (Mat X Z) × (Mat Y Z)) =>
           p.1 = self ∧ p.2.1 = other ∧
           ∀ (jj kk : Nat),
@@ -42,7 +42,7 @@ theorem mul_transpose_loop0_loop0_loop0_spec {X Y Z : Usize}
                     + toRingElem ((self.val[i.val]!).val[j.val]!)
                         * toRingElem ((other.val[i.val]!).val[kk]!)
                 else toRingElem ((result.val[jj]!).val[kk]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -133,7 +133,7 @@ theorem mul_transpose_loop0_loop0_spec {X Y Z : Usize}
     (self : Mat X Y) (other : Mat X Z) (result : Mat Y Z) (i : Usize)
     (hi : i.val < X.val)
     (hstart : iter.start.val ≤ Y.val) (hend : iter.«end».val = Y.val) :
-    arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0 iter self other result i
+    arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0 iter self other result i
       ⦃ (p : (Mat X Y) × (Mat X Z) × (Mat Y Z)) =>
           p.1 = self ∧ p.2.1 = other ∧
           ∀ (jj kk : Nat),
@@ -142,7 +142,7 @@ theorem mul_transpose_loop0_loop0_spec {X Y Z : Usize}
                   toRingElem ((result.val[jj]!).val[kk]!)
                     + toRingElem ((self.val[i.val]!).val[jj]!) * toRingElem ((other.val[i.val]!).val[kk]!)
                 else toRingElem ((result.val[jj]!).val[kk]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_transpose_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.mul_transpose_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -190,7 +190,7 @@ theorem mul_transpose_loop0_spec {X Y Z : Usize}
     (iter : core.ops.range.Range Usize)
     (self : Mat X Y) (other : Mat X Z) (result : Mat Y Z)
     (hstart : iter.start.val ≤ X.val) (hend : iter.«end».val = X.val) :
-    arithmetic.matrix_arith.Matrix.mul_transpose_loop0 iter self other result
+    arithmetic.plain_arith.Matrix.mul_transpose_loop0 iter self other result
       ⦃ (r : Mat Y Z) =>
           ∀ (jj kk : Nat),
             toRingElem ((r.val[jj]!).val[kk]!)
@@ -199,7 +199,7 @@ theorem mul_transpose_loop0_spec {X Y Z : Usize}
                     ∑ ii ∈ Finset.Ico iter.start.val X.val,
                       toRingElem ((self.val[ii]!).val[jj]!) * toRingElem ((other.val[ii]!).val[kk]!)
                    else 0) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_transpose_loop0
+  unfold arithmetic.plain_arith.Matrix.mul_transpose_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -228,14 +228,14 @@ theorem mul_transpose_loop0_spec {X Y Z : Usize}
 `(self ᵀ · other)[j][k] = Σ_i self[i][j]·other[i][k]`. -/
 theorem matrix_mul_transpose_spec {X Y Z : Usize}
     (self : Mat X Y) (other : Mat X Z) :
-    arithmetic.matrix_arith.Matrix.mul_transpose self other
+    arithmetic.plain_arith.Matrix.mul_transpose self other
       ⦃ (r : Mat Y Z) =>
           ∀ (j : Nat) (_hj : j < Y.val) (k : Nat) (_hk : k < Z.val),
             toRingElem ((r.val[j]!).val[k]!)
               = ∑ ii ∈ Finset.range X.val,
                   toRingElem ((self.val[ii]!).val[j]!) * toRingElem ((other.val[ii]!).val[k]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_transpose
-  rw [show (arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default Y Z : Result (Mat Y Z))
+  unfold arithmetic.plain_arith.Matrix.mul_transpose
+  rw [show (arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default Y Z : Result (Mat Y Z))
         = ok (Array.repeat Y (Array.repeat Z (Array.repeat 256#usize 0#u16))) from rfl]
   simp only [bind_tc_ok]
   apply WP.spec_mono

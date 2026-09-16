@@ -4,7 +4,7 @@
 /-
   # Kopis/Properties/NttCrtZeta.lean — the portable backend's ψ tables.
 
-  `src/backend/crt.rs` holds the two ψ tables the two-prime transform runs over, and both the
+  `src/arithmetic/ntt_crt.rs` holds the two ψ tables the two-prime transform runs over, and both the
   portable and the vector paths read the same arrays.  `Kopis/CrtZeta.lean` reduces what the
   transform algebra asks of a table to finite checks; this file discharges them by `decide` over
   this extraction's `ZETAS_Q1` / `ZETAS_Q2`, and supplies the two other table facts the code walk
@@ -53,39 +53,39 @@ private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j 
 
 The only place the 512 literal entries are touched. -/
 
-unseal backend.crt.ZETAS_Q1 in
-theorem zetas_q1_centred : ∀ x ∈ backend.crt.ZETAS_Q1.val, |x.val| ≤ 3840 := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem zetas_q1_centred : ∀ x ∈ arithmetic.ntt_crt.ZETAS_Q1.val, |x.val| ≤ 3840 := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem zetas_q2_centred : ∀ x ∈ backend.crt.ZETAS_Q2.val, |x.val| ≤ 5376 := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem zetas_q2_centred : ∀ x ∈ arithmetic.ntt_crt.ZETAS_Q2.val, |x.val| ≤ 5376 := by decide
 
 theorem zetas_q1_centred_idx (k : ℕ) (hk : k < 256) :
-    |(backend.crt.ZETAS_Q1.val[k]!).val| ≤ 3840 := by
-  have hlen : backend.crt.ZETAS_Q1.val.length = (256#usize).val := backend.crt.ZETAS_Q1.property
+    |(arithmetic.ntt_crt.ZETAS_Q1.val[k]!).val| ≤ 3840 := by
+  have hlen : arithmetic.ntt_crt.ZETAS_Q1.val.length = (256#usize).val := arithmetic.ntt_crt.ZETAS_Q1.property
   rw [getElem!_pos _ k (by rw [hlen]; simpa using hk)]
   exact zetas_q1_centred _ (List.getElem_mem _)
 
 theorem zetas_q2_centred_idx (k : ℕ) (hk : k < 256) :
-    |(backend.crt.ZETAS_Q2.val[k]!).val| ≤ 5376 := by
-  have hlen : backend.crt.ZETAS_Q2.val.length = (256#usize).val := backend.crt.ZETAS_Q2.property
+    |(arithmetic.ntt_crt.ZETAS_Q2.val[k]!).val| ≤ 5376 := by
+  have hlen : arithmetic.ntt_crt.ZETAS_Q2.val.length = (256#usize).val := arithmetic.ntt_crt.ZETAS_Q2.property
   rw [getElem!_pos _ k (by rw [hlen]; simpa using hk)]
   exact zetas_q2_centred _ (List.getElem_mem _)
 
 /-! ## The Montgomery constants really are inverses mod `2¹⁶` -/
 
-unseal backend.crt.Q1_INV backend.crt.Q1 in
-theorem q1_inv_unit : (2 ^ 16 : ℤ) ∣ (backend.crt.Q1_INV.val * backend.crt.Q1.val - 1) := by
+unseal arithmetic.ntt_crt.Q1_INV arithmetic.ntt_crt.Q1 in
+theorem q1_inv_unit : (2 ^ 16 : ℤ) ∣ (arithmetic.ntt_crt.Q1_INV.val * arithmetic.ntt_crt.Q1.val - 1) := by
   decide
 
-unseal backend.crt.Q2_INV backend.crt.Q2 in
-theorem q2_inv_unit : (2 ^ 16 : ℤ) ∣ (backend.crt.Q2_INV.val * backend.crt.Q2.val - 1) := by
+unseal arithmetic.ntt_crt.Q2_INV arithmetic.ntt_crt.Q2 in
+theorem q2_inv_unit : (2 ^ 16 : ℤ) ∣ (arithmetic.ntt_crt.Q2_INV.val * arithmetic.ntt_crt.Q2.val - 1) := by
   decide
 
-unseal backend.crt.Q1 in
-theorem q1_val : backend.crt.Q1.val = 7681 := by decide
+unseal arithmetic.ntt_crt.Q1 in
+theorem q1_val : arithmetic.ntt_crt.Q1.val = 7681 := by decide
 
-unseal backend.crt.Q2 in
-theorem q2_val : backend.crt.Q2.val = 10753 := by decide
+unseal arithmetic.ntt_crt.Q2 in
+theorem q2_val : arithmetic.ntt_crt.Q2.val = 10753 := by decide
 
 /-! ## `zetas_qinv` multiplies through by `q⁻¹`
 
@@ -96,10 +96,10 @@ theorem zetas_qinv_loop_spec (zetas : Array I16 256#usize) (qinv : I16)
     (table : Array I16 256#usize) (k : Usize) (hk : k.val ≤ 256)
     (hpre : ∀ j < k.val,
       (table.val[j]!).val = ((zetas.val[j]!).val * qinv.val).bmod (2 ^ 16)) :
-    backend.crt.zetas_qinv_loop zetas qinv table k
+    arithmetic.ntt_crt.zetas_qinv_loop zetas qinv table k
       ⦃ (t : Array I16 256#usize) => ∀ j < 256,
           (t.val[j]!).val = ((zetas.val[j]!).val * qinv.val).bmod (2 ^ 16) ⦄ := by
-  unfold backend.crt.zetas_qinv_loop
+  unfold arithmetic.ntt_crt.zetas_qinv_loop
   by_cases hlt : k.val < 256
   · rw [if_pos (by scalar_tac)]
     obtain ⟨zk, hzk, hzkv⟩ := WP.spec_imp_exists
@@ -129,125 +129,125 @@ termination_by 256 - k.val
 decreasing_by scalar_decr_tac
 
 theorem zetas_qinv_spec (zetas : Array I16 256#usize) (qinv : I16) :
-    ∃ t, backend.crt.zetas_qinv zetas qinv = ok t ∧ ∀ j < 256,
+    ∃ t, arithmetic.ntt_crt.zetas_qinv zetas qinv = ok t ∧ ∀ j < 256,
       (t.val[j]!).val = ((zetas.val[j]!).val * qinv.val).bmod (2 ^ 16) := by
   apply WP.spec_imp_exists
-  unfold backend.crt.zetas_qinv
+  unfold arithmetic.ntt_crt.zetas_qinv
   exact zetas_qinv_loop_spec zetas qinv _ 0#usize (by simp) (by intro j hj; simp at hj)
 
 /-- **The ζ hypothesis of `ntt_block_bnd_q1`, discharged.** -/
 theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-    backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+    arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
     |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
-    zi.val = (backend.crt.ZETAS_Q1.val[kk.val]!).val := by
+    zi.val = (arithmetic.ntt_crt.ZETAS_Q1.val[kk.val]!).val := by
   intro kk hkk
-  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
   obtain ⟨zi, hzi, hziv⟩ := WP.spec_imp_exists
-    (Array.index_usize_spec backend.crt.ZETAS_Q1 kk (by simp [Array.length]; omega))
+    (Array.index_usize_spec arithmetic.ntt_crt.ZETAS_Q1 kk (by simp [Array.length]; omega))
   obtain ⟨zqi, hzqi, hzqiv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec t kk (by simp [Array.length]; omega))
   refine ⟨zi, zqi, ?_, ?_, ?_, ?_, ?_⟩
-  · unfold backend.crt.zeta
+  · unfold arithmetic.ntt_crt.zeta
     simp only [Bool.false_eq_true, reduceIte]
     exact hzi
-  · unfold backend.crt.zeta_q
-    simp only [Bool.false_eq_true, reduceIte, backend.crt.ZETAS_Q1_QINV, ht, bind_tc_ok]
+  · unfold arithmetic.ntt_crt.zeta_q
+    simp only [Bool.false_eq_true, reduceIte, arithmetic.ntt_crt.ZETAS_Q1_QINV, ht, bind_tc_ok]
     exact hzqi
   · rw [hziv]
     exact zetas_q1_centred _ (List.getElem_mem _)
   · -- `zq ≡ z·q⁻¹`, and `q⁻¹·q ≡ 1`, so `zq·q ≡ z`
-    have hzv : zqi.val = (zi.val * backend.crt.Q1_INV.val).bmod (2 ^ 16) := by
+    have hzv : zqi.val = (zi.val * arithmetic.ntt_crt.Q1_INV.val).bmod (2 ^ 16) := by
       rw [hzqiv, ← getElem!_pos t.val kk.val (by rw [t.property]; simp; omega),
         htv kk.val hkk, hziv,
-        ← getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q1.property]; simp; omega)]
-    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * backend.crt.Q1_INV.val) := by
+        ← getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simp; omega)]
+    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * arithmetic.ntt_crt.Q1_INV.val) := by
       rw [hzv]
-      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * backend.crt.Q1_INV.val) (m := 2 ^ 16)).symm
+      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * arithmetic.ntt_crt.Q1_INV.val) (m := 2 ^ 16)).symm
     obtain ⟨d, hd⟩ := q1_inv_unit
     rw [q1_val] at hd
     refine ⟨zi.val * d + c * 7681, ?_⟩
-    have e1 : zqi.val = zi.val * backend.crt.Q1_INV.val + 2 ^ 16 * c := by omega
-    have e2 : backend.crt.Q1_INV.val * 7681 = 1 + 2 ^ 16 * d := by omega
+    have e1 : zqi.val = zi.val * arithmetic.ntt_crt.Q1_INV.val + 2 ^ 16 * c := by omega
+    have e2 : arithmetic.ntt_crt.Q1_INV.val * 7681 = 1 + 2 ^ 16 * d := by omega
     calc zqi.val * 7681 - zi.val
-        = (zi.val * backend.crt.Q1_INV.val + 2 ^ 16 * c) * 7681 - zi.val := by rw [e1]
-      _ = zi.val * (backend.crt.Q1_INV.val * 7681) + 2 ^ 16 * (c * 7681) - zi.val := by ring
+        = (zi.val * arithmetic.ntt_crt.Q1_INV.val + 2 ^ 16 * c) * 7681 - zi.val := by rw [e1]
+      _ = zi.val * (arithmetic.ntt_crt.Q1_INV.val * 7681) + 2 ^ 16 * (c * 7681) - zi.val := by ring
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 7681) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 7681) := by ring
-  · rw [hziv, getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q1.property]; simpa using hkk)]
+  · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simpa using hkk)]
 
 /-- **The ζ hypothesis of `ntt_block_bnd_q2`, discharged.** -/
 theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-    backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
+    arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
     |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
-    zi.val = (backend.crt.ZETAS_Q2.val[kk.val]!).val := by
+    zi.val = (arithmetic.ntt_crt.ZETAS_Q2.val[kk.val]!).val := by
   intro kk hkk
-  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
   obtain ⟨zi, hzi, hziv⟩ := WP.spec_imp_exists
-    (Array.index_usize_spec backend.crt.ZETAS_Q2 kk (by simp [Array.length]; omega))
+    (Array.index_usize_spec arithmetic.ntt_crt.ZETAS_Q2 kk (by simp [Array.length]; omega))
   obtain ⟨zqi, hzqi, hzqiv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec t kk (by simp [Array.length]; omega))
   refine ⟨zi, zqi, ?_, ?_, ?_, ?_, ?_⟩
-  · unfold backend.crt.zeta
+  · unfold arithmetic.ntt_crt.zeta
     simp only [if_true]
     exact hzi
-  · unfold backend.crt.zeta_q
-    simp only [if_true, backend.crt.ZETAS_Q2_QINV, ht, bind_tc_ok]
+  · unfold arithmetic.ntt_crt.zeta_q
+    simp only [if_true, arithmetic.ntt_crt.ZETAS_Q2_QINV, ht, bind_tc_ok]
     exact hzqi
   · rw [hziv]
     exact zetas_q2_centred _ (List.getElem_mem _)
   · -- `zq ≡ z·q⁻¹`, and `q⁻¹·q ≡ 1`, so `zq·q ≡ z`
-    have hzv : zqi.val = (zi.val * backend.crt.Q2_INV.val).bmod (2 ^ 16) := by
+    have hzv : zqi.val = (zi.val * arithmetic.ntt_crt.Q2_INV.val).bmod (2 ^ 16) := by
       rw [hzqiv, ← getElem!_pos t.val kk.val (by rw [t.property]; simp; omega),
         htv kk.val hkk, hziv,
-        ← getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q2.property]; simp; omega)]
-    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * backend.crt.Q2_INV.val) := by
+        ← getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q2.property]; simp; omega)]
+    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * arithmetic.ntt_crt.Q2_INV.val) := by
       rw [hzv]
-      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * backend.crt.Q2_INV.val) (m := 2 ^ 16)).symm
+      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * arithmetic.ntt_crt.Q2_INV.val) (m := 2 ^ 16)).symm
     obtain ⟨d, hd⟩ := q2_inv_unit
     rw [q2_val] at hd
     refine ⟨zi.val * d + c * 10753, ?_⟩
-    have e1 : zqi.val = zi.val * backend.crt.Q2_INV.val + 2 ^ 16 * c := by omega
-    have e2 : backend.crt.Q2_INV.val * 10753 = 1 + 2 ^ 16 * d := by omega
+    have e1 : zqi.val = zi.val * arithmetic.ntt_crt.Q2_INV.val + 2 ^ 16 * c := by omega
+    have e2 : arithmetic.ntt_crt.Q2_INV.val * 10753 = 1 + 2 ^ 16 * d := by omega
     calc zqi.val * 10753 - zi.val
-        = (zi.val * backend.crt.Q2_INV.val + 2 ^ 16 * c) * 10753 - zi.val := by rw [e1]
-      _ = zi.val * (backend.crt.Q2_INV.val * 10753) + 2 ^ 16 * (c * 10753) - zi.val := by ring
+        = (zi.val * arithmetic.ntt_crt.Q2_INV.val + 2 ^ 16 * c) * 10753 - zi.val := by rw [e1]
+      _ = zi.val * (arithmetic.ntt_crt.Q2_INV.val * 10753) + 2 ^ 16 * (c * 10753) - zi.val := by ring
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 10753) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 10753) := by ring
-  · rw [hziv, getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q2.property]; simpa using hkk)]
+  · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q2.property]; simpa using hkk)]
 
 
 /-! ## The finite checks, on this extraction's tables -/
 
-unseal backend.crt.ZETAS_Q1 in
-theorem rootOK_q1 : rootOKq backend.crt.ZETAS_Q1 7681 4088 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem rootOK_q1 : rootOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
-unseal backend.crt.ZETAS_Q1 in
-theorem treeOK_q1 : treeOKq backend.crt.ZETAS_Q1 7681 4088 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem treeOK_q1 : treeOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem rootOK_q2 : rootOKq backend.crt.ZETAS_Q2 10753 1018 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem rootOK_q2 : rootOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem treeOK_q2 : treeOKq backend.crt.ZETAS_Q2 10753 1018 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem treeOK_q2 : treeOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
-unseal backend.crt.ZETAS_Q1 in
-theorem pairOK_q1 : pairOKq backend.crt.ZETAS_Q1 7681 4088 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem pairOK_q1 : pairOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem pairOK_q2 : pairOKq backend.crt.ZETAS_Q2 10753 1018 = true := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem pairOK_q2 : pairOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
 /-! ## …instantiated at the two primes -/
 
 /-- The plain `q₁` twiddles. -/
-def zeta1 : ℕ → ZMod 7681 := zetaQ backend.crt.ZETAS_Q1 (900 : ZMod 7681)
+def zeta1 : ℕ → ZMod 7681 := zetaQ arithmetic.ntt_crt.ZETAS_Q1 (900 : ZMod 7681)
 /-- The plain `q₂` twiddles. -/
-def zeta2 : ℕ → ZMod 10753 := zetaQ backend.crt.ZETAS_Q2 (1764 : ZMod 10753)
+def zeta2 : ℕ → ZMod 10753 := zetaQ arithmetic.ntt_crt.ZETAS_Q2 (1764 : ZMod 10753)
 
 theorem zeta1_sq : ∀ k, 1 ≤ k → k < 256 → zeta1 k ^ 2 = cst zeta1 k :=
-  zetaQ_sq backend.crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) rootOK_q1 treeOK_q1
+  zetaQ_sq arithmetic.ntt_crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) rootOK_q1 treeOK_q1
 
 theorem zeta2_sq : ∀ k, 1 ≤ k → k < 256 → zeta2 k ^ 2 = cst zeta2 k :=
-  zetaQ_sq backend.crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) rootOK_q2 treeOK_q2
+  zetaQ_sq arithmetic.ntt_crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) rootOK_q2 treeOK_q2
 
 /-! ## …so the transform algebra applies at both primes
 
@@ -257,11 +257,11 @@ two facts phase F4 needs about each prime; everything else is about the code. -/
 
 theorem zeta1_pair : ∀ nb b : ℕ, (∃ j, j < 8 ∧ nb = 2 ^ j) → b < nb →
     zeta1 (nb + b) * zeta1 (2 * nb - 1 - b) = -1 :=
-  zetaQ_pair backend.crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) pairOK_q1
+  zetaQ_pair arithmetic.ntt_crt.ZETAS_Q1 4088 (900 : ZMod 7681) (by decide) pairOK_q1
 
 theorem zeta2_pair : ∀ nb b : ℕ, (∃ j, j < 8 ∧ nb = 2 ^ j) → b < nb →
     zeta2 (nb + b) * zeta2 (2 * nb - 1 - b) = -1 :=
-  zetaQ_pair backend.crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) pairOK_q2
+  zetaQ_pair arithmetic.ntt_crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) pairOK_q2
 
 /-- One GS layer, at `q₁`. -/
 theorem State_gs_q1 {nb m' : ℕ} (hnb1 : 1 ≤ nb) (hnb : 2 * nb ≤ 256)

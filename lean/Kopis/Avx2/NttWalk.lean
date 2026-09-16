@@ -1111,7 +1111,7 @@ theorem ntt_block_loop0_loop0_walk (SECOND : Bool) (b : Array I16 256#usize) (qv
     (hA0 : 0 ≤ A) (hAZ : A * Zb < 2 ^ 15 * (q : ℤ))
     (hT : A * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * T) (hfit : A + T ≤ 2 ^ 15 - 1)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
       |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
       (((zi.val : ℤ) : ZMod q)) * Rinv = ψ kk.val)
     (hhalf : half.val = 8 ∨ half.val = 4 ∨ half.val = 2 ∨ half.val = 1)
@@ -1294,7 +1294,7 @@ theorem ntt_block_loop0_walk_q2 (b : Array I16 256#usize) (qv bm round : Vec256)
     (hM : ∀ i < 16, (lane16 bm i).toInt = 12482)
     (hRnd : ∀ i < 16, (lane16 round i).toInt = 2 ^ 10)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
       |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
       (((zi.val : ℤ) : ZMod 10753)) * Rinv = ψ kk.val)
     (hb : BlockBnd b 5376) (hv : ∀ c < 256, posZ 10753 b c = f c) :
@@ -1429,7 +1429,7 @@ theorem ntt_block_walk_q2 (b : Array I16 256#usize) (Rinv : ZMod 10753)
     (ψ f : ℕ → ZMod 10753)
     (hR : ((2 ^ 16 : ℤ) : ZMod 10753) * Rinv = 1)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
       |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
       (((zi.val : ℤ) : ZMod 10753)) * Rinv = ψ kk.val)
     (htbl8 : ∃ z zq,
@@ -1451,25 +1451,25 @@ theorem ntt_block_walk_q2 (b : Array I16 256#usize) (Rinv : ZMod 10753)
   obtain ⟨s1, s2, s3, s4, -, -⟩ := growth_q2
   have hq0 : (0 : ℤ) < ((10753 : ℕ) : ℤ) := by norm_num
   have hqlt : ((10753 : ℕ) : ℤ) ≤ 2 ^ 15 := by norm_num
-  unfold backend.avx2.ntt.ntt_block backend.crt.q backend.crt.barrett_m
+  unfold backend.avx2.ntt.ntt_block arithmetic.ntt_crt.q arithmetic.ntt_crt.barrett_m
   simp only [if_true, bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q2
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2
   rw [hqv, bind_tc_ok]
-  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec backend.crt.Q2_BARRETT_M
+  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2_BARRETT_M
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
   obtain ⟨rnd, hrnd, hrndl⟩ := set1_epi16_spec 1024#i16
   rw [hrnd, bind_tc_ok]
   have hQ : ∀ j < 16, (lane16 qv j).toInt = 10753 := fun j hj => by
-    rw [hqvl j hj]; simp only [backend.crt.Q2]; decide
+    rw [hqvl j hj]; simp only [arithmetic.ntt_crt.Q2]; decide
   have hQ' : ∀ j < 16, (lane16 qv j).toInt = ((10753 : ℕ) : ℤ) := by
     intro j hj; rw [hQ j hj]; norm_num
   have hM : ∀ j < 16, (lane16 bm j).toInt = 12482 := fun j hj => by
-    rw [hbml j hj]; simp only [backend.crt.Q2_BARRETT_M]; decide
+    rw [hbml j hj]; simp only [arithmetic.ntt_crt.Q2_BARRETT_M]; decide
   have hRnd : ∀ j < 16, (lane16 rnd j).toInt = 2 ^ 10 := fun j hj => by
     rw [hrndl j hj]; decide
   have hbar : ∀ (bb : Array I16 256#usize),
@@ -1617,7 +1617,7 @@ theorem ntt_block_loop0_walk_q1 (b : Array I16 256#usize) (qv bm round : Vec256)
     (hM : ∀ i < 16, (lane16 bm i).toInt = 17474)
     (hRnd : ∀ i < 16, (lane16 round i).toInt = 2 ^ 10)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
       |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
       (((zi.val : ℤ) : ZMod 7681)) * Rinv = ψ kk.val)
     (hb : BlockBnd b 3840) (hv : ∀ c < 256, posZ 7681 b c = f c) :
@@ -1744,7 +1744,7 @@ theorem ntt_block_walk_q1 (b : Array I16 256#usize) (Rinv : ZMod 7681)
     (ψ f : ℕ → ZMod 7681)
     (hR : ((2 ^ 16 : ℤ) : ZMod 7681) * Rinv = 1)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
       |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
       (((zi.val : ℤ) : ZMod 7681)) * Rinv = ψ kk.val)
     (htbl8 : ∃ z zq,
@@ -1766,25 +1766,25 @@ theorem ntt_block_walk_q1 (b : Array I16 256#usize) (Rinv : ZMod 7681)
   obtain ⟨s1, s2, s3, s4, -, -⟩ := growth_q1
   have hq0 : (0 : ℤ) < ((7681 : ℕ) : ℤ) := by norm_num
   have hqlt : ((7681 : ℕ) : ℤ) ≤ 2 ^ 15 := by norm_num
-  unfold backend.avx2.ntt.ntt_block backend.crt.q backend.crt.barrett_m
+  unfold backend.avx2.ntt.ntt_block arithmetic.ntt_crt.q arithmetic.ntt_crt.barrett_m
   simp only [Bool.false_eq_true, reduceIte, bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q1
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1
   rw [hqv, bind_tc_ok]
-  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec backend.crt.Q1_BARRETT_M
+  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1_BARRETT_M
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
   obtain ⟨rnd, hrnd, hrndl⟩ := set1_epi16_spec 1024#i16
   rw [hrnd, bind_tc_ok]
   have hQ : ∀ j < 16, (lane16 qv j).toInt = 7681 := fun j hj => by
-    rw [hqvl j hj]; simp only [backend.crt.Q1]; decide
+    rw [hqvl j hj]; simp only [arithmetic.ntt_crt.Q1]; decide
   have hQ' : ∀ j < 16, (lane16 qv j).toInt = ((7681 : ℕ) : ℤ) := by
     intro j hj; rw [hQ j hj]; norm_num
   have hM : ∀ j < 16, (lane16 bm j).toInt = 17474 := fun j hj => by
-    rw [hbml j hj]; simp only [backend.crt.Q1_BARRETT_M]; decide
+    rw [hbml j hj]; simp only [arithmetic.ntt_crt.Q1_BARRETT_M]; decide
   have hRnd : ∀ j < 16, (lane16 rnd j).toInt = 2 ^ 10 := fun j hj => by
     rw [hrndl j hj]; decide
   have hbar : ∀ (bb : Array I16 256#usize),

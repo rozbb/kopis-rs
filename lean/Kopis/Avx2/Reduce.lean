@@ -271,21 +271,21 @@ theorem reduce_block_q2 (acc : Array I32 512#usize) (b : Array I16 256#usize)
           BlockBnd r 7141 ∧ ∀ cc < 256, posZ 10753 r cc
             = (((2536 : ℤ) : ZMod 10753) * (1764 : ZMod 10753)) * (256 * cst) * f cc ⦄ := by
   unfold backend.avx2.ntt.reduce_block
-  rw [show backend.crt.q true = ok backend.crt.Q2 from by simp [backend.crt.q], bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q2
+  rw [show arithmetic.ntt_crt.q true = ok arithmetic.ntt_crt.Q2 from by simp [arithmetic.ntt_crt.q], bind_tc_ok]
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2
   rw [hqv, bind_tc_ok,
-    show backend.crt.qinv true = ok backend.crt.Q2_INV from by simp [backend.crt.qinv],
+    show arithmetic.ntt_crt.qinv true = ok arithmetic.ntt_crt.Q2_INV from by simp [arithmetic.ntt_crt.qinv],
     bind_tc_ok]
-  obtain ⟨qiv, hqiv, hqivl⟩ := set1_epi16_spec backend.crt.Q2_INV
+  obtain ⟨qiv, hqiv, hqivl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2_INV
   rw [hqiv, bind_tc_ok]
   have hQ : ∀ j < 16, (lane16 qv j).toInt = ((10753 : ℕ) : ℤ) := fun j hj => by
-    rw [hqvl j hj, show (backend.crt.Q2 : I16).bv.toInt = backend.crt.Q2.val from rfl, q2_val]
+    rw [hqvl j hj, show (arithmetic.ntt_crt.Q2 : I16).bv.toInt = arithmetic.ntt_crt.Q2.val from rfl, q2_val]
     norm_num
-  have hQI : ∀ j < 16, (lane16 qiv j).toInt = backend.crt.Q2_INV.val := fun j hj => by
+  have hQI : ∀ j < 16, (lane16 qiv j).toInt = arithmetic.ntt_crt.Q2_INV.val := fun j hj => by
     rw [hqivl j hj]; rfl
   apply WP.spec_bind (reduce_block_loop_walk { start := 0#usize, «end» := 16#usize } acc 32#usize
-    b qv qiv 10753 backend.crt.Q2_INV.val (by norm_num) (by norm_num)
-    (by rw [show (((10753 : ℕ) : ℤ)) = backend.crt.Q2.val from by rw [q2_val]; norm_num]
+    b qv qiv 10753 arithmetic.ntt_crt.Q2_INV.val (by norm_num) (by norm_num)
+    (by rw [show (((10753 : ℕ) : ℤ)) = arithmetic.ntt_crt.Q2.val from by rw [q2_val]; norm_num]
         exact q2_inv_unit)
     hQ hQI (Or.inr (by scalar_tac)) 115605504 7141
     (by intro t h1 h2
@@ -312,21 +312,21 @@ theorem reduce_block_q1 (acc : Array I32 512#usize) (b : Array I16 256#usize)
           BlockBnd r 4741 ∧ ∀ cc < 256, posZ 7681 r cc
             = (((1912 : ℤ) : ZMod 7681) * (900 : ZMod 7681)) * (256 * cst) * f cc ⦄ := by
   unfold backend.avx2.ntt.reduce_block
-  rw [show backend.crt.q false = ok backend.crt.Q1 from by simp [backend.crt.q], bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q1
+  rw [show arithmetic.ntt_crt.q false = ok arithmetic.ntt_crt.Q1 from by simp [arithmetic.ntt_crt.q], bind_tc_ok]
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1
   rw [hqv, bind_tc_ok,
-    show backend.crt.qinv false = ok backend.crt.Q1_INV from by simp [backend.crt.qinv],
+    show arithmetic.ntt_crt.qinv false = ok arithmetic.ntt_crt.Q1_INV from by simp [arithmetic.ntt_crt.qinv],
     bind_tc_ok]
-  obtain ⟨qiv, hqiv, hqivl⟩ := set1_epi16_spec backend.crt.Q1_INV
+  obtain ⟨qiv, hqiv, hqivl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1_INV
   rw [hqiv, bind_tc_ok]
   have hQ : ∀ j < 16, (lane16 qv j).toInt = ((7681 : ℕ) : ℤ) := fun j hj => by
-    rw [hqvl j hj, show (backend.crt.Q1 : I16).bv.toInt = backend.crt.Q1.val from rfl, q1_val]
+    rw [hqvl j hj, show (arithmetic.ntt_crt.Q1 : I16).bv.toInt = arithmetic.ntt_crt.Q1.val from rfl, q1_val]
     norm_num
-  have hQI : ∀ j < 16, (lane16 qiv j).toInt = backend.crt.Q1_INV.val := fun j hj => by
+  have hQI : ∀ j < 16, (lane16 qiv j).toInt = arithmetic.ntt_crt.Q1_INV.val := fun j hj => by
     rw [hqivl j hj]; rfl
   apply WP.spec_bind (reduce_block_loop_walk { start := 0#usize, «end» := 16#usize } acc 0#usize
-    b qv qiv 7681 backend.crt.Q1_INV.val (by norm_num) (by norm_num)
-    (by rw [show (((7681 : ℕ) : ℤ)) = backend.crt.Q1.val from by rw [q1_val]; norm_num]
+    b qv qiv 7681 arithmetic.ntt_crt.Q1_INV.val (by norm_num) (by norm_num)
+    (by rw [show (((7681 : ℕ) : ℤ)) = arithmetic.ntt_crt.Q1.val from by rw [q1_val]; norm_num]
         exact q1_inv_unit)
     hQ hQI (Or.inl (by scalar_tac)) 58982400 4741
     (by intro t h1 h2
@@ -880,14 +880,14 @@ decreasing_by scalar_decr_tac
 
 /-! ## The CRT constants -/
 
-unseal backend.crt.CRT_Q in
-theorem crt_q_val : backend.crt.CRT_Q.val = 82593793 := by decide
+unseal arithmetic.ntt_crt.CRT_Q in
+theorem crt_q_val : arithmetic.ntt_crt.CRT_Q.val = 82593793 := by decide
 
-unseal backend.crt.CRT_Q_HALF in
-theorem crt_q_half_val : backend.crt.CRT_Q_HALF.val = 41296896 := by decide
+unseal arithmetic.ntt_crt.CRT_Q_HALF in
+theorem crt_q_half_val : arithmetic.ntt_crt.CRT_Q_HALF.val = 41296896 := by decide
 
-unseal backend.crt.CRT_Q1_INV_MONT in
-theorem crt_q1_inv_mont_val : backend.crt.CRT_Q1_INV_MONT.val = 3563 := by decide
+unseal arithmetic.ntt_crt.CRT_Q1_INV_MONT in
+theorem crt_q1_inv_mont_val : arithmetic.ntt_crt.CRT_Q1_INV_MONT.val = 3563 := by decide
 
 /-! ## `reduce_invntt`
 
@@ -916,29 +916,29 @@ theorem reduce_invntt_walk (acc : Array I32 512#usize) (X : ℕ → ℤ)
   apply WP.spec_bind (reduce_block_q2 acc _ hacc2 c2 f2 hst2)
   rintro v21 ⟨hb2, hv2⟩
   -- the eight broadcast constants
-  obtain ⟨q1v, hq1v, hq1vl⟩ := set1_epi16_spec backend.crt.Q1
+  obtain ⟨q1v, hq1v, hq1vl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1
   rw [hq1v, bind_tc_ok]
-  obtain ⟨q2v, hq2v, hq2vl⟩ := set1_epi16_spec backend.crt.Q2
+  obtain ⟨q2v, hq2v, hq2vl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2
   rw [hq2v, bind_tc_ok]
-  obtain ⟨qim, hqim, hqiml⟩ := set1_epi16_spec backend.crt.CRT_Q1_INV_MONT
+  obtain ⟨qim, hqim, hqiml⟩ := set1_epi16_spec arithmetic.ntt_crt.CRT_Q1_INV_MONT
   rw [hqim, bind_tc_ok]
   simp only [core.num.I16.wrapping_mul, lift, bind_tc_ok]
   obtain ⟨qimq, hqimq, hqimql⟩ :=
-    set1_epi16_spec (IScalar.wrapping_mul backend.crt.CRT_Q1_INV_MONT backend.crt.Q2_INV)
+    set1_epi16_spec (IScalar.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT arithmetic.ntt_crt.Q2_INV)
   rw [hqimq, bind_tc_ok]
-  have hcastv : (IScalar.cast IScalarTy.I32 backend.crt.Q1).val = 7681 := by
+  have hcastv : (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1).val = 7681 := by
     obtain ⟨y, hy, hyv⟩ := WP.spec_imp_exists
-      (Std.IScalar.cast_inBounds_spec IScalarTy.I32 backend.crt.Q1
+      (Std.IScalar.cast_inBounds_spec IScalarTy.I32 arithmetic.ntt_crt.Q1
         (by rw [q1_val]; constructor <;> scalar_tac))
-    have he : (ok (IScalar.cast IScalarTy.I32 backend.crt.Q1) : Result I32) = ok y := by
+    have he : (ok (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1) : Result I32) = ok y := by
       simpa [lift] using hy
     injection he with he'
     rw [he', hyv, q1_val]
-  obtain ⟨q1w, hq1w, hq1wl⟩ := set1_epi32_spec (IScalar.cast IScalarTy.I32 backend.crt.Q1)
+  obtain ⟨q1w, hq1w, hq1wl⟩ := set1_epi32_spec (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1)
   rw [hq1w, bind_tc_ok]
-  obtain ⟨crtq, hcrtq, hcrtql⟩ := set1_epi32_spec backend.crt.CRT_Q
+  obtain ⟨crtq, hcrtq, hcrtql⟩ := set1_epi32_spec arithmetic.ntt_crt.CRT_Q
   rw [hcrtq, bind_tc_ok]
-  obtain ⟨crtqh, hcrtqh, hcrtqhl⟩ := set1_epi32_spec backend.crt.CRT_Q_HALF
+  obtain ⟨crtqh, hcrtqh, hcrtqhl⟩ := set1_epi32_spec arithmetic.ntt_crt.CRT_Q_HALF
   rw [hcrtqh, bind_tc_ok]
   obtain ⟨low16, hlow16, hlow16l⟩ := set1_epi32_spec 65535#i32
   rw [hlow16, bind_tc_ok]
@@ -953,18 +953,18 @@ theorem reduce_invntt_walk (acc : Array I32 512#usize) (X : ℕ → ℤ)
       (2 ^ 16 : ℤ) ∣ ((lane16 qimq j).toInt * 10753 - (lane16 qim j).toInt) := by
     intro j hj
     rw [show (lane16 qimq j).toInt
-        = (IScalar.wrapping_mul backend.crt.CRT_Q1_INV_MONT backend.crt.Q2_INV).val from by
+        = (IScalar.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT arithmetic.ntt_crt.Q2_INV).val from by
           rw [hqimql j hj]; rfl,
-      show (lane16 qim j).toInt = (backend.crt.CRT_Q1_INV_MONT : I16).val from by
+      show (lane16 qim j).toInt = (arithmetic.ntt_crt.CRT_Q1_INV_MONT : I16).val from by
         rw [hqiml j hj]; rfl,
       IScalar.wrapping_mul_val_eq]
     refine mont_pair rfl ?_
-    rw [show (10753 : ℤ) = backend.crt.Q2.val from q2_val.symm]
+    rw [show (10753 : ℤ) = arithmetic.ntt_crt.Q2.val from q2_val.symm]
     exact q2_inv_unit
   have hq1wv : ∀ j < 8, (lane32 q1w j).toInt = 7681 := fun j hj => by
     rw [hq1wl j hj,
-      show ((IScalar.cast IScalarTy.I32 backend.crt.Q1) : I32).bv.toInt
-        = (IScalar.cast IScalarTy.I32 backend.crt.Q1).val from rfl, hcastv]
+      show ((IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1) : I32).bv.toInt
+        = (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1).val from rfl, hcastv]
   have hcqv : ∀ j < 8, (lane32 crtq j).toInt = 82593793 := fun j hj => by
     rw [hcrtql j hj]; exact crt_q_val
   have hcqhv : ∀ j < 8, (lane32 crtqh j).toInt = 41296896 := fun j hj => by
@@ -1068,8 +1068,8 @@ in the leaf state of that prime's CRT tree. -/
 theorem split_and_transform_walk (SECOND : Bool) (elem : Array U16 256#usize)
     (b : Array I16 256#usize) (g : ℕ → ℤ) (q : ℕ) (M : ℤ) (A0 : ℤ) (qc mc : I16)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
-    (hqc : backend.crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
-    (hmc : backend.crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
+    (hqc : arithmetic.ntt_crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
+    (hmc : arithmetic.ntt_crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
     (hQpos : 0 < (q : ℤ)) (hQlt : (q : ℤ) < 2 ^ 14) (hQodd : ¬ (2 ∣ (q : ℤ)))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
     (hA0 : 2 * A0 + 1 ≥ (q : ℤ)) (P : Array I16 256#usize → Prop)
@@ -1083,8 +1083,8 @@ theorem split_and_transform_walk (SECOND : Bool) (elem : Array U16 256#usize)
   rw [hqv, bind_tc_ok, hmc, bind_tc_ok]
   obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec mc
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
@@ -1111,9 +1111,9 @@ theorem split_and_transform_q1 (elem : Array U16 256#usize) (b : Array I16 256#u
             = fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681)) c) ∧
           NttAlg.State zeta1 256 1 1 (fun c => ((g c : ℤ) : ZMod 7681))
             (fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681))) ⦄ :=
-  split_and_transform_walk false elem b g 7681 17474 3840 backend.crt.Q1
-    backend.crt.Q1_BARRETT_M hg (by simp [backend.crt.q]) (by rw [q1_val]; norm_num)
-    (by simp [backend.crt.barrett_m]) (by simp only [backend.crt.Q1_BARRETT_M]; scalar_tac)
+  split_and_transform_walk false elem b g 7681 17474 3840 arithmetic.ntt_crt.Q1
+    arithmetic.ntt_crt.Q1_BARRETT_M hg (by simp [arithmetic.ntt_crt.q]) (by rw [q1_val]; norm_num)
+    (by simp [arithmetic.ntt_crt.barrett_m]) (by simp only [arithmetic.ntt_crt.Q1_BARRETT_M]; scalar_tac)
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) _ (fun bb hb hv => ntt_block_State_q1 bb _ hb hv)
 
@@ -1127,9 +1127,9 @@ theorem split_and_transform_q2 (elem : Array U16 256#usize) (b : Array I16 256#u
             = fwdAll 10753 zeta2 (fun c => ((g c : ℤ) : ZMod 10753)) c) ∧
           NttAlg.State zeta2 256 1 1 (fun c => ((g c : ℤ) : ZMod 10753))
             (fwdAll 10753 zeta2 (fun c => ((g c : ℤ) : ZMod 10753))) ⦄ :=
-  split_and_transform_walk true elem b g 10753 12482 5376 backend.crt.Q2
-    backend.crt.Q2_BARRETT_M hg (by simp [backend.crt.q]) (by rw [q2_val]; norm_num)
-    (by simp [backend.crt.barrett_m]) (by simp only [backend.crt.Q2_BARRETT_M]; scalar_tac)
+  split_and_transform_walk true elem b g 10753 12482 5376 arithmetic.ntt_crt.Q2
+    arithmetic.ntt_crt.Q2_BARRETT_M hg (by simp [arithmetic.ntt_crt.q]) (by rw [q2_val]; norm_num)
+    (by simp [arithmetic.ntt_crt.barrett_m]) (by simp only [arithmetic.ntt_crt.Q2_BARRETT_M]; scalar_tac)
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) _ (fun bb hb hv => ntt_block_State_q2 bb _ hb hv)
 
@@ -1546,7 +1546,7 @@ theorem split_and_transform_walk_nored (SECOND : Bool) (elem : Array U16 256#usi
     (b : Array I16 256#usize) (g : ℕ → ℤ) (q : ℕ) (A0 : ℤ) (qc mc : I16)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hsmall : ∀ c < 256, 2 * |g c| < (q : ℤ))
-    (hqc : backend.crt.q SECOND = ok qc) (hmc : backend.crt.barrett_m SECOND = ok mc)
+    (hqc : arithmetic.ntt_crt.q SECOND = ok qc) (hmc : arithmetic.ntt_crt.barrett_m SECOND = ok mc)
     (hA0 : 2 * A0 + 1 ≥ (q : ℤ)) (P : Array I16 256#usize → Prop)
     (hnext : ∀ (bb : Array I16 256#usize),
       BlockBnd bb A0 → (∀ c < 256, posZ q bb c = ((g c : ℤ) : ZMod q)) →
@@ -1559,8 +1559,8 @@ theorem split_and_transform_walk_nored (SECOND : Bool) (elem : Array U16 256#usi
   rw [hqv, bind_tc_ok, hmc, bind_tc_ok]
   obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec mc
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
@@ -1582,9 +1582,9 @@ theorem split_and_transform_q1_nored (elem : Array U16 256#usize) (b : Array I16
             = fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681)) c) ∧
           NttAlg.State zeta1 256 1 1 (fun c => ((g c : ℤ) : ZMod 7681))
             (fwdAll 7681 zeta1 (fun c => ((g c : ℤ) : ZMod 7681))) ⦄ :=
-  split_and_transform_walk_nored false elem b g 7681 3840 backend.crt.Q1
-    backend.crt.Q1_BARRETT_M hg hsmall (by simp [backend.crt.q])
-    (by simp [backend.crt.barrett_m]) (by norm_num) _
+  split_and_transform_walk_nored false elem b g 7681 3840 arithmetic.ntt_crt.Q1
+    arithmetic.ntt_crt.Q1_BARRETT_M hg hsmall (by simp [arithmetic.ntt_crt.q])
+    (by simp [arithmetic.ntt_crt.barrett_m]) (by norm_num) _
     (fun bb hb hv => ntt_block_State_q1 bb _ hb hv)
 
 /-- `split_and_transform` for `q₂`, without the reduction. -/
@@ -1598,9 +1598,9 @@ theorem split_and_transform_q2_nored (elem : Array U16 256#usize) (b : Array I16
             = fwdAll 10753 zeta2 (fun c => ((g c : ℤ) : ZMod 10753)) c) ∧
           NttAlg.State zeta2 256 1 1 (fun c => ((g c : ℤ) : ZMod 10753))
             (fwdAll 10753 zeta2 (fun c => ((g c : ℤ) : ZMod 10753))) ⦄ :=
-  split_and_transform_walk_nored true elem b g 10753 5376 backend.crt.Q2
-    backend.crt.Q2_BARRETT_M hg hsmall (by simp [backend.crt.q])
-    (by simp [backend.crt.barrett_m]) (by norm_num) _
+  split_and_transform_walk_nored true elem b g 10753 5376 arithmetic.ntt_crt.Q2
+    arithmetic.ntt_crt.Q2_BARRETT_M hg hsmall (by simp [arithmetic.ntt_crt.q])
+    (by simp [arithmetic.ntt_crt.barrett_m]) (by norm_num) _
     (fun bb hb hv => ntt_block_State_q2 bb _ hb hv)
 
 /-- **`from_ring_elem` without the reduction**, i.e. `from_secret`. -/
@@ -1644,11 +1644,11 @@ theorem from_ring_elem_NttOK_nored (elem : Array U16 256#usize) (g : ℕ → ℤ
 the generated proof. -/
 
 theorem from_uniform_NttOK (hb : backend.avx2.cpu.available = ok true)
-    (elem : arithmetic.ring_arith.RingElem) (g : ℕ → ℤ)
+    (elem : arithmetic.plain_arith.RingElem) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
-    arithmetic.ntt.NttElem.from_uniform elem
-      ⦃ (r : arithmetic.ntt.NttElem) => NttOK g r ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_uniform
+    arithmetic.ntt_arith.NttElem.from_uniform elem
+      ⦃ (r : arithmetic.ntt_arith.NttElem) => NttOK g r ⦄ := by
+  unfold arithmetic.ntt_arith.NttElem.from_uniform
   rw [hb, bind_tc_ok]
   simp only [if_true]
   apply WP.spec_bind (show backend.avx2.ntt.from_uniform elem ⦃ (r : Array I16 512#usize) =>
@@ -1658,12 +1658,12 @@ theorem from_uniform_NttOK (hb : backend.avx2.cpu.available = ok true)
   exact hr
 
 theorem from_secret_NttOK (hb : backend.avx2.cpu.available = ok true)
-    (elem : arithmetic.ring_arith.RingElem) (g : ℕ → ℤ)
+    (elem : arithmetic.plain_arith.RingElem) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hs1 : ∀ c < 256, 2 * |g c| < 7681) (hs2 : ∀ c < 256, 2 * |g c| < 10753) :
-    arithmetic.ntt.NttElem.from_secret elem
-      ⦃ (r : arithmetic.ntt.NttElem) => NttOK g r ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_secret
+    arithmetic.ntt_arith.NttElem.from_secret elem
+      ⦃ (r : arithmetic.ntt_arith.NttElem) => NttOK g r ⦄ := by
+  unfold arithmetic.ntt_arith.NttElem.from_secret
   rw [hb, bind_tc_ok]
   simp only [if_true]
   apply WP.spec_bind (show backend.avx2.ntt.from_secret elem ⦃ (r : Array I16 512#usize) =>
@@ -1692,12 +1692,12 @@ theorem pointwise_mul_acc_avx (hb : backend.avx2.cpu.available = ok true)
     (hr : ∀ t < 512, |(i16View rhs t).toInt| ≤ Br)
     (ha : ∀ t < 512, |(i32View acc t).toInt| ≤ Ba)
     (hfit : Ba + Bl * Br < 2 ^ 31) :
-    arithmetic.ntt.pointwise_mul_acc acc lhs rhs
+    arithmetic.ntt_arith.pointwise_mul_acc acc lhs rhs
       ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           (i32View r t).toInt = (i32View acc t).toInt
             + (i16View lhs t).toInt * (i16View rhs t).toInt ∧
           |(i32View r t).toInt| ≤ Ba + Bl * Br ⦄ := by
-  unfold arithmetic.ntt.pointwise_mul_acc
+  unfold arithmetic.ntt_arith.pointwise_mul_acc
   rw [hb, bind_tc_ok]
   simp only [if_true]
   exact pointwise_acc_int acc lhs rhs Bl Br Ba h0 h1 hl hr ha hfit
@@ -1706,7 +1706,7 @@ theorem pointwise_mul_acc_avx (hb : backend.avx2.cpu.available = ok true)
 terms the accumulator is inside `n·B²`. -/
 theorem mul_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true)
     (iter : core.ops.range.Range Usize)
-    (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix Y Z)
+    (self : arithmetic.ntt_arith.NttMatrix X Y) (other : arithmetic.ntt_arith.NttMatrix Y Z)
     (i k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hi : i.val < X.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ Y.val) (hend : iter.«end».val = Y.val) (hY : Y.val ≤ 4)
@@ -1715,8 +1715,8 @@ theorem mul_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true
     (hother : ∀ j t, j < Y.val → t < 512 →
       |(i16View ((other.val[j]!).val[k.val]!) t).toInt| ≤ B)
     (hacc : ∀ t < 512, |(i32View acc t).toInt| ≤ (iter.start.val : ℤ) * (B * B)) :
-    arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0 iter self other i k acc
-      ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix Y Z) ×
+    arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0 iter self other i k acc
+      ⦃ (p : (arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix Y Z) ×
              (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
           (∀ t < 512, (i32View p.2.2 t).toInt = (i32View acc t).toInt
@@ -1724,7 +1724,7 @@ theorem mul_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true
                 (i16View ((self.val[i.val]!).val[jj]!) t).toInt
                   * (i16View ((other.val[jj]!).val[k.val]!) t).toInt) ∧
           (∀ t < 512, |(i32View p.2.2 t).toInt| ≤ (Y.val : ℤ) * (B * B)) ⦄ := by
-  unfold arithmetic.ntt.NttMatrix.mul_loop0_loop0_loop0
+  unfold arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -1797,10 +1797,10 @@ theorem reduce_invntt_to_ring_elem_avx (hb : backend.avx2.cpu.available = ok tru
     (hH2 : ∀ c < 256, ((H c : ℤ) : ZMod 10753)
       = ∑ jj ∈ Finset.range N, NttAlg.nconv (fun n => ((gu jj n : ℤ) : ZMod 10753))
           (fun n => ((gv jj n : ℤ) : ZMod 10753)) c) :
-    arithmetic.ntt.reduce_invntt_to_ring_elem acc
-      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+    arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
+      ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ n, n < 256 → ((r.val[n]!).val : ℤ) % 65536 = H n % 65536 ⦄ := by
-  unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+  unfold arithmetic.ntt_arith.reduce_invntt_to_ring_elem
   rw [hb, bind_tc_ok]
   simp only [if_true]
   apply WP.spec_bind (ntt_entry_avx N hN acc nu nv gu gv hnu hnv hacc H hHb hH1 hH2)

@@ -5,7 +5,7 @@ open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 namespace Kopis.Properties
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 4000
@@ -65,7 +65,7 @@ theorem toRingElem13_coerce10 (re : RingElem) :
 /-- **Inner-product correspondence at `R10`.**  The Rust `vprime = Σᵢ b[i]·s'[i]` (physical
 `2¹⁶`), reduced to `R10`, equals the spec's `innerProduct b (s'.coerce R10)`. -/
 theorem innerProduct_coerce_bridge {L : Usize}
-    (pkvec vecs : arithmetic.matrix_arith.Matrix L 1#usize) (vprime1 : RingElem)
+    (pkvec vecs : arithmetic.plain_arith.Matrix L 1#usize) (vprime1 : RingElem)
     (hip : toRingElem vprime1 = ∑ ii ∈ Finset.range L.val,
         toRingElem ((pkvec.val[ii]!).val[0]!) * toRingElem ((vecs.val[ii]!).val[0]!)) :
     (toRingElem vprime1).coerce (2 ^ 10)

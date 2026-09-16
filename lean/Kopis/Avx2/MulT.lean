@@ -26,7 +26,7 @@ private theorem sumT_Ico_peel {M : Type*} [AddCommMonoid M] (f : ℕ → M) {a b
 families; after `n` terms the accumulator is inside `n·B²`. -/
 theorem mulT_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true)
     (iter : core.ops.range.Range Usize)
-    (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix X Z)
+    (self : arithmetic.ntt_arith.NttMatrix X Y) (other : arithmetic.ntt_arith.NttMatrix X Z)
     (j k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hj : j.val < Y.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ X.val) (hend : iter.«end».val = X.val) (hX : X.val ≤ 4)
@@ -35,8 +35,8 @@ theorem mulT_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok tru
     (hother : ∀ ii t, ii < X.val → t < 512 →
       |(i16View ((other.val[ii]!).val[k.val]!) t).toInt| ≤ B)
     (hacc : ∀ t < 512, |(i32View acc t).toInt| ≤ (iter.start.val : ℤ) * (B * B)) :
-    arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0 iter self other j k acc
-      ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix X Z) ×
+    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0 iter self other j k acc
+      ⦃ (p : (arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix X Z) ×
              (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
           (∀ t < 512, (i32View p.2.2 t).toInt = (i32View acc t).toInt
@@ -44,7 +44,7 @@ theorem mulT_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok tru
                 (i16View ((self.val[ii]!).val[j.val]!) t).toInt
                   * (i16View ((other.val[ii]!).val[k.val]!) t).toInt) ∧
           (∀ t < 512, |(i32View p.2.2 t).toInt| ≤ (X.val : ℤ) * (B * B)) ⦄ := by
-  unfold arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
+  unfold arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only

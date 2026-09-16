@@ -25,7 +25,7 @@ open Kopis.Properties (streamNat streamNat_lt)
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE128)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 namespace Kopis.Neon.Properties
 
@@ -152,13 +152,13 @@ theorem gen_matrix_from_seed_loop0_loop0_spec (L : Std.Usize)
 slot is left alone. -/
 theorem gen_matrix_from_seed_loop0_loop1_spec {L : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
-    (mat : arithmetic.matrix_arith.Matrix L L) (entries first : Std.Usize)
+    (mat : arithmetic.plain_arith.Matrix L L) (entries first : Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 416#usize) 2#usize)
     (hL : 0 < L.val) (hend : iter.«end».val = 2) (hstart : iter.start.val ≤ 2)
     (hentL : entries.val = L.val * L.val) (hfirst : first.val < entries.val)
     (hmax : first.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.gen_matrix_from_seed_loop0_loop1 iter mat entries bufs first
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => ∀ a < L.val, ∀ b < L.val, ∀ j < 256,
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => ∀ a < L.val, ∀ b < L.val, ∀ j < 256,
           (((r.val[a]!).val[b]!).val[j]!).val =
             if first.val + iter.start.val ≤ a * L.val + b ∧ a * L.val + b < first.val + 2
                 ∧ a * L.val + b < entries.val
@@ -189,10 +189,10 @@ theorem gen_matrix_from_seed_loop0_loop1_spec {L : Std.Usize}
       have hmlt : m.val < L.val := by rw [hm]; exact Nat.mod_lt _ hL
       let* ⟨ row, back, hrow, hback ⟩ ← Array.index_mut_usize_spec mat q (by scalar_tac)
       let* ⟨ row1, hrow1 ⟩ ← Array.update_spec
-      have hmatlen : (mat.val : List (Std.Array arithmetic.ring_arith.RingElem L)).length = L.val :=
+      have hmatlen : (mat.val : List (Std.Array arithmetic.plain_arith.RingElem L)).length = L.val :=
         mat.property
-      have hrowlen : ∀ (r : Std.Array arithmetic.ring_arith.RingElem L),
-          (r.val : List arithmetic.ring_arith.RingElem).length = L.val := fun r => r.property
+      have hrowlen : ∀ (r : Std.Array arithmetic.plain_arith.RingElem L),
+          (r.val : List arithmetic.plain_arith.RingElem).length = L.val := fun r => r.property
       have hqm : q.val * L.val + m.val = entry.val := by
         rw [hq, hm, Nat.mul_comm]; exact Nat.div_add_mod _ _
       have hrowv : row = mat.val[q.val]! :=
@@ -330,7 +330,7 @@ theorem bufBytes_eq (seed : Std.Array Std.U8 32#usize) (suf : Std.Array Std.U8 2
 /-! ## The batching loop -/
 
 /-- Two `RingElem`s with the same coefficient values give the same spec polynomial. -/
-theorem toRingElem13_congr (x y : arithmetic.ring_arith.RingElem)
+theorem toRingElem13_congr (x y : arithmetic.plain_arith.RingElem)
     (h : ∀ j < 256, (x.val[j]!).val = (y.val[j]!).val) : toRingElem13 x = toRingElem13 y := by
   have hx : (x.val : List Std.U16).length = 256 := by have := x.property; scalar_tac
   have hy : (y.val : List Std.U16).length = 256 := by have := y.property; scalar_tac
@@ -344,11 +344,11 @@ unseal backend.neon.keccak.WAYS in
 /-- **The batching loop.**  Two entries per `xof2` call; every entry from `first` on ends up
 holding the spec's value for its coordinates. -/
 theorem gen_matrix_from_seed_loop0_spec {L : Std.Usize} (seed : Std.Array Std.U8 32#usize)
-    (mat : arithmetic.matrix_arith.Matrix L L) (entries : Std.Usize)
+    (mat : arithmetic.plain_arith.Matrix L L) (entries : Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 416#usize) 2#usize) (first : Std.Usize)
     (hentL : entries.val = L.val * L.val) (hmax : entries.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.gen_matrix_from_seed_loop0 seed mat entries bufs first
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => ∀ a < L.val, ∀ b < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => ∀ a < L.val, ∀ b < L.val,
           toRingElem13 ((r.val[a]!).val[b]!) =
             if first.val ≤ a * L.val + b then entryOf seed a b
             else toRingElem13 ((mat.val[a]!).val[b]!) ⦄ := by
@@ -442,11 +442,11 @@ spec's hash-derived polynomial for its coordinates. -/
 theorem neon_gen_matrix_from_seed_spec (L : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hmax : L.val * L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => ∀ a < L.val, ∀ b < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => ∀ a < L.val, ∀ b < L.val,
           toRingElem13 ((r.val[a]!).val[b]!) = entryOf seed a b ⦄ := by
   unfold backend.neon.sample.gen_matrix_from_seed
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   let* ⟨ entries, hent ⟩ ← Std.Usize.mul_spec (x := L) (y := L) (by scalar_tac)
   apply WP.spec_mono (gen_matrix_from_seed_loop0_spec seed _ entries _ 0#usize
     (by rw [hent]) (by rw [hent]; omega))
@@ -460,13 +460,13 @@ unseal backend.neon.keccak.WAYS in
 /-- **The batching loop's coefficient bound.**  Every entry the loop writes is a 13-bit window,
 hence below `2¹³`; entries it does not touch keep whatever bound they had. -/
 theorem gen_matrix_from_seed_loop0_bd {L : Std.Usize} (seed : Std.Array Std.U8 32#usize)
-    (mat : arithmetic.matrix_arith.Matrix L L) (entries : Std.Usize)
+    (mat : arithmetic.plain_arith.Matrix L L) (entries : Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 416#usize) 2#usize) (first : Std.Usize)
     (hentL : entries.val = L.val * L.val) (hmax : entries.val + 2 ≤ Std.Usize.max)
     (hpre : ∀ a b c, a < L.val → b < L.val → c < 256 → a * L.val + b < first.val →
       (((mat.val[a]!).val[b]!).val[c]!).val < 2 ^ 13) :
     backend.neon.sample.gen_matrix_from_seed_loop0 seed mat entries bufs first
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => ∀ a b c, a < L.val → b < L.val → c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => ∀ a b c, a < L.val → b < L.val → c < 256 →
           (((r.val[a]!).val[b]!).val[c]!).val < 2 ^ 13 ⦄ := by
   unfold backend.neon.sample.gen_matrix_from_seed_loop0
   simp only [show backend.neon.keccak.WAYS = 2#usize from by decide]
@@ -523,11 +523,11 @@ theorem gen_matrix_from_seed_loop0_bd {L : Std.Usize} (seed : Std.Array Std.U8 3
 theorem neon_gen_matrix_from_seed_bd (L : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hmax : L.val * L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => ∀ a b c, a < L.val → b < L.val → c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => ∀ a b c, a < L.val → b < L.val → c < 256 →
           (((r.val[a]!).val[b]!).val[c]!).val < 2 ^ 13 ⦄ := by
   unfold backend.neon.sample.gen_matrix_from_seed
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   let* ⟨ entries, hent ⟩ ← Std.Usize.mul_spec (x := L) (y := L) (by scalar_tac)
   apply WP.spec_mono
     (gen_matrix_from_seed_loop0_bd seed _ entries _ 0#usize (by rw [hent]) (by rw [hent]; omega)

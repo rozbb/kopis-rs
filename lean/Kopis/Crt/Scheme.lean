@@ -37,7 +37,7 @@ namespace Kopis.CrtScheme
 def q1 : ℤ := 7681
 /-- `q₂`, the second NTT prime. -/
 def q2 : ℤ := 10753
-/-- `q₁·q₂`, the CRT modulus (`CRT_Q` in `src/backend/crt.rs`). -/
+/-- `q₁·q₂`, the CRT modulus (`CRT_Q` in `src/arithmetic/ntt_crt.rs`). -/
 def crtQ : ℤ := 82593793
 
 theorem crtQ_eq : crtQ = q1 * q2 := by norm_num [crtQ, q1, q2]

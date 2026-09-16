@@ -47,7 +47,7 @@ PATCHES = [
     # `Serialize.lean` below, but the postcondition wanted here is a bound rather than the stream
     # itself, so the stream spec is weakened after the fact.
     ("Ntt.lean",
-     """  unfold arithmetic.ring_arith.RingElem.deserialize
+     """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*
@@ -78,7 +78,7 @@ PATCHES = [
     rw [hr c hc]
     exact streamNat_lt _ _ _"""),
     ("Ntt.lean",
-     """  unfold arithmetic.ring_arith.RingElem.deserialize
+     """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
@@ -112,7 +112,7 @@ PATCHES = [
     # minutes, because unfolding the AVX2 dispatch body (three nested copies of the portable
     # path) and case-splitting it is expensive in this file's environment.
     ("Serialize.lean",
-     """  unfold arithmetic.ring_arith.RingElem.deserialize
+     """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*
@@ -143,7 +143,7 @@ PATCHES = [
      """    (hne13 : n ≠ 13) (hne10 : n ≠ 10) (hlen : bytes.length = 32 * n) :""",
      """    (_hne13 : n ≠ 13) (hne10 : n ≠ 10) (hlen : bytes.length = 32 * n) :"""),
     ("DeserializeCm.lean",
-     """  unfold arithmetic.ring_arith.RingElem.deserialize
+     """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   -- i = n * 256, right_val = 32·n, discharge the length massert
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
@@ -176,7 +176,7 @@ PATCHES = [
     streamNat_eq_sum' bytes n jj hlen hjj]"""),
     # Dispatch point at width 10 (`RingElem::deserialize`, the ciphertext/public-key width).
     ("DeserializeVec.lean",
-     """  unfold arithmetic.ring_arith.RingElem.deserialize
+     """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
@@ -227,17 +227,17 @@ PATCHES = [
     ("NttMul.lean",
      """/-- **`pointwise_mul_acc` adds the pointwise product into the accumulator, exactly.** -/
 theorem pointwise_mul_acc_spec
-    (acc : Array I64 256#usize) (lhs rhs : arithmetic.ntt.NttElem) (Bacc : ℤ)""",
+    (acc : Array I64 256#usize) (lhs rhs : arithmetic.ntt_arith.NttElem) (Bacc : ℤ)""",
      """/-- **`pointwise_mul_acc` adds the pointwise product into the accumulator, exactly.**
 AVX2 only: stated on the portable branch.  The vector branch computes a different function of
 the same bits — see `Kopis/Avx2/NttMulLane.lean` — so it is proved separately, and
 `available_ok` fixes one boolean for every call site. -/
 theorem pointwise_mul_acc_spec (hb : backend.avx2.cpu.available = ok false)
-    (acc : Array I64 256#usize) (lhs rhs : arithmetic.ntt.NttElem) (Bacc : ℤ)"""),
+    (acc : Array I64 256#usize) (lhs rhs : arithmetic.ntt_arith.NttElem) (Bacc : ℤ)"""),
     ("NttMul.lean",
-     """  unfold arithmetic.ntt.pointwise_mul_acc
+     """  unfold arithmetic.ntt_arith.pointwise_mul_acc
   apply WP.spec_mono""",
-     """  unfold arithmetic.ntt.pointwise_mul_acc
+     """  unfold arithmetic.ntt_arith.pointwise_mul_acc
   rw [hb, bind_tc_ok]
   simp only [Bool.false_eq_true, if_false]
   apply WP.spec_mono"""),
@@ -246,9 +246,9 @@ theorem pointwise_mul_acc_spec (hb : backend.avx2.cpu.available = ok false)
      """theorem reduce_invntt_to_ring_elem_spec (hb : backend.avx2.cpu.available = ok false)
     (acc : Array I64 256#usize) (h : ℕ → Zp) (H : ℕ → ℤ)"""),
     ("NttMul.lean",
-     """  unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+     """  unfold arithmetic.ntt_arith.reduce_invntt_to_ring_elem
   let* ⟨v1, hv1a, hv1b⟩ ← reduce_loop0_spec""",
-     """  unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+     """  unfold arithmetic.ntt_arith.reduce_invntt_to_ring_elem
   rw [hb, bind_tc_ok]
   simp only [Bool.false_eq_true, if_false]
   let* ⟨v1, hv1a, hv1b⟩ ← reduce_loop0_spec"""),
@@ -267,20 +267,20 @@ import Kopis.Avx2.SampleBridge"""),
     ("GenMatrix.lean",
      """theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize) :
     sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
           toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
   unfold sample.gen_matrix_from_seed
   simp only [""",
      """theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize)
     (hLmax : L.val * L.val + 4 ≤ Usize.max) :
     sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
           toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
   unfold sample.gen_matrix_from_seed
   obtain ⟨b1, hb1⟩ := Kopis.Avx2.available_ok
   rw [hb1, bind_tc_ok]
   have havx : backend.avx2.sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
           toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono (Kopis.Avx2.Properties.avx2_gen_matrix_from_seed_spec L seed hLmax)
     intro r hr
@@ -306,20 +306,20 @@ import Kopis.Avx2.SecretBridge"""),
      """theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   simp only [""",
      """theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   obtain ⟨bAvx, hbAvx⟩ := Kopis.Avx2.available_ok
   rw [hbAvx, bind_tc_ok]
   have havx : backend.avx2.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono
       (Kopis.Avx2.Properties.avx2_gen_secret_from_seed_spec L MU seed hMU hL hL4)
@@ -337,7 +337,7 @@ import Kopis.Avx2.SecretBridge"""),
      """theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold sample.gen_secret_from_seed
@@ -345,14 +345,14 @@ import Kopis.Avx2.SecretBridge"""),
      """theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold sample.gen_secret_from_seed
   obtain ⟨bAvx2, hbAvx2⟩ := Kopis.Avx2.available_ok
   rw [hbAvx2, bind_tc_ok]
   have havx : backend.avx2.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
     apply WP.spec_mono
@@ -372,18 +372,18 @@ import Kopis.Avx2.SampleBridge"""),
     ("Ntt.lean",
      """theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
     sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => UniformBounded r ⦄ := by
   unfold sample.gen_matrix_from_seed
   simp only [""",
      """theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize)
     (hLmax : L.val * L.val + 4 ≤ Usize.max) :
     sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => UniformBounded r ⦄ := by
   unfold sample.gen_matrix_from_seed
   obtain ⟨bU, hbU⟩ := Kopis.Avx2.available_ok
   rw [hbU, bind_tc_ok]
   have havx : backend.avx2.sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => UniformBounded r ⦄ := by
     apply WP.spec_mono
       (Kopis.Avx2.Properties.avx2_gen_matrix_from_seed_bd L seed hLmax)
     intro r hr i j c hi hj hc
@@ -397,13 +397,13 @@ import Kopis.Avx2.SampleBridge"""),
      """theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
   apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU)""",
      """theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
   apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU hL hL4)"""),
     # `expand_secret_key_spec` calls all four sampler specs.  `L ≤ 4` and `L*L + 4 ≤ Usize.max`

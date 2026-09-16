@@ -241,7 +241,7 @@ theorem reduce_block_loop_spec (iter : core.ops.range.Range Usize)
 
 theorem reduce_block_spec (SECOND : Bool) (acc : Slice I32) (b : Array I16 256#usize)
     (qv qiv : I16) (Q QINV Bacc : ℤ)
-    (hqSel : backend.crt.q SECOND = ok qv) (hqiSel : backend.crt.qinv SECOND = ok qiv)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hqiSel : arithmetic.ntt_crt.qinv SECOND = ok qiv)
     (hqv : qv.val = Q) (hqi : qiv.val = QINV) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
     (hu : (2 ^ 16 : ℤ) ∣ (QINV * Q - 1))
     (hlen : acc.val.length = 256)
@@ -371,8 +371,8 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hib : iter.start.val < 256 := by omega
-    have hQ1 : backend.crt.Q1.val = 7681 := q1_val
-    have hQ2 : backend.crt.Q2.val = 10753 := q2_val
+    have hQ1 : arithmetic.ntt_crt.Q1.val = 7681 := q1_val
+    have hQ2 : arithmetic.ntt_crt.Q2.val = 10753 := q2_val
     let* ⟨ r1, hr1 ⟩ ← Array.index_usize_spec v1 iter.start (by simp; omega)
     let* ⟨ r2, hr2 ⟩ ← Array.index_usize_spec v2 iter.start (by simp; omega)
     have hr1v : (r1.val : ℤ) = bZ v1 iter.start.val := by
@@ -382,19 +382,19 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
     have hb1 := hv1 iter.start.val hib
     have hb2 := hv2 iter.start.val hib
     -- canonicalise both residues into `[0, q)`
-    obtain ⟨y1, hy1, hy1v⟩ := sign_mask_i16 r1 backend.crt.Q1
+    obtain ⟨y1, hy1, hy1v⟩ := sign_mask_i16 r1 arithmetic.ntt_crt.Q1
     rw [hy1, bind_tc_ok]
     simp only [lift, bind_tc_ok]
-    obtain ⟨y2, hy2, hy2v⟩ := sign_mask_i16 r2 backend.crt.Q2
+    obtain ⟨y2, hy2, hy2v⟩ := sign_mask_i16 r2 arithmetic.ntt_crt.Q2
     rw [hy2, bind_tc_ok]
-    have ha1 : (core.num.I16.wrapping_add r1 (y1 &&& backend.crt.Q1)).val
+    have ha1 : (core.num.I16.wrapping_add r1 (y1 &&& arithmetic.ntt_crt.Q1)).val
         = if (r1.val : ℤ) < 0 then (r1.val : ℤ) + 7681 else (r1.val : ℤ) := by
       rw [core.num.I16.wrapping_add, IScalar.wrapping_add_val_eq, hy1v, hQ1,
         show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
       split
       · rw [bmod16_eq_self (by norm_num; omega) (by norm_num; omega)]
       · rw [add_zero, bmod16_eq_self (by norm_num; omega) (by norm_num; omega)]
-    have ha2 : (core.num.I16.wrapping_add r2 (y2 &&& backend.crt.Q2)).val
+    have ha2 : (core.num.I16.wrapping_add r2 (y2 &&& arithmetic.ntt_crt.Q2)).val
         = if (r2.val : ℤ) < 0 then (r2.val : ℤ) + 10753 else (r2.val : ℤ) := by
       rw [core.num.I16.wrapping_add, IScalar.wrapping_add_val_eq, hy2v, hQ2,
         show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
@@ -402,9 +402,9 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
       · rw [bmod16_eq_self (by norm_num; omega) (by norm_num; omega)]
       · rw [add_zero, bmod16_eq_self (by norm_num; omega) (by norm_num; omega)]
     obtain ⟨A1, hA1def⟩ : ∃ z : ℤ,
-        (core.num.I16.wrapping_add r1 (y1 &&& backend.crt.Q1)).val = z := ⟨_, rfl⟩
+        (core.num.I16.wrapping_add r1 (y1 &&& arithmetic.ntt_crt.Q1)).val = z := ⟨_, rfl⟩
     obtain ⟨A2, hA2def⟩ : ∃ z : ℤ,
-        (core.num.I16.wrapping_add r2 (y2 &&& backend.crt.Q2)).val = z := ⟨_, rfl⟩
+        (core.num.I16.wrapping_add r2 (y2 &&& arithmetic.ntt_crt.Q2)).val = z := ⟨_, rfl⟩
     rw [hA1def] at ha1
     rw [hA2def] at ha2
     have hA1r : 0 ≤ A1 ∧ A1 < 7681 := by rw [ha1]; split <;> omega
@@ -418,14 +418,14 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
       · exact ⟨1, by ring⟩
       · exact ⟨0, by ring⟩
     -- Garner's multiplier
-    have hd : (core.num.I16.wrapping_sub (core.num.I16.wrapping_add r2 (y2 &&& backend.crt.Q2))
-        (core.num.I16.wrapping_add r1 (y1 &&& backend.crt.Q1))).val = A2 - A1 := by
+    have hd : (core.num.I16.wrapping_sub (core.num.I16.wrapping_add r2 (y2 &&& arithmetic.ntt_crt.Q2))
+        (core.num.I16.wrapping_add r1 (y1 &&& arithmetic.ntt_crt.Q1))).val = A2 - A1 := by
       rw [core.num.I16.wrapping_sub, IScalar.wrapping_sub_val_eq, hA1def, hA2def,
         show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
       exact bmod16_eq_self (by norm_num; omega) (by norm_num; omega)
-    have hmont3563 : backend.crt.CRT_Q1_INV_MONT.val = 3563 := by
-      simp only [backend.crt.CRT_Q1_INV_MONT]; rfl
-    apply WP.spec_bind (mont_mul_spec _ backend.crt.CRT_Q1_INV_MONT qq backend.crt.Q2 10753
+    have hmont3563 : arithmetic.ntt_crt.CRT_Q1_INV_MONT.val = 3563 := by
+      simp only [arithmetic.ntt_crt.CRT_Q1_INV_MONT]; rfl
+    apply WP.spec_bind (mont_mul_spec _ arithmetic.ntt_crt.CRT_Q1_INV_MONT qq arithmetic.ntt_crt.Q2 10753
       hQ2 (by norm_num) (by norm_num) (by rw [hmont3563]; exact hqq)
       (by rw [hd, hmont3563, abs_mul]
           have : |A2 - A1| ≤ 10752 := by rw [abs_le]; omega
@@ -435,9 +435,9 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
     intro t ht
     obtain ⟨htmod, htlo, hthi, _⟩ := ht
     rw [hd, hmont3563] at htmod
-    obtain ⟨y3, hy3, hy3v⟩ := sign_mask_i16 t backend.crt.Q2
+    obtain ⟨y3, hy3, hy3v⟩ := sign_mask_i16 t arithmetic.ntt_crt.Q2
     rw [hy3, bind_tc_ok]
-    have ht1 : (core.num.I16.wrapping_add t (y3 &&& backend.crt.Q2)).val
+    have ht1 : (core.num.I16.wrapping_add t (y3 &&& arithmetic.ntt_crt.Q2)).val
         = if (t.val : ℤ) < 0 then (t.val : ℤ) + 10753 else (t.val : ℤ) := by
       rw [core.num.I16.wrapping_add, IScalar.wrapping_add_val_eq, hy3v, hQ2,
         show (2 : ℕ) ^ IScalarTy.I16.numBits = 2 ^ 16 from rfl]
@@ -445,7 +445,7 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
       · rw [bmod16_eq_self (by norm_num; omega) (by norm_num; omega)]
       · rw [add_zero, bmod16_eq_self (by norm_num; omega) (by norm_num; omega)]
     obtain ⟨T1, hT1def⟩ : ∃ z : ℤ,
-        (core.num.I16.wrapping_add t (y3 &&& backend.crt.Q2)).val = z := ⟨_, rfl⟩
+        (core.num.I16.wrapping_add t (y3 &&& arithmetic.ntt_crt.Q2)).val = z := ⟨_, rfl⟩
     rw [hT1def] at ht1
     have hT1r : 0 ≤ T1 ∧ T1 < 10753 := by rw [ht1]; split <;> omega
     have hT1c : (10753 : ℤ) ∣ (T1 - (t.val : ℤ)) := by
@@ -463,7 +463,7 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
         omega
       exact hstep.trans h0
     -- the 32-bit reconstruction
-    have hQ1c : (IScalar.cast IScalarTy.I32 backend.crt.Q1).val = 7681 := by
+    have hQ1c : (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1).val = 7681 := by
       rw [cast_i16_i32, hQ1]
     have hTQ0 : 0 ≤ T1 * 7681 := mul_nonneg hT1r.1 (by norm_num)
     have hTQ1 : T1 * 7681 ≤ 82586112 := by
@@ -471,42 +471,42 @@ theorem reduce_invntt_loop_spec (iter : core.ops.range.Range Usize)
             mul_le_mul_of_nonneg_right (by omega) (by norm_num)
         _ = 82586112 := by norm_num
     have hprod : (core.num.I32.wrapping_mul
-        (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add t (y3 &&& backend.crt.Q2)))
-        (IScalar.cast IScalarTy.I32 backend.crt.Q1)).val = T1 * 7681 := by
+        (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add t (y3 &&& arithmetic.ntt_crt.Q2)))
+        (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1)).val = T1 * 7681 := by
       rw [core.num.I32.wrapping_mul, IScalar.wrapping_mul_val_eq, cast_i16_i32, hQ1c, hT1def,
         show (2 : ℕ) ^ IScalarTy.I32.numBits = 2 ^ 32 from rfl]
       exact bmod32_eq_self (by norm_num; omega) (by norm_num; omega)
     have hx : (core.num.I32.wrapping_add
-        (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add r1 (y1 &&& backend.crt.Q1)))
+        (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add r1 (y1 &&& arithmetic.ntt_crt.Q1)))
         (core.num.I32.wrapping_mul
-          (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add t (y3 &&& backend.crt.Q2)))
-          (IScalar.cast IScalarTy.I32 backend.crt.Q1))).val = A1 + T1 * 7681 := by
+          (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add t (y3 &&& arithmetic.ntt_crt.Q2)))
+          (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1))).val = A1 + T1 * 7681 := by
       rw [core.num.I32.wrapping_add, IScalar.wrapping_add_val_eq, hprod, cast_i16_i32, hA1def,
         show (2 : ℕ) ^ IScalarTy.I32.numBits = 2 ^ 32 from rfl]
       exact bmod32_eq_self (by norm_num; omega) (by norm_num; omega)
     obtain ⟨xw, hxwdef⟩ : ∃ w : I32, (core.num.I32.wrapping_add
-        (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add r1 (y1 &&& backend.crt.Q1)))
+        (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add r1 (y1 &&& arithmetic.ntt_crt.Q1)))
         (core.num.I32.wrapping_mul
-          (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add t (y3 &&& backend.crt.Q2)))
-          (IScalar.cast IScalarTy.I32 backend.crt.Q1))) = w := ⟨_, rfl⟩
+          (IScalar.cast IScalarTy.I32 (core.num.I16.wrapping_add t (y3 &&& arithmetic.ntt_crt.Q2)))
+          (IScalar.cast IScalarTy.I32 arithmetic.ntt_crt.Q1))) = w := ⟨_, rfl⟩
     rw [hxwdef] at hx ⊢
     obtain ⟨Xv, hXvdef⟩ : ∃ z : ℤ, (xw.val : ℤ) = z := ⟨_, rfl⟩
     rw [hXvdef] at hx
     have hXvr : 0 ≤ Xv ∧ Xv < 82593793 := by rw [hx]; omega
     -- the conditional centring
-    have hQH : backend.crt.CRT_Q_HALF.val = 41296896 := by
-      simp only [backend.crt.CRT_Q_HALF]; rfl
-    have hCQ : backend.crt.CRT_Q.val = 82593793 := by simp only [backend.crt.CRT_Q]; rfl
-    have hdiff : (core.num.I32.wrapping_sub backend.crt.CRT_Q_HALF xw).val
+    have hQH : arithmetic.ntt_crt.CRT_Q_HALF.val = 41296896 := by
+      simp only [arithmetic.ntt_crt.CRT_Q_HALF]; rfl
+    have hCQ : arithmetic.ntt_crt.CRT_Q.val = 82593793 := by simp only [arithmetic.ntt_crt.CRT_Q]; rfl
+    have hdiff : (core.num.I32.wrapping_sub arithmetic.ntt_crt.CRT_Q_HALF xw).val
         = 41296896 - Xv := by
       rw [core.num.I32.wrapping_sub, IScalar.wrapping_sub_val_eq, hXvdef, hQH,
         show (2 : ℕ) ^ IScalarTy.I32.numBits = 2 ^ 32 from rfl]
       exact bmod32_eq_self (by norm_num; omega) (by norm_num; omega)
     obtain ⟨y4, hy4, hy4v⟩ :=
-      sign_mask_i32 (core.num.I32.wrapping_sub backend.crt.CRT_Q_HALF xw) backend.crt.CRT_Q
+      sign_mask_i32 (core.num.I32.wrapping_sub arithmetic.ntt_crt.CRT_Q_HALF xw) arithmetic.ntt_crt.CRT_Q
     rw [hy4, bind_tc_ok]
     rw [hdiff, hCQ] at hy4v
-    have hfinal : (core.num.I32.wrapping_sub xw (backend.crt.CRT_Q &&& y4)).val
+    have hfinal : (core.num.I32.wrapping_sub xw (arithmetic.ntt_crt.CRT_Q &&& y4)).val
         = if 41296896 < Xv then Xv - 82593793 else Xv := by
       rw [core.num.I32.wrapping_sub, IScalar.wrapping_sub_val_eq, hXvdef,
         show (2 : ℕ) ^ IScalarTy.I32.numBits = 2 ^ 32 from rfl]
@@ -600,8 +600,8 @@ theorem reduce_invntt_spec (acc : Array I32 512#usize) (X : ℕ → ℤ)
       List.getElem!_slice 0 256 c acc.val ⟨by rw [hacclen]; omega, by omega⟩, Nat.zero_add]
   have hslen' : s.val.length = 256 := by
     have := hslen; simp only [Slice.length, hRD] at this; scalar_tac
-  apply WP.spec_bind (reduce_block_spec (SECOND := false) s _ backend.crt.Q1 backend.crt.Q1_INV
-    7681 backend.crt.Q1_INV.val 58982400 crt_q_false crt_qinv_false q1_val rfl (by norm_num)
+  apply WP.spec_bind (reduce_block_spec (SECOND := false) s _ arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_INV
+    7681 arithmetic.ntt_crt.Q1_INV.val 58982400 crt_q_false crt_qinv_false q1_val rfl (by norm_num)
     (by norm_num) (by rw [← q1_val]; exact q1_inv_unit) hslen'
     (fun c hc => by rw [hsZ c hc]; exact hacc1 c hc) (by norm_num))
   intro v11 hv11
@@ -622,8 +622,8 @@ theorem reduce_invntt_spec (acc : Array I32 512#usize) (X : ℕ → ℤ)
     rw [hs1val, Array.val_to_slice, List.length_drop, hacclen]
     simp only [consts.RING_DEG]
     rfl
-  apply WP.spec_bind (reduce_block_spec (SECOND := true) s1 _ backend.crt.Q2 backend.crt.Q2_INV
-    10753 backend.crt.Q2_INV.val 115605504 crt_q_true crt_qinv_true q2_val rfl (by norm_num)
+  apply WP.spec_bind (reduce_block_spec (SECOND := true) s1 _ arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_INV
+    10753 arithmetic.ntt_crt.Q2_INV.val 115605504 crt_q_true crt_qinv_true q2_val rfl (by norm_num)
     (by norm_num) (by rw [← q2_val]; exact q2_inv_unit) hs1len'
     (fun c hc => by rw [hs1Z c hc]; exact hacc2 (256 + c) (by omega) (by omega)) (by norm_num))
   intro v21 hv21
@@ -671,8 +671,8 @@ theorem reduce_invntt_spec (acc : Array I32 512#usize) (X : ℕ → ℤ)
         = ((bZ v21 c : ℤ) : ZMod 10753)
             * ((2 ^ 16 : ZMod 10753) * (1764 : ZMod 10753)) := by rw [rinv2, mul_one]
       _ = accR 10753 acc (256 + c) * (1764 : ZMod 10753) := by rw [← hR]; ring
-  apply WP.spec_bind (invntt_block_spec false v11 backend.crt.Q1 backend.crt.Q1_BARRETT_M
-    backend.crt.Q1_INV backend.crt.INVNTT_SCALE_1 7681 3840 17474 1912 4740 3840 4952
+  apply WP.spec_bind (invntt_block_spec false v11 arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_BARRETT_M
+    arithmetic.ntt_crt.Q1_INV arithmetic.ntt_crt.INVNTT_SCALE_1 7681 3840 17474 1912 4740 3840 4952
     (900 : ZMod 7681) (((1912 : ℤ) : ZMod 7681) * (900 : ZMod 7681)) zeta1 f1 c1
     crt_q_false crt_m_false crt_qinv_false crt_scale_false (by norm_num) q1_val m1_val
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num) rinv1
@@ -683,8 +683,8 @@ theorem reduce_invntt_spec (acc : Array I32 512#usize) (X : ℕ → ℤ)
     hv11b hst1')
   intro v12 hv12
   obtain ⟨hv12b, hv12s⟩ := hv12
-  apply WP.spec_bind (invntt_block_spec true v21 backend.crt.Q2 backend.crt.Q2_BARRETT_M
-    backend.crt.Q2_INV backend.crt.INVNTT_SCALE_2 10753 5376 12482 2536 7140 5376 7720
+  apply WP.spec_bind (invntt_block_spec true v21 arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_BARRETT_M
+    arithmetic.ntt_crt.Q2_INV arithmetic.ntt_crt.INVNTT_SCALE_2 10753 5376 12482 2536 7140 5376 7720
     (1764 : ZMod 10753) (((2536 : ℤ) : ZMod 10753) * (1764 : ZMod 10753)) zeta2 f2 c2
     crt_q_true crt_m_true crt_qinv_true crt_scale_true (by norm_num) q2_val m2_val
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num) rinv2
@@ -699,8 +699,8 @@ theorem reduce_invntt_spec (acc : Array I32 512#usize) (X : ℕ → ℤ)
   -- the Garner loop
   refine reduce_invntt_loop_spec _ v12 v22 _ _ X ?_ ?_ ?_ ?_ ?_ hXb
     (by simp only [consts.RING_DEG]; rfl) (by simp) (by intro c hc; simp at hc)
-  · have hcqi : backend.crt.CRT_Q1_INV_MONT.val = 3563 := by
-      simp only [backend.crt.CRT_Q1_INV_MONT]; rfl
+  · have hcqi : arithmetic.ntt_crt.CRT_Q1_INV_MONT.val = 3563 := by
+      simp only [arithmetic.ntt_crt.CRT_Q1_INV_MONT]; rfl
     refine mont_pair_of_qinv (Q := 10753) (by rw [← q2_val]; exact q2_inv_unit) ?_
     rw [core.num.I16.wrapping_mul, IScalar.wrapping_mul_val_eq, hcqi]
     exact bmod_sub_dvd _ _

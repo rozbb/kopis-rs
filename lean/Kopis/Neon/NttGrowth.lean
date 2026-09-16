@@ -6,7 +6,7 @@
   forward transform now happen to a group that is already in registers, so there is no
   whole-block pass left to state.
 
-  A four-level run does *not* fit the crude 0.75q-per-level budget in `crate::backend::crt`, and
+  A four-level run does *not* fit the crude 0.75q-per-level budget in `crate::arithmetic::ntt_crt`, and
   that is the point of stating the growth of a butterfly in the *compounding* form the sharp
   Montgomery bound gives — `2¹⁶·|t| ≤ B·Zb + 2¹⁵·q`.  A level maps `|a|` to
   `|a|·(1 + q/2^17) + q/2` rather than to `|a| + 0.75q`, so from a centered start four levels

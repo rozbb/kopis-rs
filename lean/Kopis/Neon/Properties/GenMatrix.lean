@@ -25,7 +25,7 @@ import Kopis.Neon.SampleBridge
 
 open Aeneas Aeneas.Std Result
 open RustKopisNeon
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE128)
@@ -192,7 +192,7 @@ theorem forIn'_inv' {α : Type} {β : Type} (xs : List α) (init : β)
   hn ▸ forIn'_inv xs init body P hInit hStep
 
 /-- Matrix bridge: interpret the Rust `Matrix L L` as a spec `PolyMatrix (2¹³) L`. -/
-def toMatrix13 {L : Usize} (mat : arithmetic.matrix_arith.Matrix L L) :
+def toMatrix13 {L : Usize} (mat : arithmetic.plain_arith.Matrix L L) :
     Spec.Kopis.PolyMatrix (2 ^ 13) (L : ℕ) :=
   Matrix.of fun (a b : Fin (L : ℕ)) => toRingElem13 ((mat.val[a.val]!).val[b.val]!)
 
@@ -379,11 +379,11 @@ private theorem getElem!_list_set {α : Type _} [Inhabited α] (l : List α) (j 
 
 /-- **Inner loop spec.**  Fills row `i`, columns `[iter.start, L)`, of the matrix. -/
 theorem gen_matrix_loop0_loop0_spec {L : Usize} (iter : core.ops.range.Range Usize)
-    (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+    (seed : Array U8 32#usize) (mat : arithmetic.plain_arith.Matrix L L)
     (buf : Array U8 416#usize) (i : Usize)
     (hi : i.val < L.val) (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
     sample.gen_matrix_from_seed_loop0_loop0 iter seed mat buf i
-      ⦃ (result : arithmetic.matrix_arith.Matrix L L × Array U8 416#usize) =>
+      ⦃ (result : arithmetic.plain_arith.Matrix L L × Array U8 416#usize) =>
           ∀ (a b : ℕ) (_ : a < L.val) (_ : b < L.val),
             toRingElem13 ((result.1.val[a]!).val[b]!)
               = if a = i.val ∧ iter.start.val ≤ b then HDEntry seed i.val b
@@ -449,11 +449,11 @@ theorem gen_matrix_loop0_loop0_spec {L : Usize} (iter : core.ops.range.Range Usi
 
 /-- **Outer loop spec.**  Fills rows `[iter.start, L)` (all columns) of the matrix. -/
 theorem gen_matrix_loop0_spec {L : Usize} (iter : core.ops.range.Range Usize)
-    (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+    (seed : Array U8 32#usize) (mat : arithmetic.plain_arith.Matrix L L)
     (buf : Array U8 416#usize)
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
     sample.gen_matrix_from_seed_loop0 iter seed mat buf
-      ⦃ (result : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (result : arithmetic.plain_arith.Matrix L L) =>
           ∀ (a b : ℕ) (_ : a < L.val) (_ : b < L.val),
             toRingElem13 ((result.val[a]!).val[b]!)
               = if iter.start.val ≤ a then HDEntry seed a b
@@ -489,13 +489,13 @@ spec's `GenMat` matrix (interpreted mod `2¹³`). -/
 theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize)
     (hLmax : L.val * L.val + 4 ≤ Usize.max) :
     sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
           toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
   unfold sample.gen_matrix_from_seed
   obtain ⟨b1, hb1⟩ : ∃ b, backend.neon.cpu.available = ok b := ⟨true, rfl⟩
   rw [hb1, bind_tc_ok]
   have havx : backend.neon.sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
           toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono (Kopis.Neon.Properties.neon_gen_matrix_from_seed_spec L seed (by omega))
     intro r hr
@@ -507,8 +507,8 @@ theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize)
   cases b1
   case true => simpa only [reduceIte] using havx
   all_goals simp only [Bool.false_eq_true, reduceIte]
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
     (gen_matrix_loop0_spec { start := 0#usize, «end» := L } seed _ _ (by simp) rfl)
   intro r hr

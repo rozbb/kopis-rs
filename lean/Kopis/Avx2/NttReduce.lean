@@ -37,7 +37,7 @@ set_option maxHeartbeats 1000000
 `t = a·zq` (wrapping), then `⌊a·z / 2¹⁶⌋ − ⌊t·q / 2¹⁶⌋`.  The table entry `zq` satisfies
 `zq·q ≡ z (mod 2¹⁶)`, which is exactly what makes `2¹⁶ ∣ (a·z − t·q)`.
 
-The hypotheses are the ones `src/backend/crt.rs` establishes for its tables: `q` is broadcast,
+The hypotheses are the ones `src/arithmetic/ntt_crt.rs` establishes for its tables: `q` is broadcast,
 positive and below `2¹⁵`; `zq` is the Montgomery-transformed twiddle; and the input is small
 enough that `a·z` stays under `2¹⁵·q`, which is what the growth schedule maintains. -/
 

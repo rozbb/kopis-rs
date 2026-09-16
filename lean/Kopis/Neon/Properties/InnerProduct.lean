@@ -11,7 +11,7 @@ namespace Kopis.Neon.Properties
 
 open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 4000
@@ -71,7 +71,7 @@ theorem toRingElem13_coerce10 (re : RingElem) :
 /-- **Inner-product correspondence at `R10`.**  The Rust `vprime = Σᵢ b[i]·s'[i]` (physical
 `2¹⁶`), reduced to `R10`, equals the spec's `innerProduct b (s'.coerce R10)`. -/
 theorem innerProduct_coerce_bridge {L : Usize}
-    (pkvec vecs : arithmetic.matrix_arith.Matrix L 1#usize) (vprime1 : RingElem)
+    (pkvec vecs : arithmetic.plain_arith.Matrix L 1#usize) (vprime1 : RingElem)
     (hip : toRingElem vprime1 = ∑ ii ∈ Finset.range L.val,
         toRingElem ((pkvec.val[ii]!).val[0]!) * toRingElem ((vecs.val[ii]!).val[0]!)) :
     (toRingElem vprime1).coerce (2 ^ 10)

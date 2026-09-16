@@ -377,30 +377,30 @@ The only place the 512 literal entries are touched.  Centredness is what bounds 
 and it is also what rules out the `sqdmulh` saturation and the fallible negation — a `zetas`
 entry is nowhere near `−2¹⁵`. -/
 
-unseal backend.crt.ZETAS_Q1 in
-theorem zetas_q1_centred : ∀ x ∈ backend.crt.ZETAS_Q1.val, |x.val| ≤ 3840 := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q1 in
+theorem zetas_q1_centred : ∀ x ∈ arithmetic.ntt_crt.ZETAS_Q1.val, |x.val| ≤ 3840 := by decide
 
-unseal backend.crt.ZETAS_Q2 in
-theorem zetas_q2_centred : ∀ x ∈ backend.crt.ZETAS_Q2.val, |x.val| ≤ 5376 := by decide
+unseal arithmetic.ntt_crt.ZETAS_Q2 in
+theorem zetas_q2_centred : ∀ x ∈ arithmetic.ntt_crt.ZETAS_Q2.val, |x.val| ≤ 5376 := by decide
 
 theorem zetas_q1_centred_idx (k : ℕ) (hk : k < 256) :
-    |(backend.crt.ZETAS_Q1.val[k]!).val| ≤ 3840 := by
-  have hlen : backend.crt.ZETAS_Q1.val.length = (256#usize).val := backend.crt.ZETAS_Q1.property
+    |(arithmetic.ntt_crt.ZETAS_Q1.val[k]!).val| ≤ 3840 := by
+  have hlen : arithmetic.ntt_crt.ZETAS_Q1.val.length = (256#usize).val := arithmetic.ntt_crt.ZETAS_Q1.property
   rw [getElem!_pos _ k (by rw [hlen]; simpa using hk)]
   exact zetas_q1_centred _ (List.getElem_mem _)
 
 theorem zetas_q2_centred_idx (k : ℕ) (hk : k < 256) :
-    |(backend.crt.ZETAS_Q2.val[k]!).val| ≤ 5376 := by
-  have hlen : backend.crt.ZETAS_Q2.val.length = (256#usize).val := backend.crt.ZETAS_Q2.property
+    |(arithmetic.ntt_crt.ZETAS_Q2.val[k]!).val| ≤ 5376 := by
+  have hlen : arithmetic.ntt_crt.ZETAS_Q2.val.length = (256#usize).val := arithmetic.ntt_crt.ZETAS_Q2.property
   rw [getElem!_pos _ k (by rw [hlen]; simpa using hk)]
   exact zetas_q2_centred _ (List.getElem_mem _)
 
-theorem zetas_q1_ne_min (k : ℕ) (hk : k < 256) : (backend.crt.ZETAS_Q1.val[k]!).val ≠ -32768 := by
+theorem zetas_q1_ne_min (k : ℕ) (hk : k < 256) : (arithmetic.ntt_crt.ZETAS_Q1.val[k]!).val ≠ -32768 := by
   have := zetas_q1_centred_idx k hk
   rw [abs_le] at this
   omega
 
-theorem zetas_q2_ne_min (k : ℕ) (hk : k < 256) : (backend.crt.ZETAS_Q2.val[k]!).val ≠ -32768 := by
+theorem zetas_q2_ne_min (k : ℕ) (hk : k < 256) : (arithmetic.ntt_crt.ZETAS_Q2.val[k]!).val ≠ -32768 := by
   have := zetas_q2_centred_idx k hk
   rw [abs_le] at this
   omega
@@ -410,25 +410,25 @@ theorem zetas_q2_ne_min (k : ℕ) (hk : k < 256) : (backend.crt.ZETAS_Q2.val[k]!
 With these, `tblZq_mont` turns every table's `zq` into the `hzq` hypothesis of
 `mont_mul_lane_spec` without any further evaluation. -/
 
-unseal backend.crt.Q1_INV backend.crt.Q1 in
-theorem q1_inv_unit : (2 ^ 16 : ℤ) ∣ (backend.crt.Q1_INV.val * backend.crt.Q1.val - 1) := by
+unseal arithmetic.ntt_crt.Q1_INV arithmetic.ntt_crt.Q1 in
+theorem q1_inv_unit : (2 ^ 16 : ℤ) ∣ (arithmetic.ntt_crt.Q1_INV.val * arithmetic.ntt_crt.Q1.val - 1) := by
   decide
 
-unseal backend.crt.Q2_INV backend.crt.Q2 in
-theorem q2_inv_unit : (2 ^ 16 : ℤ) ∣ (backend.crt.Q2_INV.val * backend.crt.Q2.val - 1) := by
+unseal arithmetic.ntt_crt.Q2_INV arithmetic.ntt_crt.Q2 in
+theorem q2_inv_unit : (2 ^ 16 : ℤ) ∣ (arithmetic.ntt_crt.Q2_INV.val * arithmetic.ntt_crt.Q2.val - 1) := by
   decide
 
-unseal backend.crt.Q1 in
-theorem q1_val : backend.crt.Q1.val = 7681 := by decide
+unseal arithmetic.ntt_crt.Q1 in
+theorem q1_val : arithmetic.ntt_crt.Q1.val = 7681 := by decide
 
-unseal backend.crt.Q1_BARRETT_M in
-theorem q1_m_val : backend.crt.Q1_BARRETT_M.val = 17474 := by decide
+unseal arithmetic.ntt_crt.Q1_BARRETT_M in
+theorem q1_m_val : arithmetic.ntt_crt.Q1_BARRETT_M.val = 17474 := by decide
 
-unseal backend.crt.Q2_BARRETT_M in
-theorem q2_m_val : backend.crt.Q2_BARRETT_M.val = 12482 := by decide
+unseal arithmetic.ntt_crt.Q2_BARRETT_M in
+theorem q2_m_val : arithmetic.ntt_crt.Q2_BARRETT_M.val = 12482 := by decide
 
-unseal backend.crt.Q2 in
-theorem q2_val : backend.crt.Q2.val = 10753 := by decide
+unseal arithmetic.ntt_crt.Q2 in
+theorem q2_val : arithmetic.ntt_crt.Q2.val = 10753 := by decide
 
 /-! ## `zetas_qinv` multiplies through by `q⁻¹`
 
@@ -439,10 +439,10 @@ theorem zetas_qinv_loop_spec (zetas : Array I16 256#usize) (qinv : I16)
     (table : Array I16 256#usize) (k : Usize) (hk : k.val ≤ 256)
     (hpre : ∀ j < k.val,
       (table.val[j]!).val = ((zetas.val[j]!).val * qinv.val).bmod (2 ^ 16)) :
-    backend.crt.zetas_qinv_loop zetas qinv table k
+    arithmetic.ntt_crt.zetas_qinv_loop zetas qinv table k
       ⦃ (t : Array I16 256#usize) => ∀ j < 256,
           (t.val[j]!).val = ((zetas.val[j]!).val * qinv.val).bmod (2 ^ 16) ⦄ := by
-  unfold backend.crt.zetas_qinv_loop
+  unfold arithmetic.ntt_crt.zetas_qinv_loop
   by_cases hlt : k.val < 256
   · rw [if_pos (by scalar_tac)]
     obtain ⟨zk, hzk, hzkv⟩ := WP.spec_imp_exists
@@ -472,91 +472,91 @@ termination_by 256 - k.val
 decreasing_by scalar_decr_tac
 
 theorem zetas_qinv_spec (zetas : Array I16 256#usize) (qinv : I16) :
-    ∃ t, backend.crt.zetas_qinv zetas qinv = ok t ∧ ∀ j < 256,
+    ∃ t, arithmetic.ntt_crt.zetas_qinv zetas qinv = ok t ∧ ∀ j < 256,
       (t.val[j]!).val = ((zetas.val[j]!).val * qinv.val).bmod (2 ^ 16) := by
   apply WP.spec_imp_exists
-  unfold backend.crt.zetas_qinv
+  unfold arithmetic.ntt_crt.zetas_qinv
   exact zetas_qinv_loop_spec zetas qinv _ 0#usize (by simp) (by intro j hj; simp at hj)
 
 /-- **The ζ hypothesis of `ntt_block_bnd`, discharged.** -/
 theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-    backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+    arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
     |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
-    zi.val = (backend.crt.ZETAS_Q1.val[kk.val]!).val := by
+    zi.val = (arithmetic.ntt_crt.ZETAS_Q1.val[kk.val]!).val := by
   intro kk hkk
-  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec backend.crt.ZETAS_Q1 backend.crt.Q1_INV
+  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec arithmetic.ntt_crt.ZETAS_Q1 arithmetic.ntt_crt.Q1_INV
   obtain ⟨zi, hzi, hziv⟩ := WP.spec_imp_exists
-    (Array.index_usize_spec backend.crt.ZETAS_Q1 kk (by simp [Array.length]; omega))
+    (Array.index_usize_spec arithmetic.ntt_crt.ZETAS_Q1 kk (by simp [Array.length]; omega))
   obtain ⟨zqi, hzqi, hzqiv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec t kk (by simp [Array.length]; omega))
   refine ⟨zi, zqi, ?_, ?_, ?_, ?_, ?_⟩
-  · unfold backend.crt.zeta
+  · unfold arithmetic.ntt_crt.zeta
     simp only [Bool.false_eq_true, reduceIte]
     exact hzi
-  · unfold backend.crt.zeta_q
-    simp only [Bool.false_eq_true, reduceIte, backend.crt.ZETAS_Q1_QINV, ht, bind_tc_ok]
+  · unfold arithmetic.ntt_crt.zeta_q
+    simp only [Bool.false_eq_true, reduceIte, arithmetic.ntt_crt.ZETAS_Q1_QINV, ht, bind_tc_ok]
     exact hzqi
   · rw [hziv]
     exact zetas_q1_centred _ (List.getElem_mem _)
   · -- `zq ≡ z·q⁻¹`, and `q⁻¹·q ≡ 1`, so `zq·q ≡ z`
-    have hzv : zqi.val = (zi.val * backend.crt.Q1_INV.val).bmod (2 ^ 16) := by
+    have hzv : zqi.val = (zi.val * arithmetic.ntt_crt.Q1_INV.val).bmod (2 ^ 16) := by
       rw [hzqiv, ← getElem!_pos t.val kk.val (by rw [t.property]; simp; omega),
         htv kk.val hkk, hziv,
-        ← getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q1.property]; simp; omega)]
-    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * backend.crt.Q1_INV.val) := by
+        ← getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simp; omega)]
+    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * arithmetic.ntt_crt.Q1_INV.val) := by
       rw [hzv]
-      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * backend.crt.Q1_INV.val) (m := 2 ^ 16)).symm
+      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * arithmetic.ntt_crt.Q1_INV.val) (m := 2 ^ 16)).symm
     obtain ⟨d, hd⟩ := q1_inv_unit
     rw [q1_val] at hd
     refine ⟨zi.val * d + c * 7681, ?_⟩
-    have e1 : zqi.val = zi.val * backend.crt.Q1_INV.val + 2 ^ 16 * c := by omega
-    have e2 : backend.crt.Q1_INV.val * 7681 = 1 + 2 ^ 16 * d := by omega
+    have e1 : zqi.val = zi.val * arithmetic.ntt_crt.Q1_INV.val + 2 ^ 16 * c := by omega
+    have e2 : arithmetic.ntt_crt.Q1_INV.val * 7681 = 1 + 2 ^ 16 * d := by omega
     calc zqi.val * 7681 - zi.val
-        = (zi.val * backend.crt.Q1_INV.val + 2 ^ 16 * c) * 7681 - zi.val := by rw [e1]
-      _ = zi.val * (backend.crt.Q1_INV.val * 7681) + 2 ^ 16 * (c * 7681) - zi.val := by ring
+        = (zi.val * arithmetic.ntt_crt.Q1_INV.val + 2 ^ 16 * c) * 7681 - zi.val := by rw [e1]
+      _ = zi.val * (arithmetic.ntt_crt.Q1_INV.val * 7681) + 2 ^ 16 * (c * 7681) - zi.val := by ring
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 7681) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 7681) := by ring
-  · rw [hziv, getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q1.property]; simpa using hkk)]
+  · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simpa using hkk)]
 
 /-- **The ζ hypothesis of `ntt_block_bnd_q2`, discharged.** -/
 theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-    backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
+    arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
     |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
-    zi.val = (backend.crt.ZETAS_Q2.val[kk.val]!).val := by
+    zi.val = (arithmetic.ntt_crt.ZETAS_Q2.val[kk.val]!).val := by
   intro kk hkk
-  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec backend.crt.ZETAS_Q2 backend.crt.Q2_INV
+  obtain ⟨t, ht, htv⟩ := zetas_qinv_spec arithmetic.ntt_crt.ZETAS_Q2 arithmetic.ntt_crt.Q2_INV
   obtain ⟨zi, hzi, hziv⟩ := WP.spec_imp_exists
-    (Array.index_usize_spec backend.crt.ZETAS_Q2 kk (by simp [Array.length]; omega))
+    (Array.index_usize_spec arithmetic.ntt_crt.ZETAS_Q2 kk (by simp [Array.length]; omega))
   obtain ⟨zqi, hzqi, hzqiv⟩ := WP.spec_imp_exists
     (Array.index_usize_spec t kk (by simp [Array.length]; omega))
   refine ⟨zi, zqi, ?_, ?_, ?_, ?_, ?_⟩
-  · unfold backend.crt.zeta
+  · unfold arithmetic.ntt_crt.zeta
     simp only [if_true]
     exact hzi
-  · unfold backend.crt.zeta_q
-    simp only [if_true, backend.crt.ZETAS_Q2_QINV, ht, bind_tc_ok]
+  · unfold arithmetic.ntt_crt.zeta_q
+    simp only [if_true, arithmetic.ntt_crt.ZETAS_Q2_QINV, ht, bind_tc_ok]
     exact hzqi
   · rw [hziv]
     exact zetas_q2_centred _ (List.getElem_mem _)
   · -- `zq ≡ z·q⁻¹`, and `q⁻¹·q ≡ 1`, so `zq·q ≡ z`
-    have hzv : zqi.val = (zi.val * backend.crt.Q2_INV.val).bmod (2 ^ 16) := by
+    have hzv : zqi.val = (zi.val * arithmetic.ntt_crt.Q2_INV.val).bmod (2 ^ 16) := by
       rw [hzqiv, ← getElem!_pos t.val kk.val (by rw [t.property]; simp; omega),
         htv kk.val hkk, hziv,
-        ← getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q2.property]; simp; omega)]
-    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * backend.crt.Q2_INV.val) := by
+        ← getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q2.property]; simp; omega)]
+    obtain ⟨c, hc⟩ : (2 ^ 16 : ℤ) ∣ (zqi.val - zi.val * arithmetic.ntt_crt.Q2_INV.val) := by
       rw [hzv]
-      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * backend.crt.Q2_INV.val) (m := 2 ^ 16)).symm
+      exact Int.ModEq.dvd (Int.bmod_emod (x := zi.val * arithmetic.ntt_crt.Q2_INV.val) (m := 2 ^ 16)).symm
     obtain ⟨d, hd⟩ := q2_inv_unit
     rw [q2_val] at hd
     refine ⟨zi.val * d + c * 10753, ?_⟩
-    have e1 : zqi.val = zi.val * backend.crt.Q2_INV.val + 2 ^ 16 * c := by omega
-    have e2 : backend.crt.Q2_INV.val * 10753 = 1 + 2 ^ 16 * d := by omega
+    have e1 : zqi.val = zi.val * arithmetic.ntt_crt.Q2_INV.val + 2 ^ 16 * c := by omega
+    have e2 : arithmetic.ntt_crt.Q2_INV.val * 10753 = 1 + 2 ^ 16 * d := by omega
     calc zqi.val * 10753 - zi.val
-        = (zi.val * backend.crt.Q2_INV.val + 2 ^ 16 * c) * 10753 - zi.val := by rw [e1]
-      _ = zi.val * (backend.crt.Q2_INV.val * 10753) + 2 ^ 16 * (c * 10753) - zi.val := by ring
+        = (zi.val * arithmetic.ntt_crt.Q2_INV.val + 2 ^ 16 * c) * 10753 - zi.val := by rw [e1]
+      _ = zi.val * (arithmetic.ntt_crt.Q2_INV.val * 10753) + 2 ^ 16 * (c * 10753) - zi.val := by ring
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 10753) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 10753) := by ring
-  · rw [hziv, getElem!_pos _ kk.val (by rw [backend.crt.ZETAS_Q2.property]; simpa using hkk)]
+  · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q2.property]; simpa using hkk)]
 
 /-! ## The twelve concrete tables
 
@@ -621,9 +621,9 @@ def inv4Idx (j : ℕ) : ℤ := 63 - (j : ℤ)
 theorem FWD4_Q1_spec :
     backend.neon.ntt.FWD4_Q1
       ⦃ (t : backend.neon.ntt.Tbl 32#usize) => ∀ j < 32,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q1 false (fwd4Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q1 false (fwd4Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q1 false (fwd4Idx j)) backend.crt.Q1_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q1 false (fwd4Idx j)) arithmetic.ntt_crt.Q1_INV.val ⦄ := by
   unfold backend.neon.ntt.FWD4_Q1
   exact tbl_at 32#usize _ _ 32#isize 8#isize 0#isize 1#isize 1#usize false fwd4Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -636,9 +636,9 @@ theorem FWD4_Q1_spec :
 theorem FWD2_Q1_spec :
     backend.neon.ntt.FWD2_Q1
       ⦃ (t : backend.neon.ntt.Tbl 64#usize) => ∀ j < 64,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q1 false (fwd2Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q1 false (fwd2Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q1 false (fwd2Idx j)) backend.crt.Q1_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q1 false (fwd2Idx j)) arithmetic.ntt_crt.Q1_INV.val ⦄ := by
   unfold backend.neon.ntt.FWD2_Q1
   exact tbl_at 64#usize _ _ 64#isize 16#isize 1#isize 2#isize 2#usize false fwd2Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -651,9 +651,9 @@ theorem FWD2_Q1_spec :
 theorem FWD1_Q1_spec :
     backend.neon.ntt.FWD1_Q1
       ⦃ (t : backend.neon.ntt.Tbl 128#usize) => ∀ j < 128,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q1 false (fwd1Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q1 false (fwd1Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q1 false (fwd1Idx j)) backend.crt.Q1_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q1 false (fwd1Idx j)) arithmetic.ntt_crt.Q1_INV.val ⦄ := by
   unfold backend.neon.ntt.FWD1_Q1
   exact tbl_at 128#usize _ _ 128#isize 32#isize 1#isize 4#isize 4#usize false fwd1Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -666,9 +666,9 @@ theorem FWD1_Q1_spec :
 theorem INV1_Q1_spec :
     backend.neon.ntt.INV1_Q1
       ⦃ (t : backend.neon.ntt.Tbl 128#usize) => ∀ j < 128,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q1 true (inv1Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q1 true (inv1Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q1 true (inv1Idx j)) backend.crt.Q1_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q1 true (inv1Idx j)) arithmetic.ntt_crt.Q1_INV.val ⦄ := by
   unfold backend.neon.ntt.INV1_Q1
   exact tbl_at 128#usize _ _ 255#isize (-32)#isize (-1)#isize (-4)#isize 4#usize true inv1Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -681,9 +681,9 @@ theorem INV1_Q1_spec :
 theorem INV2_Q1_spec :
     backend.neon.ntt.INV2_Q1
       ⦃ (t : backend.neon.ntt.Tbl 64#usize) => ∀ j < 64,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q1 true (inv2Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q1 true (inv2Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q1 true (inv2Idx j)) backend.crt.Q1_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q1 true (inv2Idx j)) arithmetic.ntt_crt.Q1_INV.val ⦄ := by
   unfold backend.neon.ntt.INV2_Q1
   exact tbl_at 64#usize _ _ 127#isize (-16)#isize (-1)#isize (-2)#isize 2#usize true inv2Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -696,9 +696,9 @@ theorem INV2_Q1_spec :
 theorem INV4_Q1_spec :
     backend.neon.ntt.INV4_Q1
       ⦃ (t : backend.neon.ntt.Tbl 32#usize) => ∀ j < 32,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q1 true (inv4Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q1 true (inv4Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q1 true (inv4Idx j)) backend.crt.Q1_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q1 true (inv4Idx j)) arithmetic.ntt_crt.Q1_INV.val ⦄ := by
   unfold backend.neon.ntt.INV4_Q1
   exact tbl_at 32#usize _ _ 63#isize (-8)#isize 0#isize (-1)#isize 1#usize true inv4Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -711,9 +711,9 @@ theorem INV4_Q1_spec :
 theorem FWD4_Q2_spec :
     backend.neon.ntt.FWD4_Q2
       ⦃ (t : backend.neon.ntt.Tbl 32#usize) => ∀ j < 32,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q2 false (fwd4Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q2 false (fwd4Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q2 false (fwd4Idx j)) backend.crt.Q2_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q2 false (fwd4Idx j)) arithmetic.ntt_crt.Q2_INV.val ⦄ := by
   unfold backend.neon.ntt.FWD4_Q2
   exact tbl_at 32#usize _ _ 32#isize 8#isize 0#isize 1#isize 1#usize false fwd4Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -726,9 +726,9 @@ theorem FWD4_Q2_spec :
 theorem FWD2_Q2_spec :
     backend.neon.ntt.FWD2_Q2
       ⦃ (t : backend.neon.ntt.Tbl 64#usize) => ∀ j < 64,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q2 false (fwd2Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q2 false (fwd2Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q2 false (fwd2Idx j)) backend.crt.Q2_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q2 false (fwd2Idx j)) arithmetic.ntt_crt.Q2_INV.val ⦄ := by
   unfold backend.neon.ntt.FWD2_Q2
   exact tbl_at 64#usize _ _ 64#isize 16#isize 1#isize 2#isize 2#usize false fwd2Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -741,9 +741,9 @@ theorem FWD2_Q2_spec :
 theorem FWD1_Q2_spec :
     backend.neon.ntt.FWD1_Q2
       ⦃ (t : backend.neon.ntt.Tbl 128#usize) => ∀ j < 128,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q2 false (fwd1Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q2 false (fwd1Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q2 false (fwd1Idx j)) backend.crt.Q2_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q2 false (fwd1Idx j)) arithmetic.ntt_crt.Q2_INV.val ⦄ := by
   unfold backend.neon.ntt.FWD1_Q2
   exact tbl_at 128#usize _ _ 128#isize 32#isize 1#isize 4#isize 4#usize false fwd1Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -756,9 +756,9 @@ theorem FWD1_Q2_spec :
 theorem INV1_Q2_spec :
     backend.neon.ntt.INV1_Q2
       ⦃ (t : backend.neon.ntt.Tbl 128#usize) => ∀ j < 128,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q2 true (inv1Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q2 true (inv1Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q2 true (inv1Idx j)) backend.crt.Q2_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q2 true (inv1Idx j)) arithmetic.ntt_crt.Q2_INV.val ⦄ := by
   unfold backend.neon.ntt.INV1_Q2
   exact tbl_at 128#usize _ _ 255#isize (-32)#isize (-1)#isize (-4)#isize 4#usize true inv1Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -771,9 +771,9 @@ theorem INV1_Q2_spec :
 theorem INV2_Q2_spec :
     backend.neon.ntt.INV2_Q2
       ⦃ (t : backend.neon.ntt.Tbl 64#usize) => ∀ j < 64,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q2 true (inv2Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q2 true (inv2Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q2 true (inv2Idx j)) backend.crt.Q2_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q2 true (inv2Idx j)) arithmetic.ntt_crt.Q2_INV.val ⦄ := by
   unfold backend.neon.ntt.INV2_Q2
   exact tbl_at 64#usize _ _ 127#isize (-16)#isize (-1)#isize (-2)#isize 2#usize true inv2Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -786,9 +786,9 @@ theorem INV2_Q2_spec :
 theorem INV4_Q2_spec :
     backend.neon.ntt.INV4_Q2
       ⦃ (t : backend.neon.ntt.Tbl 32#usize) => ∀ j < 32,
-          (t.z.val[j]!).val = tblZ backend.crt.ZETAS_Q2 true (inv4Idx j) ∧
+          (t.z.val[j]!).val = tblZ arithmetic.ntt_crt.ZETAS_Q2 true (inv4Idx j) ∧
           (t.zq.val[j]!).val =
-            tblZq (tblZ backend.crt.ZETAS_Q2 true (inv4Idx j)) backend.crt.Q2_INV.val ⦄ := by
+            tblZq (tblZ arithmetic.ntt_crt.ZETAS_Q2 true (inv4Idx j)) arithmetic.ntt_crt.Q2_INV.val ⦄ := by
   unfold backend.neon.ntt.INV4_Q2
   exact tbl_at 32#usize _ _ 63#isize (-8)#isize 0#isize (-1)#isize 1#usize true inv4Idx
     (by scalar_tac) (by scalar_tac) (by scalar_tac) (by scalar_tac)
@@ -808,11 +808,11 @@ rather than about a `&'static Tbl`. -/
 
 /-- Which ζ table a `SECOND` flag selects. -/
 def zetasOf (SECOND : Bool) : Array I16 256#usize :=
-  if SECOND then backend.crt.ZETAS_Q2 else backend.crt.ZETAS_Q1
+  if SECOND then arithmetic.ntt_crt.ZETAS_Q2 else arithmetic.ntt_crt.ZETAS_Q1
 
 /-- …and which Montgomery constant. -/
 def qinvOf (SECOND : Bool) : I16 :=
-  if SECOND then backend.crt.Q2_INV else backend.crt.Q1_INV
+  if SECOND then arithmetic.ntt_crt.Q2_INV else arithmetic.ntt_crt.Q1_INV
 
 theorem ld_tbl_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I16) (neg : Bool)
     (f : ℕ → ℤ) (table : backend.neon.ntt.Tbl N) (g : Usize)

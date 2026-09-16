@@ -2,7 +2,7 @@ import Kopis.Properties.InnerProduct
 open Aeneas Aeneas.Std Result RustKopisSerial
 namespace Kopis.Properties
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 

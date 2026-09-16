@@ -12,8 +12,8 @@ namespace Kopis.Neon.Properties
 
 open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
 
-open arithmetic.matrix_arith (Matrix)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (Matrix)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 4000

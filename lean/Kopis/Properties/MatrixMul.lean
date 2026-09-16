@@ -29,7 +29,7 @@ theorem mul_loop0_loop0_loop0_spec {X Y Z : Usize}
     (self : Mat X Y) (other : Mat Y Z) (result : Mat X Z) (i j : Usize)
     (hi : i.val < X.val) (hj : j.val < Y.val)
     (hstart : iter.start.val ≤ Z.val) (hend : iter.«end».val = Z.val) :
-    arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0 iter self other result i j
+    arithmetic.plain_arith.Matrix.mul_loop0_loop0_loop0 iter self other result i j
       ⦃ (p : (Mat X Y) × (Mat Y Z) × (Mat X Z)) =>
           p.1 = self ∧ p.2.1 = other ∧
           ∀ (ii kk : Nat),
@@ -39,7 +39,7 @@ theorem mul_loop0_loop0_loop0_spec {X Y Z : Usize}
                     + toRingElem ((self.val[i.val]!).val[j.val]!)
                         * toRingElem ((other.val[j.val]!).val[kk]!)
                 else toRingElem ((result.val[ii]!).val[kk]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_loop0_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.mul_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -125,7 +125,7 @@ theorem mul_loop0_loop0_spec {X Y Z : Usize}
     (self : Mat X Y) (other : Mat Y Z) (result : Mat X Z) (i : Usize)
     (hi : i.val < X.val)
     (hstart : iter.start.val ≤ Y.val) (hend : iter.«end».val = Y.val) :
-    arithmetic.matrix_arith.Matrix.mul_loop0_loop0 iter self other result i
+    arithmetic.plain_arith.Matrix.mul_loop0_loop0 iter self other result i
       ⦃ (p : (Mat X Y) × (Mat Y Z) × (Mat X Z)) =>
           p.1 = self ∧ p.2.1 = other ∧
           ∀ (ii kk : Nat),
@@ -135,7 +135,7 @@ theorem mul_loop0_loop0_spec {X Y Z : Usize}
                     ∑ jj ∈ Finset.Ico iter.start.val Y.val,
                       toRingElem ((self.val[i.val]!).val[jj]!) * toRingElem ((other.val[jj]!).val[kk]!)
                    else 0) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.mul_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -178,7 +178,7 @@ theorem mul_loop0_spec {X Y Z : Usize}
     (iter : core.ops.range.Range Usize)
     (self : Mat X Y) (other : Mat Y Z) (result : Mat X Z)
     (hstart : iter.start.val ≤ X.val) (hend : iter.«end».val = X.val) :
-    arithmetic.matrix_arith.Matrix.mul_loop0 iter self other result
+    arithmetic.plain_arith.Matrix.mul_loop0 iter self other result
       ⦃ (r : Mat X Z) =>
           ∀ (ii kk : Nat),
             toRingElem ((r.val[ii]!).val[kk]!)
@@ -187,7 +187,7 @@ theorem mul_loop0_spec {X Y Z : Usize}
                     + ∑ jj ∈ Finset.Ico 0 Y.val,
                         toRingElem ((self.val[ii]!).val[jj]!) * toRingElem ((other.val[jj]!).val[kk]!)
                 else toRingElem ((result.val[ii]!).val[kk]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul_loop0
+  unfold arithmetic.plain_arith.Matrix.mul_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -228,14 +228,14 @@ theorem mul_loop0_spec {X Y Z : Usize}
 /-- **Correctness of `Matrix::mul`** at the physical `2¹⁶` abstraction:
 `(self · other)[i][k] = Σ_j self[i][j]·other[j][k]`. -/
 theorem matrix_mul_spec {X Y Z : Usize} (self : Mat X Y) (other : Mat Y Z) :
-    arithmetic.matrix_arith.Matrix.mul self other
+    arithmetic.plain_arith.Matrix.mul self other
       ⦃ (r : Mat X Z) =>
           ∀ (i : Nat) (_hi : i < X.val) (k : Nat) (_hk : k < Z.val),
             toRingElem ((r.val[i]!).val[k]!)
               = ∑ jj ∈ Finset.range Y.val,
                   toRingElem ((self.val[i]!).val[jj]!) * toRingElem ((other.val[jj]!).val[k]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.mul
-  rw [show (arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default X Z : Result (Mat X Z))
+  unfold arithmetic.plain_arith.Matrix.mul
+  rw [show (arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default X Z : Result (Mat X Z))
         = ok (Array.repeat X (Array.repeat Z (Array.repeat 256#usize 0#u16))) from rfl]
   simp only [bind_tc_ok]
   apply WP.spec_mono

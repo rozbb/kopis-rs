@@ -4,7 +4,7 @@ open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 namespace Kopis.Properties
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 /-! # Modulus bridge: `Polynomial.coerce` (2¹⁶ → 2¹³) is a ring homomorphism.
 

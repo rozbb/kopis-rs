@@ -24,7 +24,7 @@ open scoped BigOperators
 namespace Kopis.Neon.CbdGeneric
 
 open Kopis.Properties
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 
 set_option maxHeartbeats 2000000

@@ -23,7 +23,7 @@ open RustKopisAvx2
 
 namespace Kopis.Avx2
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 
@@ -32,11 +32,11 @@ portable sampler: phase D's `avx2_cbd_eq` says the vector sampler *is* the porta
 two branches' write-backs (`Array.update` against the `index_mut` closure) are the same store
 written two ways.  Stated as an equality of terms so the generated twin needs only to rewrite. -/
 theorem gen_secret_avx_branch_eq {L : Usize} {β : Type} (MU : Usize) (buf1 : Slice U8)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (i : Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (i : Usize)
     (hi : i.val < L.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hlen : buf1.val.length = 32 * MU.val)
-    (k : arithmetic.matrix_arith.Matrix L 1#usize → Result β) :
+    (k : arithmetic.plain_arith.Matrix L 1#usize → Result β) :
     (do let b1 ← backend.avx2.cpu.available
         if b1 then
           (do let re ← backend.avx2.sample.cbd MU buf1
@@ -83,11 +83,11 @@ theorem gen_secret_avx_branch_eq {L : Usize} {β : Type} (MU : Usize) (buf1 : Sl
 
 /-- **Dispatch point 2.**  The full three-way guard collapses to the portable body. -/
 theorem gen_secret_body_eq {L : Usize} {β : Type} (MU : Usize) (buf1 : Slice U8)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (i : Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (i : Usize)
     (hi : i.val < L.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hlen : buf1.val.length = 32 * MU.val)
-    (k : arithmetic.matrix_arith.Matrix L 1#usize → Result β) :
+    (k : arithmetic.plain_arith.Matrix L 1#usize → Result β) :
     (do let b ← core.num.Usize.is_multiple_of MU 8#usize
         if b then
           (do let (a, index_mut_back) ← Array.index_mut_usize secret i

@@ -181,7 +181,7 @@ theorem ntt_start_bnd (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     (hB0 : 0 ≤ B) (hBZ : B * Zb < 2 ^ 15 * Q) (hBt : B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt)
     (hfit : B + Bt ≤ 32767) (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (k half start : Usize) (hhalf : 1 ≤ half.val) (hhalfdvd : 2 * half.val ∣ 32)
     (hdvd : 2 * half.val ∣ start.val) (hk : k.val + (32 - start.val) ≤ 255)
@@ -273,7 +273,7 @@ proportional to `A`, which is why the levels compound.  From a centred block wit
 * `q₂ = 10753`: `5376 → 11194 → 17489 → 24301 → 31671`;
 * `q₁ = 7681`:  `3840 → 7906 → 12210 → 16766 → 21589`.
 
-**Four** steps.  The crude 0.75q-per-level budget in `src/backend/crt.rs` does not cover four —
+**Four** steps.  The crude 0.75q-per-level budget in `src/arithmetic/ntt_crt.rs` does not cover four —
 it reaches `37635` for `q₂`, outside an `i16` lane — so unlike the three-level schedule this
 replaces, the run rests on the sharp chain above and on nothing else.  `31671` against `32767`
 is the whole margin, and `forward_growth_fits_an_i16_lane` in the Rust re-derives it on every
@@ -306,7 +306,7 @@ theorem growth_q1 :
 
 /-- **The crude budget does not cover this schedule.**  Three flat `+0.75·q₂` steps from `q₂/2`
 stay inside an `i16` lane; the fourth, which this schedule needs, does not — so the four-level
-run rests on the sharp chain and not on the budget `src/backend/crt.rs` states. -/
+run rests on the sharp chain and not on the budget `src/arithmetic/ntt_crt.rs` states. -/
 theorem crude_budget_insufficient :
     (5376 : ℤ) + 3 * (3 * 10753 / 4) ≤ 32767 ∧ (5376 : ℤ) + 4 * (3 * 10753 / 4) > 32767 := by
   constructor <;> norm_num
@@ -342,7 +342,7 @@ theorem ntt_horizontal_bnd (SECOND : Bool) {N : Usize} (b : Array I16 N) (base :
     (hQ : ∀ i < 8, (lane16 qv i).toInt = Q) (hQpos : 0 < Q) (hQ14 : Q < 2 ^ 14)
     (hZb : Zb ≤ 2 ^ 14) (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (hA0 : 0 ≤ A0) (hA1 : 0 ≤ A1)
     (hs0 : LevelStep Q Zb A0 (A1 - A0)) (hs1 : LevelStep Q Zb A1 (A2 - A1))

@@ -1,7 +1,7 @@
 /-
   # Kopis/Avx2/NttGrowth.lean — the growth bound (plan phase F3).
 
-  `src/backend/crt.rs` records that AVX2's forward schedule — re-centre after levels 3 and 7,
+  `src/arithmetic/ntt_crt.rs` records that AVX2's forward schedule — re-centre after levels 3 and 7,
   plus a final pass, so runs of 3, 4 and 1 Cooley-Tukey levels — is *not* justified by the crude
   per-level budget of 0.75q, which predicts 3.5q against the 3.05q an `i16` lane holds.  The
   comment says safety rests instead on interval propagation with the actual per-butterfly values,
@@ -827,7 +827,7 @@ decreasing_by scalar_decr_tac
 
 /-! ## The schedule arithmetic
 
-This is the claim `src/backend/crt.rs` makes in prose.  A Cooley-Tukey level takes a bound `A` to
+This is the claim `src/arithmetic/ntt_crt.rs` makes in prose.  A Cooley-Tukey level takes a bound `A` to
 `A + T` where `2¹⁶·T ≥ A·Zb + 2¹⁵·q` — that is `ct_butterfly_bnd`, and `T` is proportional to `A`,
 which is the whole point.  Iterating from a centred block with `|ψ| ≤ q/2`:
 
@@ -926,7 +926,7 @@ theorem ntt_block_loop0_loop0_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv 
     (hA0 : 0 ≤ A) (hAZ : A * Zb < 2 ^ 15 * Q) (hT : A * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * T)
     (hfit : A + T ≤ 2 ^ 15 - 1)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
       |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (hhalf : half.val = 8 ∨ half.val = 4 ∨ half.val = 2 ∨ half.val = 1)
     (hdvd : (2 * half.val) ∣ start.val) (hstart : start.val ≤ 16)
@@ -1028,7 +1028,7 @@ theorem ntt_block_loop0_bnd_q2 (SECOND : Bool) (b : Array I16 256#usize) (qv bm 
     (hM : ∀ j < 16, (lane16 bm j).toInt = 12482)
     (hRnd : ∀ j < 16, (lane16 round j).toInt = 2 ^ 10)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
       |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val))
     (hb : BlockBnd b 5376) :
     backend.avx2.ntt.ntt_block_loop0 SECOND b qv bm round 0#usize 8#usize 0#usize
@@ -1126,7 +1126,7 @@ Rust doc comment claims and what the next stage assumes. -/
 
 theorem ntt_block_bnd_q2 (b : Array I16 256#usize)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
       |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val))
     (htbl8 : ∃ z zq,
       (do let t ← backend.avx2.ntt.FWD8_Q2; backend.avx2.ntt.ld_tbl t 0#usize) = ok (z, zq) ∧
@@ -1144,22 +1144,22 @@ theorem ntt_block_bnd_q2 (b : Array I16 256#usize)
     backend.avx2.ntt.ntt_block true b
       ⦃ (r : Array I16 256#usize) => BlockBnd r 5376 ⦄ := by
   obtain ⟨s1, s2, s3, s4, -, -⟩ := growth_q2
-  unfold backend.avx2.ntt.ntt_block backend.crt.q backend.crt.barrett_m
+  unfold backend.avx2.ntt.ntt_block arithmetic.ntt_crt.q arithmetic.ntt_crt.barrett_m
   simp only [if_true, bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q2
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2
   rw [hqv, bind_tc_ok]
-  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec backend.crt.Q2_BARRETT_M
+  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec arithmetic.ntt_crt.Q2_BARRETT_M
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
   obtain ⟨rnd, hrnd, hrndl⟩ := set1_epi16_spec 1024#i16
   rw [hrnd, bind_tc_ok]
   -- the three broadcast constants, as lane facts
-  have hQ : ∀ j < 16, (lane16 qv j).toInt = 10753 := fun j hj => by rw [hqvl j hj]; simp only [backend.crt.Q2]; decide
-  have hM : ∀ j < 16, (lane16 bm j).toInt = 12482 := fun j hj => by rw [hbml j hj]; simp only [backend.crt.Q2_BARRETT_M]; decide
+  have hQ : ∀ j < 16, (lane16 qv j).toInt = 10753 := fun j hj => by rw [hqvl j hj]; simp only [arithmetic.ntt_crt.Q2]; decide
+  have hM : ∀ j < 16, (lane16 bm j).toInt = 12482 := fun j hj => by rw [hbml j hj]; simp only [arithmetic.ntt_crt.Q2_BARRETT_M]; decide
   have hRnd : ∀ j < 16, (lane16 rnd j).toInt = 2 ^ 10 := fun j hj => by
     rw [hrndl j hj]; decide
   -- the horizontal half, then the transpose
@@ -1200,7 +1200,7 @@ theorem ntt_block_loop0_bnd_q1 (SECOND : Bool) (b : Array I16 256#usize) (qv bm 
     (hM : ∀ j < 16, (lane16 bm j).toInt = 17474)
     (hRnd : ∀ j < 16, (lane16 round j).toInt = 2 ^ 10)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
       |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val))
     (hb : BlockBnd b 3840) :
     backend.avx2.ntt.ntt_block_loop0 SECOND b qv bm round 0#usize 8#usize 0#usize
@@ -1298,7 +1298,7 @@ Rust doc comment claims and what the next stage assumes. -/
 
 theorem ntt_block_bnd_q1 (b : Array I16 256#usize)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
       |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val))
     (htbl8 : ∃ z zq,
       (do let t ← backend.avx2.ntt.FWD8_Q1; backend.avx2.ntt.ld_tbl t 0#usize) = ok (z, zq) ∧
@@ -1316,22 +1316,22 @@ theorem ntt_block_bnd_q1 (b : Array I16 256#usize)
     backend.avx2.ntt.ntt_block false b
       ⦃ (r : Array I16 256#usize) => BlockBnd r 3840 ⦄ := by
   obtain ⟨s1, s2, s3, s4, -, -⟩ := growth_q1
-  unfold backend.avx2.ntt.ntt_block backend.crt.q backend.crt.barrett_m
+  unfold backend.avx2.ntt.ntt_block arithmetic.ntt_crt.q arithmetic.ntt_crt.barrett_m
   simp only [Bool.false_eq_true, reduceIte, bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec backend.crt.Q1
+  obtain ⟨qv, hqv, hqvl⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1
   rw [hqv, bind_tc_ok]
-  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec backend.crt.Q1_BARRETT_M
+  obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec arithmetic.ntt_crt.Q1_BARRETT_M
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
   obtain ⟨rnd, hrnd, hrndl⟩ := set1_epi16_spec 1024#i16
   rw [hrnd, bind_tc_ok]
   -- the three broadcast constants, as lane facts
-  have hQ : ∀ j < 16, (lane16 qv j).toInt = 7681 := fun j hj => by rw [hqvl j hj]; simp only [backend.crt.Q1]; decide
-  have hM : ∀ j < 16, (lane16 bm j).toInt = 17474 := fun j hj => by rw [hbml j hj]; simp only [backend.crt.Q1_BARRETT_M]; decide
+  have hQ : ∀ j < 16, (lane16 qv j).toInt = 7681 := fun j hj => by rw [hqvl j hj]; simp only [arithmetic.ntt_crt.Q1]; decide
+  have hM : ∀ j < 16, (lane16 bm j).toInt = 17474 := fun j hj => by rw [hbml j hj]; simp only [arithmetic.ntt_crt.Q1_BARRETT_M]; decide
   have hRnd : ∀ j < 16, (lane16 rnd j).toInt = 2 ^ 10 := fun j hj => by
     rw [hrndl j hj]; decide
   -- the horizontal half, then the transpose

@@ -1,4 +1,4 @@
-//! The two-prime NTT: the scheme every backend shares, and the portable transform over it.
+//! This file defines the two-prime NTT that every backend uses
 //!
 //! Rather than one 26-bit prime in `i32` lanes, the transform runs twice in `i16` lanes, over
 //! q₁ = 7681 and q₂ = 10753, and the exact integer product is reconstructed from the two

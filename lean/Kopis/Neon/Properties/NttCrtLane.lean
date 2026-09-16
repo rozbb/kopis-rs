@@ -54,10 +54,10 @@ theorem I32_shr16 (x : I32) :
 
 /-- `x >>> 11` on an `i16`, the Barrett shift. -/
 theorem I16_shr11 (x : I16) :
-    ∃ y : I16, (x >>> backend.crt.BARRETT_SH : Result I16) = ok y ∧
+    ∃ y : I16, (x >>> arithmetic.ntt_crt.BARRETT_SH : Result I16) = ok y ∧
       y.val = x.val >>> (11 : ℕ) := by
-  have hsh : backend.crt.BARRETT_SH = 11#i32 := by
-    simp only [backend.crt.BARRETT_SH]
+  have hsh : arithmetic.ntt_crt.BARRETT_SH = 11#i32 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]
   rw [hsh]
   refine ⟨⟨x.bv.sshiftRight 11⟩, ?_, ?_⟩
   · show IScalar.shiftRight_IScalar x (11#i32) = _
@@ -177,8 +177,8 @@ theorem barrett_spec (x m q : I16) (Q M : ℤ)
   rw [hprod] at hy1v
   rw [hy1, bind_tc_ok]
   -- the rounding addend, and the shift that forms `t ≈ round(x/q)`
-  have hsub : (backend.crt.BARRETT_SH - 1#i32 : Result I32) = ok 10#i32 := by
-    have hsh : backend.crt.BARRETT_SH = 11#i32 := by simp only [backend.crt.BARRETT_SH]
+  have hsub : (arithmetic.ntt_crt.BARRETT_SH - 1#i32 : Result I32) = ok 10#i32 := by
+    have hsh : arithmetic.ntt_crt.BARRETT_SH = 11#i32 := by simp only [arithmetic.ntt_crt.BARRETT_SH]
     rw [hsh]; rfl
   rw [hsub, bind_tc_ok]
   have hshl : ((1#i16) <<< (10#i32) : Result I16) = ok 1024#i16 := by

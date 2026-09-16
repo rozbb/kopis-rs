@@ -65,14 +65,14 @@ theorem nttOK_of_avx {g : ℕ → ℤ} {ne : Array I16 512#usize} (h : Kopis.Avx
     NttOK g ne := h""", 1))
 
 _ELEM.append((
-    """  unfold arithmetic.ntt.NttElem.from_uniform arithmetic.ntt_crt.from_uniform
+    """  unfold arithmetic.ntt_arith.NttElem.from_uniform arithmetic.ntt_crt.from_uniform
   apply WP.spec_bind (from_ring_elem_spec true elem (by simp))
   intro r hr
   simp only [WP.spec_ok]
   exact hr""",
     """  obtain ⟨b, hb⟩ := Kopis.Avx2.available_ok
   cases b
-  · unfold arithmetic.ntt.NttElem.from_uniform
+  · unfold arithmetic.ntt_arith.NttElem.from_uniform
     rw [hb, bind_tc_ok]
     simp only [Bool.false_eq_true, if_false]
     apply WP.spec_bind (show arithmetic.ntt_crt.from_uniform elem
@@ -88,14 +88,14 @@ _ELEM.append((
     exact fun r hr => nttOK_of_avx hr""", 1))
 
 _ELEM.append((
-    """  unfold arithmetic.ntt.NttElem.from_secret arithmetic.ntt_crt.from_secret
+    """  unfold arithmetic.ntt_arith.NttElem.from_secret arithmetic.ntt_crt.from_secret
   apply WP.spec_bind (from_ring_elem_spec false elem (fun _ => hs))
   intro r hr
   simp only [WP.spec_ok]
   exact hr""",
     """  obtain ⟨b, hb⟩ := Kopis.Avx2.available_ok
   cases b
-  · unfold arithmetic.ntt.NttElem.from_secret
+  · unfold arithmetic.ntt_arith.NttElem.from_secret
     rw [hb, bind_tc_ok]
     simp only [Bool.false_eq_true, if_false]
     apply WP.spec_bind (show arithmetic.ntt_crt.from_secret elem
@@ -123,13 +123,13 @@ _PW_OLD = """    apply WP.spec_bind (pointwise_mul_acc_spec acc ne ne1 B B
       (by nlinarith))
     intro acc1 hacc1"""
 
-_PW_NEW = r"""    apply WP.spec_bind (show arithmetic.ntt.pointwise_mul_acc acc ne ne1
+_PW_NEW = r"""    apply WP.spec_bind (show arithmetic.ntt_arith.pointwise_mul_acc acc ne ne1
         ⦃ (r : Array I32 512#usize) =>
             (∀ t, t < 512 → accZ r t = accZ acc t + eZ ne t * eZ ne1 t) ∧
             (∀ t, t < 512 → |accZ r t| ≤ (iter.start.val : ℤ) * (B * B) + B * B) ⦄ from by
       obtain ⟨bb, hbb⟩ := Kopis.Avx2.available_ok
       cases bb
-      · unfold arithmetic.ntt.pointwise_mul_acc
+      · unfold arithmetic.ntt_arith.pointwise_mul_acc
         rw [hbb, bind_tc_ok]
         simp only [Bool.false_eq_true, if_false]
         exact pointwise_mul_acc_spec acc ne ne1 B B
@@ -149,15 +149,15 @@ for _g in ("hj_lt", "hi_lt"):
     _BRIDGE.append((_PW_OLD % (_g, _g), _PW_NEW % (_g, _g, _g, _g), 1))
 
 _BRIDGE.append((
-    "def nttFwdU {X Y : Usize} (A : Mat X Y) : arithmetic.ntt.NttMatrix X Y :=",
-    "noncomputable def nttFwdU {X Y : Usize} (A : Mat X Y) : arithmetic.ntt.NttMatrix X Y :=", 1))
+    "def nttFwdU {X Y : Usize} (A : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=",
+    "noncomputable def nttFwdU {X Y : Usize} (A : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=", 1))
 
 _BRIDGE.append((
-    "def nttFwdS {X Y : Usize} (s : Mat X Y) : arithmetic.ntt.NttMatrix X Y :=",
-    "noncomputable def nttFwdS {X Y : Usize} (s : Mat X Y) : arithmetic.ntt.NttMatrix X Y :=", 1))
+    "def nttFwdS {X Y : Usize} (s : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=",
+    "noncomputable def nttFwdS {X Y : Usize} (s : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=", 1))
 
 _BRIDGE.append((
-    """  unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+    """  unfold arithmetic.ntt_arith.reduce_invntt_to_ring_elem
   refine WP.spec_bind (crt_entry_spec N hN acc nu nv (fun jj => uP (u jj)) (fun jj => sP (v jj))
     hu hv hacc (convZ u v N) hHb ?_ ?_) ?_""",
     r"""  have hres1 : ∀ c, c < 256 → ((convZ u v N c : ℤ) : ZMod 7681)
@@ -178,12 +178,12 @@ _BRIDGE.append((
     refine Finset.sum_congr rfl (fun jj _ => ?_)
     rw [nconvR_intCast, ← nconv_eq_nconvR _ _ c hc]
     rfl
-  refine WP.spec_mono (show arithmetic.ntt.reduce_invntt_to_ring_elem acc
-      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+  refine WP.spec_mono (show arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
+      ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c, c < 256 → ((r.val[c]!).val : ℤ) = convZ u v N c % 65536 ⦄ from by
     obtain ⟨bb, hbb⟩ := Kopis.Avx2.available_ok
     cases bb
-    · unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+    · unfold arithmetic.ntt_arith.reduce_invntt_to_ring_elem
       rw [hbb, bind_tc_ok]
       simp only [Bool.false_eq_true, if_false]
       apply WP.spec_bind (crt_entry_spec N hN acc nu nv (fun jj => uP (u jj))

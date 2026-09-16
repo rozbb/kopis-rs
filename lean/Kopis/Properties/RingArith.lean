@@ -31,7 +31,7 @@ open RustKopisSerial
 namespace Kopis.Properties
 
 /-- The Rust ring element: 256 `u16` coefficients. -/
-abbrev RingElem := arithmetic.ring_arith.RingElem
+abbrev RingElem := arithmetic.plain_arith.RingElem
 
 /-- Abstraction relation: interpret the stored `u16` coefficients as an element
 of the spec ring `Spec.Kopis.Polynomial (2^16) = Vector (ZMod (2^16)) 256`,
@@ -114,7 +114,7 @@ theorem iter_mut_next_spec_none {T : Type}
   · agrind
   · simp
 
-/-! ## `RingElem::add` (`src/arithmetic/ring_arith.rs`) -/
+/-! ## `RingElem::add` (`src/arithmetic/plain_arith.rs`) -/
 
 /-- **Loop spec** for the `add` loop.
 
@@ -202,7 +202,7 @@ theorem add_spec (self other : RingElem) :
           toRingElem r = Spec.Kopis.Polynomial.add (toRingElem self) (toRingElem other) ⦄ := by
   unfold SharedARingElem.Insts.CoreOpsArithAddSharedARingElemRingElem.add
   have h_end : (consts.RING_DEG).val = 256 := by simp [consts.RING_DEG]
-  rw [show (arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
+  rw [show (arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
         = ok (Array.repeat 256#usize 0#u16) from rfl]
   simp only [bind_tc_ok]
   apply WP.spec_mono
@@ -219,7 +219,7 @@ theorem add_spec (self other : RingElem) :
   rw [Vector.getElem_zipWith]
   rfl
 
-/-! ## `RingElem::sub` (`src/arithmetic/ring_arith.rs`) — identical skeleton to `add`. -/
+/-! ## `RingElem::sub` (`src/arithmetic/plain_arith.rs`) — identical skeleton to `add`. -/
 
 /-- **Loop spec** for the `sub` loop (mirrors `add_loop_spec`). -/
 theorem sub_loop_spec
@@ -297,7 +297,7 @@ theorem sub_spec (self other : RingElem) :
           toRingElem r = Spec.Kopis.Polynomial.sub (toRingElem self) (toRingElem other) ⦄ := by
   unfold SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   have h_end : (consts.RING_DEG).val = 256 := by simp [consts.RING_DEG]
-  rw [show (arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
+  rw [show (arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
         = ok (Array.repeat 256#usize 0#u16) from rfl]
   simp only [bind_tc_ok]
   apply WP.spec_mono
@@ -352,12 +352,12 @@ set_option maxHeartbeats 1000000 in
 theorem schoolbook_inner_spec (iter : core.ops.range.Range Usize)
     (out : Array U16 256#usize) (b : Array U16 128#usize) (i : Usize) (ai : U16)
     (hi : i.val < 128) (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.ring_arith.schoolbook_128_loop0_loop0 iter out b i ai
+    arithmetic.plain_arith.schoolbook_128_loop0_loop0 iter out b i ai
       ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
           zc r.val m = zc out.val m
             + ∑ j ∈ Finset.Ico iter.start.val 128,
                 (if i.val + j = m then (ai.val : ZMod (2 ^ 16)) * zc b.val j else 0) ⦄ := by
-  unfold arithmetic.ring_arith.schoolbook_128_loop0_loop0
+  unfold arithmetic.plain_arith.schoolbook_128_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -406,12 +406,12 @@ inner loop accumulating `out[i1+j] += a[i1]·b[j]` for `j ∈ [0, 128)`. -/
 theorem schoolbook_outer_spec (i : Usize) (iter : core.ops.range.Range Usize)
     (out : Array U16 256#usize) (a b : Array U16 128#usize)
     (hi : i.val = 128) (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.ring_arith.schoolbook_128_loop0 i iter out a b
+    arithmetic.plain_arith.schoolbook_128_loop0 i iter out a b
       ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
           zc r.val m = zc out.val m
             + ∑ i1 ∈ Finset.Ico iter.start.val 128, ∑ j ∈ Finset.Ico 0 128,
                 (if i1 + j = m then zc a.val i1 * zc b.val j else 0) ⦄ := by
-  unfold arithmetic.ring_arith.schoolbook_128_loop0
+  unfold arithmetic.plain_arith.schoolbook_128_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -439,12 +439,12 @@ decreasing_by scalar_decr_tac
 /-- **Schoolbook full spec.**  `schoolbook_128 out a b` computes `out + a·b` in each
 of the 256 output slots, where `a·b` is the (unreduced) product of two degree-127 polys. -/
 theorem schoolbook_128_spec (out : Array U16 256#usize) (a b : Array U16 128#usize) :
-    arithmetic.ring_arith.schoolbook_128 out a b
+    arithmetic.plain_arith.schoolbook_128 out a b
       ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
           zc r.val m = zc out.val m
             + ∑ i1 ∈ Finset.Ico 0 128, ∑ j ∈ Finset.Ico 0 128,
                 (if i1 + j = m then zc a.val i1 * zc b.val j else 0) ⦄ := by
-  unfold arithmetic.ring_arith.schoolbook_128 arithmetic.ring_arith.HALF
+  unfold arithmetic.plain_arith.schoolbook_128 arithmetic.plain_arith.HALF
   simp only [consts.RING_DEG]
   let* ⟨ i, hi ⟩ ← Std.Usize.div_spec
   have hi128 : i.val = 128 := by rw [hi]
@@ -459,13 +459,13 @@ for `i ∈ [iter.start, 128)`. -/
 theorem ring_mul_acc_loop0_spec (iter : core.ops.range.Range Usize)
     (a_lo a_hi b_lo b_hi a_sum b_sum : Array U16 128#usize)
     (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.ring_arith.ring_mul_acc_loop0 iter a_lo a_hi b_lo b_hi a_sum b_sum
+    arithmetic.plain_arith.ring_mul_acc_loop0 iter a_lo a_hi b_lo b_hi a_sum b_sum
       ⦃ (r : Array U16 128#usize × Array U16 128#usize) => ∀ i, i < 128 →
           (zc r.1.val i = if i < iter.start.val then zc a_sum.val i
              else zc a_lo.val i + zc a_hi.val i)
           ∧ (zc r.2.val i = if i < iter.start.val then zc b_sum.val i
              else zc b_lo.val i + zc b_hi.val i) ⦄ := by
-  unfold arithmetic.ring_arith.ring_mul_acc_loop0
+  unfold arithmetic.plain_arith.ring_mul_acc_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -531,7 +531,7 @@ into `acc[j]` (low, wrapped with sign flip) and `acc[j+128]` (high). -/
 theorem ring_mul_acc_loop1_spec (i : Usize) (iter : core.ops.range.Range Usize)
     (acc z0 z2 z3 : Array U16 256#usize)
     (hi : i.val = 128) (hstart : iter.start.val ≤ 128) (hend : iter.«end».val = 128) :
-    arithmetic.ring_arith.ring_mul_acc_loop1 i iter acc z0 z2 z3
+    arithmetic.plain_arith.ring_mul_acc_loop1 i iter acc z0 z2 z3
       ⦃ (r : Array U16 256#usize) => ∀ m, m < 256 →
           zc r.val m = zc acc.val m
             + (if m < 128
@@ -541,7 +541,7 @@ theorem ring_mul_acc_loop1_spec (i : Usize) (iter : core.ops.range.Range Usize)
                else (if m - 128 < iter.start.val then 0
                      else zc z0.val m - zc z2.val m
                           + (zc z3.val (m - 128) - zc z0.val (m - 128) - zc z2.val (m - 128)))) ⦄ := by
-  unfold arithmetic.ring_arith.ring_mul_acc_loop1
+  unfold arithmetic.plain_arith.ring_mul_acc_loop1
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only [lift]
@@ -889,11 +889,11 @@ private theorem toRingElem_getElem (x : RingElem) (i : ℕ) (hi : i < 256) :
 
 set_option maxHeartbeats 4000000 in
 private theorem ring_mul_acc_spec (acc a b : RingElem) :
-    arithmetic.ring_arith.ring_mul_acc acc a b
+    arithmetic.plain_arith.ring_mul_acc acc a b
       ⦃ (r : RingElem) => ∀ p (_hp : p < 256),
           (toRingElem r)[p]! = (toRingElem acc)[p]!
             + convCoeff (toRingElem a) (toRingElem b) p ⦄ := by
-  unfold arithmetic.ring_arith.ring_mul_acc arithmetic.ring_arith.HALF
+  unfold arithmetic.plain_arith.ring_mul_acc arithmetic.plain_arith.HALF
   simp only [consts.RING_DEG]
   let* ⟨ i, hi ⟩ ← Std.Usize.div_spec
   have hi128 : i.val = 128 := by rw [hi]
@@ -1025,7 +1025,7 @@ theorem mul_spec (self other : RingElem) :
       ⦃ (r : RingElem) =>
           toRingElem r = Spec.Kopis.Polynomial.mul (toRingElem self) (toRingElem other) ⦄ := by
   unfold SharedARingElem.Insts.CoreOpsArithMulSharedARingElemRingElem.mul
-  rw [show (arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
+  rw [show (arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
         = ok (Array.repeat 256#usize 0#u16) from rfl]
   simp only [bind_tc_ok]
   apply WP.spec_mono (ring_mul_acc_spec (Array.repeat 256#usize 0#u16) self other)
@@ -1046,7 +1046,7 @@ computes `acc + a·b` (negacyclic product, at `m = 2¹⁶`).  Public wrapper ove
 per-coefficient `ring_mul_acc_spec`; the matrix product `mul_transpose` folds
 these. -/
 theorem ring_mul_acc_poly_spec (acc a b : RingElem) :
-    arithmetic.ring_arith.ring_mul_acc acc a b
+    arithmetic.plain_arith.ring_mul_acc acc a b
       ⦃ (r : RingElem) =>
           toRingElem r = toRingElem acc + toRingElem a * toRingElem b ⦄ := by
   apply WP.spec_mono (ring_mul_acc_spec acc a b)
@@ -1107,13 +1107,13 @@ theorem shift_right_loop_spec
       (j : Nat) (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
         (back im).slice.val[j]'(by have := hback_len im him; scalar_tac)
           = im.slice.val[j]'(by scalar_tac)) :
-    arithmetic.ring_arith.RingElem.shift_right_loop iter back shift
+    arithmetic.plain_arith.RingElem.shift_right_loop iter back shift
       ⦃ (r : core.slice.iter.IterMut U16) =>
           ∃ (h_len : r.slice.length = orig_slice.length),
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               (r.slice.val[j]'(by have := h_len; scalar_tac)).val
                 = (orig_slice.val[j]'(by scalar_tac)).val >>> shift.val ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.shift_right_loop
+  unfold arithmetic.plain_arith.RingElem.shift_right_loop
   by_cases hlt : iter.i < iter.slice.len
   · -- SOME branch
     let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
@@ -1187,10 +1187,10 @@ theorem shift_right_loop_spec
 /-- **Correctness of `RingElem::shift_right`** (for `shift < 16`): computes the
 audited coefficient-wise right shift `Spec.Kopis.Polynomial.shiftRight`. -/
 theorem shift_right_spec (self : RingElem) (shift : Usize) (hshift : shift.val < 16) :
-    arithmetic.ring_arith.RingElem.shift_right self shift
+    arithmetic.plain_arith.RingElem.shift_right self shift
       ⦃ (r : RingElem) =>
           toRingElem r = Spec.Kopis.Polynomial.shiftRight (toRingElem self) shift.val ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.shift_right
+  unfold arithmetic.plain_arith.RingElem.shift_right
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   let* ⟨ r_iter, hr_len, hr_writes ⟩ ←
@@ -1246,13 +1246,13 @@ theorem shift_left_loop_spec
       (j : Nat) (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
         (back im).slice.val[j]'(by have := hback_len im him; scalar_tac)
           = im.slice.val[j]'(by scalar_tac)) :
-    arithmetic.ring_arith.RingElem.shift_left_loop iter back shift
+    arithmetic.plain_arith.RingElem.shift_left_loop iter back shift
       ⦃ (r : core.slice.iter.IterMut U16) =>
           ∃ (h_len : r.slice.length = orig_slice.length),
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               (r.slice.val[j]'(by have := h_len; scalar_tac)).val
                 = ((orig_slice.val[j]'(by scalar_tac)).val <<< shift.val) % U16.size ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.shift_left_loop
+  unfold arithmetic.plain_arith.RingElem.shift_left_loop
   by_cases hlt : iter.i < iter.slice.len
   · -- SOME branch
     let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
@@ -1329,10 +1329,10 @@ theorem shift_left_loop_spec
 audited coefficient-wise left shift `Spec.Kopis.Polynomial.shiftLeft` (the cast
 back into `ZMod (2¹⁶)` performs the `mod 2¹⁶` reduction the `u16` shift does). -/
 theorem shift_left_spec (self : RingElem) (shift : Usize) (hshift : shift.val < 16) :
-    arithmetic.ring_arith.RingElem.shift_left self shift
+    arithmetic.plain_arith.RingElem.shift_left self shift
       ⦃ (r : RingElem) =>
           toRingElem r = Spec.Kopis.Polynomial.shiftLeft (toRingElem self) shift.val ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.shift_left
+  unfold arithmetic.plain_arith.RingElem.shift_left
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   let* ⟨ r_iter, hr_len, hr_writes ⟩ ←
@@ -1391,13 +1391,13 @@ theorem wrapping_add_to_all_loop_spec
       (j : Nat) (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
         (back im).slice.val[j]'(by have := hback_len im him; scalar_tac)
           = im.slice.val[j]'(by scalar_tac)) :
-    arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop iter back val
+    arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop iter back val
       ⦃ (r : core.slice.iter.IterMut U16) =>
           ∃ (h_len : r.slice.length = orig_slice.length),
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               r.slice.val[j]'(by have := h_len; scalar_tac)
                 = core.num.U16.wrapping_add (orig_slice.val[j]'(by scalar_tac)) val ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.wrapping_add_to_all_loop
+  unfold arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
     obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
@@ -1468,11 +1468,11 @@ theorem wrapping_add_to_all_loop_spec
 /-- **Correctness of `RingElem::wrapping_add_to_all`**: adds the constant `val` to
 every coefficient (mod 2¹⁶), i.e. `+ Polynomial.const val` on the abstraction. -/
 theorem wrapping_add_to_all_spec (self : RingElem) (val : U16) :
-    arithmetic.ring_arith.RingElem.wrapping_add_to_all self val
+    arithmetic.plain_arith.RingElem.wrapping_add_to_all self val
       ⦃ (r : RingElem) =>
           toRingElem r = Spec.Kopis.Polynomial.add (toRingElem self)
             (Spec.Kopis.Polynomial.const (2 ^ 16) ((val.val : ZMod (2 ^ 16)))) ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.wrapping_add_to_all
+  unfold arithmetic.plain_arith.RingElem.wrapping_add_to_all
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   let* ⟨ r_iter, hr_len, hr_writes ⟩ ←

@@ -9,7 +9,7 @@
 
   ## Why the growth argument is written the way it is
 
-  `src/backend/crt.rs` gives a crude per-level budget of `0.75q`, which for a run of three
+  `src/arithmetic/ntt_crt.rs` gives a crude per-level budget of `0.75q`, which for a run of three
   Cooley-Tukey levels from `q/2` predicts `2.75q` — inside an `i16` lane for both primes, so the
   portable schedule (runs of 3, 3, 2) is covered by it and does *not* need the interval
   propagation the AVX2 schedule rests on.  What it does need is the **sharp** Montgomery bound
@@ -41,7 +41,7 @@ theorem ct_step {q : ℕ} {nb lenv : ℕ}
     (Q Zb B Bt : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q) (f : ℕ → ZMod q)
     (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
     (hnb1 : 1 ≤ nb) (hnb2 : 2 * nb ≤ 256) (hk : k.val + 1 = nb)
-    (hqSel : backend.crt.q SECOND = ok qv)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
     (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
     (hzeta : ZetaOK SECOND Q Zb Rinv ζ) (hZb : 0 ≤ Zb)
@@ -68,7 +68,7 @@ theorem gs_step {q : ℕ} {nb lenv : ℕ}
     (hlen : LEN.val = lenv) (hlpos : 0 < lenv) (hnb : nb * (2 * lenv) = 256)
     (hnb1 : 1 ≤ nb) (hnb2 : 2 * nb ≤ 256) (hpow : ∃ j, j < 8 ∧ nb = 2 ^ j)
     (hk : k.val = 2 * nb)
-    (hqSel : backend.crt.q SECOND = ok qv) (hqiSel : backend.crt.qinv SECOND = ok qiv)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hqiSel : arithmetic.ntt_crt.qinv SECOND = ok qiv)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hQpos : 0 < Q) (hQlt : Q ≤ 2 ^ 15)
     (hRinv : (2 ^ 16 : ZMod q) * Rinv = 1)
     (hqiv : (2 ^ 16 : ℤ) ∣ (qiv.val * Q - 1))
@@ -115,7 +115,7 @@ stated there and monotonicity supplies the rest. -/
 
 theorem ntt_block_spec {q : ℕ} (SECOND : Bool) (b : Array I16 256#usize) (qv m : I16)
     (Q Zb M B0 Bt : ℤ) (Rinv : ZMod q) (ζ f : ℕ → ZMod q)
-    (hqSel : backend.crt.q SECOND = ok qv) (hmSel : backend.crt.barrett_m SECOND = ok m)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hmSel : arithmetic.ntt_crt.barrett_m SECOND = ok m)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hm : m.val = M)
     (hQpos : 0 < Q) (hQlt14 : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)
@@ -302,9 +302,9 @@ decreasing_by scalar_decr_tac
 theorem invntt_block_spec {q : ℕ} (SECOND : Bool) (b : Array I16 256#usize)
     (qv m qiv scale : I16)
     (Q Zb M Sb Bin B0 Bt : ℤ) (Rinv sc : ZMod q) (ζ f : ℕ → ZMod q) (cs : ZMod q)
-    (hqSel : backend.crt.q SECOND = ok qv) (hmSel : backend.crt.barrett_m SECOND = ok m)
-    (hqiSel : backend.crt.qinv SECOND = ok qiv)
-    (hscSel : backend.crt.invntt_scale SECOND = ok scale)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hmSel : arithmetic.ntt_crt.barrett_m SECOND = ok m)
+    (hqiSel : arithmetic.ntt_crt.qinv SECOND = ok qiv)
+    (hscSel : arithmetic.ntt_crt.invntt_scale SECOND = ok scale)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hm : m.val = M)
     (hQpos : 0 < Q) (hQlt14 : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)

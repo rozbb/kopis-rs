@@ -6,7 +6,7 @@ open Spec (𝔹)
 open scoped BigOperators
 namespace Kopis.Properties
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000

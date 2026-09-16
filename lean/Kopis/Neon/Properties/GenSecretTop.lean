@@ -55,7 +55,7 @@ theorem turboSHAKE256_u8concat (seed : Array U8 32#usize) (ci : U8) (outLen : �
   rw [hmsg]; exact turboSHAKE256_cast hlen.symm _ D outLen
 
 /-- Interpret the Rust column matrix `Matrix L 1` as a spec `PolyVector (2¹³) L`. -/
-def toVector13 {L : Usize} (secret : arithmetic.matrix_arith.Matrix L 1#usize) :
+def toVector13 {L : Usize} (secret : arithmetic.plain_arith.Matrix L 1#usize) :
     Spec.Kopis.PolyVector (2 ^ 13) (L : ℕ) :=
   Vector.ofFn fun (a : Fin (L : ℕ)) => toRingElem13 ((secret.val[a.val]!).val[0]!)
 
@@ -63,12 +63,12 @@ def toVector13 {L : Usize} (secret : arithmetic.matrix_arith.Matrix L 1#usize) :
 CBD samples. -/
 theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
     (iter : core.ops.range.Range Usize) (seed : Array U8 32#usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice U8)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (buf : Slice U8)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuflen : buf.val.length = 32 * MU.val)
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
     sample.gen_secret_from_seed_loop MU iter seed secret buf
-      ⦃ (result : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (result : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ (a : ℕ) (_ : a < L.val),
             toRingElem13 ((result.val[a]!).val[0]!)
               = if iter.start.val ≤ a
@@ -112,8 +112,8 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
         hMU hbuf1_len h_start_new h_end_new)
     rintro r hr a ha
     rw [hr a ha, hstart']
-    have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
-        (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
+    have harr0 : ∀ (arr : Std.Array arithmetic.plain_arith.RingElem 1#usize)
+        (v : arithmetic.plain_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
       rw [Std.Array.set_val_eq]
       show (arr.val.set 0 v)[0]! = v
       rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
@@ -139,13 +139,13 @@ the spec's `GenSecret` vector (mod `2¹³`). -/
 theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   obtain ⟨bAvx, hbAvx⟩ : ∃ b, backend.neon.cpu.available = ok b := ⟨true, rfl⟩
   rw [hbAvx, bind_tc_ok]
   have havx : backend.neon.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono
       (Kopis.Neon.Properties.neon_gen_secret_from_seed_spec L MU seed hMU (by scalar_tac))
@@ -157,8 +157,8 @@ theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
   cases bAvx
   case true => simpa only [reduceIte] using havx
   all_goals simp only [Bool.false_eq_true, reduceIte]
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
   have hMUle : MU.val ≤ 10 := by omega
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show (256#usize).val * MU.val ≤ Usize.max by
     rw [show (256#usize).val = 256 from rfl]
@@ -197,13 +197,13 @@ as a small-signed `u16`, has magnitude `≤ μ/2`.  Same skeleton as `gen_secret
 with the SHAKE/`cbdVal` value reasoning stripped, using `cbd_bd`. -/
 theorem gen_secret_from_seed_loop_bd {L : Usize} (MU : Usize)
     (iter : core.ops.range.Range Usize) (seed : Array U8 32#usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (buf : Slice U8)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (buf : Slice U8)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuflen : buf.val.length = 32 * MU.val) (hend : iter.«end».val = L.val)
     (hsec : ∀ a (_ha : a < L.val) c (_hc : c < 256),
         smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
     sample.gen_secret_from_seed_loop MU iter seed secret buf
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold sample.gen_secret_from_seed_loop
@@ -216,8 +216,8 @@ theorem gen_secret_from_seed_loop_bd {L : Usize} (MU : Usize)
       rw [← Slice.length, __post1, Slice.length, hbuflen]
     let* ⟨ re1, hre1 ⟩ ← cbd_bd MU buf1 re hMU hbuf1_len
     have h_end_new : iter1.«end».val = L.val := by rw [hend']; exact hend
-    have harr0 : ∀ (arr : Std.Array arithmetic.ring_arith.RingElem 1#usize)
-        (v : arithmetic.ring_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
+    have harr0 : ∀ (arr : Std.Array arithmetic.plain_arith.RingElem 1#usize)
+        (v : arithmetic.plain_arith.RingElem), (arr.set 0#usize v).val[0]! = v := fun arr v => by
       rw [Std.Array.set_val_eq]
       show (arr.val.set 0 v)[0]! = v
       rw [getElem!_list_set _ 0 v 0 (by rw [arr.property]; decide), if_pos rfl]
@@ -245,14 +245,14 @@ theorem gen_secret_from_seed_loop_bd {L : Usize} (MU : Usize)
 theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold sample.gen_secret_from_seed
   obtain ⟨bNeon, hbNeon⟩ : ∃ b, backend.neon.cpu.available = ok b := ⟨true, rfl⟩
   rw [hbNeon, bind_tc_ok]
   have havx : backend.neon.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
     apply WP.spec_mono
@@ -262,8 +262,8 @@ theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
   cases bNeon
   case true => simpa only [reduceIte] using havx
   all_goals simp only [Bool.false_eq_true, reduceIte]
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
   have hMUle : MU.val ≤ 10 := by omega
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show (256#usize).val * MU.val ≤ Usize.max by
     rw [show (256#usize).val = 256 from rfl]

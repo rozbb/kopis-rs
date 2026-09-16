@@ -30,7 +30,7 @@ open RustKopisNeon
 
 namespace Kopis.Neon
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 
@@ -40,11 +40,11 @@ branches' write-backs (`Array.update` against the `index_mut` closure) are the s
 two ways.  Stated as an equality of terms so the generated twin needs only to rewrite. -/
 theorem gen_secret_neon_branch_eq {L : Usize} {β : Type} (MU : Usize) (b : Bool)
     (buf1 : Slice U8)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (i : Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (i : Usize)
     (hi : i.val < L.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hlen : buf1.val.length = 32 * MU.val)
-    (k : arithmetic.matrix_arith.Matrix L 1#usize → Result β) :
+    (k : arithmetic.plain_arith.Matrix L 1#usize → Result β) :
     (if b then
         (do let re ← backend.neon.sample.cbd_lanes MU buf1
             let (a, index_mut_back) ← Array.index_mut_usize secret i
@@ -88,11 +88,11 @@ theorem gen_secret_neon_branch_eq {L : Usize} {β : Type} (MU : Usize) (b : Bool
 
 /-- **Dispatch point 2.**  The full three-way guard collapses to the portable body. -/
 theorem gen_secret_body_eq {L : Usize} {β : Type} (MU : Usize) (b : Bool) (buf1 : Slice U8)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (i : Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (i : Usize)
     (hi : i.val < L.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hlen : buf1.val.length = 32 * MU.val)
-    (k : arithmetic.matrix_arith.Matrix L 1#usize → Result β) :
+    (k : arithmetic.plain_arith.Matrix L 1#usize → Result β) :
     (do let b1 ← core.num.Usize.is_multiple_of MU 8#usize
         if b1 then
           (do let (a, index_mut_back) ← Array.index_mut_usize secret i

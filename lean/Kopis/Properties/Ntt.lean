@@ -2,7 +2,7 @@
   # Kopis/Properties/Ntt.lean — the NTT multiplication bridge.
 
   Production Kopis multiplies ring elements through a negacyclic NTT over the auxiliary prime
-  `p = 50330113` (`src/arithmetic/ntt.rs`), not through the schoolbook `Matrix::mul` /
+  `p = 50330113` (`src/arithmetic/ntt_arith.rs`), not through the schoolbook `Matrix::mul` /
   `Matrix::mul_transpose`.  Those schoolbook functions are still extracted, and
   `MatrixMul.lean` / `MulTranspose.lean` prove they compute the spec's matrix product; this
   file's job is to give the NTT pipeline a postcondition of *exactly the same shape*, so the
@@ -66,7 +66,7 @@ set_option maxHeartbeats 1000000
 /-! ## Constants and the exactness margin -/
 
 /-- The CRT modulus the transform's exactness rests on: `q₁·q₂` with `q₁ = 7681`, `q₂ = 10753`
-(`CRT_Q` in `src/backend/crt.rs`).  Until 2026-08-04 this was the single 26-bit prime
+(`CRT_Q` in `src/arithmetic/ntt_crt.rs`).  Until 2026-08-04 this was the single 26-bit prime
 `p = 50330113`; the portable transform moved to the two-prime scheme the vector backends already
 used, and the exactness margin moved with it — the new modulus is 1.64× larger, so every
 parameter set that fitted still fits, with more room. -/
@@ -147,7 +147,7 @@ theorem signedOfU16_emod (v : U16) : signedOfU16 v % 65536 = (v.val : ℤ) % 655
 
 /-! ## Wrapping arithmetic is exact in range
 
-`src/arithmetic/ntt.rs` writes every value-domain operation as an explicit `wrapping_*` so that
+`src/arithmetic/ntt_arith.rs` writes every value-domain operation as an explicit `wrapping_*` so that
 aeneas extracts total functions instead of `Result`-monadic ones with a panic-freedom side
 condition each (see the comment above `mont_reduce` there).  The price is that correctness must
 now say "the wrapping never actually wrapped", and these are the lemmas that discharge it.
@@ -302,10 +302,10 @@ private theorem ntt_getElem!_list_set {α : Type _} [Inhabited α] (l : List α)
 
 /-- A 13-bit `from_bytes` deserialization has every `u16` coefficient `< 2^13`. -/
 private theorem ntt_from_bytes_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 13#usize
-      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
+      ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 13 ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.deserialize
+  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*
@@ -325,13 +325,13 @@ private theorem ntt_from_bytes_raw (bytes : Slice U8) (hlen : bytes.length = 32 
 every coefficient of the matrix produced after filling row `i`'s remaining columns from the
 13-bit `from_bytes` reads (each of which is `< 2^13`). -/
 private theorem ntt_gen_matrix_loop0_loop0_bd {L : Usize} (iter : core.ops.range.Range Usize)
-    (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+    (seed : Array U8 32#usize) (mat : arithmetic.plain_arith.Matrix L L)
     (buf : Array U8 416#usize) (i : Usize)
     (hi : i.val < L.val) (hend : iter.«end».val = L.val)
     (hmat : ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
         (((mat.val[a]!).val[b]!).val[c]!).val < 2 ^ 13) :
     sample.gen_matrix_from_seed_loop0_loop0 iter seed mat buf i
-      ⦃ (result : arithmetic.matrix_arith.Matrix L L × Array U8 416#usize) =>
+      ⦃ (result : arithmetic.plain_arith.Matrix L L × Array U8 416#usize) =>
           ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
             (((result.1.val[a]!).val[b]!).val[c]!).val < 2 ^ 13 ⦄ := by
   unfold sample.gen_matrix_from_seed_loop0_loop0
@@ -377,12 +377,12 @@ private theorem ntt_gen_matrix_loop0_loop0_bd {L : Usize} (iter : core.ops.range
 
 /-- **Outer loop, magnitude version.**  Preserves the `< 2^13` bound on every coefficient. -/
 private theorem ntt_gen_matrix_loop0_bd {L : Usize} (iter : core.ops.range.Range Usize)
-    (seed : Array U8 32#usize) (mat : arithmetic.matrix_arith.Matrix L L)
+    (seed : Array U8 32#usize) (mat : arithmetic.plain_arith.Matrix L L)
     (buf : Array U8 416#usize) (hend : iter.«end».val = L.val)
     (hmat : ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
         (((mat.val[a]!).val[b]!).val[c]!).val < 2 ^ 13) :
     sample.gen_matrix_from_seed_loop0 iter seed mat buf
-      ⦃ (result : arithmetic.matrix_arith.Matrix L L) =>
+      ⦃ (result : arithmetic.plain_arith.Matrix L L) =>
           ∀ (a b c : ℕ), a < L.val → b < L.val → c < 256 →
             (((result.val[a]!).val[b]!).val[c]!).val < 2 ^ 13 ⦄ := by
   unfold sample.gen_matrix_from_seed_loop0
@@ -404,10 +404,10 @@ private theorem ntt_gen_matrix_loop0_bd {L : Usize} (iter : core.ops.range.Range
 (the 13-bit `from_bytes` read keeps them in `[0, 2^13)`). -/
 theorem gen_matrix_uniformBounded {L : Usize} (seed : Array U8 32#usize) :
     sample.gen_matrix_from_seed L seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L L) => UniformBounded r ⦄ := by
+      ⦃ (r : arithmetic.plain_arith.Matrix L L) => UniformBounded r ⦄ := by
   unfold sample.gen_matrix_from_seed
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono (ntt_gen_matrix_loop0_bd { start := 0#usize, «end» := L } seed _ _ rfl ?_)
   · intro r hr i j c hi hj hc; exact hr i j c hi hj hc
   · intro a b c ha hb hc
@@ -437,7 +437,7 @@ larger `μ` the fixed 320-byte CBD buffer slice is out of range and the computat
 theorem gen_secret_secretBounded {L MU : Usize} (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           SecretBounded r ((MU.val / 2 : ℕ) : ℤ) ⦄ := by
   apply WP.spec_mono (gen_secret_from_seed_bd L MU seed hMU)
   intro r hr i k c hi hk hc
@@ -449,10 +449,10 @@ set_option maxRecDepth 20000
 
 /-- A 10-bit `RingElem.deserialize` has every `u16` coefficient `< 2^10`. -/
 private theorem ntt_ringElem_deser10_raw (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 10#usize
-      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
+      ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ c (_hc : c < 256), (r.val[c]!).val < 2 ^ 10 ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.deserialize
+  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
   step*
@@ -473,19 +473,19 @@ single column with a 10-bit `RingElem.deserialize` (coefficients `< 2^10 < 2^13`
 `< 2^13` bound. -/
 private theorem ntt_matrix_deser10_inner_bd {L : Usize}
     (iter : core.ops.range.Range Usize)
-    (bytes : Slice U8) (result : arithmetic.matrix_arith.Matrix L 1#usize)
+    (bytes : Slice U8) (result : arithmetic.plain_arith.Matrix L 1#usize)
     (chunk_len : Usize) (i : Usize)
     (hchunk : chunk_len.val = 32 * 10)
     (hi : i.val < L.val) (hlen : bytes.length = L.val * (32 * 10))
     (hs0 : iter.start.val = 0) (hend : iter.«end».val = 1)
     (hres : ∀ a (_ha : a < L.val) c (_hc : c < 256),
         (((result.val[a]!).val[0]!).val[c]!).val < 2 ^ 13) :
-    arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0 (X := L) (Y := 1#usize)
+    arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0 (X := L) (Y := 1#usize)
         iter bytes result chunk_len i
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             (((r.val[a]!).val[0]!).val[c]!).val < 2 ^ 13 ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
   have hm : 0 < 32 * 10 := by norm_num
   have hbufmax : L.val * (32 * 10) ≤ Usize.max := hlen ▸ bytes.property
   have hlt : iter.start.val < iter.«end».val := by omega
@@ -528,7 +528,7 @@ private theorem ntt_matrix_deser10_inner_bd {L : Usize}
   let* ⟨ row, index_mut_back, hrow, hback ⟩ ← Array.index_mut_usize_spec result i hib
   have hrowlen : row.val.length = 1 := by have := row.property; scalar_tac
   let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
   let* ⟨ o2, iter2, hnone2, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec iter1
     (show iter1.start.val ≥ iter1.«end».val by rw [hstart', hend']; omega)
   rw [hnone2]; simp only [WP.spec_ok]
@@ -547,19 +547,19 @@ private theorem ntt_matrix_deser10_inner_bd {L : Usize}
 /-- **Outer loop, magnitude version** of `Matrix.deserialize_10` (`Y = 1`). -/
 private theorem ntt_matrix_deser10_outer_bd {L : Usize}
     (iter : core.ops.range.Range Usize)
-    (bytes : Slice U8) (result : arithmetic.matrix_arith.Matrix L 1#usize)
+    (bytes : Slice U8) (result : arithmetic.plain_arith.Matrix L 1#usize)
     (chunk_len : Usize)
     (hchunk : chunk_len.val = 32 * 10)
     (hlen : bytes.length = L.val * (32 * 10))
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val)
     (hres : ∀ a (_ha : a < L.val) c (_hc : c < 256),
         (((result.val[a]!).val[0]!).val[c]!).val < 2 ^ 13) :
-    arithmetic.matrix_arith.Matrix.deserialize_10_loop0 (X := L) (Y := 1#usize)
+    arithmetic.plain_arith.Matrix.deserialize_10_loop0 (X := L) (Y := 1#usize)
         iter bytes result chunk_len
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val) c (_hc : c < 256),
             (((r.val[a]!).val[0]!).val[c]!).val < 2 ^ 13 ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0
+  unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -584,9 +584,9 @@ at every call site) and are needed because the extracted code `massert`s the buf
 performs checked size multiplications. -/
 theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8)
     (hlen : bytes.length = L.val * (32 * 10)) (hfit : L.val * 10 * 256 ≤ Usize.max) :
-    arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize bytes
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10
+    arithmetic.plain_arith.Matrix.deserialize_10 L 1#usize bytes
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
+  unfold arithmetic.plain_arith.Matrix.deserialize_10
   simp only [consts.RING_DEG]
   have hm : 0 < 32 * 10 := by norm_num
   have hbufmax : L.val * (32 * 10) ≤ Usize.max := hlen ▸ bytes.property
@@ -622,10 +622,10 @@ theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8)
     UScalar.eq_of_val_eq (by rw [Slice.len_val, hrvv]; exact hlen)
   rw [show massert (Slice.len bytes = right_val) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
-  have hdef : arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+  have hdef : arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
       = ok (Array.repeat L (Array.repeat 1#usize (Array.repeat 256#usize 0#u16))) := by
-    simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-      arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+    simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+      arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   rw [hdef, bind_tc_ok]
   let* ⟨ i5, hi5 ⟩ ← Std.Usize.mul_spec (show (10#usize).val * (256#usize).val ≤ Usize.max from by
     have h2560 : (10#usize).val * (256#usize).val = 2560 := rfl
@@ -650,7 +650,7 @@ theorem deserialize_10_uniformBounded {L : Usize} (bytes : Slice U8)
 
 /-- `toRingElem`'s coefficient value is the physical `u16` value (local copy of the
 `RoundTop` helper, which this file does not import). -/
-private theorem ntt_toRingElem_coeff_val (re : arithmetic.ring_arith.RingElem)
+private theorem ntt_toRingElem_coeff_val (re : arithmetic.plain_arith.RingElem)
     (k : ℕ) (hk : k < 256) :
     ((toRingElem re)[k]!).val = (re.val[k]!).val := by
   have hb : k < re.val.length := by have := re.property; grind
@@ -663,9 +663,9 @@ private theorem ntt_toRingElem_coeff_val (re : arithmetic.ring_arith.RingElem)
 /-- **Exactness precondition.** A right shift by `Q_BITS - P_BITS = 3` produces `u16`
 coefficients `< 2^13` (a 16-bit value shifted right by 3 is `< 2^13`). -/
 theorem shift_right_uniformBounded {L : Usize}
-    (self : arithmetic.matrix_arith.Matrix L 1#usize) (sh : Usize) (h : sh.val = 3) :
-    arithmetic.matrix_arith.Matrix.shift_right self sh
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
+    (self : arithmetic.plain_arith.Matrix L 1#usize) (sh : Usize) (h : sh.val = 3) :
+    arithmetic.plain_arith.Matrix.shift_right self sh
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => UniformBounded r ⦄ := by
   have hsh : sh.val < 16 := by omega
   apply WP.spec_mono (matrix_shift_right_spec self sh hsh)
   intro r hr i j c hi hj hc

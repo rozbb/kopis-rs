@@ -286,7 +286,7 @@ and `7141` at `q₂`.  That is not a coincidence and it is why `invntt_block`'s 
 those rather than from `(q−1)/2`. -/
 
 open Kopis.CrtZeta in
-unseal backend.crt.INVNTT_SCALE_1 in
+unseal arithmetic.ntt_crt.INVNTT_SCALE_1 in
 /-- **`reduce_block` at `q₁`.** -/
 theorem reduce_block_val_q1 (acc : Array I32 512#usize) (base : Usize)
     (b : Array I16 256#usize) (a0 : ℕ → ZMod 7681)
@@ -296,28 +296,28 @@ theorem reduce_block_val_q1 (acc : Array I32 512#usize) (base : Usize)
     backend.neon.ntt.reduce_block false acc base b
       ⦃ (r : Array I16 256#usize) => BlockBnd r 4741 ∧ ∀ c < 256,
           posZ 7681 r c
-            = (((backend.crt.INVNTT_SCALE_1.val : ℤ) : ZMod 7681) * (900 : ZMod 7681))
+            = (((arithmetic.ntt_crt.INVNTT_SCALE_1.val : ℤ) : ZMod 7681) * (900 : ZMod 7681))
                 * invAllRaw 7681 zeta1 a0 c ⦄ := by
   unfold backend.neon.ntt.reduce_block
-  rw [show backend.crt.q false = ok backend.crt.Q1 from by
-      simp only [backend.crt.q, Bool.false_eq_true, if_false], bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := dup_n_s16_spec backend.crt.Q1
+  rw [show arithmetic.ntt_crt.q false = ok arithmetic.ntt_crt.Q1 from by
+      simp only [arithmetic.ntt_crt.q, Bool.false_eq_true, if_false], bind_tc_ok]
+  obtain ⟨qv, hqv, hqvl⟩ := dup_n_s16_spec arithmetic.ntt_crt.Q1
   rw [hqv, bind_tc_ok,
-    show backend.crt.qinv false = ok backend.crt.Q1_INV from by
-      simp only [backend.crt.qinv, Bool.false_eq_true, if_false], bind_tc_ok]
-  obtain ⟨qiv, hqiv, hqivl⟩ := dup_n_s16_spec backend.crt.Q1_INV
+    show arithmetic.ntt_crt.qinv false = ok arithmetic.ntt_crt.Q1_INV from by
+      simp only [arithmetic.ntt_crt.qinv, Bool.false_eq_true, if_false], bind_tc_ok]
+  obtain ⟨qiv, hqiv, hqivl⟩ := dup_n_s16_spec arithmetic.ntt_crt.Q1_INV
   rw [hqiv, bind_tc_ok]
   have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
     simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
   rw [hvecs, bind_tc_ok]
   have hQ : ∀ j < 8, (lane16 qv j).toInt = ((7681 : ℕ) : ℤ) := by
     intro j hj
-    rw [hqvl j hj, show (backend.crt.Q1 : I16).bv.toInt = backend.crt.Q1.val from rfl, q1_val]
+    rw [hqvl j hj, show (arithmetic.ntt_crt.Q1 : I16).bv.toInt = arithmetic.ntt_crt.Q1.val from rfl, q1_val]
     norm_num
   have hQI : ∀ j < 8, (2 ^ 16 : ℤ) ∣ ((lane16 qiv j).toInt * ((7681 : ℕ) : ℤ) - 1) := by
     intro j hj
-    rw [hqivl j hj, show (backend.crt.Q1_INV : I16).bv.toInt = backend.crt.Q1_INV.val from rfl,
-      show (((7681 : ℕ) : ℤ)) = backend.crt.Q1.val from by rw [q1_val]; norm_num]
+    rw [hqivl j hj, show (arithmetic.ntt_crt.Q1_INV : I16).bv.toInt = arithmetic.ntt_crt.Q1_INV.val from rfl,
+      show (((7681 : ℕ) : ℤ)) = arithmetic.ntt_crt.Q1.val from by rw [q1_val]; norm_num]
     exact q1_inv_unit
   apply WP.spec_bind (reduce_block_loop_walk ⟨0#usize, 32#usize⟩ acc base b qv qiv 7681
     (900 : ZMod 7681) 58982400 4741 (by decide) hQ (by norm_num) (by norm_num) hQI hbase hacc
@@ -329,7 +329,7 @@ theorem reduce_block_val_q1 (acc : Array I32 512#usize) (base : Usize)
   exact fun r hr => hr
 
 open Kopis.CrtZeta in
-unseal backend.crt.INVNTT_SCALE_2 in
+unseal arithmetic.ntt_crt.INVNTT_SCALE_2 in
 /-- **`reduce_block` at `q₂`.** -/
 theorem reduce_block_val_q2 (acc : Array I32 512#usize) (base : Usize)
     (b : Array I16 256#usize) (a0 : ℕ → ZMod 10753)
@@ -339,28 +339,28 @@ theorem reduce_block_val_q2 (acc : Array I32 512#usize) (base : Usize)
     backend.neon.ntt.reduce_block true acc base b
       ⦃ (r : Array I16 256#usize) => BlockBnd r 7141 ∧ ∀ c < 256,
           posZ 10753 r c
-            = (((backend.crt.INVNTT_SCALE_2.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
+            = (((arithmetic.ntt_crt.INVNTT_SCALE_2.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
                 * invAllRaw 10753 zeta2 a0 c ⦄ := by
   unfold backend.neon.ntt.reduce_block
-  rw [show backend.crt.q true = ok backend.crt.Q2 from by
-      simp only [backend.crt.q, if_true], bind_tc_ok]
-  obtain ⟨qv, hqv, hqvl⟩ := dup_n_s16_spec backend.crt.Q2
+  rw [show arithmetic.ntt_crt.q true = ok arithmetic.ntt_crt.Q2 from by
+      simp only [arithmetic.ntt_crt.q, if_true], bind_tc_ok]
+  obtain ⟨qv, hqv, hqvl⟩ := dup_n_s16_spec arithmetic.ntt_crt.Q2
   rw [hqv, bind_tc_ok,
-    show backend.crt.qinv true = ok backend.crt.Q2_INV from by
-      simp only [backend.crt.qinv, if_true], bind_tc_ok]
-  obtain ⟨qiv, hqiv, hqivl⟩ := dup_n_s16_spec backend.crt.Q2_INV
+    show arithmetic.ntt_crt.qinv true = ok arithmetic.ntt_crt.Q2_INV from by
+      simp only [arithmetic.ntt_crt.qinv, if_true], bind_tc_ok]
+  obtain ⟨qiv, hqiv, hqivl⟩ := dup_n_s16_spec arithmetic.ntt_crt.Q2_INV
   rw [hqiv, bind_tc_ok]
   have hvecs : backend.neon.ntt.VECS = ok 32#usize := by
     simp only [backend.neon.ntt.VECS, consts.RING_DEG]; rfl
   rw [hvecs, bind_tc_ok]
   have hQ : ∀ j < 8, (lane16 qv j).toInt = ((10753 : ℕ) : ℤ) := by
     intro j hj
-    rw [hqvl j hj, show (backend.crt.Q2 : I16).bv.toInt = backend.crt.Q2.val from rfl, q2_val]
+    rw [hqvl j hj, show (arithmetic.ntt_crt.Q2 : I16).bv.toInt = arithmetic.ntt_crt.Q2.val from rfl, q2_val]
     norm_num
   have hQI : ∀ j < 8, (2 ^ 16 : ℤ) ∣ ((lane16 qiv j).toInt * ((10753 : ℕ) : ℤ) - 1) := by
     intro j hj
-    rw [hqivl j hj, show (backend.crt.Q2_INV : I16).bv.toInt = backend.crt.Q2_INV.val from rfl,
-      show (((10753 : ℕ) : ℤ)) = backend.crt.Q2.val from by rw [q2_val]; norm_num]
+    rw [hqivl j hj, show (arithmetic.ntt_crt.Q2_INV : I16).bv.toInt = arithmetic.ntt_crt.Q2_INV.val from rfl,
+      show (((10753 : ℕ) : ℤ)) = arithmetic.ntt_crt.Q2.val from by rw [q2_val]; norm_num]
     exact q2_inv_unit
   apply WP.spec_bind (reduce_block_loop_walk ⟨0#usize, 32#usize⟩ acc base b qv qiv 10753
     (1764 : ZMod 10753) 115605504 7141 (by decide) hQ (by norm_num) (by norm_num) hQI hbase hacc
@@ -515,8 +515,8 @@ theorem split_and_transform_walk (SECOND : Bool) (elem : Array U16 256#usize)
     (out : Array I16 512#usize) (base : Usize) (hbase : 8 * base.val + 256 ≤ 512)
     (g : ℕ → ℤ) (q : ℕ) (M A0 : ℤ) (qc mc : I16)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
-    (hqc : backend.crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
-    (hmc : backend.crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
+    (hqc : arithmetic.ntt_crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
+    (hmc : arithmetic.ntt_crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
     (hQpos : 0 < (q : ℤ)) (hQlt : (q : ℤ) < 2 ^ 14) (hQodd : ¬ (2 ∣ (q : ℤ)))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
     (hA0 : 2 * A0 + 1 ≥ (q : ℤ)) (P : Array I16 512#usize → Prop)
@@ -533,8 +533,8 @@ theorem split_and_transform_walk (SECOND : Bool) (elem : Array U16 256#usize)
   rw [hqv, bind_tc_ok, hmc, bind_tc_ok]
   obtain ⟨bm, hbm, hbml⟩ := dup_n_s16_spec mc
   rw [hbm, bind_tc_ok]
-  have hsh : backend.crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
-    simp only [backend.crt.BARRETT_SH]
+  have hsh : arithmetic.ntt_crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]
     rfl
   rw [hsh, bind_tc_ok, round_const, bind_tc_ok]
   obtain ⟨rnd, hrnd, hrndl⟩ := dup_n_s16_spec 1024#i16
@@ -581,10 +581,10 @@ theorem split_and_transform_q1 (elem : Array U16 256#usize) (out : Array I16 512
     (g : ℕ → ℤ) (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
     backend.neon.ntt.split_and_transform false true elem out base
       ⦃ (r : Array I16 512#usize) => HalfOK 7681 3840 zeta1 g base out r ⦄ :=
-  split_and_transform_walk false elem out base hbase g 7681 17474 3840 backend.crt.Q1
-    backend.crt.Q1_BARRETT_M hg
-    (by simp only [backend.crt.q, Bool.false_eq_true, if_false]) (by rw [q1_val]; norm_num)
-    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
+  split_and_transform_walk false elem out base hbase g 7681 17474 3840 arithmetic.ntt_crt.Q1
+    arithmetic.ntt_crt.Q1_BARRETT_M hg
+    (by simp only [arithmetic.ntt_crt.q, Bool.false_eq_true, if_false]) (by rw [q1_val]; norm_num)
+    (by simp only [arithmetic.ntt_crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) _ (fun bb hb hrest hv => by
       apply WP.spec_mono (ntt_block_State_q1 bb base _
@@ -606,10 +606,10 @@ theorem split_and_transform_q2 (elem : Array U16 256#usize) (out : Array I16 512
     (g : ℕ → ℤ) (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
     backend.neon.ntt.split_and_transform true true elem out base
       ⦃ (r : Array I16 512#usize) => HalfOK 10753 5376 zeta2 g base out r ⦄ :=
-  split_and_transform_walk true elem out base hbase g 10753 12482 5376 backend.crt.Q2
-    backend.crt.Q2_BARRETT_M hg
-    (by simp only [backend.crt.q, if_true]) (by rw [q2_val]; norm_num)
-    (by simp only [backend.crt.barrett_m, if_true]) q2_m_val
+  split_and_transform_walk true elem out base hbase g 10753 12482 5376 arithmetic.ntt_crt.Q2
+    arithmetic.ntt_crt.Q2_BARRETT_M hg
+    (by simp only [arithmetic.ntt_crt.q, if_true]) (by rw [q2_val]; norm_num)
+    (by simp only [arithmetic.ntt_crt.barrett_m, if_true]) q2_m_val
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) _ (fun bb hb hrest hv => by
       apply WP.spec_mono (ntt_block_State_q2 bb base _
@@ -696,7 +696,7 @@ theorem split_and_transform_nored_walk (SECOND : Bool) (elem : Array U16 256#usi
     (out : Array I16 512#usize) (base : Usize) (hbase : 8 * base.val + 256 ≤ 512)
     (g : ℕ → ℤ) (q : ℕ) (A0 : ℤ) (qc mc : I16)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) (hgb : ∀ c < 256, |g c| ≤ A0)
-    (hqc : backend.crt.q SECOND = ok qc) (hmc : backend.crt.barrett_m SECOND = ok mc)
+    (hqc : arithmetic.ntt_crt.q SECOND = ok qc) (hmc : arithmetic.ntt_crt.barrett_m SECOND = ok mc)
     (P : Array I16 512#usize → Prop)
     (hnext : ∀ (bb : Array I16 512#usize),
       (∀ p < 512, fromVec base.val 0 p → |(bb.val[p]!).val| ≤ A0) →
@@ -711,8 +711,8 @@ theorem split_and_transform_nored_walk (SECOND : Bool) (elem : Array U16 256#usi
   rw [hqv, bind_tc_ok, hmc, bind_tc_ok]
   obtain ⟨bm, hbm, hbml⟩ := dup_n_s16_spec mc
   rw [hbm, bind_tc_ok]
-  have hsh : backend.crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
-    simp only [backend.crt.BARRETT_SH]
+  have hsh : arithmetic.ntt_crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]
     rfl
   rw [hsh, bind_tc_ok, round_const, bind_tc_ok]
   obtain ⟨rnd, hrnd, hrndl⟩ := dup_n_s16_spec 1024#i16
@@ -748,10 +748,10 @@ theorem split_and_transform_nored_q1 (elem : Array U16 256#usize) (out : Array I
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) (hgb : ∀ c < 256, |g c| ≤ 3840) :
     backend.neon.ntt.split_and_transform false false elem out base
       ⦃ (r : Array I16 512#usize) => HalfOK 7681 3840 zeta1 g base out r ⦄ :=
-  split_and_transform_nored_walk false elem out base hbase g 7681 3840 backend.crt.Q1
-    backend.crt.Q1_BARRETT_M hg hgb
-    (by simp only [backend.crt.q, Bool.false_eq_true, if_false])
-    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) _
+  split_and_transform_nored_walk false elem out base hbase g 7681 3840 arithmetic.ntt_crt.Q1
+    arithmetic.ntt_crt.Q1_BARRETT_M hg hgb
+    (by simp only [arithmetic.ntt_crt.q, Bool.false_eq_true, if_false])
+    (by simp only [arithmetic.ntt_crt.barrett_m, Bool.false_eq_true, if_false]) _
     (fun bb hb hrest hv => by
       apply WP.spec_mono (ntt_block_State_q1 bb base _
         (show 8 * base.val + 256 ≤ (512#usize : Usize).val from hbase)
@@ -772,10 +772,10 @@ theorem split_and_transform_nored_q2 (elem : Array U16 256#usize) (out : Array I
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) (hgb : ∀ c < 256, |g c| ≤ 5376) :
     backend.neon.ntt.split_and_transform true false elem out base
       ⦃ (r : Array I16 512#usize) => HalfOK 10753 5376 zeta2 g base out r ⦄ :=
-  split_and_transform_nored_walk true elem out base hbase g 10753 5376 backend.crt.Q2
-    backend.crt.Q2_BARRETT_M hg hgb
-    (by simp only [backend.crt.q, if_true])
-    (by simp only [backend.crt.barrett_m, if_true]) _
+  split_and_transform_nored_walk true elem out base hbase g 10753 5376 arithmetic.ntt_crt.Q2
+    arithmetic.ntt_crt.Q2_BARRETT_M hg hgb
+    (by simp only [arithmetic.ntt_crt.q, if_true])
+    (by simp only [arithmetic.ntt_crt.barrett_m, if_true]) _
     (fun bb hb hrest hv => by
       apply WP.spec_mono (ntt_block_State_q2 bb base _
         (show 8 * base.val + 256 ≤ (512#usize : Usize).val from hbase)
@@ -1664,16 +1664,16 @@ decreasing_by scalar_decr_tac
 
 Two `reduce_block` calls, the eight broadcast constants, and the Garner loop. -/
 
-unseal backend.crt.CRT_Q backend.crt.CRT_Q_HALF backend.crt.CRT_Q1_INV_MONT
-  backend.crt.Q1 backend.crt.Q2 backend.crt.Q2_INV in
+unseal arithmetic.ntt_crt.CRT_Q arithmetic.ntt_crt.CRT_Q_HALF arithmetic.ntt_crt.CRT_Q1_INV_MONT
+  arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_INV in
 theorem crt_consts :
-    backend.crt.CRT_Q.val = 82593793 ∧ backend.crt.CRT_Q_HALF.val = 41296896 ∧
-    backend.crt.CRT_Q1_INV_MONT.val = 3563 ∧
-    (2 ^ 16 : ℤ) ∣ (backend.crt.Q2_INV.val * 10753 - 1) := by
+    arithmetic.ntt_crt.CRT_Q.val = 82593793 ∧ arithmetic.ntt_crt.CRT_Q_HALF.val = 41296896 ∧
+    arithmetic.ntt_crt.CRT_Q1_INV_MONT.val = 3563 ∧
+    (2 ^ 16 : ℤ) ∣ (arithmetic.ntt_crt.Q2_INV.val * 10753 - 1) := by
   refine ⟨by decide, by decide, by decide, by decide⟩
 
-unseal backend.crt.Q1 in
-theorem q1_cast_val : (IScalar.cast .I32 backend.crt.Q1).val = 7681 := by decide
+unseal arithmetic.ntt_crt.Q1 in
+theorem q1_cast_val : (IScalar.cast .I32 arithmetic.ntt_crt.Q1).val = 7681 := by decide
 
 private theorem usize_two_mul_32 : (2#usize : Usize) * 32#usize = ok 64#usize := by
   obtain ⟨v, hv, hvv⟩ := WP.spec_imp_exists
@@ -1694,10 +1694,10 @@ theorem reduce_invntt_walk (acc : Array I32 512#usize) (X : ℕ → ℤ)
     (ha02 : ∀ c < 256, a02 c
       = (1764 : ZMod 10753) * accZ32 10753 acc (4 * (64#usize : Usize).val + c))
     (hres1 : ∀ c < 256, ((X c : ℤ) : ZMod 7681)
-      = (((backend.crt.INVNTT_SCALE_1.val : ℤ) : ZMod 7681) * (900 : ZMod 7681))
+      = (((arithmetic.ntt_crt.INVNTT_SCALE_1.val : ℤ) : ZMod 7681) * (900 : ZMod 7681))
           * invAllRaw 7681 zeta1 a01 c)
     (hres2 : ∀ c < 256, ((X c : ℤ) : ZMod 10753)
-      = (((backend.crt.INVNTT_SCALE_2.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
+      = (((arithmetic.ntt_crt.INVNTT_SCALE_2.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
           * invAllRaw 10753 zeta2 a02 c) :
     backend.neon.ntt.reduce_invntt acc
       ⦃ (r : Array U16 256#usize) => ∀ c < 256, ((r.val[c]!).val : ℤ) = X c % 2 ^ 16 ⦄ := by
@@ -1711,21 +1711,21 @@ theorem reduce_invntt_walk (acc : Array I32 512#usize) (X : ℕ → ℤ)
     usize_two_mul_32, bind_tc_ok]
   apply WP.spec_bind (reduce_block_val_q2 acc 64#usize _ a02 (by scalar_tac) hacc2 ha02)
   rintro v21 ⟨hb2, hv2⟩
-  obtain ⟨q1v, hq1v, hq1vl⟩ := dup_n_s16_spec backend.crt.Q1
+  obtain ⟨q1v, hq1v, hq1vl⟩ := dup_n_s16_spec arithmetic.ntt_crt.Q1
   rw [hq1v, bind_tc_ok]
-  obtain ⟨q2v, hq2v, hq2vl⟩ := dup_n_s16_spec backend.crt.Q2
+  obtain ⟨q2v, hq2v, hq2vl⟩ := dup_n_s16_spec arithmetic.ntt_crt.Q2
   rw [hq2v, bind_tc_ok]
-  obtain ⟨qim, hqimE, hqiml⟩ := dup_n_s16_spec backend.crt.CRT_Q1_INV_MONT
+  obtain ⟨qim, hqimE, hqiml⟩ := dup_n_s16_spec arithmetic.ntt_crt.CRT_Q1_INV_MONT
   rw [hqimE, bind_tc_ok]
   simp only [lift, bind_tc_ok]
   obtain ⟨qimq, hqimqE, hqimql⟩ := dup_n_s16_spec
-    (core.num.I16.wrapping_mul backend.crt.CRT_Q1_INV_MONT backend.crt.Q2_INV)
+    (core.num.I16.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT arithmetic.ntt_crt.Q2_INV)
   rw [hqimqE, bind_tc_ok]
-  obtain ⟨q1w, hq1wE, hq1wl⟩ := dup_n_s32_spec (IScalar.cast .I32 backend.crt.Q1)
+  obtain ⟨q1w, hq1wE, hq1wl⟩ := dup_n_s32_spec (IScalar.cast .I32 arithmetic.ntt_crt.Q1)
   rw [hq1wE, bind_tc_ok]
-  obtain ⟨crtq, hcrtqE, hcrtql⟩ := dup_n_s32_spec backend.crt.CRT_Q
+  obtain ⟨crtq, hcrtqE, hcrtql⟩ := dup_n_s32_spec arithmetic.ntt_crt.CRT_Q
   rw [hcrtqE, bind_tc_ok]
-  obtain ⟨crtqh, hcrtqhE, hcrtqhl⟩ := dup_n_s32_spec backend.crt.CRT_Q_HALF
+  obtain ⟨crtqh, hcrtqhE, hcrtqhl⟩ := dup_n_s32_spec arithmetic.ntt_crt.CRT_Q_HALF
   rw [hcrtqhE, bind_tc_ok]
   apply reduce_invntt_loop_walk ⟨0#usize, 32#usize⟩ v11 v21 q1v q2v qim qimq q1w crtq crtqh
     _ X
@@ -1734,10 +1734,10 @@ theorem reduce_invntt_walk (acc : Array I32 512#usize) (X : ℕ → ℤ)
     (fun j hj => by rw [hqiml j hj]; exact hqimv)
     (fun j hj => by
       rw [hqiml j hj, hqimql j hj]
-      have h1 : ((core.num.I16.wrapping_mul backend.crt.CRT_Q1_INV_MONT
-          backend.crt.Q2_INV).bv).toInt
-          = tblZq backend.crt.CRT_Q1_INV_MONT.val backend.crt.Q2_INV.val := by
-        show ((backend.crt.CRT_Q1_INV_MONT.bv * backend.crt.Q2_INV.bv : BitVec 16)).toInt = _
+      have h1 : ((core.num.I16.wrapping_mul arithmetic.ntt_crt.CRT_Q1_INV_MONT
+          arithmetic.ntt_crt.Q2_INV).bv).toInt
+          = tblZq arithmetic.ntt_crt.CRT_Q1_INV_MONT.val arithmetic.ntt_crt.Q2_INV.val := by
+        show ((arithmetic.ntt_crt.CRT_Q1_INV_MONT.bv * arithmetic.ntt_crt.Q2_INV.bv : BitVec 16)).toInt = _
         rw [BitVec.toInt_mul]
         rfl
       rw [h1]
@@ -1824,14 +1824,14 @@ theorem acc_State_q2 (N : ℕ) (acc : Array I32 512#usize) (nu nv : ℕ → Arra
 
 `invntt_block` carries `256·σ = R` out and the reduction's `R⁻¹` undoes it. -/
 
-unseal backend.crt.INVNTT_SCALE_1 in
+unseal arithmetic.ntt_crt.INVNTT_SCALE_1 in
 theorem cancel_q1 :
-    (((backend.crt.INVNTT_SCALE_1.val : ℤ) : ZMod 7681) * (900 : ZMod 7681))
+    (((arithmetic.ntt_crt.INVNTT_SCALE_1.val : ℤ) : ZMod 7681) * (900 : ZMod 7681))
       * (2 ^ 8 * (900 : ZMod 7681)) = 1 := by decide
 
-unseal backend.crt.INVNTT_SCALE_2 in
+unseal arithmetic.ntt_crt.INVNTT_SCALE_2 in
 theorem cancel_q2 :
-    (((backend.crt.INVNTT_SCALE_2.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
+    (((arithmetic.ntt_crt.INVNTT_SCALE_2.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753))
       * (2 ^ 8 * (1764 : ZMod 10753)) = 1 := by decide
 
 /-! ## The NEON NTT entry point
@@ -1934,10 +1934,10 @@ theorem reduce_invntt_to_ring_elem_neon (N : ℕ) (hN : N ≤ 4)
     (hH2 : ∀ c < 256, ((H c : ℤ) : ZMod 10753)
       = ∑ jj ∈ Finset.range N, nconv (fun n => ((gu jj n : ℤ) : ZMod 10753))
           (fun n => ((gv jj n : ℤ) : ZMod 10753)) c) :
-    arithmetic.ntt.reduce_invntt_to_ring_elem acc
-      ⦃ (r : arithmetic.ring_arith.RingElem) =>
+    arithmetic.ntt_arith.reduce_invntt_to_ring_elem acc
+      ⦃ (r : arithmetic.plain_arith.RingElem) =>
           ∀ n, n < 256 → ((r.val[n]!).val : ℤ) % 65536 = H n % 65536 ⦄ := by
-  unfold arithmetic.ntt.reduce_invntt_to_ring_elem
+  unfold arithmetic.ntt_arith.reduce_invntt_to_ring_elem
   rw [show backend.neon.cpu.available = ok true from rfl, bind_tc_ok, if_pos rfl]
   apply WP.spec_bind (ntt_entry_neon N hN acc nu nv gu gv hnu hnv hacc H hHb hH1 hH2)
   intro r hr
@@ -1946,11 +1946,11 @@ theorem reduce_invntt_to_ring_elem_neon (N : ℕ) (hN : N ≤ 4)
   rw [hr n hn, Int.emod_emod_of_dvd _ (by norm_num)]
 
 /-- **The `NttElem::from_uniform` dispatch**, on top of `from_uniform_NttOK`. -/
-theorem elem_from_uniform_NttOK (elem : arithmetic.ring_arith.RingElem) (g : ℕ → ℤ)
+theorem elem_from_uniform_NttOK (elem : arithmetic.plain_arith.RingElem) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c) :
-    arithmetic.ntt.NttElem.from_uniform elem
-      ⦃ (r : arithmetic.ntt.NttElem) => NttOK g r ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_uniform
+    arithmetic.ntt_arith.NttElem.from_uniform elem
+      ⦃ (r : arithmetic.ntt_arith.NttElem) => NttOK g r ⦄ := by
+  unfold arithmetic.ntt_arith.NttElem.from_uniform
   rw [show backend.neon.cpu.available = ok true from rfl, bind_tc_ok, if_pos rfl]
   apply WP.spec_bind (from_uniform_NttOK elem g hg)
   intro r hr
@@ -1959,12 +1959,12 @@ theorem elem_from_uniform_NttOK (elem : arithmetic.ring_arith.RingElem) (g : ℕ
 
 /-- **The `NttElem::from_secret` dispatch.**  The two per-prime bounds the twin has are stronger
 than the single `|g| ≤ 3840` the NEON sampler needs. -/
-theorem elem_from_secret_NttOK (elem : arithmetic.ring_arith.RingElem) (g : ℕ → ℤ)
+theorem elem_from_secret_NttOK (elem : arithmetic.plain_arith.RingElem) (g : ℕ → ℤ)
     (hg : ∀ c < 256, (elem.val[c]!).bv.toInt = g c)
     (hs1 : ∀ c < 256, 2 * |g c| < 7681) (_hs2 : ∀ c < 256, 2 * |g c| < 10753) :
-    arithmetic.ntt.NttElem.from_secret elem
-      ⦃ (r : arithmetic.ntt.NttElem) => NttOK g r ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_secret
+    arithmetic.ntt_arith.NttElem.from_secret elem
+      ⦃ (r : arithmetic.ntt_arith.NttElem) => NttOK g r ⦄ := by
+  unfold arithmetic.ntt_arith.NttElem.from_secret
   rw [show backend.neon.cpu.available = ok true from rfl, bind_tc_ok, if_pos rfl]
   apply WP.spec_bind
     (from_secret_NttOK elem g hg (fun c hc => by have := hs1 c hc; omega))

@@ -27,42 +27,42 @@ set_option maxHeartbeats 1000000
 /-! ## The two primes, concretely -/
 
 /-- `q₁ = 7681`. -/
-theorem crt_q_false : backend.crt.q false = ok backend.crt.Q1 := by
-  unfold backend.crt.q; simp
+theorem crt_q_false : arithmetic.ntt_crt.q false = ok arithmetic.ntt_crt.Q1 := by
+  unfold arithmetic.ntt_crt.q; simp
 
 /-- `q₂ = 10753`. -/
-theorem crt_q_true : backend.crt.q true = ok backend.crt.Q2 := by
-  unfold backend.crt.q; simp
+theorem crt_q_true : arithmetic.ntt_crt.q true = ok arithmetic.ntt_crt.Q2 := by
+  unfold arithmetic.ntt_crt.q; simp
 
-theorem crt_m_false : backend.crt.barrett_m false = ok backend.crt.Q1_BARRETT_M := by
-  unfold backend.crt.barrett_m; simp
+theorem crt_m_false : arithmetic.ntt_crt.barrett_m false = ok arithmetic.ntt_crt.Q1_BARRETT_M := by
+  unfold arithmetic.ntt_crt.barrett_m; simp
 
-theorem crt_m_true : backend.crt.barrett_m true = ok backend.crt.Q2_BARRETT_M := by
-  unfold backend.crt.barrett_m; simp
+theorem crt_m_true : arithmetic.ntt_crt.barrett_m true = ok arithmetic.ntt_crt.Q2_BARRETT_M := by
+  unfold arithmetic.ntt_crt.barrett_m; simp
 
-theorem crt_qinv_false : backend.crt.qinv false = ok backend.crt.Q1_INV := by
-  unfold backend.crt.qinv; simp
+theorem crt_qinv_false : arithmetic.ntt_crt.qinv false = ok arithmetic.ntt_crt.Q1_INV := by
+  unfold arithmetic.ntt_crt.qinv; simp
 
-theorem crt_qinv_true : backend.crt.qinv true = ok backend.crt.Q2_INV := by
-  unfold backend.crt.qinv; simp
+theorem crt_qinv_true : arithmetic.ntt_crt.qinv true = ok arithmetic.ntt_crt.Q2_INV := by
+  unfold arithmetic.ntt_crt.qinv; simp
 
-theorem crt_scale_false : backend.crt.invntt_scale false = ok backend.crt.INVNTT_SCALE_1 := by
-  unfold backend.crt.invntt_scale; simp
+theorem crt_scale_false : arithmetic.ntt_crt.invntt_scale false = ok arithmetic.ntt_crt.INVNTT_SCALE_1 := by
+  unfold arithmetic.ntt_crt.invntt_scale; simp
 
-theorem crt_scale_true : backend.crt.invntt_scale true = ok backend.crt.INVNTT_SCALE_2 := by
-  unfold backend.crt.invntt_scale; simp
+theorem crt_scale_true : arithmetic.ntt_crt.invntt_scale true = ok arithmetic.ntt_crt.INVNTT_SCALE_2 := by
+  unfold arithmetic.ntt_crt.invntt_scale; simp
 
-unseal backend.crt.Q1_BARRETT_M in
-theorem m1_val : backend.crt.Q1_BARRETT_M.val = 17474 := by decide
+unseal arithmetic.ntt_crt.Q1_BARRETT_M in
+theorem m1_val : arithmetic.ntt_crt.Q1_BARRETT_M.val = 17474 := by decide
 
-unseal backend.crt.Q2_BARRETT_M in
-theorem m2_val : backend.crt.Q2_BARRETT_M.val = 12482 := by decide
+unseal arithmetic.ntt_crt.Q2_BARRETT_M in
+theorem m2_val : arithmetic.ntt_crt.Q2_BARRETT_M.val = 12482 := by decide
 
-unseal backend.crt.INVNTT_SCALE_1 in
-theorem scale1_val : backend.crt.INVNTT_SCALE_1.val = 1912 := by decide
+unseal arithmetic.ntt_crt.INVNTT_SCALE_1 in
+theorem scale1_val : arithmetic.ntt_crt.INVNTT_SCALE_1.val = 1912 := by decide
 
-unseal backend.crt.INVNTT_SCALE_2 in
-theorem scale2_val : backend.crt.INVNTT_SCALE_2.val = 2536 := by decide
+unseal arithmetic.ntt_crt.INVNTT_SCALE_2 in
+theorem scale2_val : arithmetic.ntt_crt.INVNTT_SCALE_2.val = 2536 := by decide
 
 /-- `2¹⁶ · 900 ≡ 1 (mod q₁)`: the plain twiddle really is the stored entry over the radix. -/
 theorem rinv1 : (2 ^ 16 : ZMod 7681) * (900 : ZMod 7681) = 1 := by decide
@@ -183,7 +183,7 @@ magnitude bound assumes. -/
 theorem split_and_transform_spec {q : ℕ} (SECOND REDUCE : Bool)
     (elem : Array U16 256#usize) (b : Array I16 256#usize) (qv m : I16)
     (Q Zb M B0 Bt : ℤ) (Rinv : ZMod q) (ζ : ℕ → ZMod q)
-    (hqSel : backend.crt.q SECOND = ok qv) (hmSel : backend.crt.barrett_m SECOND = ok m)
+    (hqSel : arithmetic.ntt_crt.q SECOND = ok qv) (hmSel : arithmetic.ntt_crt.barrett_m SECOND = ok m)
     (hQq : (q : ℤ) = Q) (hqv : qv.val = Q) (hm : m.val = M)
     (hQpos : 0 < Q) (hQlt14 : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q))
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)
@@ -239,7 +239,7 @@ theorem from_ring_elem_spec (REDUCE : Bool) (elem : Array U16 256#usize)
   unfold arithmetic.ntt_crt.from_ring_elem
   -- the `q₁` block
   apply WP.spec_bind (split_and_transform_spec (q := 7681) false REDUCE elem _
-    backend.crt.Q1 backend.crt.Q1_BARRETT_M 7681 3840 17474 3840 4650 (900 : ZMod 7681) zeta1
+    arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_BARRETT_M 7681 3840 17474 3840 4650 (900 : ZMod 7681) zeta1
     crt_q_false crt_m_false (by norm_num) q1_val m1_val (by norm_num) (by norm_num) (by decide)
     (by norm_num) (by norm_num) (by norm_num) rinv1 zetaOK_q1 (by norm_num) zeta1_sq
     (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
@@ -249,7 +249,7 @@ theorem from_ring_elem_spec (REDUCE : Bool) (elem : Array U16 256#usize)
   step*
   -- the `q₂` block, written over the scratch buffer the first one used
   apply WP.spec_bind (split_and_transform_spec (q := 10753) true REDUCE elem b1
-    backend.crt.Q2 backend.crt.Q2_BARRETT_M 10753 5376 12482 5376 7000 (1764 : ZMod 10753) zeta2
+    arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_BARRETT_M 10753 5376 12482 5376 7000 (1764 : ZMod 10753) zeta2
     crt_q_true crt_m_true (by norm_num) q2_val m2_val (by norm_num) (by norm_num) (by decide)
     (by norm_num) (by norm_num) (by norm_num) rinv2 zetaOK_q2 (by norm_num) zeta2_sq
     (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
@@ -307,11 +307,11 @@ theorem NttOK_congr {g g' : ℕ → ℤ} {ne : Array I16 512#usize}
 
 /-- `from_uniform`, with no condition on the input: the coefficient function it transforms is the
 *signed* reading of the stored `u16`s. -/
-theorem from_uniform_NttOK_signed (elem : arithmetic.ring_arith.RingElem) :
-    arithmetic.ntt.NttElem.from_uniform elem
+theorem from_uniform_NttOK_signed (elem : arithmetic.plain_arith.RingElem) :
+    arithmetic.ntt_arith.NttElem.from_uniform elem
       ⦃ (r : Array I16 512#usize) =>
           NttOK (fun c => signedOfU16 (elem.val[c]!)) r ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_uniform arithmetic.ntt_crt.from_uniform
+  unfold arithmetic.ntt_arith.NttElem.from_uniform arithmetic.ntt_crt.from_uniform
   apply WP.spec_bind (from_ring_elem_spec true elem (by simp))
   intro r hr
   simp only [WP.spec_ok]
@@ -322,12 +322,12 @@ theorem signedOfU16_of_small {v : U16} (h : (v.val : ℤ) < 32768) :
     signedOfU16 v = (v.val : ℤ) := by
   unfold signedOfU16; rw [if_pos h]
 
-theorem from_secret_NttOK (elem : arithmetic.ring_arith.RingElem)
+theorem from_secret_NttOK (elem : arithmetic.plain_arith.RingElem)
     (hs : ∀ c, c < 256 → |signedOfU16 (elem.val[c]!)| ≤ 3840) :
-    arithmetic.ntt.NttElem.from_secret elem
+    arithmetic.ntt_arith.NttElem.from_secret elem
       ⦃ (r : Array I16 512#usize) =>
           NttOK (fun c => signedOfU16 (elem.val[c]!)) r ⦄ := by
-  unfold arithmetic.ntt.NttElem.from_secret arithmetic.ntt_crt.from_secret
+  unfold arithmetic.ntt_arith.NttElem.from_secret arithmetic.ntt_crt.from_secret
   apply WP.spec_bind (from_ring_elem_spec false elem (fun _ => hs))
   intro r hr
   simp only [WP.spec_ok]

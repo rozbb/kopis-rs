@@ -47,14 +47,14 @@ theorem shift_right_loop0_loop0_spec
       (_him : im.slice.length = orig_slice.length)
       (j : Nat) (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
         (back im).slice.val[j]! = im.slice.val[j]!) :
-    arithmetic.matrix_arith.Matrix.shift_right_loop0_loop0 iter back shift
+    arithmetic.plain_arith.Matrix.shift_right_loop0_loop0 iter back shift
       ⦃ (p : core.slice.iter.IterMut RingElem ×
               (core.slice.iter.IterMut RingElem → core.slice.iter.IterMut RingElem)) =>
           (p.2 p.1).slice.length = orig_slice.length ∧
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               toRingElem ((p.2 p.1).slice.val[j]!)
                 = Spec.Kopis.Polynomial.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.shift_right_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.shift_right_loop0_loop0
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
     obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
@@ -125,31 +125,31 @@ theorem shift_right_loop0_loop0_spec
 /-- **Outer loop** of `Matrix.shift_right`: shift every `RingElem` of every row in
 `[iter.i, X)`.  Per-row body = `shift_right_loop0_loop0`. -/
 theorem shift_right_loop0_spec {Y : Usize}
-    (iter : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
-    (back : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y) →
-            core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
+    (iter : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+    (back : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y) →
+            core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
     (shift : Usize) (hshift : shift.val < 16)
-    (orig_slice : Slice (Array arithmetic.ring_arith.RingElem Y))
+    (orig_slice : Slice (Array arithmetic.plain_arith.RingElem Y))
     (h_slice : iter.slice = orig_slice)
     (h_iter_i : iter.i ≤ orig_slice.length)
-    (hback_len : ∀ (im : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y)),
+    (hback_len : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y)),
       im.slice.length = orig_slice.length → (back im).slice.length = orig_slice.length)
-    (hback_writes : ∀ (im : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
+    (hback_writes : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
       (_him : im.slice.length = orig_slice.length)
       (i : Nat) (_hi : i < iter.i) (j : Nat) (_hj : j < Y.val),
         toRingElem (((back im).slice.val[i]!).val[j]!)
           = Spec.Kopis.Polynomial.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val)
-    (hback_rest : ∀ (im : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
+    (hback_rest : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
       (_him : im.slice.length = orig_slice.length)
       (i : Nat) (_hi_ge : iter.i ≤ i) (_hi_lt : i < orig_slice.length),
         (back im).slice.val[i]! = im.slice.val[i]!) :
-    arithmetic.matrix_arith.Matrix.shift_right_loop0 iter back shift
-      ⦃ (r : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y)) =>
+    arithmetic.plain_arith.Matrix.shift_right_loop0 iter back shift
+      ⦃ (r : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y)) =>
           r.slice.length = orig_slice.length ∧
             ∀ (i : Nat) (_hi : i < orig_slice.length) (j : Nat) (_hj : j < Y.val),
               toRingElem (((r.slice.val[i]!).val[j]!))
                 = Spec.Kopis.Polynomial.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.shift_right_loop0
+  unfold arithmetic.plain_arith.Matrix.shift_right_loop0
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
     obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
@@ -243,13 +243,13 @@ theorem shift_right_loop0_spec {Y : Usize}
 /-- **Correctness of `Matrix::shift_right`** (for `shift < 16`), entrywise at the
 physical `2¹⁶` abstraction: every `RingElem` entry is right-shifted. -/
 theorem matrix_shift_right_spec {X Y : Usize}
-    (self : arithmetic.matrix_arith.Matrix X Y) (shift : Usize) (hshift : shift.val < 16) :
-    arithmetic.matrix_arith.Matrix.shift_right self shift
-      ⦃ (r : arithmetic.matrix_arith.Matrix X Y) =>
+    (self : arithmetic.plain_arith.Matrix X Y) (shift : Usize) (hshift : shift.val < 16) :
+    arithmetic.plain_arith.Matrix.shift_right self shift
+      ⦃ (r : arithmetic.plain_arith.Matrix X Y) =>
           ∀ (i : Nat) (_hi : i < X.val) (j : Nat) (_hj : j < Y.val),
             toRingElem ((r.val[i]!).val[j]!)
               = Spec.Kopis.Polynomial.shiftRight (toRingElem ((self.val[i]!).val[j]!)) shift.val ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.shift_right
+  unfold arithmetic.plain_arith.Matrix.shift_right
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   let* ⟨ r_iter, hr_len, hr_writes ⟩ ←
@@ -296,13 +296,13 @@ theorem wrapping_add_to_all_loop0_loop0_spec
       (_him : im.slice.length = orig_slice.length)
       (j : Nat) (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
         (back im).slice.val[j]! = im.slice.val[j]!) :
-    arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0_loop0 iter back val
+    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0 iter back val
       ⦃ (p : core.slice.iter.IterMut RingElem ×
               (core.slice.iter.IterMut RingElem → core.slice.iter.IterMut RingElem)) =>
           (p.2 p.1).slice.length = orig_slice.length ∧
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               toRingElem ((p.2 p.1).slice.val[j]!) = addC val (toRingElem (orig_slice.val[j]!)) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
     obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
@@ -370,29 +370,29 @@ theorem wrapping_add_to_all_loop0_loop0_spec
 
 /-- Outer loop of `Matrix.wrapping_add_to_all`. -/
 theorem wrapping_add_to_all_loop0_spec {Y : Usize}
-    (iter : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
-    (back : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y) →
-            core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
+    (iter : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
+    (back : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y) →
+            core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
     (val : U16)
-    (orig_slice : Slice (Array arithmetic.ring_arith.RingElem Y))
+    (orig_slice : Slice (Array arithmetic.plain_arith.RingElem Y))
     (h_slice : iter.slice = orig_slice)
     (h_iter_i : iter.i ≤ orig_slice.length)
-    (hback_len : ∀ (im : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y)),
+    (hback_len : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y)),
       im.slice.length = orig_slice.length → (back im).slice.length = orig_slice.length)
-    (hback_writes : ∀ (im : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
+    (hback_writes : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
       (_him : im.slice.length = orig_slice.length)
       (i : Nat) (_hi : i < iter.i) (j : Nat) (_hj : j < Y.val),
         toRingElem (((back im).slice.val[i]!).val[j]!) = addC val (toRingElem ((orig_slice.val[i]!).val[j]!)))
-    (hback_rest : ∀ (im : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y))
+    (hback_rest : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
       (_him : im.slice.length = orig_slice.length)
       (i : Nat) (_hi_ge : iter.i ≤ i) (_hi_lt : i < orig_slice.length),
         (back im).slice.val[i]! = im.slice.val[i]!) :
-    arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0 iter back val
-      ⦃ (r : core.slice.iter.IterMut (Array arithmetic.ring_arith.RingElem Y)) =>
+    arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0 iter back val
+      ⦃ (r : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y)) =>
           r.slice.length = orig_slice.length ∧
             ∀ (i : Nat) (_hi : i < orig_slice.length) (j : Nat) (_hj : j < Y.val),
               toRingElem (((r.slice.val[i]!).val[j]!)) = addC val (toRingElem ((orig_slice.val[i]!).val[j]!)) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.wrapping_add_to_all_loop0
+  unfold arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
     obtain ⟨ho, hit2_slice, hit2_i, _, hsome_set⟩ := h_all
@@ -482,12 +482,12 @@ theorem wrapping_add_to_all_loop0_spec {Y : Usize}
 /-- **Correctness of `Matrix::wrapping_add_to_all`**, entrywise at `2¹⁶`: adds the
 constant `val` to every coefficient of every entry. -/
 theorem matrix_wrapping_add_to_all_spec {X Y : Usize}
-    (self : arithmetic.matrix_arith.Matrix X Y) (val : U16) :
-    arithmetic.matrix_arith.Matrix.wrapping_add_to_all self val
-      ⦃ (r : arithmetic.matrix_arith.Matrix X Y) =>
+    (self : arithmetic.plain_arith.Matrix X Y) (val : U16) :
+    arithmetic.plain_arith.Matrix.wrapping_add_to_all self val
+      ⦃ (r : arithmetic.plain_arith.Matrix X Y) =>
           ∀ (i : Nat) (_hi : i < X.val) (j : Nat) (_hj : j < Y.val),
             toRingElem ((r.val[i]!).val[j]!) = addC val (toRingElem ((self.val[i]!).val[j]!)) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.wrapping_add_to_all
+  unfold arithmetic.plain_arith.Matrix.wrapping_add_to_all
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
   let* ⟨ r_iter, hr_len, hr_writes ⟩ ←

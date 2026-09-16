@@ -28,7 +28,7 @@ namespace Kopis.Neon.Properties
 
 open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 4000
@@ -298,7 +298,7 @@ theorem deserialize_10_spec (bytes : Slice U8) (arr : Array U8 320#usize)
 /-- **Correctness of `RingElem::deserialize` at 10 bits.**  Decoding a 320-byte
 buffer yields the spec ring element `deserialize 10`. -/
 theorem ringElem_deserialize_10_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
       ⦃ (r : RingElem) => toPolyN 10 r = Spec.Kopis.deserialize 10 (sliceToBytes bytes (32 * 10) hlen) ⦄ := by
   have hlen320 : bytes.length = 320 := by omega
   -- dispatch at width 10, proved in `Kopis/Neon/SerDispatch.lean`
@@ -343,19 +343,19 @@ the single column `j ∈ [start, 1)`.  On `start = 0` it deserializes the `i`-th
 `320`-byte block into `result[i][0]`; otherwise it leaves the matrix untouched. -/
 theorem matrix_deserialize_10_inner_spec {L : Usize}
     (iter : core.ops.range.Range Usize)
-    (bytes : Slice U8) (result : arithmetic.matrix_arith.Matrix L 1#usize)
+    (bytes : Slice U8) (result : arithmetic.plain_arith.Matrix L 1#usize)
     (chunk_len : Usize) (i : Usize)
     (hchunk : chunk_len.val = 32 * 10)
     (hi : i.val < L.val) (hlen : bytes.length = L.val * (32 * 10))
     (hs0 : iter.start.val = 0) (hend : iter.«end».val = 1) :
-    arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0 (X := L) (Y := 1#usize)
+    arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0 (X := L) (Y := 1#usize)
         iter bytes result chunk_len i
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val),
             toPolyN 10 ((r.val[a]!).val[0]!)
               = if a = i.val then Spec.Kopis.deserialize 10 (chunkBytes bytes i.val)
                 else toPolyN 10 ((result.val[a]!).val[0]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
   have hm : 0 < 32 * 10 := by norm_num
   have hbufmax : L.val * (32 * 10) ≤ Usize.max := hlen ▸ bytes.property
   have hlt : iter.start.val < iter.«end».val := by omega
@@ -406,7 +406,7 @@ theorem matrix_deserialize_10_inner_spec {L : Usize}
   let* ⟨ row, index_mut_back, hrow, hback ⟩ ← Array.index_mut_usize_spec result i hib
   have hrowlen : row.val.length = 1 := by have := row.property; scalar_tac
   let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
   let* ⟨ o2, iter2, hnone2, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec iter1
     (show iter1.start.val ≥ iter1.«end».val by rw [hstart', hend']; omega)
   rw [hnone2]; simp only [WP.spec_ok]
@@ -423,20 +423,20 @@ theorem matrix_deserialize_10_inner_spec {L : Usize}
 /-- Outer loop of `Matrix.deserialize_10` for `Y = 1`: iterating over rows `i ∈ [start, L)`. -/
 theorem matrix_deserialize_10_outer_spec {L : Usize}
     (iter : core.ops.range.Range Usize)
-    (bytes : Slice U8) (result : arithmetic.matrix_arith.Matrix L 1#usize)
+    (bytes : Slice U8) (result : arithmetic.plain_arith.Matrix L 1#usize)
     (chunk_len : Usize)
     (hchunk : chunk_len.val = 32 * 10)
     (hlen : bytes.length = L.val * (32 * 10))
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    arithmetic.matrix_arith.Matrix.deserialize_10_loop0 (X := L) (Y := 1#usize)
+    arithmetic.plain_arith.Matrix.deserialize_10_loop0 (X := L) (Y := 1#usize)
         iter bytes result chunk_len
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val),
             toPolyN 10 ((r.val[a]!).val[0]!)
               = if iter.start.val ≤ a
                 then Spec.Kopis.deserialize 10 (chunkBytes bytes a)
                 else toPolyN 10 ((result.val[a]!).val[0]!) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10_loop0
+  unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
@@ -491,11 +491,11 @@ Deserializing an `L × 1` matrix of `10`-bit coefficients from a
 `L·(32·10)`-byte buffer yields `PolyVector.deserialize 10`. -/
 theorem matrix_deserialize_10_spec {L : Usize} (bytes : Slice U8)
     (hlen : bytes.length = L.val * (32 * 10)) (hfit : L.val * 10 * 256 ≤ Usize.max) :
-    arithmetic.matrix_arith.Matrix.deserialize_10 L 1#usize bytes
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) =>
+    arithmetic.plain_arith.Matrix.deserialize_10 L 1#usize bytes
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           toVecN 10 r = Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
             ((sliceToBytes bytes (L.val * (32 * 10)) hlen).cast (by ring)) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.deserialize_10
+  unfold arithmetic.plain_arith.Matrix.deserialize_10
   simp only [consts.RING_DEG]
   have hm : 0 < 32 * 10 := by norm_num
   have hbufmax : L.val * (32 * 10) ≤ Usize.max := hlen ▸ bytes.property
@@ -538,10 +538,10 @@ theorem matrix_deserialize_10_spec {L : Usize} (bytes : Slice U8)
   rw [show massert (Slice.len bytes = right_val) = ok () from by
     simp only [massert, if_pos hmeq], bind_tc_ok]
   -- default matrix (value irrelevant: the loop overwrites every row)
-  have hdef : arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+  have hdef : arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
       = ok (Array.repeat L (Array.repeat 1#usize (Array.repeat 256#usize 0#u16))) := by
-    simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-      arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+    simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+      arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   rw [hdef, bind_tc_ok]
   -- chunk_len = 10 * 256 / 8 = 320
   let* ⟨ i5, hi5 ⟩ ← Std.Usize.mul_spec (show (10#usize).val * (256#usize).val ≤ Usize.max from by

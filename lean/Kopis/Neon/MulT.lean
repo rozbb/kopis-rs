@@ -4,7 +4,7 @@
   `NttMatrix::mul_transpose`'s innermost loop is `mul`'s with the outer index of `self` playing
   the role of the inner one: entry `(j,k)` of `Aᵀ·s` accumulates over `ii`, reading `A[ii][j]`
   against `s[ii][k]`.  It walks a *shared-name* loop that calls the dispatching
-  `arithmetic.ntt.pointwise_mul_acc`, so it needs the dispatch theorem first — and on this
+  `arithmetic.ntt_arith.pointwise_mul_acc`, so it needs the dispatch theorem first — and on this
   backend that is free, because `backend::neon::cpu::available` extracts as `ok true`.
 -/
 import Kopis.Neon.Reduce
@@ -22,12 +22,12 @@ set_option maxHeartbeats 1000000
 `available` is `ok true`, so there is no portable branch to discharge — §1(a) of the plan. -/
 
 theorem pointwise_mul_acc_neon (acc : Array I32 512#usize)
-    (lhs rhs : arithmetic.ntt.NttElem) (Bl Br Ba : ℤ) (h0 : 0 ≤ Bl) (_h1 : 0 ≤ Br)
+    (lhs rhs : arithmetic.ntt_arith.NttElem) (Bl Br Ba : ℤ) (h0 : 0 ≤ Bl) (_h1 : 0 ≤ Br)
     (hl : ∀ t < 512, |(lhs.val[t]!).val| ≤ Bl)
     (hr : ∀ t < 512, |(rhs.val[t]!).val| ≤ Br)
     (ha : ∀ t < 512, |(acc.val[t]!).val| ≤ Ba)
     (hfit : Ba + Bl * Br < 2 ^ 31) :
-    arithmetic.ntt.pointwise_mul_acc acc lhs rhs
+    arithmetic.ntt_arith.pointwise_mul_acc acc lhs rhs
       ⦃ (r : Array I32 512#usize) => ∀ t < 512,
           (r.val[t]!).val = (acc.val[t]!).val + (lhs.val[t]!).val * (rhs.val[t]!).val ∧
           |(r.val[t]!).val| ≤ Ba + Bl * Br ⦄ := by
@@ -41,7 +41,7 @@ theorem pointwise_mul_acc_neon (acc : Array I32 512#usize)
     have h2 := abs_le.mp hprod
     rw [abs_le]
     omega
-  unfold arithmetic.ntt.pointwise_mul_acc
+  unfold arithmetic.ntt_arith.pointwise_mul_acc
   rw [show backend.neon.cpu.available = ok true from rfl, bind_tc_ok, if_pos rfl]
   apply WP.spec_mono (pointwise_acc_int acc lhs rhs (Ba + Bl * Br) hstep (by omega))
   intro r hr' t ht
@@ -58,7 +58,7 @@ private theorem sumT_Ico_peel {M : Type*} [AddCommMonoid M] (f : ℕ → M) {a b
 families; after `n` terms the accumulator is inside `n·B²`. -/
 theorem mulT_inner_neon {X Y Z : Usize}
     (iter : core.ops.range.Range Usize)
-    (self : arithmetic.ntt.NttMatrix X Y) (other : arithmetic.ntt.NttMatrix X Z)
+    (self : arithmetic.ntt_arith.NttMatrix X Y) (other : arithmetic.ntt_arith.NttMatrix X Z)
     (j k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
     (hj : j.val < Y.val) (hk : k.val < Z.val)
     (hstart : iter.start.val ≤ X.val) (hend : iter.«end».val = X.val) (hX : X.val ≤ 4)
@@ -67,8 +67,8 @@ theorem mulT_inner_neon {X Y Z : Usize}
     (hother : ∀ ii t, ii < X.val → t < 512 →
       |(((other.val[ii]!).val[k.val]!).val[t]!).val| ≤ B)
     (hacc : ∀ t < 512, |(acc.val[t]!).val| ≤ (iter.start.val : ℤ) * (B * B)) :
-    arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0 iter self other j k acc
-      ⦃ (p : (arithmetic.ntt.NttMatrix X Y) × (arithmetic.ntt.NttMatrix X Z) ×
+    arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0 iter self other j k acc
+      ⦃ (p : (arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix X Z) ×
              (Array I32 512#usize)) =>
           p.1 = self ∧ p.2.1 = other ∧
           (∀ t < 512, (p.2.2.val[t]!).val = (acc.val[t]!).val
@@ -76,7 +76,7 @@ theorem mulT_inner_neon {X Y Z : Usize}
                 (((self.val[ii]!).val[j.val]!).val[t]!).val
                   * (((other.val[ii]!).val[k.val]!).val[t]!).val) ∧
           (∀ t < 512, |(p.2.2.val[t]!).val| ≤ (X.val : ℤ) * (B * B)) ⦄ := by
-  unfold arithmetic.ntt.NttMatrix.mul_transpose_loop0_loop0_loop0
+  unfold arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]

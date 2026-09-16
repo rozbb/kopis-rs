@@ -22,7 +22,7 @@ open RustKopisNeon
 namespace Kopis.Neon
 
 open Kopis.Properties (cbdX cbdX_le cbdU16)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 8000

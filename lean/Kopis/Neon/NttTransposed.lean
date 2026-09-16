@@ -395,7 +395,7 @@ theorem ntt_lvl3_bnd (SECOND : Bool) (qv : Vec128) (Q Zb B Bt : ℤ)
     (hB0 : 0 ≤ B) (hBZ : B * Zb < 2 ^ 15 * Q) (hBt : B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt)
     (hfit : B + Bt ≤ 32767)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 2)
@@ -468,7 +468,7 @@ theorem ntt_lvl4_bnd (SECOND : Bool) (qv : Vec128) (Q Zb B Bt : ℤ)
     (hB0 : 0 ≤ B) (hBZ : B * Zb < 2 ^ 15 * Q) (hBt : B * Zb + 2 ^ 15 * Q ≤ 2 ^ 16 * Bt)
     (hfit : B + Bt ≤ 32767)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
     (iter : core.ops.range.Range Usize) (hend : iter.«end».val = 4)

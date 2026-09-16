@@ -2,7 +2,7 @@
   # Kopis/Avx2/Crt.lean — the CRT scheme, in the AVX2 namespace.
 
   Nothing here.  `Kopis/Crt/Scheme.lean` holds the whole of it, because the two-prime CRT
-  transform is `src/backend/crt.rs` and is shared by both vector backends — the file mentions no
+  transform is `src/arithmetic/ntt_crt.rs` and is shared by both vector backends — the file mentions no
   register width, no extracted constant and no instruction, which is exactly the test
   `Kopis/Bits/Lanes.lean` and `Kopis/Bits/Stream.lean` already pass.
   `NEON_VERIFICATION_PLAN.md` §1(c) says so in as many words: what is genuinely new on a second

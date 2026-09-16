@@ -20,7 +20,7 @@ open Spec (𝔹 bytesToBits)
 
 namespace Kopis.Properties
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 /-! ## Bridges -/
 
@@ -328,7 +328,7 @@ private theorem streamNat_window (bytes : Slice U8) (B r : ℕ) (hr : r ≤ 7) :
   above for the analogous *generic*-decoder proof to mirror).
 
   Useful extracted defs live in `ExtractedRustSerial.lean`: `ser.deserialize_13`,
-  `ser.deserialize_13_loop`, `...closure...call`, `arithmetic.ring_arith.RingElem.deserialize`.
+  `ser.deserialize_13_loop`, `...closure...call`, `arithmetic.plain_arith.RingElem.deserialize`.
 
   Confirmed library lemma names:
     * `U8.cast_U16_val_eq  : (UScalar.cast .U16 x).val = x.val`   (Aeneas/Std/Scalar/Casts.lean)
@@ -745,10 +745,10 @@ buffer yields the spec ring element `deserialize 13`.  (The Rust method was rena
 from `from_bytes` to `deserialize`; the 13-bit branch now routes through the
 branchless `deserialize_13` fast path.) -/
 theorem from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 13#usize
+    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
       ⦃ (r : RingElem) =>
           toRingElem13 r = Spec.Kopis.deserialize 13 (sliceToBytes bytes (32 * 13) hlen) ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.deserialize
+  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   step*

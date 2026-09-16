@@ -56,7 +56,7 @@ theorem ntt_group_bnd (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
     (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
         backend.neon.ntt.fwd4 SECOND kk = ok (z, zq) ∧ PsiOk z zq Q Zb)
@@ -345,14 +345,14 @@ levels 4–7, with a re-centring pass between and after. -/
 theorem ntt_block_bnd (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usize)
     (Q Zb M A1 A2 A3 A4 : ℤ)
     (qc mc rc : I16)
-    (hq : backend.crt.q SECOND = ok qc) (hqv : qc.val = Q)
-    (hm : backend.crt.barrett_m SECOND = ok mc) (hmv : mc.val = M)
+    (hq : arithmetic.ntt_crt.q SECOND = ok qc) (hqv : qc.val = Q)
+    (hm : arithmetic.ntt_crt.barrett_m SECOND = ok mc) (hmv : mc.val = M)
     (hrc : (1#i16 : I16) <<< (10#i32 : Std.I32) = ok rc) (hrcv : rc.val = 2 ^ 10)
     (hQpos : 0 < Q) (hQ14 : Q < 2 ^ 14) (hQodd : ¬ (2 ∣ Q)) (hZb : Zb ≤ 2 ^ 14)
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - Q * M| ≤ 2047)
     (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * Q - zi.val))
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
         backend.neon.ntt.fwd4 SECOND kk = ok (z, zq) ∧ PsiOk z zq Q Zb)
@@ -376,8 +376,8 @@ theorem ntt_block_bnd (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
   rw [hqe, bind_tc_ok, hm, bind_tc_ok]
   obtain ⟨bm, hbme, hbml⟩ := dup_n_s16_spec mc
   rw [hbme, bind_tc_ok]
-  have hsh : backend.crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
-    simp only [backend.crt.BARRETT_SH]
+  have hsh : arithmetic.ntt_crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]
     rfl
   rw [hsh, bind_tc_ok, hrc, bind_tc_ok]
   obtain ⟨round, hre, hrl⟩ := dup_n_s16_spec rc
@@ -500,9 +500,9 @@ theorem ntt_block_bnd_q1 {N : Usize} (b : Array I16 N) (base : Usize)
     exact q1_inv_unit
   have hQ : ((7681 : ℤ) - 1) / 2 = 3840 := by norm_num
   apply WP.spec_mono (ntt_block_bnd false b base 7681 3840 17474 7906 12210 16766 21589
-    backend.crt.Q1 backend.crt.Q1_BARRETT_M 1024#i16
-    (by simp only [backend.crt.q, Bool.false_eq_true, if_false]) q1_val
-    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
+    arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_BARRETT_M 1024#i16
+    (by simp only [arithmetic.ntt_crt.q, Bool.false_eq_true, if_false]) q1_val
+    (by simp only [arithmetic.ntt_crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
     round_const (by decide)
     (by norm_num) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) hN
@@ -537,9 +537,9 @@ theorem ntt_block_bnd_q2 {N : Usize} (b : Array I16 N) (base : Usize)
     exact q2_inv_unit
   have hQ : ((10753 : ℤ) - 1) / 2 = 5376 := by norm_num
   apply WP.spec_mono (ntt_block_bnd true b base 10753 5376 12482 11194 17489 24301 31671
-    backend.crt.Q2 backend.crt.Q2_BARRETT_M 1024#i16
-    (by simp only [backend.crt.q, if_true]) q2_val
-    (by simp only [backend.crt.barrett_m, if_true]) q2_m_val
+    arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_BARRETT_M 1024#i16
+    (by simp only [arithmetic.ntt_crt.q, if_true]) q2_val
+    (by simp only [arithmetic.ntt_crt.barrett_m, if_true]) q2_m_val
     round_const (by decide)
     (by norm_num) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) hN

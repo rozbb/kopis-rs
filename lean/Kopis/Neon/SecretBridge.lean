@@ -27,7 +27,7 @@ open Kopis.Properties (streamNat)
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 namespace Kopis.Neon.Properties
 
@@ -114,7 +114,7 @@ theorem sliceToBytes_congr (s1 s2 : Slice Std.U8) (n : ℕ)
 and `cbd_row_eq_genSecret` carry the rest. -/
 theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (first : Std.Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (first : Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 2#usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hend : iter.«end».val = 2) (hstart : iter.start.val ≤ 2)
@@ -125,7 +125,7 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
         = turboSHAKE256 (arrayToBytes seed ‖ #v[((first.val + lane : ℕ) : Byte)])
             Spec.Kopis.DOMSEP_GENSEC (32 * MU.val)) :
     backend.neon.sample.secret_loop0_loop1 MU iter secret first bufs
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if first.val + iter.start.val ≤ a ∧ a < first.val + 2
               then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
@@ -182,13 +182,13 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
         refine Eq.trans (hbridge iter.start.val hl2 (by omega) hbufslen) ?_
         rw [hiv]
       -- the recursion, taking the post-store matrix and its row `i`
-      have hcomb : ∀ (m : arithmetic.matrix_arith.Matrix L 1#usize),
+      have hcomb : ∀ (m : arithmetic.plain_arith.Matrix L 1#usize),
           (∀ a < L.val, toRingElem13 ((m.val[a]!).val[0]!)
             = if a = i.val
               then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[i.val]'hi_lt
               else toRingElem13 ((secret.val[a]!).val[0]!)) →
           backend.neon.sample.secret_loop0_loop1 MU iter1 m first bufs
-            ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+            ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
                 toRingElem13 ((r.val[a]!).val[0]!)
                   = if first.val + iter.start.val ≤ a ∧ a < first.val + 2
                     then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
@@ -306,11 +306,11 @@ unseal backend.neon.keccak.WAYS in
 /-- **The batching loop.**  Two rows per `xof2` call; every row from `first` on ends up holding
 the spec's CBD sample for its index. -/
 theorem secret_loop0_spec {L : Std.Usize} (MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (first : Std.Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (first : Std.Usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hN : N.val = 32 * MU.val)
     (hmax : L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.secret_loop0 MU N seed secret first
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if first.val ≤ a
               then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
@@ -371,12 +371,12 @@ theorem neon_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hN : N.val = 32 * MU.val)
     (hmax : L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.secret L MU N seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   unfold backend.neon.sample.secret
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono (secret_loop0_spec MU N seed _ 0#usize hMU hN hmax)
   intro r hr a ha
   rw [hr a ha, if_pos (by simp)]
@@ -386,7 +386,7 @@ buffer length; every arm is `secret` at `N = 32·MU`. -/
 theorem neon_gen_secret_from_seed_spec (L MU : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hmax : L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   have harm : ∀ (n : Std.Usize), MU.val = 6 ∧ n = 192#usize ∨ MU.val = 8 ∧ n = 256#usize
@@ -411,7 +411,7 @@ theorem neon_gen_secret_from_seed_spec (L MU : Std.Usize) (seed : Std.Array Std.
 value reasoning stripped, using `cbd_bd`. -/
 theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (first : Std.Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (first : Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 2#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hend : iter.«end».val = 2) (hstart : iter.start.val ≤ 2)
@@ -419,7 +419,7 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (hpre : ∀ a, a < L.val → a < first.val + iter.start.val →
       ∀ c, c < 256 → smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
     backend.neon.sample.secret_loop0_loop1 MU iter secret first bufs
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → a < first.val + 2 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → a < first.val + 2 →
           ∀ c, c < 256 → smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.neon.sample.secret_loop0_loop1
   by_cases hlt : iter.start.val < iter.«end».val
@@ -455,11 +455,11 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       have hia : i.val < secret.length := by
         show i.val < (secret.val : List (Std.Array RingElem 1#usize)).length
         rw [hslen]; exact hi_lt
-      have hcomb : ∀ (m : arithmetic.matrix_arith.Matrix L 1#usize),
+      have hcomb : ∀ (m : arithmetic.plain_arith.Matrix L 1#usize),
           (∀ a, a < L.val → a < first.val + (iter.start.val + 1) →
             ∀ c, c < 256 → smallSignedU16 (((m.val[a]!).val[0]!).val[c]!) (MU.val / 2)) →
           backend.neon.sample.secret_loop0_loop1 MU iter1 m first bufs
-            ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val →
+            ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val →
                 a < first.val + 2 → ∀ c, c < 256 →
                 smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
         intro m hm
@@ -470,7 +470,7 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
         intro r hr
         exact hr
       have hstore : ∀ (v : RingElem) (row : Std.Array RingElem 1#usize)
-          (back : Std.Array RingElem 1#usize → arithmetic.matrix_arith.Matrix L 1#usize),
+          (back : Std.Array RingElem 1#usize → arithmetic.plain_arith.Matrix L 1#usize),
           (∀ s, (back s).val = secret.val.set i.val s) →
           (∀ c, c < 256 → smallSignedU16 (v.val[c]!) (MU.val / 2)) →
           ∀ a, a < L.val → a < first.val + (iter.start.val + 1) → ∀ c, c < 256 →
@@ -524,13 +524,13 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
 unseal backend.neon.keccak.WAYS in
 /-- **The batching loop's coefficient bound.** -/
 theorem secret_loop0_bd {L : Std.Usize} (MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (first : Std.Usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (first : Std.Usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hN : N.val = 32 * MU.val)
     (hmax : L.val + 2 ≤ Std.Usize.max)
     (hpre : ∀ a, a < L.val → a < first.val → ∀ c, c < 256 →
       smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
     backend.neon.sample.secret_loop0 MU N seed secret first
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.neon.sample.secret_loop0
   simp only [show backend.neon.keccak.WAYS = 2#usize from by decide]
@@ -567,11 +567,11 @@ theorem neon_secret_bd (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hN : N.val = 32 * MU.val)
     (hmax : L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.secret L MU N seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.neon.sample.secret
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
     (secret_loop0_bd MU N seed _ 0#usize hMU hN hmax (by intro a ha ha2 c hc; simp at ha2))
   intro r hr
@@ -581,7 +581,7 @@ theorem neon_secret_bd (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
 theorem neon_gen_secret_from_seed_bd (L MU : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hmax : L.val + 2 ≤ Std.Usize.max) :
     backend.neon.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   have harm : ∀ (n : Std.Usize), MU.val = 6 ∧ n = 192#usize ∨ MU.val = 8 ∧ n = 256#usize
       ∨ MU.val = 10 ∧ n = 320#usize →

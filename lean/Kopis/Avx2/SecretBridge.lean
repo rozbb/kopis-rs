@@ -21,7 +21,7 @@ open Kopis.Properties (streamNat)
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 namespace Kopis.Avx2.Properties
 
@@ -106,7 +106,7 @@ serial `cbd_spec` and `cbd_row_eq_genSecret` carry the rest. -/
 theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 4#usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize) (seed : Std.Array Std.U8 32#usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hL4 : L.val ≤ 4) (hend : iter.«end».val = L.val) (hstart : iter.start.val ≤ L.val)
     (hN : N.val = 32 * MU.val)
@@ -116,7 +116,7 @@ theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
         = turboSHAKE256 (arrayToBytes seed ‖ #v[(i : Byte)])
             Spec.Kopis.DOMSEP_GENSEC (32 * MU.val)) :
     backend.avx2.sample.secret_loop1 MU iter bufs secret
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if iter.start.val ≤ a
               then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
@@ -235,7 +235,7 @@ theorem avx2_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hL : 0 < L.val) (hL4 : L.val ≤ 4) (hN : N.val = 32 * MU.val) :
     backend.avx2.sample.secret L MU N seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   unfold backend.avx2.sample.secret
@@ -259,8 +259,8 @@ theorem avx2_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     rw [hb1] at h
     simp only [WP.spec_ok] at h
     exact h
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
     (secret_loop1_spec MU { start := 0#usize, «end» := L } bufs1 _ seed hMU hL4 rfl (by simp) hN
       (fun i hi hs => bufBytes_eq1 seed (indices1.val[i]!) (bufs1.val[i]!) i MU.val
@@ -273,7 +273,7 @@ buffer length; every arm is `secret` at `N = 32·MU`. -/
 theorem avx2_gen_secret_from_seed_spec (L MU : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     backend.avx2.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a < L.val,
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   have harm : ∀ (n : Std.Usize), MU.val = 6 ∧ n = 192#usize ∨ MU.val = 8 ∧ n = 256#usize
@@ -299,14 +299,14 @@ reasoning stripped, using `cbd_bd`. -/
 theorem secret_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 4#usize)
-    (secret : arithmetic.matrix_arith.Matrix L 1#usize)
+    (secret : arithmetic.plain_arith.Matrix L 1#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hL4 : L.val ≤ 4) (hend : iter.«end».val = L.val) (hstart : iter.start.val ≤ L.val)
     (hN : N.val = 32 * MU.val)
     (hpre : ∀ a, a < L.val → a < iter.start.val → ∀ c, c < 256 →
       smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
     backend.avx2.sample.secret_loop1 MU iter bufs secret
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.avx2.sample.secret_loop1
   by_cases hlt : iter.start.val < iter.«end».val
@@ -367,7 +367,7 @@ theorem avx2_secret_bd (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hL : 0 < L.val) (hL4 : L.val ≤ 4) (hN : N.val = 32 * MU.val) :
     backend.avx2.sample.secret L MU N seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.avx2.sample.secret
   rw [show massert (L ≤ 4#usize) = ok () from by
@@ -380,8 +380,8 @@ theorem avx2_secret_bd (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
       (Std.Array.repeat 4#usize (Std.Array.repeat N 0#u8)) 0 (by omega)
       (Or.inr rfl) (by decide) (by decide) (by decide) (by scalar_tac))
   rw [hb1, bind_tc_ok]
-  simp only [arithmetic.matrix_arith.Matrix.Insts.CoreDefaultDefault.default,
-    arithmetic.ring_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
+  simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
+    arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
     (secret_loop1_bd MU { start := 0#usize, «end» := L } bufs1 _ hMU hL4 rfl (by simp) hN
       (by intro a ha ha2 c hc; simp at ha2))
@@ -392,7 +392,7 @@ theorem avx2_secret_bd (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
 theorem avx2_gen_secret_from_seed_bd (L MU : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     backend.avx2.sample.gen_secret_from_seed L MU seed
-      ⦃ (r : arithmetic.matrix_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
+      ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   have harm : ∀ (n : Std.Usize), MU.val = 6 ∧ n = 192#usize ∨ MU.val = 8 ∧ n = 256#usize
       ∨ MU.val = 10 ∧ n = 320#usize →

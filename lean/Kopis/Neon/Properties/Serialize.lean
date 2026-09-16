@@ -26,7 +26,7 @@ namespace Kopis.Neon.Properties
 
 open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
 
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 /-! ## Bridges -/
 
@@ -334,7 +334,7 @@ private theorem streamNat_window (bytes : Slice U8) (B r : ℕ) (hr : r ≤ 7) :
   above for the analogous *generic*-decoder proof to mirror).
 
   Useful extracted defs live in `ExtractedRustNeon.lean`: `ser.deserialize_13`,
-  `ser.deserialize_13_loop`, `...closure...call`, `arithmetic.ring_arith.RingElem.deserialize`.
+  `ser.deserialize_13_loop`, `...closure...call`, `arithmetic.plain_arith.RingElem.deserialize`.
 
   Confirmed library lemma names:
     * `U8.cast_U16_val_eq  : (UScalar.cast .U16 x).val = x.val`   (Aeneas/Std/Scalar/Casts.lean)
@@ -751,7 +751,7 @@ buffer yields the spec ring element `deserialize 13`.  (The Rust method was rena
 from `from_bytes` to `deserialize`; the 13-bit branch now routes through the
 branchless `deserialize_13` fast path.) -/
 theorem from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 13#usize
+    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
       ⦃ (r : RingElem) =>
           toRingElem13 r = Spec.Kopis.deserialize 13 (sliceToBytes bytes (32 * 13) hlen) ⦄ := by
   have hlen416 : bytes.length = 416 := by omega

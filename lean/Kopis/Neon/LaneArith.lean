@@ -37,7 +37,7 @@
 
   `sqdmulh` saturates only when both operands are `−2¹⁵`, and the lemmas below carry that as an
   explicit hypothesis on the *second* operand (the ψ, the modulus, or the Barrett multiplier),
-  never on the first (the data).  No constant in `src/backend/crt.rs` is `−2¹⁵`, so every call
+  never on the first (the data).  No constant in `src/arithmetic/ntt_crt.rs` is `−2¹⁵`, so every call
   site discharges it by evaluation — but it is a hypothesis, not an assumption.
 -/
 import Kopis.Neon.Model

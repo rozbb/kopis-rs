@@ -3,19 +3,19 @@ open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 open scoped BigOperators
 namespace Kopis.Properties
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
 
 /-! # `Matrix.serialize` correctness (Y = 1 / column case).
 
-Proves the Aeneas-extracted `arithmetic.matrix_arith.Matrix.serialize` matches
+Proves the Aeneas-extracted `arithmetic.plain_arith.Matrix.serialize` matches
 the spec `Spec.Kopis.PolyVector.serialize` for the `Y = 1` matrices used by the
 public key. -/
 
 /-- Abstraction of a `Matrix L 1` as a spec `PolyVector` of length `L`. -/
-def toVecN (n : ℕ) {L : Usize} (self : arithmetic.matrix_arith.Matrix L 1#usize) :
+def toVecN (n : ℕ) {L : Usize} (self : arithmetic.plain_arith.Matrix L 1#usize) :
     Spec.Kopis.PolyVector (2 ^ n) L.val :=
   Vector.ofFn fun (a : Fin L.val) => toPolyN n ((self.val[a.val]!).val[0]!)
 
@@ -44,20 +44,20 @@ single column `j ∈ [start, 1)`.  On `start = 0` it serializes `self[i][0]` int
 `i`-th `32n`-byte chunk; otherwise it leaves the buffer untouched. -/
 theorem serialize_col_inner_spec {L : Usize}
     (iter : core.ops.range.Range Usize)
-    (self : arithmetic.matrix_arith.Matrix L 1#usize) (out_buf : Slice U8)
+    (self : arithmetic.plain_arith.Matrix L 1#usize) (out_buf : Slice U8)
     (bits chunk_len : Usize) (i : Usize) (n : ℕ)
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hchunk : chunk_len.val = 32 * n)
     (hi : i.val < L.val) (hlen : out_buf.length = L.val * (32 * n))
     (hstart : iter.start.val ≤ 1) (hend : iter.«end».val = 1) :
-    arithmetic.matrix_arith.Matrix.serialize_loop0_loop0 iter self out_buf bits chunk_len i
-      ⦃ (p : (arithmetic.matrix_arith.Matrix L 1#usize) × (Slice U8)) =>
+    arithmetic.plain_arith.Matrix.serialize_loop0_loop0 iter self out_buf bits chunk_len i
+      ⦃ (p : (arithmetic.plain_arith.Matrix L 1#usize) × (Slice U8)) =>
           p.1 = self ∧ ∃ _h : p.2.length = L.val * (32 * n),
             ∀ q, q < L.val * (32 * n) →
               (p.2.val[q]!).bv
                 = if iter.start.val = 0 ∧ i.val * (32 * n) ≤ q ∧ q < (i.val + 1) * (32 * n)
                   then (Spec.Kopis.serialize n (toPolyN n ((self.val[i.val]!).val[0]!)))[q - i.val * (32 * n)]!
                   else (out_buf.val[q]!).bv ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.serialize_loop0_loop0
+  unfold arithmetic.plain_arith.Matrix.serialize_loop0_loop0
   have hm : 0 < 32 * n := by omega
   have hbufmax : L.val * (32 * n) ≤ Usize.max := hlen ▸ out_buf.property
   by_cases hlt : iter.start.val < iter.«end».val
@@ -126,7 +126,7 @@ theorem serialize_col_inner_spec {L : Usize}
         rw [hb, List.length_setSlice!]; exact hlen
       exact this
     -- since `Y = 1`, the loop makes exactly one iteration: `iter1 = {1, 1}` terminates.
-    unfold arithmetic.matrix_arith.Matrix.serialize_loop0_loop0
+    unfold arithmetic.plain_arith.Matrix.serialize_loop0_loop0
     let* ⟨ o2, iter2, hnone2, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec iter1
       (show iter1.start.val ≥ iter1.«end».val by rw [hstart', hend']; omega)
     rw [hnone2]; simp only [WP.spec_ok]
@@ -153,19 +153,19 @@ theorem serialize_col_inner_spec {L : Usize}
 Rows `≥ start` are freshly serialized; rows `< start` keep their old bytes. -/
 theorem serialize_col_outer_spec {L : Usize}
     (iter : core.ops.range.Range Usize)
-    (self : arithmetic.matrix_arith.Matrix L 1#usize) (out_buf : Slice U8)
+    (self : arithmetic.plain_arith.Matrix L 1#usize) (out_buf : Slice U8)
     (bits chunk_len : Usize) (n : ℕ)
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hchunk : chunk_len.val = 32 * n)
     (hlen : out_buf.length = L.val * (32 * n))
     (hstart : iter.start.val ≤ L.val) (hend : iter.«end».val = L.val) :
-    arithmetic.matrix_arith.Matrix.serialize_loop0 iter self out_buf bits chunk_len
+    arithmetic.plain_arith.Matrix.serialize_loop0 iter self out_buf bits chunk_len
       ⦃ (r : Slice U8) => ∃ _h : r.length = L.val * (32 * n),
           ∀ q, q < L.val * (32 * n) →
             (r.val[q]!).bv
               = if iter.start.val ≤ q / (32 * n)
                 then (Spec.Kopis.serialize n (toPolyN n ((self.val[q / (32 * n)]!).val[0]!)))[q % (32 * n)]!
                 else (out_buf.val[q]!).bv ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.serialize_loop0
+  unfold arithmetic.plain_arith.Matrix.serialize_loop0
   have hm : 0 < 32 * n := by omega
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -217,15 +217,15 @@ theorem serialize_col_outer_spec {L : Usize}
 Serializing an `L × 1` matrix with `n`-bit coefficients produces the spec
 `PolyVector.serialize n (toVecN n self)`. -/
 theorem matrix_serialize_col_spec {L : Usize}
-    (self : arithmetic.matrix_arith.Matrix L 1#usize)
+    (self : arithmetic.plain_arith.Matrix L 1#usize)
     (out : Slice U8) (bits : Usize) (n : ℕ)
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13)
     (hlen : out.val.length = L.val * (32 * n))
     (hfit : L.val * n * 256 ≤ Usize.max) :
-    arithmetic.matrix_arith.Matrix.serialize self out bits
+    arithmetic.plain_arith.Matrix.serialize self out bits
       ⦃ (r : Slice U8) => ∃ h : r.length = L.val * (32 * n),
           sliceToBytes r (L.val * (32 * n)) h = Spec.Kopis.PolyVector.serialize n (toVecN n self) ⦄ := by
-  unfold arithmetic.matrix_arith.Matrix.serialize
+  unfold arithmetic.plain_arith.Matrix.serialize
   simp only [consts.RING_DEG]
   have hm : 0 < 32 * n := by omega
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show L.val * (1#usize).val ≤ Usize.max from by

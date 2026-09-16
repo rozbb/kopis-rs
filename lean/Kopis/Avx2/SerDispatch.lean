@@ -28,7 +28,7 @@ open RustKopisAvx2
 namespace Kopis.Avx2
 
 open Kopis.Properties (streamNat)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 
@@ -61,8 +61,8 @@ theorem ringElem_deserialize_dispatch (bytes : Slice U8) (bits : Usize)
     (hbits : bits.val ≤ 13) (hlen : bytes.length = 32 * bits.val) {P : RingElem → Prop}
     (hport : portableDeserialize bytes bits ⦃ P ⦄)
     (havx : backend.avx2.ser.deserialize bytes bits ⦃ P ⦄) :
-    arithmetic.ring_arith.RingElem.deserialize bytes bits ⦃ P ⦄ := by
-  unfold arithmetic.ring_arith.RingElem.deserialize
+    arithmetic.plain_arith.RingElem.deserialize bytes bits ⦃ P ⦄ := by
+  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec
   let* ⟨ rv, hrv ⟩ ← Std.Usize.div_spec
@@ -93,7 +93,7 @@ theorem ringElem_deserialize_10_streamNat (bytes : Slice U8) (hlen : bytes.lengt
         ser.deserialize_10 arr
           ⦃ (r : Array U16 256#usize) => ∀ j < 256,
               (r.val[j]!).val = streamNat bytes (10 * j) 10 ⦄) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 10#usize
+    arithmetic.plain_arith.RingElem.deserialize bytes 10#usize
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (10 * j) 10 ⦄ := by
   refine ringElem_deserialize_dispatch bytes 10#usize (by simp) (by simpa using hlen) ?_ ?_
@@ -115,7 +115,7 @@ theorem ringElem_deserialize_gen_streamNat (bytes : Slice U8) (n : ℕ) (hn1 : 1
     (hgen : ser.deserialize_generic 256#usize bytes n#usize
         ⦃ (r : Array U16 256#usize) => ∀ j < 256,
             (r.val[j]!).val = streamNat bytes (n * j) n ⦄) :
-    arithmetic.ring_arith.RingElem.deserialize bytes n#usize
+    arithmetic.plain_arith.RingElem.deserialize bytes n#usize
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (n * j) n ⦄ := by
   have hnv : (n#usize).val = n := by simp
@@ -148,7 +148,7 @@ theorem ringElem_deserialize_13_streamNat (bytes : Slice U8) (hlen : bytes.lengt
         ser.deserialize_13 arr
           ⦃ (r : Array U16 256#usize) => ∀ j < 256,
               (r.val[j]!).val = streamNat bytes (13 * j) 13 ⦄) :
-    arithmetic.ring_arith.RingElem.deserialize bytes 13#usize
+    arithmetic.plain_arith.RingElem.deserialize bytes 13#usize
       ⦃ (r : RingElem) => ∀ j < 256,
           (r.val[j]!).val = streamNat bytes (13 * j) 13 ⦄ := by
   have hlen416 : bytes.length = 416 := by omega
@@ -161,7 +161,7 @@ theorem ringElem_deserialize_13_streamNat (bytes : Slice U8) (hlen : bytes.lengt
     intro r hr
     simp only [WP.spec_ok]
     exact hr
-  unfold arithmetic.ring_arith.RingElem.deserialize
+  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   -- the length assertion, by hand: `step*` walks the whole nested dispatch
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec

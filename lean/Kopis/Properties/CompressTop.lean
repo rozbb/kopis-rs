@@ -5,8 +5,8 @@ open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 namespace Kopis.Properties
 
-open arithmetic.matrix_arith (Matrix)
-open arithmetic.ring_arith (RingElem)
+open arithmetic.plain_arith (Matrix)
+open arithmetic.plain_arith (RingElem)
 
 set_option maxHeartbeats 1000000
 

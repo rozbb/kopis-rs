@@ -236,7 +236,7 @@ theorem ntt_start_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     (hBt : B * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Bt) (hfit : B + Bt ≤ 32767)
     (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ψ kk.val)
     (k half start : Usize) (hhalf : 1 ≤ half.val) (hnb32 : 32 = nb * (2 * half.val))
@@ -398,7 +398,7 @@ theorem ntt_horizontal_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base :
     (hQ : ∀ i < 8, (lane16 qv i).toInt = (q : ℤ)) (hQpos : 0 < (q : ℤ))
     (hQ14 : (q : ℤ) < 2 ^ 14) (hZb : Zb ≤ 2 ^ 14) (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ψ kk.val)
     (hA0 : 0 ≤ A0) (hA1 : 0 ≤ A1)
@@ -1258,7 +1258,7 @@ theorem ntt_lvl3_val (SECOND : Bool) (qv : Vec128) (q : ℕ) (Zb B Bt : ℤ) (Ri
     (hB0 : 0 ≤ B) (hBZ : B * Zb < 2 ^ 15 * (q : ℤ))
     (hBt : B * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Bt) (hfit : B + Bt ≤ 32767)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ψ kk.val)
     (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
@@ -1370,7 +1370,7 @@ theorem ntt_lvl4_val (SECOND : Bool) (qv : Vec128) (q : ℕ) (Zb B Bt : ℤ) (Ri
     (hB0 : 0 ≤ B) (hBZ : B * Zb < 2 ^ 15 * (q : ℤ))
     (hBt : B * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Bt) (hfit : B + Bt ≤ 32767)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ψ kk.val)
     (g : Usize) (hg : g.val < 4) (v : Array Vec128 8#usize)
@@ -1551,7 +1551,7 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     (hRnd : ∀ i < 8, (lane16 round i).toInt = 2 ^ 10)
     (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ψ kk.val)
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
@@ -2131,15 +2131,15 @@ theorem ntt_block_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     (q : ℕ) (Zb M A1 A2 A3 A4 : ℤ) (Rinv : ZMod q) (ψ f : ℕ → ZMod q)
     (qc mc rc : I16)
     (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
-    (hq : backend.crt.q SECOND = ok qc) (hqv : qc.val = (q : ℤ))
-    (hm : backend.crt.barrett_m SECOND = ok mc) (hmv : mc.val = M)
+    (hq : arithmetic.ntt_crt.q SECOND = ok qc) (hqv : qc.val = (q : ℤ))
+    (hm : arithmetic.ntt_crt.barrett_m SECOND = ok mc) (hmv : mc.val = M)
     (hrc : (1#i16 : I16) <<< (10#i32 : Std.I32) = ok rc) (hrcv : rc.val = 2 ^ 10)
     (hQpos : 0 < (q : ℤ)) (hQ14 : (q : ℤ) < 2 ^ 14) (hQodd : ¬ (2 ∣ (q : ℤ)))
     (hZb : Zb ≤ 2 ^ 14)
     (hMpos : 0 < M) (hMlt : M < 2 ^ 15) (hD : |2 ^ 27 - (q : ℤ) * M| ≤ 2047)
     (hN : 8 * base.val + 256 ≤ N.val)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-        backend.crt.zeta SECOND kk = ok zi ∧ backend.crt.zeta_q SECOND kk = ok zqi ∧
+        arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ arithmetic.ntt_crt.zeta_q SECOND kk = ok zqi ∧
         |zi.val| ≤ Zb ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * (q : ℤ) - zi.val) ∧
         ((zi.val : ℤ) : ZMod q) * Rinv = ψ kk.val)
     (htbl4 : ∀ kk : Usize, kk.val < 4 → ∃ z zq : Vec128,
@@ -2169,8 +2169,8 @@ theorem ntt_block_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
   rw [hqe, bind_tc_ok, hm, bind_tc_ok]
   obtain ⟨bm, hbme, hbml⟩ := dup_n_s16_spec mc
   rw [hbme, bind_tc_ok]
-  have hsh : backend.crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
-    simp only [backend.crt.BARRETT_SH]
+  have hsh : arithmetic.ntt_crt.BARRETT_SH - (1#i32 : Std.I32) = ok (10#i32 : Std.I32) := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]
     rfl
   rw [hsh, bind_tc_ok, hrc, bind_tc_ok]
   obtain ⟨round, hre, hrl⟩ := dup_n_s16_spec rc
@@ -2310,7 +2310,7 @@ theorem ntt_block_val_q1 {N : Usize} (b : Array I16 N) (base : Usize) (f : ℕ �
           (∀ c < 256, posZ 7681 r (8 * base.val + c) = fwdAll 7681 zeta1 f c) ⦄ := by
   obtain ⟨s0, s1, s2, s3, -, -⟩ := growth_q1
   have hQ : (((7681 : ℕ) : ℤ) - 1) / 2 = 3840 := by norm_num
-  have hzo : zetasOf false = backend.crt.ZETAS_Q1 := by
+  have hzo : zetasOf false = arithmetic.ntt_crt.ZETAS_Q1 := by
     simp only [zetasOf, Bool.false_eq_true, if_false]
   have hzc : ∀ k < 256, |((zetasOf false).val[k]!).val| ≤ 3840 := by
     intro k hk
@@ -2318,10 +2318,10 @@ theorem ntt_block_val_q1 {N : Usize} (b : Array I16 N) (base : Usize) (f : ℕ �
     exact zetas_q1_centred_idx k hk
   have hinv : (2 ^ 16 : ℤ) ∣ ((qinvOf false).val * ((7681 : ℕ) : ℤ) - 1) := by
     simp only [qinvOf, Bool.false_eq_true, if_false]
-    rw [show ((7681 : ℕ) : ℤ) = backend.crt.Q1.val from by rw [q1_val]; norm_num]
+    rw [show ((7681 : ℕ) : ℤ) = arithmetic.ntt_crt.Q1.val from by rw [q1_val]; norm_num]
     exact q1_inv_unit
   have hzt : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta false kk = ok zi ∧ backend.crt.zeta_q false kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
       |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * ((7681 : ℕ) : ℤ) - zi.val) ∧
       ((zi.val : ℤ) : ZMod 7681) * (900 : ZMod 7681) = zeta1 kk.val := by
     intro kk hkk
@@ -2330,10 +2330,10 @@ theorem ntt_block_val_q1 {N : Usize} (b : Array I16 N) (base : Usize) (f : ℕ �
     unfold zeta1 zetaQ zint
     rw [h5]
   apply WP.spec_mono (ntt_block_val false b base 7681 3840 17474 7906 12210 16766 21589
-    (900 : ZMod 7681) zeta1 f backend.crt.Q1 backend.crt.Q1_BARRETT_M 1024#i16
+    (900 : ZMod 7681) zeta1 f arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_BARRETT_M 1024#i16
     (by decide)
-    (by simp only [backend.crt.q, Bool.false_eq_true, if_false]) (by rw [q1_val]; norm_num)
-    (by simp only [backend.crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
+    (by simp only [arithmetic.ntt_crt.q, Bool.false_eq_true, if_false]) (by rw [q1_val]; norm_num)
+    (by simp only [arithmetic.ntt_crt.barrett_m, Bool.false_eq_true, if_false]) q1_m_val
     round_const (by decide)
     (by norm_num) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) hN
@@ -2371,17 +2371,17 @@ theorem ntt_block_val_q2 {N : Usize} (b : Array I16 N) (base : Usize) (f : ℕ �
           (∀ c < 256, posZ 10753 r (8 * base.val + c) = fwdAll 10753 zeta2 f c) ⦄ := by
   obtain ⟨s0, s1, s2, s3, -, -⟩ := growth_q2
   have hQ : (((10753 : ℕ) : ℤ) - 1) / 2 = 5376 := by norm_num
-  have hzo : zetasOf true = backend.crt.ZETAS_Q2 := by simp only [zetasOf, if_true]
+  have hzo : zetasOf true = arithmetic.ntt_crt.ZETAS_Q2 := by simp only [zetasOf, if_true]
   have hzc : ∀ k < 256, |((zetasOf true).val[k]!).val| ≤ 5376 := by
     intro k hk
     rw [hzo]
     exact zetas_q2_centred_idx k hk
   have hinv : (2 ^ 16 : ℤ) ∣ ((qinvOf true).val * ((10753 : ℕ) : ℤ) - 1) := by
     simp only [qinvOf, if_true]
-    rw [show ((10753 : ℕ) : ℤ) = backend.crt.Q2.val from by rw [q2_val]; norm_num]
+    rw [show ((10753 : ℕ) : ℤ) = arithmetic.ntt_crt.Q2.val from by rw [q2_val]; norm_num]
     exact q2_inv_unit
   have hzt : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
-      backend.crt.zeta true kk = ok zi ∧ backend.crt.zeta_q true kk = ok zqi ∧
+      arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
       |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * ((10753 : ℕ) : ℤ) - zi.val) ∧
       ((zi.val : ℤ) : ZMod 10753) * (1764 : ZMod 10753) = zeta2 kk.val := by
     intro kk hkk
@@ -2390,10 +2390,10 @@ theorem ntt_block_val_q2 {N : Usize} (b : Array I16 N) (base : Usize) (f : ℕ �
     unfold zeta2 zetaQ zint
     rw [h5]
   apply WP.spec_mono (ntt_block_val true b base 10753 5376 12482 11194 17489 24301 31671
-    (1764 : ZMod 10753) zeta2 f backend.crt.Q2 backend.crt.Q2_BARRETT_M 1024#i16
+    (1764 : ZMod 10753) zeta2 f arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_BARRETT_M 1024#i16
     (by decide)
-    (by simp only [backend.crt.q, if_true]) (by rw [q2_val]; norm_num)
-    (by simp only [backend.crt.barrett_m, if_true]) q2_m_val
+    (by simp only [arithmetic.ntt_crt.q, if_true]) (by rw [q2_val]; norm_num)
+    (by simp only [arithmetic.ntt_crt.barrett_m, if_true]) q2_m_val
     round_const (by decide)
     (by norm_num) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) hN

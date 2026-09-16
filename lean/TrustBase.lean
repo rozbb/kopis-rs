@@ -64,7 +64,7 @@ be assumed.
 
 The inverse NTT used to add a third entry here, `RustKopisSerial.core.num.I64.wrapping_neg`
 (Rust's `i64::wrapping_neg`, used to negate a twiddle factor), with an assumed
-`I64.wrapping_neg_spec` alongside it.  **Both are now gone.**  `src/arithmetic/ntt.rs` writes the
+`I64.wrapping_neg_spec` alongside it.  **Both are now gone.**  `src/arithmetic/ntt_arith.rs` writes the
 negation as `0i64.wrapping_sub(ZETAS[k] as i64)` instead, which extracts to
 `IScalar.wrapping_sub` — a real `def` with real semantics (`@[simp]` value lemma
 `(wrapping_sub x y).val = Int.bmod (x.val - y.val) (2 ^ 64)`) rather than an axiom. Identical

@@ -15,7 +15,7 @@
   consequence, and holds for any table that passes.
 
   Nothing in this file mentions either extraction: `Array I16 256#usize` is an aeneas type, not a
-  backend one, so the same lemmas serve `RustKopisSerial.backend.crt.ZETAS_Q1` and its AVX2 twin.
+  backend one, so the same lemmas serve `RustKopisSerial.arithmetic.ntt_crt.ZETAS_Q1` and its AVX2 twin.
   That is the point — since the portable transform moved to two primes the two backends run the
   *same* tables, and only the `decide`s that pin them down have to be done once per extraction.
 -/

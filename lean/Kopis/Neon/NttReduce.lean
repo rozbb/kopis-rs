@@ -21,7 +21,7 @@
   Cooley-Tukey levels fit an `i16` lane.
 
   The extra hypotheses over AVX2's are the two saturation side conditions — `z` and `q` are not
-  `−2¹⁵`.  Both are constants of `src/backend/crt.rs`; neither is anywhere near.
+  `−2¹⁵`.  Both are constants of `src/arithmetic/ntt_crt.rs`; neither is anywhere near.
 
   ## `barrett`
 

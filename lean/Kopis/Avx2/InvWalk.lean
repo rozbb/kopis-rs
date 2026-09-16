@@ -1013,9 +1013,9 @@ theorem invntt_block_loop4_loop0_walk (SECOND : Bool) (b : Array I16 256#usize) 
     (hT : 2 * A * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * T)
     (hB1 : 2 * A ≤ B) (hB2 : T ≤ B)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
       (((zi.val : ℤ) : ZMod q)) * Rinv = ζ kk.val)
-    (hqinv : ∃ qi : I16, backend.crt.qinv SECOND = ok qi ∧
+    (hqinv : ∃ qi : I16, arithmetic.ntt_crt.qinv SECOND = ok qi ∧
       (2 ^ 16 : ℤ) ∣ (qi.val * (q : ℤ) - 1))
     (hhalf : half.val = 8 ∨ half.val = 4 ∨ half.val = 2 ∨ half.val = 1)
     (hstartb : start.val = bIdx * (2 * half.val)) (hstart : start.val ≤ 16)
@@ -1179,9 +1179,9 @@ theorem invntt_block_loop4_walk (SECOND : Bool) (b : Array I16 256#usize) (qv bm
     (ht2 : 2 * B1 * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * T2)
     (hb21 : 2 * B1 ≤ B2) (hb22 : T2 ≤ B2)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
       (((zi.val : ℤ) : ZMod q)) * Rinv = ζ kk.val)
-    (hqinv : ∃ qi : I16, backend.crt.qinv SECOND = ok qi ∧
+    (hqinv : ∃ qi : I16, arithmetic.ntt_crt.qinv SECOND = ok qi ∧
       (2 ^ 16 : ℤ) ∣ (qi.val * (q : ℤ) - 1))
     (hb : BlockBnd b A0) (hv : ∀ c < 256, posZ q b c = f c) :
     backend.avx2.ntt.invntt_block_loop4 SECOND b qv bm round 16#usize 1#usize
@@ -1445,9 +1445,9 @@ theorem invntt_block_walk (SECOND : Bool) (b : Array I16 256#usize)
     (q : ℕ) (Zb Ain Ti1 Bi1 Ti2 Bi2 A0 T1 B1 T2 B2 Tf M : ℤ) (Rinv : ZMod q) (σ : ZMod q)
     (ζ f : ℕ → ZMod q)
     (qc mc sc : I16)
-    (hqc : backend.crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
-    (hmc : backend.crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
-    (hsc : backend.crt.invntt_scale SECOND = ok sc)
+    (hqc : arithmetic.ntt_crt.q SECOND = ok qc) (hqcv : qc.val = (q : ℤ))
+    (hmc : arithmetic.ntt_crt.barrett_m SECOND = ok mc) (hmcv : mc.val = M)
+    (hsc : arithmetic.ntt_crt.invntt_scale SECOND = ok sc)
     (hscb : |sc.val| ≤ Zb) (hscv : ((sc.val : ℤ) : ZMod q) * Rinv = σ)
     (hq0 : 0 < (q : ℤ)) (hqlt : (q : ℤ) ≤ 2 ^ 15)
     (hR : ((2 ^ 16 : ℤ) : ZMod q) * Rinv = 1)
@@ -1470,9 +1470,9 @@ theorem invntt_block_walk (SECOND : Bool) (b : Array I16 256#usize)
     (hbi21 : 2 * Bi1 ≤ Bi2) (hbi22 : Ti2 ≤ Bi2)
     (hzf : B2 * Zb < 2 ^ 15 * (q : ℤ)) (htf : B2 * Zb + 2 ^ 15 * (q : ℤ) ≤ 2 ^ 16 * Tf)
     (hzeta : ∀ kk : Usize, kk.val < 256 → ∃ zi : I16,
-      backend.crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
+      arithmetic.ntt_crt.zeta SECOND kk = ok zi ∧ |zi.val| ≤ Zb ∧
       (((zi.val : ℤ) : ZMod q)) * Rinv = ζ kk.val)
-    (hqinv : ∃ qi : I16, backend.crt.qinv SECOND = ok qi ∧
+    (hqinv : ∃ qi : I16, arithmetic.ntt_crt.qinv SECOND = ok qi ∧
       (2 ^ 16 : ℤ) ∣ (qi.val * (q : ℤ) - 1))
     (htbl1 : ∀ h : Usize, h.val < 8 → ∃ z zq,
       (if SECOND then (do let t ← backend.avx2.ntt.INV1_Q2; backend.avx2.ntt.ld_tbl t h)
@@ -1504,8 +1504,8 @@ theorem invntt_block_walk (SECOND : Bool) (b : Array I16 256#usize)
   rw [hqv, bind_tc_ok, hmc, bind_tc_ok]
   obtain ⟨bm, hbm, hbml⟩ := set1_epi16_spec mc
   rw [hbm, bind_tc_ok]
-  have hSH : (backend.crt.BARRETT_SH : I32).val = 11 := by
-    simp only [backend.crt.BARRETT_SH]; rfl
+  have hSH : (arithmetic.ntt_crt.BARRETT_SH : I32).val = 11 := by
+    simp only [arithmetic.ntt_crt.BARRETT_SH]; rfl
   step*
   have hi2e : i2 = 10#i32 := IScalar.eq_of_val_eq (by rw [i2_post, hSH]; rfl)
   rw [hi2e, show (1#i16 <<< (10#i32) : Result I16) = ok 1024#i16 from rfl, bind_tc_ok]
@@ -1659,12 +1659,12 @@ theorem invntt_block_leaf_q2 (b : Array I16 256#usize) (f : ℕ → ZMod 10753)
             = (((2536 : ℤ) : ZMod 10753) * (1764 : ZMod 10753)) * invAll 10753 zeta2 f c ⦄ := by
   refine invntt_block_walk true b 10753 5376 7141 6549 14282 7720 28564 5376 6259 10752
     7141 21504 7141 12482
-    (1764 : ZMod 10753) _ zeta2 f backend.crt.Q2 backend.crt.Q2_BARRETT_M
-    backend.crt.INVNTT_SCALE_2 (by simp [backend.crt.q]) (by rw [q2_val]; norm_num)
-    (by simp [backend.crt.barrett_m]) (by simp only [backend.crt.Q2_BARRETT_M]; decide)
-    (by simp [backend.crt.invntt_scale]) (by simp only [backend.crt.INVNTT_SCALE_2]; scalar_tac)
-    (by rw [show (backend.crt.INVNTT_SCALE_2 : I16).val = (2536 : ℤ) from by
-      simp only [backend.crt.INVNTT_SCALE_2]; scalar_tac])
+    (1764 : ZMod 10753) _ zeta2 f arithmetic.ntt_crt.Q2 arithmetic.ntt_crt.Q2_BARRETT_M
+    arithmetic.ntt_crt.INVNTT_SCALE_2 (by simp [arithmetic.ntt_crt.q]) (by rw [q2_val]; norm_num)
+    (by simp [arithmetic.ntt_crt.barrett_m]) (by simp only [arithmetic.ntt_crt.Q2_BARRETT_M]; decide)
+    (by simp [arithmetic.ntt_crt.invntt_scale]) (by simp only [arithmetic.ntt_crt.INVNTT_SCALE_2]; scalar_tac)
+    (by rw [show (arithmetic.ntt_crt.INVNTT_SCALE_2 : I16).val = (2536 : ℤ) from by
+      simp only [arithmetic.ntt_crt.INVNTT_SCALE_2]; scalar_tac])
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
@@ -1675,8 +1675,8 @@ theorem invntt_block_leaf_q2 (b : Array I16 256#usize) (f : ℕ → ZMod 10753)
   · intro kk hkk
     obtain ⟨zi, -, h1, -, h3, -, h5⟩ := zeta_table_ok_q2 kk hkk
     exact ⟨zi, h1, h3, by rw [h5]; rfl⟩
-  · refine ⟨backend.crt.Q2_INV, by simp [backend.crt.qinv], ?_⟩
-    rw [show (((10753 : ℕ) : ℤ)) = backend.crt.Q2.val from by rw [q2_val]; norm_num]
+  · refine ⟨arithmetic.ntt_crt.Q2_INV, by simp [arithmetic.ntt_crt.qinv], ?_⟩
+    rw [show (((10753 : ℕ) : ℤ)) = arithmetic.ntt_crt.Q2.val from by rw [q2_val]; norm_num]
     exact q2_inv_unit
   · intro h hh
     obtain ⟨z, zq, h1, h2, h3⟩ := inv1_q2_ok h hh
@@ -1723,12 +1723,12 @@ theorem invntt_block_leaf_q1 (b : Array I16 256#usize) (f : ℕ → ZMod 7681)
             = (((1912 : ℤ) : ZMod 7681) * (900 : ZMod 7681)) * invAll 7681 zeta1 f c ⦄ := by
   refine invntt_block_walk false b 7681 3840 4741 4397 9482 4952 18964 3840 4291 7680
     4741 15360 4741 17474
-    (900 : ZMod 7681) _ zeta1 f backend.crt.Q1 backend.crt.Q1_BARRETT_M
-    backend.crt.INVNTT_SCALE_1 (by simp [backend.crt.q]) (by rw [q1_val]; norm_num)
-    (by simp [backend.crt.barrett_m]) (by simp only [backend.crt.Q1_BARRETT_M]; decide)
-    (by simp [backend.crt.invntt_scale]) (by simp only [backend.crt.INVNTT_SCALE_1]; scalar_tac)
-    (by rw [show (backend.crt.INVNTT_SCALE_1 : I16).val = (1912 : ℤ) from by
-      simp only [backend.crt.INVNTT_SCALE_1]; scalar_tac])
+    (900 : ZMod 7681) _ zeta1 f arithmetic.ntt_crt.Q1 arithmetic.ntt_crt.Q1_BARRETT_M
+    arithmetic.ntt_crt.INVNTT_SCALE_1 (by simp [arithmetic.ntt_crt.q]) (by rw [q1_val]; norm_num)
+    (by simp [arithmetic.ntt_crt.barrett_m]) (by simp only [arithmetic.ntt_crt.Q1_BARRETT_M]; decide)
+    (by simp [arithmetic.ntt_crt.invntt_scale]) (by simp only [arithmetic.ntt_crt.INVNTT_SCALE_1]; scalar_tac)
+    (by rw [show (arithmetic.ntt_crt.INVNTT_SCALE_1 : I16).val = (1912 : ℤ) from by
+      simp only [arithmetic.ntt_crt.INVNTT_SCALE_1]; scalar_tac])
     (by norm_num) (by norm_num) (by decide) (by norm_num) (by decide) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
@@ -1739,8 +1739,8 @@ theorem invntt_block_leaf_q1 (b : Array I16 256#usize) (f : ℕ → ZMod 7681)
   · intro kk hkk
     obtain ⟨zi, -, h1, -, h3, -, h5⟩ := zeta_table_ok_q1 kk hkk
     exact ⟨zi, h1, h3, by rw [h5]; rfl⟩
-  · refine ⟨backend.crt.Q1_INV, by simp [backend.crt.qinv], ?_⟩
-    rw [show (((7681 : ℕ) : ℤ)) = backend.crt.Q1.val from by rw [q1_val]; norm_num]
+  · refine ⟨arithmetic.ntt_crt.Q1_INV, by simp [arithmetic.ntt_crt.qinv], ?_⟩
+    rw [show (((7681 : ℕ) : ℤ)) = arithmetic.ntt_crt.Q1.val from by rw [q1_val]; norm_num]
     exact q1_inv_unit
   · intro h hh
     obtain ⟨z, zq, h1, h2, h3⟩ := inv1_q1_ok h hh
