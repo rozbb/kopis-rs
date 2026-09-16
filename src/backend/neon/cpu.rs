@@ -1,4 +1,4 @@
-//! Runtime NEON detection.
+//! Runtime NEON detection
 //!
 //! On AArch64, Advanced SIMD (NEON) is part of the base ISA — every AArch64 CPU has it, and it
 //! needs no OS opt-in the way x86's YMM state does — so there is nothing to probe. The backend

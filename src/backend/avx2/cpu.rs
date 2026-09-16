@@ -1,4 +1,4 @@
-//! Runtime AVX2 detection.
+//! Runtime AVX2 detection
 //!
 //! `is_x86_feature_detected!` lives in `std`, which a `no_std` crate cannot use, so we ask the
 //! CPU ourselves. On x86 that is a pure computation — CPUID and XGETBV have no side effects and

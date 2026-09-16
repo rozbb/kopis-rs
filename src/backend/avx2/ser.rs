@@ -1,4 +1,4 @@
-//! AVX2 bit-unpacking for ring-element deserialization.
+//! AVX2 bit-unpacking for ring-element deserialization
 //!
 //! [`crate::ser`] has one hand-written unpacker per hot width plus a scalar sliding-window
 //! fallback. This is a single routine that covers every width the crate uses (1..=13) with the

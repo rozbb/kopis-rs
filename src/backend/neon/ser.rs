@@ -1,4 +1,4 @@
-//! NEON bit-unpacking for ring-element deserialization.
+//! NEON bit-unpacking for ring-element deserialization
 //!
 //! Like [`super::super::avx2::ser`], this is a single routine that covers every width the crate
 //! uses (1..=13) with one instruction sequence, differing only in a table lookup.

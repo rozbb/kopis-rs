@@ -40,8 +40,9 @@
 //! Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, giving a usable bound
 //! of 1.52q that a Barrett pass every second level holds.
 //!
-//! The portable transform reduces forward after levels 3 and 6 plus a final pass, and inverse
-//! after levels 2, 4 and 6. Each backend documents its own schedule.
+//! Schedules are stated as *runs*: how many levels pass between reductions. The portable
+//! transform forward is 3, 3, 2 and inverse is a Barrett pass every second level. Each backend
+//! documents its own.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the arithmetic: they are what the
 // Lean extractor handles best, and here they are also what vectorizes most predictably.
@@ -400,8 +401,7 @@ pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
     // CRT reconstruction, by Garner: with a₁ = r₁ mod q₁ and a₂ = r₂ mod q₂ taken in [0, q),
     // the unique x ≡ rᵢ (mod qᵢ) in [0, q₁q₂) is a₁ + q₁·((a₂ − a₁)·q₁⁻¹ mod q₂). Subtracting
     // q₁q₂ above the midpoint centers it; truncating to 16 bits then gives the wrapping-`u16`
-    // coefficient, exactly as `to_wrapping_u16` does for the single prime. This is exact because
-    // the true product lies in (−q₁q₂/2, q₁q₂/2] — the bound in [`crate::arithmetic::ntt_arith`].
+    // coefficient. This is exact because the true product lies in (−q₁q₂/2, q₁q₂/2] — the bound in [`crate::arithmetic::ntt_arith`].
     let q1_inv_mont_q = CRT_Q1_INV_MONT.wrapping_mul(Q2_INV);
     let mut out = [0u16; RING_DEG];
     for i in 0..RING_DEG {

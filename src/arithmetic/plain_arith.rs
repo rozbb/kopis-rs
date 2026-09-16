@@ -1,6 +1,7 @@
-//! This file defines and implements the crate's coefficient-domain arithmetic: Kopis ring
-//! elements, specifically ℤ[X]/(X^256 + 1) mod n where n can be any power of two at most 2^16,
-//! and matrices over that ring.
+//! This file defines and implements the crate's coefficient-domain arithmetic
+//!
+//! Kopis ring elements are ℤ[X]/(X^256 + 1) mod n, where n can be any power of two at most 2^16,
+//! plus matrices over that ring.
 
 use crate::{
     consts::RING_DEG,
@@ -37,7 +38,8 @@ impl RingElem {
         RingElem(result)
     }
 
-    /// Deserializes a ring element, treating each coefficient as having only `bits_per_elem` bits.
+    /// Deserializes a ring element, treating each coefficient as having only `BITS_PER_ELEM`
+    /// bits
     #[allow(clippy::unwrap_used)]
     pub(crate) fn deserialize<const BITS_PER_ELEM: usize>(bytes: &[u8]) -> Self {
         // We support deserialization of any number of bits up to 13
@@ -49,8 +51,9 @@ impl RingElem {
         #[cfg(kopis_avx2)]
         #[allow(unsafe_code)]
         if crate::backend::avx2_available() {
-            // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2. The width
-            // and length preconditions are the range check above and the assertion.
+            // SAFETY: `avx2_available()` has just confirmed this CPU supports AVX2. `BITS_PER_ELEM`
+            // is a compile-time constant, and every width the crate instantiates is in `1..=13`;
+            // the length precondition is the assertion above.
             return RingElem(unsafe {
                 crate::backend::avx2::ser::deserialize::<BITS_PER_ELEM>(bytes)
             });
@@ -59,14 +62,15 @@ impl RingElem {
         #[cfg(kopis_neon)]
         #[allow(unsafe_code)]
         if crate::backend::neon_available() {
-            // SAFETY: `neon_available()` has just confirmed this CPU supports NEON. The width
-            // and length preconditions are the range check above and the assertion.
+            // SAFETY: `neon_available()` has just confirmed this CPU supports NEON. `BITS_PER_ELEM`
+            // is a compile-time constant, and every width the crate instantiates is in `1..=13`;
+            // the length precondition is the assertion above.
             return RingElem(unsafe {
                 crate::backend::neon::ser::deserialize::<BITS_PER_ELEM>(bytes)
             });
         }
 
-        // Specialize based on bits_per_elem. unwraps are okay because of the check above
+        // Specialize based on BITS_PER_ELEM. unwraps are okay because of the check above
         match BITS_PER_ELEM {
             13 => {
                 let arr: &[u8; 13 * RING_DEG / 8] = bytes.try_into().unwrap();

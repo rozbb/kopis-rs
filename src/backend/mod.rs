@@ -1,4 +1,4 @@
-//! Architecture-specific backends.
+//! Architecture-specific backends
 //!
 //! The portable ("serial") implementation of every operation lives in its natural home
 //! (`arithmetic/`, `ser.rs`, `sample.rs`) and is the *only* thing that exists when the crate is

@@ -1,4 +1,4 @@
-//! Four-way TurboSHAKE on AVX2.
+//! Four-way TurboSHAKE on AVX2
 //!
 //! Keccak's permutation is inherently serial — there is nothing inside one round to
 //! vectorize — so the speedup comes from running four *independent* sponges side by side, one

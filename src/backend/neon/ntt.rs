@@ -19,11 +19,10 @@
 //!
 //! # Growth
 //!
-//! Forward, a Barrett pass after level 3 and one at the end (runs of 4, 4); inverse, after
-//! levels 2, 4 and 6. Four levels to a run rests on the multiplicative bound stated in
-//! [`crate::arithmetic::ntt_crt`], which [`test::forward_growth_fits_an_i16_lane`] re-derives.
-//! AVX2 re-centers after levels 3 and 7 instead, on a table-dependent bound: growth bounds do
-//! not transfer between the two backends.
+//! Forward runs are 4, 4; inverse is a Barrett pass every second level. Four levels to a run
+//! rests on the multiplicative bound stated in [`crate::arithmetic::ntt_crt`], which
+//! [`test::forward_growth_fits_an_i16_lane`] re-derives. AVX2 uses runs of 3, 4, 1 on a
+//! table-dependent bound instead: growth bounds do not transfer between the two backends.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
@@ -797,8 +796,7 @@ pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
     // CRT reconstruction, by Garner: with a₁ = r₁ mod q₁ and a₂ = r₂ mod q₂ taken in [0, q),
     // the unique x ≡ rᵢ (mod qᵢ) in [0, q₁q₂) is a₁ + q₁·((a₂ − a₁)·q₁⁻¹ mod q₂). Subtracting
     // q₁q₂ above the midpoint centers it; truncating to 16 bits then gives the wrapping-`u16`
-    // coefficient, exactly as `to_wrapping_u16` does for the single prime. This is exact
-    // because the true product lies in (−q₁q₂/2, q₁q₂/2] — the bound in `crt`'s docs.
+    // coefficient. This is exact because the true product lies in (−q₁q₂/2, q₁q₂/2] — the bound in `crt`'s docs.
     let q1 = dup_n_s16(Q1);
     let q2 = dup_n_s16(Q2);
     let q1_inv_mont = dup_n_s16(CRT_Q1_INV_MONT);

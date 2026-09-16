@@ -1,4 +1,4 @@
-//! AVX2 sampling: batched XOF expansion for the public matrix and the secret vector.
+//! AVX2 sampling: batched XOF expansion for the public matrix and the secret vector
 //!
 //! [`crate::sample`] derives each ring element from its own independent TurboSHAKE call, which
 //! makes the whole of matrix generation a batch of ℓ² sponges that differ only in a two-byte

@@ -26,16 +26,16 @@
 //!
 //! # Growth
 //!
-//! An `i16` lane holds only 3.05·q₂, so both directions need interior reductions. Forward,
-//! Barrett after levels 3 and 7 re-centers to q/2, and the final Barrett leaves the output at
-//! |a| ≤ q/2. The second run is *four* levels (len = 16, 8, 4, 2), which the per-level bound in
-//! [`crate::arithmetic::ntt_crt`] does not cover; it is safe because the ψ magnitudes at levels
-//! 4–7 are small enough that interval propagation with the actual per-butterfly values bounds
-//! the worst lane below 30_700 of 32_767. Changing the schedule or regenerating the ψ tables
-//! means re-deriving that bound.
+//! An `i16` lane holds only 3.05·q₂, so both directions need interior reductions. Forward runs
+//! are 3, 4, 1, each ending in a Barrett that re-centers to q/2. The four-level run (len = 16,
+//! 8, 4, 2) is longer than the multiplicative bound in [`crate::arithmetic::ntt_crt`] covers; it
+//! is safe because the ψ magnitudes over those levels are small enough that interval propagation
+//! with the actual per-butterfly values bounds the worst lane below 30_700 of 32_767. Changing
+//! the schedule or regenerating the ψ tables means re-deriving that bound. NEON uses runs of
+//! 4, 4 on the general bound instead.
 //!
 //! Inverse, the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so the
-//! usable bound is 1.52q; a Barrett after levels 2, 4 and 6 holds it there, and the final
+//! usable bound is 1.52q; a Barrett pass every second level holds it there, and the final
 //! Montgomery scaling brings the last two levels back under q.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
@@ -656,8 +656,7 @@ pub(crate) fn reduce_invntt(acc: &[i32; 2 * RING_DEG]) -> [u16; RING_DEG] {
     // CRT reconstruction, by Garner: with a₁ = r₁ mod q₁ and a₂ = r₂ mod q₂ taken in [0, q),
     // the unique x ≡ rᵢ (mod qᵢ) in [0, q₁q₂) is a₁ + q₁·((a₂ − a₁)·q₁⁻¹ mod q₂). Subtracting
     // q₁q₂ above the midpoint centers it; truncating to 16 bits then gives the wrapping-`u16`
-    // coefficient, exactly as `to_wrapping_u16` does for the single prime. This is exact
-    // because the true product lies in (-q₁q₂/2, q₁q₂/2] — the bound in the module docs.
+    // coefficient. This is exact because the true product lies in (-q₁q₂/2, q₁q₂/2] — the bound in the module docs.
     let q1 = set1_epi16(Q1);
     let q2 = set1_epi16(Q2);
     let q1_inv_mont = set1_epi16(CRT_Q1_INV_MONT);

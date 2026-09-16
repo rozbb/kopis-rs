@@ -1,4 +1,4 @@
-//! Differential test vectors for the Lean model of [`super::intrinsics`].
+//! Differential test vectors for the Lean model of [`super::intrinsics`]
 //!
 //! `lean/Kopis/Avx2/Intrinsics.lean` asserts, as 45 axioms, what each wrapper in
 //! [`super::intrinsics`] does to a 256-bit word.  Those axioms are the entire trust base the
