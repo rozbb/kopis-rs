@@ -1,20 +1,8 @@
-//! NEON negacyclic NTT over two 16-bit primes, combined by the CRT.
+//! NEON negacyclic NTT over the two 16-bit primes of [`crate::arithmetic::ntt_crt`]
 //!
 //! The scheme, its constants and its correctness argument are shared with the other backends and
 //! live in [`crate::arithmetic::ntt_crt`]; this file is the AArch64 half — the intrinsics and the
 //! per-lane ψ tables, whose grouping depends on how many coefficients fit a vector.
-//!
-//! # Why two primes here too
-//!
-//! AArch64 does have a 32-bit high-multiply, so the missing-instruction argument that motivates
-//! this on AVX2 does not apply in the same form. The win comes from what a 32-bit Montgomery
-//! multiply actually costs here: over a single 26-bit prime it needs widening `vmull_s32` /
-//! `vmull_high_s32`, which cover two lanes per instruction, so a butterfly runs about two
-//! multiply-class instructions per coefficient. Over two 16-bit primes, `sqdmulh.8h` and
-//! `mul.8h` cover eight lanes and [`mont_mul`] is three multiplies plus a halving subtract for
-//! eight coefficients — about one instruction per coefficient once both primes are counted.
-//! Pulling the other way, an `i16` lane holds only 3.05·q₂ against the 42.7·p an `i32` lane
-//! holds for the 26-bit prime, so reductions go from two Barrett passes per transform to six.
 //!
 //! # Layout
 //!
@@ -25,16 +13,17 @@
 //! back. Four groups cover the block, and a group needs only 8 of AArch64's 32 vector
 //! registers, so it stays in registers across all three levels.
 //!
-//! Reductions, stated by level number: forward, a Barrett pass after level 3 and one at the end
-//! (runs of 4, 4); inverse, after levels 2, 4 and 6. Four levels to a run is more than the
-//! crude 0.75q-per-level budget in [`crate::arithmetic::ntt_crt`] allows, and rests on the sharper
-//! multiplicative bound stated there — [`test::forward_growth_fits_an_i16_lane`] re-derives it.
-//! Note this forward schedule does *not* match AVX2's, which re-centers after levels 3 and 7 on
-//! a table-dependent bound: growth bounds do not transfer between the two backends.
-//!
 //! Both transforms are *blocked*. Only two of the eight levels have butterfly partners outside
 //! a group of eight vectors, so the other six — and every Barrett pass among them — run with
 //! the group held in registers, a group at a time. See [`ntt_block`].
+//!
+//! # Growth
+//!
+//! Forward, a Barrett pass after level 3 and one at the end (runs of 4, 4); inverse, after
+//! levels 2, 4 and 6. Four levels to a run rests on the multiplicative bound stated in
+//! [`crate::arithmetic::ntt_crt`], which [`test::forward_growth_fits_an_i16_lane`] re-derives.
+//! AVX2 re-centers after levels 3 and 7 instead, on a table-dependent bound: growth bounds do
+//! not transfer between the two backends.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
@@ -56,8 +45,7 @@ use super::intrinsics::{
 ///
 /// The transform works in these blocks throughout; the two-blocks-in-one-buffer layout that
 /// [`crate::arithmetic::ntt_arith::NttElem`] presents to the rest of the crate is applied only
-/// at this
-/// module's entry points.
+/// at this module's entry points.
 type Block = [i16; RING_DEG];
 
 /// Vectors per 256-coefficient residue block
@@ -77,8 +65,6 @@ struct Tbl<const N: usize> {
 /// `g = g_hi · h_count + g_lo` splits the group index into "which group of 8 vectors" and
 /// "which butterfly pair within the level". `neg` produces the negated ψ the inverse
 /// transform's Gentleman-Sande butterfly wants.
-// The strides genuinely are six independent parameters; bundling them in a struct would only
-// move the same list one level down, and this is a `const fn` evaluated at compile time.
 #[allow(clippy::too_many_arguments)]
 const fn lane_tbl<const N: usize>(
     zetas: &[i16; 256],
@@ -138,11 +124,7 @@ static INV2_Q2: Tbl<64> = lane_tbl(&ZETAS_Q2, Q2_INV, 127, -16, -1, -2, 2, true)
 static INV4_Q2: Tbl<32> = lane_tbl(&ZETAS_Q2, Q2_INV, 63, -8, 0, -1, 1, true);
 
 // Unlike everything in [`crate::arithmetic::ntt_crt`], these tables are specific to this
-// backend: their
-// grouping is by NEON's 8 `i16` lanes. They are reached through the six value-returning
-// accessors below rather than through a `&'static Tbl<N>` held in a struct or returned from one:
-// a function that returns a reference to a static is one of the things aeneas cannot translate,
-// and neither is a struct with a reference field reached by reference.
+// backend: their grouping is by NEON's 8 `i16` lanes.
 
 // ---------------------------------------------------------------------------------------
 // Lane primitives
@@ -156,19 +138,9 @@ fn ld_tbl<const N: usize>(table: &Tbl<N>, g: usize) -> (Vec128, Vec128) {
 }
 
 // One accessor per transposed level, each selecting between the two primes' tables and returning
-// the loaded pair *by value*.
-//
-// The selection has to happen inside a function body rather than at the use site. Written there
-// as `let (z, zq) = if SECOND { … } else { … }`, aeneas fails with "Internal error, please file an
-// issue" out of `simplify_let_branching` — a `let` bound to a branch, in a position where the
-// tuple is then consumed by a following loop. As the tail expression of its own function the
-// same branch translates normally. See `lean/NEON_VERIFICATION_PLAN.md`.
-//
-// Returning the `&'static Tbl<N>` instead and loading at the use site would not work either:
-// a function returning a reference to a static is one of the things aeneas cannot translate at
-// all. Both constraints together are why these return `(Vec128, Vec128)`.
-//
-// The `if SECOND` still folds away per monomorphization, so this costs nothing.
+// the loaded pair *by value*. Both the by-value return and the selection happening inside a
+// function body rather than at the use site are aeneas constraints; see
+// `lean/NEON_VERIFICATION_PLAN.md`.
 
 /// Group `g` of the forward len = 4 table
 #[inline]
@@ -370,19 +342,11 @@ fn load_group(b: &Block, g: usize) -> [Vec128; 8] {
 /// In-place forward negacyclic NTT of the 256-coefficient block starting at vector `base` of
 /// `b`, modulo the prime `SECOND` selects.
 ///
-/// # Blocking
-///
 /// Only the first two levels have butterfly partners outside a group of eight vectors: level 0
-/// pairs vector `i` with `i + 16` and level 1 pairs `i` with `i + 8`. From level 2 on, `len`
-/// has dropped to 32 coefficients — four vectors — so every partner is inside the same group of
-/// eight, and so are the three transposed levels that follow. So the six remaining levels, and
-/// the two interior Barrett passes among them, are done a group at a time with the group held
-/// in registers: eight vectors plus the constants, well inside AArch64's 32. Only levels 0 and
-/// 1 walk the whole block.
-///
-/// The order in which values meet butterflies, ψ and Barrett is exactly the level-by-level
-/// order of the flat form, so this computes the same integers — it moves where they live, not
-/// what happens to them.
+/// pairs vector `i` with `i + 16` and level 1 pairs `i` with `i + 8`. From level 2 on every
+/// partner is inside the same group of eight, so the six remaining levels and the two interior
+/// Barrett passes among them run a group at a time with the group held in registers. The
+/// level-by-level order is unchanged, so this computes the same integers as the flat form.
 ///
 /// # Safety
 ///
@@ -530,11 +494,9 @@ fn ntt_block<const SECOND: bool, const N: usize>(b: &mut [i16; N], base: usize) 
 /// In-place inverse negacyclic NTT of one 256-coefficient block, including the final scaling
 /// that undoes both the 1/256 and the Montgomery factor left by the pointwise step.
 ///
-/// Blocked the same way as [`ntt_block`], and for the same reason — mirrored, since
-/// Gentleman-Sande runs the levels in the opposite order. Here it is the *last* two levels
-/// whose partners lie outside a group of eight vectors, so the first six (the three transposed
-/// ones and the three that follow, at len = 8, 16 and 32) are carried through in registers,
-/// interior Barrett passes included.
+/// Blocked like [`ntt_block`], mirrored: Gentleman-Sande runs the levels in the opposite order,
+/// so here it is the *last* two whose partners lie outside a group of eight vectors and the
+/// first six that are carried through in registers.
 ///
 /// # Safety
 ///
@@ -716,8 +678,7 @@ fn split_and_transform<const SECOND: bool, const REDUCE: bool>(
 ///
 /// The two blocks are written into the halves of one `[i16; 512]`, which is what
 /// [`crate::arithmetic::ntt_arith::NttElem`] is: the q₁ block occupies `i16` vectors 0..32 and
-/// the q₂
-/// block vectors 32..64.
+/// the q₂ block vectors 32..64.
 ///
 /// # Safety
 ///

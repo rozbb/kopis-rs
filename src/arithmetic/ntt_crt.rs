@@ -3,135 +3,52 @@
 //! Rather than one 26-bit prime in `i32` lanes, the transform runs twice in `i16` lanes, over
 //! q₁ = 7681 and q₂ = 10753, and the exact integer product is reconstructed from the two
 //! residues. This is the arrangement Chung, Hwang, Kannwischer, Seiler, Shih and Yang use for
-//! Saber on AVX2 (TCHES 2021, §4.2).
+//! Saber on AVX2 (TCHES 2021, §4.2). Two 16-bit transforms cost fewer multiplies per
+//! coefficient than one 32-bit transform on every ISA here, the portable path included, since
+//! LLVM auto-vectorizes its butterfly loops.
 //!
-//! This module holds both halves of that. First the part which does not depend on the
-//! instruction set — the moduli, the Montgomery and Barrett constants, the ψ tables, and the
-//! correctness argument — which `backend::avx2::ntt` and `backend::neon::ntt` read as well,
-//! each adding its own intrinsics and its own *per-lane* ψ tables, whose shape
-//! depends on how many coefficients fit a vector (16 for AVX2, 8 for NEON) and so cannot be
-//! shared. Then the portable transform itself, a plain-Rust implementation of the same scheme:
-//! it is what computes the ring products [`crate::arithmetic::ntt_arith`] hands out whenever no
-//! vector backend is available.
-//!
-//! # Why two primes
-//!
-//! No ISA here has a 32-bit high-multiply as cheap as its 16-bit one. AVX2 has `vpmulhw` over
-//! 16 lanes but nothing equivalent for 32 bits, so a single-prime Montgomery multiply has to be
-//! built from `vpmuldq` (four even lanes) plus a `vpshufd` to reach the odd ones. AArch64 has
-//! `sqdmulh` at both widths, but the single-prime code reached for widening `vmull_s32`, which
-//! covers two lanes per instruction against `vmulhq_s16`'s eight. Baseline SSE2, which is what
-//! the portable code is compiled to on x86-64, has no 64-bit multiply at all and has to emulate
-//! the single-prime product outright. Either way, two 16-bit transforms cost fewer multiplies
-//! per coefficient than one 32-bit transform.
-//!
-//! What this trade needs is not a vector *unit* but a vector *lane*: it pays wherever 16-bit
-//! SIMD is what the multiply lands on, which on the portable path means wherever LLVM
-//! auto-vectorizes. On a genuinely scalar core a 32×32→64 multiply costs the same as a
-//! 16×16→32 one, so doubling the transforms would just double the work; the next section has
-//! the measurements, and what a scalar target would want instead.
-//!
-//!
-//! # Why the portable path uses them too
-//!
-//! The argument above frames the two-prime trade as one made for vector units, on the grounds
-//! that on a scalar core a 32×32→64 multiply costs the same as a 16×16→32 one, so doubling the
-//! transforms just doubles the work. That reasoning is sound for a *scalar* core.
-//! It does not apply here, because the portable code is not scalar on any target this crate is
-//! built for: LLVM auto-vectorizes the butterfly loops, and what it can vectorize them *into*
-//! is the whole difference.
-//!
-//! The single-prime butterfly needs a 64-bit product, and baseline SSE2 has no 64-bit multiply,
-//! so LLVM emits an emulation — sign-extension shuffles, four `pmuludq`, and `psllq`/`paddq`
-//! recombination, about 35 instructions for four butterflies. The 16-bit butterfly needs only
-//! `pmullw` and `pmulhw`, each one instruction over eight lanes, so eight butterflies cost about
-//! ten. Two transforms at that density comfortably beat one at the other — the opposite of the
-//! scalar conclusion.
-//!
-//! Measured on a 12th-gen Core i9 at baseline x86-64 (so SSE2), against the single-prime code
-//! compiled the same way: the forward transform is 1.68× faster counting *both* primes, the
-//! Montgomery-reduce/inverse-transform/recombine pipeline 2.40× faster, and the pointwise
-//! multiply-accumulate 1.53× faster. End to end that is 20–45% off every KEM operation; see the
-//! benchmark note in the README.
-//!
-//! So the axis is not portable-versus-vector but scalar-versus-auto-vectorized, and every target
-//! this crate builds for falls on the auto-vectorized side. A genuinely scalar target — a
-//! Cortex-M-class core with no SIMD and no auto-vectorization to speak of — would want a single
-//! 26-bit prime instead, which would mean writing that transform back.
-//!
+//! The moduli, Montgomery and Barrett constants and ψ tables below are shared:
+//! `backend::avx2::ntt` and `backend::neon::ntt` read them too, each adding its own intrinsics
+//! and its own per-lane ψ tables, whose shape depends on the vector width. The rest of the file
+//! is the portable transform, which is what [`crate::arithmetic::ntt_arith`] uses when no vector
+//! backend is available.
 //!
 //! # Correctness
 //!
 //! q₁·q₂ = 82_593_793, so the centered range ±41_296_896 covers the exactness bound
-//! ℓ·256·(2^13 − 1)·(μ/2) ≤ 25_162_752 that [`crate::arithmetic::ntt_arith`] establishes, with
-//! 16_134_144 to spare. Both primes are 1 mod 512, so X^256 + 1 splits completely over each and
-//! the same complete 8-layer transform applies, with the same ψ-table layout and the same
-//! Cooley-Tukey / Gentleman-Sande structure as the serial code.
+//! ℓ·256·(2^13 − 1)·(μ/2) ≤ 25_162_752 that [`crate::arithmetic::ntt_arith`] establishes. Both
+//! primes are 1 mod 512, so X^256 + 1 splits completely over each and the same complete 8-layer
+//! Cooley-Tukey / Gentleman-Sande transform applies to both.
 //!
-//! Only the endpoints of the pipeline agree with the portable code — the NTT-domain values are
-//! different integers entirely — so the backends are checked end to end by `avx2_matches_serial`
-//! and `neon_matches_serial` in [`crate::arithmetic::ntt_arith`] rather than stage by stage.
-//!
+//! Only the endpoints of the pipeline agree between implementations — the NTT-domain values are
+//! different integers — so the backends are checked end to end by `avx2_matches_serial` and
+//! `neon_matches_serial` in [`crate::arithmetic::ntt_arith`] rather than stage by stage.
 //!
 //! # Layout
 //!
 //! An [`NttElem`](crate::arithmetic::NttElem) is `[i16; 512]`: the q₁ residues in the first 256
 //! lanes, the q₂ residues in the second. The pointwise accumulator is `[i32; 512]`, split the
-//! same way. They are what the vector backends read too, and neither is ever serialized, so
-//! the representation never escapes the process that computed it.
-//!
+//! same way. Neither is ever serialized, so the representation never escapes the process that
+//! computed it.
 //!
 //! # Growth
 //!
-//! An `i16` lane holds only 3.05·q₂, against the 42.7·p an `i32` lane holds for the portable
-//! prime, so both transforms need interior reductions where the single-prime code needs almost
-//! none. The bounds, taken over the worst case q₂ = 10753:
+//! An `i16` lane holds 3.05·q₂, so both directions need interior reductions. Forward, a
+//! Cooley-Tukey level maps |a| to at most |a|·(1 + q/2^17) + q/2, since the ψ are centered and
+//! the Montgomery quotient is an `i16`; from a centered start that reaches 2.95q after four
+//! levels and 3.19q after five, so at most four levels may run between reductions. Inverse, the
+//! Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, giving a usable bound
+//! of 1.52q that a Barrett pass every second level holds.
 //!
-//! * Forward: inputs are centered, |a| ≤ q/2, and a Cooley-Tukey level adds at most 0.75q per
-//!   level under the crude per-level budget. Neither backend's schedule is justified by that
-//!   budget alone, and neither uses the same one.
-//!
-//!   The crude figure linearizes a bound that is really multiplicative: a level maps |a| to at
-//!   most |a|·(1 + q/2^17) + q/2, since the ψ are centered (|ψ| ≤ q/2) and the Montgomery
-//!   quotient is an `i16`. Charging 0.75q per level is that bound evaluated at |a| ≈ 3q, so it
-//!   over-counts badly while |a| is small — which is exactly where a run of levels begins.
-//!   Propagating the real bound from a centered start gives, for q₂ = 10753, 1.04q, 1.63q,
-//!   2.26q, 2.95q over four levels — inside the 3.05q an `i16` lane holds, with about 3% to
-//!   spare — and 3.19q on a fifth, which does not fit.
-//!
-//!   So NEON runs **two** passes, re-centering after level 3 and again at the end (runs of 4,
-//!   4). AVX2 re-centers after levels 3 and 7 plus a final pass (runs of 3, 4, 1), resting on
-//!   the sharper, table-dependent version of the same argument: interval propagation with the
-//!   actual per-butterfly ψ values bounds the worst AVX2 lane below 30_700 of 32_767. Anyone
-//!   reordering the reductions or regenerating the ψ tables must redo that propagation. For
-//!   NEON, `forward_growth_fits_an_i16_lane` in `backend::neon::ntt` re-derives the four-level
-//!   figure on every test run, and fails if a fifth level ever starts to fit — which would mean
-//!   the schedule could be cheaper still.
-//! * Inverse: the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so
-//!   the usable bound is 1.52q. Starting under 0.7q, two levels reach 2.66q — as a *sum*,
-//!   which fits — and a Barrett pass after the second, fourth and sixth levels keeps it there.
-//!   The last two levels end at 2.0q, which the final Montgomery scaling brings back under q.
-//!   Both backends follow this inverse schedule.
-//!
-//! Every one of those sites was checked against the `i16` range by the scalar model these
-//! constants were generated with, on random and extremal inputs for all three parameter sets;
-//! the worst lane value observed in those runs was 20411 of 32767 (the certified worst-case
-//! bounds above are higher because they quantify over all possible inputs).
-//!
-//! The portable transform follows the NEON schedule, which the crude
-//! per-level budget covers without needing the interval-propagation argument the AVX2 schedule
-//! rests on: forward, Barrett after levels 3 and 6 plus a final pass (runs of 3, 3, 2); inverse,
-//! Barrett after levels 2, 4 and 6.
+//! The portable transform reduces forward after levels 3 and 6 plus a final pass, and inverse
+//! after levels 2, 4 and 6. Each backend documents its own schedule.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the arithmetic: they are what the
 // Lean extractor handles best, and here they are also what vectorizes most predictably.
 #![allow(clippy::needless_range_loop)]
 
-// ---------------------------------------------------------------------------------------
-// Constants, generated and checked by the scalar model described above: both primes prime and
-// 1 mod 512, both Barrett constants verified exhaustively over the whole i16 input range, and
-// the CRT reconstruction verified against exact integer arithmetic.
-// ---------------------------------------------------------------------------------------
+// Both Barrett constants were verified exhaustively over the whole i16 input range, and the CRT
+// reconstruction against exact integer arithmetic.
 
 /// The first NTT prime
 pub(crate) const Q1: i16 = 7681;
@@ -145,11 +62,8 @@ pub(crate) const Q2_INV: i16 = -10751;
 pub(crate) const Q1_BARRETT_M: i16 = 17474;
 /// round(2^(16+11) / q₂)
 pub(crate) const Q2_BARRETT_M: i16 = 12482;
-/// The Barrett shift, shared by both primes. q₁ cannot go higher without its multiplier leaving
-/// an `i16` lane, and q₂ reaches the same `|r| ≤ q/2` at 11 as it does at 12, so one value
-/// serves both. That it *is* shared matters for more than tidiness: on both backends the shift
-/// is an instruction immediate, so a per-prime value would make every function that reduces a
-/// const generic and monomorphize the whole transform twice.
+/// The Barrett shift, shared by both primes: q₁ cannot go higher without its multiplier leaving
+/// an `i16` lane, and q₂ reaches the same `|r| ≤ q/2` at 11 as it does at 12
 pub(crate) const BARRETT_SH: i32 = 11;
 /// 256⁻¹ · 2^32 mod q₁: undoes both the 1/256 of the inverse transform and the 2^-16 the
 /// pointwise Montgomery reduction introduces
@@ -222,24 +136,9 @@ pub(crate) const fn zetas_qinv(zetas: &[i16; 256], qinv: i16) -> [i16; 256] {
 pub(crate) const ZETAS_Q1_QINV: [i16; 256] = zetas_qinv(&ZETAS_Q1, Q1_INV);
 pub(crate) const ZETAS_Q2_QINV: [i16; 256] = zetas_qinv(&ZETAS_Q2, Q2_INV);
 
-// ---------------------------------------------------------------------------------------
-// The per-prime parameters, as one accessor each.
-//
-// Everything a transform needs for one of the two primes that is not instruction-set specific,
-// so each backend's level loops can be written once and specialized per prime. The Barrett
-// shift is deliberately absent: it is an instruction immediate, so it lives as `BARRETT_SH`,
-// shared by both primes precisely so that it need not be a const generic.
-//
-// `SECOND` is a const generic rather than a `&Prime` parameter so that each monomorphization
-// constant-folds the modulus, the Montgomery constant and the ψ-table addresses into the
-// instruction stream. Specializing measurably beats sharing one copy between the primes, even
-// though it doubles the instruction footprint of the transforms.
-//
-// These return values rather than a `&'static Prime` because a function that *returns* a
-// reference to a static is one of the things aeneas cannot translate (it fails with
-// `Unreachable` at the first field read); reading a static inside a function is fine. Each of
-// these still folds to a constant, or to one load from a fixed address, per monomorphization.
-// ---------------------------------------------------------------------------------------
+// The per-prime parameters, one accessor each, so a level loop can be written once and
+// specialized per prime. These return values rather than a `&'static Prime` because aeneas
+// cannot translate a function that returns a reference to a static.
 
 /// The modulus
 pub(crate) const fn q<const SECOND: bool>() -> i16 {
@@ -291,8 +190,8 @@ type Block = [i16; RING_DEG];
 /// high halves alone give the exact quotient, with no borrow to account for. Requires
 /// `|a·z| < 2^15·q`, which the growth bounds in the module docs give at every call site.
 ///
-/// Both products are written as `i32` multiplies whose high half is taken, which is the shape
-/// LLVM turns into a single 16-lane high-multiply (`pmulhw` / `sqdmulh`).
+/// Both products are written as `i32` multiplies whose high half is taken, the shape LLVM turns
+/// into a single 16-lane high-multiply (`pmulhw` / `sqdmulh`).
 #[inline(always)]
 fn mont_mul(a: i16, z: i16, zq: i16, q: i16) -> i16 {
     let t = a.wrapping_mul(zq);
@@ -325,8 +224,7 @@ fn barrett_block<const SECOND: bool>(b: &mut Block) {
 /// One Cooley-Tukey level: `(lo, hi) ← (lo + ψ·hi, lo − ψ·hi)` over every butterfly pair.
 ///
 /// `LEN` is a const generic rather than a variable so that each level's inner loop has a
-/// compile-time trip count. That is what lets LLVM vectorize it cleanly; with a runtime `len`
-/// it emits a generic loop with a `cmov` bounds prologue that is several times slower.
+/// compile-time trip count, which is what lets LLVM vectorize it.
 #[inline(always)]
 fn ct_level<const LEN: usize, const SECOND: bool>(b: &mut Block, k: &mut usize) {
     let q = q::<SECOND>();
@@ -352,14 +250,10 @@ fn gs_level<const LEN: usize, const SECOND: bool>(b: &mut Block, k: &mut usize) 
     let mut start = 0usize;
     while start < RING_DEG {
         *k -= 1;
-        // The negation the Gentleman-Sande butterfly wants, taken here rather than baked into
-        // a second table; it folds into the loop-invariant broadcast either way.
-        //
-        // `0 - z` rather than `z.wrapping_neg()`: aeneas leaves `i16::wrapping_neg` opaque (it
-        // extracts to an axiom with no definition, so its meaning would have to be *assumed*),
-        // whereas `wrapping_sub` gets real semantics. Identical codegen, one fewer assumption in
-        // the Lean trust base. Same reasoning as `crate::arithmetic::ntt_arith`; see the note
-        // there.
+        // The negation the Gentleman-Sande butterfly wants, taken here rather than baked into a
+        // second table. `0 - z` rather than `z.wrapping_neg()` because aeneas extracts
+        // `i16::wrapping_neg` as an axiom with no definition, whereas `wrapping_sub` gets real
+        // semantics.
         let z = 0i16.wrapping_sub(zeta::<SECOND>(*k));
         let zq = z.wrapping_mul(qinv);
         for j in start..start + LEN {

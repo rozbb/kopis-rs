@@ -1,41 +1,33 @@
-//! The AVX2 instruction set, as an opaque interface.
+//! The AVX2 instruction set, as an opaque interface
 //!
 //! Every `core::arch::x86_64` intrinsic this backend uses is reached through exactly one thin
 //! wrapper here, over the newtypes [`Vec256`] and [`Vec128`] rather than `__m256i` / `__m128i`;
-//! nothing outside this file names an intrinsic or a raw pointer. The rest of the backend is
-//! then ordinary Rust over an abstract vector type.
-//!
-//! # Why
+//! nothing outside this file names an intrinsic or a raw pointer.
 //!
 //! This is what makes the backend extractable. `__m256i` is a rustc builtin with no MIR
 //! definition and the intrinsics are `extern "unadjusted"` declarations with no body, so charon
-//! has nothing to lower and aeneas's symbolic interpreter falls over the moment it reaches one.
-//! Confining them here lets the extraction treat this one module as opaque
-//! (`charon --opaque 'kopis::backend::avx2::intrinsics'`), which aeneas emits as an opaque type
-//! plus one opaque function per wrapper — and the Lean side supplies their semantics by hand, in
-//! `lean/Kopis/Avx2/Intrinsics.lean`. That file is the *entire* trusted base this backend adds:
-//! one axiom per function below, each stating what the instruction does to a 256-bit word.
+//! has nothing to lower. Confining them here lets the extraction treat this one module as opaque
+//! (`charon --opaque 'kopis::backend::avx2::intrinsics'`), and the Lean side supplies their
+//! semantics by hand in `lean/Kopis/Avx2/Intrinsics.lean` — one axiom per function below, each
+//! stating what the instruction does to a 256-bit word. That file is the *entire* trusted base
+//! this backend adds. Two consequences:
 //!
-//! Two consequences for anything written here:
-//!
-//! * **The bodies are unverified.** Nothing below is checked against the Lean model, and nothing
-//!   in Lean is checked against silicon. Keep each wrapper a single instruction with no
-//!   arithmetic of its own, so that "does the body match the axiom" stays a matter of reading
-//!   one line against the Intel SDM.
-//! * **The interface is the specification.** A wrapper's *type* is what the Lean model gets to
-//!   assume, which is why the memory accessors below take array and slice references with an
-//!   element index rather than raw pointers: a bound the type system states is a bound the model
-//!   can state too. This is the same architecture libcrux uses for its AVX2 proofs
-//!   (`libcrux/crates/utils/intrinsics/src/avx2_extract.rs`); the wrappers here are written
-//!   fresh, but the shape is theirs.
+//! * **The bodies are unverified.** Keep each wrapper a single instruction with no arithmetic of
+//!   its own, so that "does the body match the axiom" stays a matter of reading one line against
+//!   the Intel SDM.
+//! * **The interface is the specification.** A wrapper's type is what the Lean model gets to
+//!   assume, which is why the memory accessors take array and slice references with an element
+//!   index rather than raw pointers: a bound the type system states is a bound the model can
+//!   state too. Same shape as libcrux's AVX2 proofs
+//!   (`libcrux/crates/utils/intrinsics/src/avx2_extract.rs`).
 //!
 //! # Safety
 //!
 //! Every function is `#[target_feature(enable = "avx2")]`, so it is safe to call from any other
-//! `avx2` function — which is all of this backend — and unsafe to call from outside one, exactly
-//! as the intrinsics themselves are. The unaligned loads and stores are the only `unsafe` here;
-//! each is preceded by a bounds check that makes the access in-range for *any* arguments, so
-//! these are sound as safe functions and the checks are what the Lean preconditions mirror.
+//! `avx2` function — all of this backend — and unsafe to call from outside one, exactly as the
+//! intrinsics themselves are. The unaligned loads and stores are the only `unsafe` here; each is
+//! preceded by a bounds check that makes the access in-range for *any* arguments, which is what
+//! the Lean preconditions mirror.
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;

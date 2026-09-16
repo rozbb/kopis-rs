@@ -1,4 +1,4 @@
-//! Differential test vectors for the Lean model of [`super::intrinsics`].
+//! Differential test vectors for the Lean model of [`super::intrinsics`]
 //!
 //! `lean/Kopis/Neon/Intrinsics.lean` asserts, as 46 axioms, what each wrapper in
 //! [`super::intrinsics`] does to a 128-bit word. Those axioms are the entire trust base the NEON
@@ -9,21 +9,12 @@
 //! set of inputs and records the results in `tests/neon_intrinsics_vectors.jsonl`;
 //! `lean/SpecTests/Neon/Run.lean` replays the same inputs through the *computable* models in
 //! `lean/Kopis/Neon/Model.lean`, which `Model.lean` proves are exactly what the axioms assert.
-//! Model disagrees with silicon ⇒ an axiom is wrong ⇒ the runner fails.
+//! Model disagrees with silicon ⇒ an axiom is wrong ⇒ the runner fails. It is a test, not a
+//! proof: agreement on ~1000 inputs per operation is evidence, not a demonstration.
 //!
-//! What this does not do: it is a test, not a proof. Agreement on ~1000 inputs per operation is
-//! evidence that the axiom is right everywhere, not a demonstration of it.
-//!
-//! # One interface, one recorded file
-//!
-//! Four of the wrappers are FEAT_SHA3 instructions and six more exist only to serve them, so the
-//! recorded file only makes sense for a `+sha3` build. That is the only build there is: the
-//! backend as a whole is compiled only where `build.rs` confirmed the extension, so the interface
-//! this replays never varies and the vectors stay one file rather than two. It matches the
-//! extraction's own scope too — `../extract_rust_to_lean.sh` extracts the NEON backend with
-//! `-C target-feature=+sha3`, so the `+sha3` build is the one the proofs are about.
-//! `aarch64-apple-darwin` enables `sha3` by default, so a plain `cargo test` on Apple silicon
-//! runs this.
+//! The recorded file assumes a `+sha3` build, which is the only build there is — `build.rs`
+//! compiles this backend only where the extension is confirmed, and `../extract_rust_to_lean.sh`
+//! extracts it with `-C target-feature=+sha3`.
 //!
 //! # Reading a vector back out
 //!
@@ -34,7 +25,7 @@
 //!
 //! # Structured inputs are not optional
 //!
-//! Three of the operations here are *vacuous* on uniformly random input, and each needed its own
+//! Three of these operations are *vacuous* on uniformly random input, and each needed its own
 //! generator:
 //!
 //! * `tbl1_u8` zeroes any lane whose index byte is ≥ 16, which a uniform byte is with
@@ -43,15 +34,12 @@
 //!   beyond ±16 / ±32, so uniform counts are almost always a wordy way of writing zero.
 //! * `sqdmulh_s16` saturates only when both operands are −2^15, which uniform input never hits.
 //!
-//! The AVX2 sibling learned the same lesson from a deliberately-corrupted-model check that
-//! *passed*; see the Phase A note in `lean/AVX2_VERIFICATION_PLAN.md`. If anyone adds an
-//! operation here, ask what its interesting inputs are before trusting a pass.
+//! If anyone adds an operation here, ask what its interesting inputs are before trusting a pass.
 //!
 //! # Running
 //!
 //! `cargo test` on an AArch64 machine with the SHA3 extension *checks* the committed file
-//! against this CPU — so drift between the recorded vectors and real hardware is caught
-//! continuously, not just when someone remembers to regenerate. To (re)create the file:
+//! against this CPU. To (re)create it:
 //!
 //! ```sh
 //! RUSTFLAGS='-C target-feature=+sha3' KOPIS_REGEN_VECTORS=1 \

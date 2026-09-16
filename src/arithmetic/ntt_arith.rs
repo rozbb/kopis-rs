@@ -3,28 +3,27 @@
 //! This module owns the NTT-domain types — [`NttElem`], [`NttMatrix`] and the pointwise
 //! accumulator — and the four entry points the rest of the crate goes through. The arithmetic
 //! underneath them lives elsewhere: [`crate::arithmetic::ntt_crt`] portably, or a vector backend
-//! when the CPU has one. All of those transform over *two* 16-bit primes combined by the CRT;
-//! `ntt_crt` holds that scheme, and why it is what the portable path uses too.
+//! when the CPU has one. All of those transform over two 16-bit primes combined by the CRT.
 //!
 //! # Why the products come out exact
 //!
-//! Every ring multiplication in Kopis has one operand with small coefficients: a CBD secret
-//! with coefficients in [-μ/2, μ/2]. The other operand has coefficients in [0, 2^13). The
+//! Every ring multiplication in Kopis has one operand with small coefficients: a CBD secret with
+//! coefficients in [-μ/2, μ/2]. The other operand has coefficients in [0, 2^13). The
 //! coefficients of the *exact integer* product of such polynomials — even accumulated over an
 //! ℓ-term matrix-vector product — are bounded in magnitude by
 //!     ℓ · 256 · (2^13 - 1) · (μ/2) ≤ 3 · 256 · 8191 · 4 = 25_162_752,
-//! (the maximum over all three parameter sets). Every modulus the transforms work over is picked
-//! so that this bound fits strictly inside it. So the product can be computed exactly: do the
-//! arithmetic mod that modulus, lift the result to its centered representative, and reduce mod
-//! 2^16. What comes out is bit-identical to schoolbook multiplication of the wrapping-u16 ring
-//! elements — which is exactly what the tests below check it against.
+//! the maximum over all three parameter sets. Every modulus the transforms work over is picked
+//! so that this bound fits strictly inside it, so the product can be computed exactly: do the
+//! arithmetic mod that modulus, lift to the centered representative, and reduce mod 2^16. The
+//! result is bit-identical to schoolbook multiplication of the wrapping-u16 ring elements, which
+//! is what the tests below check it against.
 //!
 //! Each prime is ≡ 1 (mod 512), so ℤ/q has a primitive 512th root of unity ψ and X^256 + 1
 //! splits completely: a full 8-level negacyclic NTT applies, and products of transformed
-//! elements are plain pointwise products. This makes matrix products cheap: each entry of a
-//! matrix-vector product costs one pointwise multiply-accumulate instead of a full ring
-//! multiplication, and the transforms themselves are shared across rows/columns. Callers cache
-//! fixed operands (the matrix A, the public vector b, the secret s) in NTT form.
+//! elements are plain pointwise products. Each entry of a matrix-vector product then costs one
+//! pointwise multiply-accumulate instead of a full ring multiplication, and the transforms are
+//! shared across rows and columns. Callers cache fixed operands (the matrix A, the public vector
+//! b, the secret s) in NTT form.
 
 // The explicit `for i in 0..N` index loops that trigger this lint are deliberate: aeneas (the
 // Lean extractor) handles them better than the iterator patterns clippy suggests

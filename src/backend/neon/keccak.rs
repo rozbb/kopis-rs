@@ -1,24 +1,15 @@
-//! Two-way TurboSHAKE on NEON, using the ARMv8.2 SHA3 extension.
+//! Two-way TurboSHAKE on NEON, using the ARMv8.2 SHA3 extension
 //!
-//! Keccak's permutation is inherently serial — there is nothing inside one round to vectorize —
-//! so the speedup comes from running *independent* sponges side by side, one per 64-bit lane.
-//! Kopis samples in exactly that shape: the public matrix is ℓ² independent XOF calls that differ
-//! only in a two-byte index, and the secret is ℓ more.
-//!
-//! A `uint64x2_t` holds two of those lanes where AVX2's `Vec256` holds four, so this is the
-//! two-way counterpart of [`super::super::avx2::keccak`]: the same scheme, the same round
-//! constants, the same fused round read by destination, half the batch. Two-way also *wastes*
-//! less on the batch sizes Kopis actually uses — ℓ = 3 means nine matrix entries, which is five
-//! two-lane batches with one idle lane against three four-lane batches with three idle ones.
+//! Keccak's permutation is inherently serial, so the speedup comes from running *independent*
+//! sponges side by side, one per 64-bit lane. Kopis samples in exactly that shape: the public
+//! matrix is ℓ² independent XOF calls that differ only in a two-byte index, and the secret is ℓ
+//! more. A `uint64x2_t` holds two lanes where AVX2's `Vec256` holds four, so this is the two-way
+//! counterpart of [`super::super::avx2::keccak`]: the same scheme, the same round constants, the
+//! same fused round read by destination, half the batch.
 //!
 //! # Why the SHA3 extension
 //!
-//! Plain NEON would be a poor trade here. Scalar AArch64 gets its rotates free in the second
-//! operand, so a scalar Keccak round is already tight, and a two-way `uint64x2_t` version that
-//! has to spell each rotate as a shift-shift-or does not clearly beat two scalar sponges.
-//!
-//! FEAT_SHA3 is what changes the arithmetic, because all four of its instructions are Keccak
-//! steps rather than general bit tricks:
+//! All four of its instructions are Keccak steps rather than general bit tricks:
 //!
 //! * `eor3` folds a three-way xor, so θ's five-lane column fold is two instructions, not four.
 //! * `rax1` is `a ^ rotl(b, 1)` — exactly θ's mixing of a column with its neighbour.
@@ -26,14 +17,11 @@
 //! * `bcax` is `a ^ (b & ~c)`, which is the whole of χ for one lane.
 //!
 //! That takes a round to 10 `eor3` + 5 `rax1` + 25 `xar` + 25 `bcax` + 1 `eor` — 66 vector
-//! instructions covering two sponges, which is what the generated code actually contains. Round
-//! for round against the `turboshake` crate's scalar sponge that works out to roughly 1.7x per
-//! lane, measured; the rest of the win is the batching, which halves the number of permutations.
-//!
-//! Because this is the bulk of what the NEON backend buys, the extension is a condition on the
-//! whole backend rather than on this module alone: `build.rs` decides at build time — the crate
-//! is `no_std` and `core` has no AArch64 run-time feature detection — and a target without it
-//! gets the portable serial code, scalar sponge included.
+//! instructions covering two sponges. Without the extension each rotate would have to be spelled
+//! as shift-shift-or, which does not clearly beat two scalar sponges, so the extension is a
+//! condition on the whole backend rather than on this module alone: `build.rs` decides at build
+//! time — the crate is `no_std` and `core` has no AArch64 run-time feature detection — and a
+//! target without it gets the portable serial code.
 //!
 //! # Scope
 //!
@@ -44,9 +32,7 @@
 //! The permutation is a direct transliteration of the reference Keccak-p[1600, 12]: same θ, ρ,
 //! π, χ, ι in the same order, same rotation offsets, and the same round constants (TurboSHAKE's
 //! 12 rounds are the *last* 12 of Keccak-f[1600], per FIPS 202 §3.4). `matches_scalar` checks
-//! every lane against the `turboshake` crate; the Lean correspondence proof is what will replace
-//! that as the primary evidence, and like the rest of this backend it reaches the instruction set
-//! only through [`super::intrinsics`] so that it can be extracted at all.
+//! every lane against the `turboshake` crate.
 
 use super::intrinsics::{
     Vec128, bcax, dup_n_u64, eor, eor3, load_u8x16, rax1, set_u64x2, store_u8x16, trn1_64, trn2_64,

@@ -1,56 +1,45 @@
-//! The AArch64 NEON instruction set, as an opaque interface.
+//! The AArch64 NEON instruction set, as an opaque interface
 //!
 //! Every `core::arch::aarch64` intrinsic this backend uses is reached through exactly one thin
 //! wrapper here, over the newtype [`Vec128`] rather than `int16x8_t` / `uint64x2_t` / …; nothing
-//! outside this file names an intrinsic or a raw pointer. The rest of the backend is then
-//! ordinary Rust over an abstract vector type.
-//!
-//! # Why
+//! outside this file names an intrinsic or a raw pointer.
 //!
 //! This is what makes the backend extractable. The NEON vector types are rustc builtins with no
 //! MIR definition and the intrinsics are `extern "unadjusted"` declarations with no body, so
-//! charon has nothing to lower and aeneas's symbolic interpreter falls over the moment it reaches
-//! one. Confining them here lets the extraction treat this one module as opaque
-//! (`charon --opaque 'kopis::backend::neon::intrinsics'`), which aeneas emits as an opaque type
-//! plus one opaque function per wrapper — and the Lean side supplies their semantics by hand, in
-//! `lean/Kopis/Neon/Intrinsics.lean`. That file is the *entire* trusted base this backend adds:
-//! one axiom per function below, each stating what the instruction does to a 128-bit word.
+//! charon has nothing to lower. Confining them here lets the extraction treat this one module as
+//! opaque (`charon --opaque 'kopis::backend::neon::intrinsics'`), and the Lean side supplies
+//! their semantics by hand in `lean/Kopis/Neon/Intrinsics.lean` — one axiom per function below,
+//! each stating what the instruction does to a 128-bit word. That file is the *entire* trusted
+//! base this backend adds. Three consequences:
 //!
-//! Three consequences for anything written here:
-//!
-//! * **The bodies are unverified.** Nothing below is checked against the Lean model, and nothing
-//!   in Lean is checked against silicon. Keep each wrapper a single instruction with no
-//!   arithmetic of its own, so that "does the body match the axiom" stays a matter of reading
-//!   one line against the Arm ARM (DDI 0487, C7.2) and the ACLE intrinsic reference.
-//! * **The interface is the specification.** A wrapper's *type* is what the Lean model gets to
-//!   assume, which is why the memory accessors below take array and slice references with an
-//!   element index rather than raw pointers: a bound the type system states is a bound the model
-//!   can state too. This is the same architecture the AVX2 backend uses
-//!   ([`crate::backend::avx2::intrinsics`]), and the same one libcrux uses for its own proofs.
+//! * **The bodies are unverified.** Keep each wrapper a single instruction with no arithmetic of
+//!   its own, so that "does the body match the axiom" stays a matter of reading one line against
+//!   the Arm ARM (DDI 0487, C7.2) and the ACLE intrinsic reference.
+//! * **The interface is the specification.** A wrapper's type is what the Lean model gets to
+//!   assume, which is why the memory accessors take array and slice references with an element
+//!   index rather than raw pointers: a bound the type system states is a bound the model can
+//!   state too. Same architecture as [`crate::backend::avx2::intrinsics`], and as libcrux.
 //! * **One vector type, not ten.** AArch64 spells `int16x8_t`, `uint16x8_t`, `int32x4_t`,
 //!   `uint8x16_t` and `uint64x2_t` as distinct types converted by `vreinterpretq_*`, which are
-//!   *no-ops* at the instruction level — a register is 128 bits and nothing more. Collapsing them
-//!   into one [`Vec128`] and doing the reinterpretation inside each wrapper generates identical
-//!   code and removes the whole `vreinterpretq_*` family from the extraction, where it would
-//!   otherwise be dozens of axioms all saying "the identity". The lane width a wrapper reads is
-//!   in its *name*, exactly as it is in the assembly mnemonic.
+//!   no-ops at the instruction level. Collapsing them into one [`Vec128`] removes that whole
+//!   family from the extraction, where it would otherwise be dozens of axioms all saying "the
+//!   identity". The lane width a wrapper reads is in its name, as in the assembly mnemonic.
 //!
 //! # Naming
 //!
 //! Each wrapper is named for the instruction it emits, with the lane arrangement appended:
 //! `sqdmulh_s16` is `sqdmulh.8h`, `trn1_64` is `trn1.2d`, `smull_high_s16` is `smull2.4s`. Where
 //! an operation is sign-agnostic because it is defined by wrapping — `add`, `sub`, `mul` — the
-//! name carries only the width. The doc comment on each gives the mnemonic and the operation, and
-//! those two lines are what a reviewer checks against the architecture manual.
+//! name carries only the width.
 //!
 //! # Safety
 //!
 //! Every function is `#[target_feature(enable = "neon")]` (plus `sha3` for the four FEAT_SHA3
-//! instructions), so it is safe to call from any other function carrying the same feature — which
-//! is all of this backend — and unsafe to call from outside one, exactly as the intrinsics
-//! themselves are. The unaligned loads and stores are the only `unsafe` here; each is preceded by
-//! a bounds check that makes the access in-range for *any* arguments, so these are sound as safe
-//! functions and the checks are what the Lean preconditions mirror.
+//! instructions), so it is safe to call from any other function carrying the same feature — all
+//! of this backend — and unsafe to call from outside one, exactly as the intrinsics themselves
+//! are. The unaligned loads and stores are the only `unsafe` here; each is preceded by a bounds
+//! check that makes the access in-range for *any* arguments, which is what the Lean
+//! preconditions mirror.
 
 use core::arch::aarch64::*;
 

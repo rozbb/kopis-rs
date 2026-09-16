@@ -1,23 +1,16 @@
-//! NEON sampling: centered-binomial sampling, and batched XOF expansion.
+//! NEON sampling: centered-binomial sampling, and batched XOF expansion
 //!
-//! Two things happen here. The first is the centered-binomial step: turning each `MU`-bit field
-//! of the XOF bytes into `popcount(low half) − popcount(high half)`, which is ordinary bit work
-//! and vectorizes. Pulling the `MU`-bit fields out is exactly the extraction [`super::ser`]
-//! already does for deserialization and is shared with it. What is left is two small population
-//! counts per coefficient, which NEON's per-byte `vcnt` handles directly: each field's two halves
-//! fit in a single byte (`MU/2 ≤ 5`), so a byte-wise popcount of the 16-bit lane is the lane's
-//! popcount.
+//! The centered-binomial step turns each `MU`-bit field of the XOF bytes into
+//! `popcount(low half) − popcount(high half)`. Pulling the `MU`-bit fields out is exactly the
+//! extraction [`super::ser`] already does and is shared with it; what is left is two small
+//! population counts per coefficient, which NEON's per-byte `vcnt` handles directly, since each
+//! field's two halves fit in a single byte (`MU/2 ≤ 5`).
 //!
-//! The second is producing those bytes in the first place. [`crate::sample`] derives each ring
-//! element from its own independent TurboSHAKE call, so the whole of matrix generation is a batch
-//! of ℓ² sponges that differ only in a two-byte index. [`super::keccak::xof2`] runs two of those
-//! at once, and [`gen_matrix_from_seed`] and [`gen_secret_from_seed`] group the calls up and
-//! unpack the results. The bytes each element sees are unchanged, so the sampled values are
-//! identical to the serial code's.
-//!
-//! That half is why the backend requires the ARMv8.2 SHA3 extension — see [`super::keccak`] for
-//! the argument, and `build.rs` for how the decision is made. Targets without it get the portable
-//! code, which drives the scalar sponge itself.
+//! [`crate::sample`] derives each ring element from its own independent TurboSHAKE call, so
+//! matrix generation is a batch of ℓ² sponges that differ only in a two-byte index.
+//! [`super::keccak::xof2`] runs two at once, and [`gen_matrix_from_seed`] and
+//! [`gen_secret_from_seed`] group the calls up and unpack the results. The bytes each element
+//! sees are unchanged, so the sampled values are identical to the serial code's.
 
 use crate::{arithmetic::RingElem, consts::RING_DEG};
 

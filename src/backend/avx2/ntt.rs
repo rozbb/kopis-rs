@@ -1,73 +1,21 @@
-//! AVX2 negacyclic NTT over *two* 16-bit primes, combined by the CRT.
+//! AVX2 negacyclic NTT over the two 16-bit primes of [`crate::arithmetic::ntt_crt`]
 //!
-//! This computes the same ring products as [`crate::arithmetic::ntt_arith`] — the same `[u16; 256]`
-//! come out — but by a different route: instead of one 26-bit prime in `i32` lanes, it runs the
-//! transform twice in `i16` lanes, over q₁ = 7681 and q₂ = 10753, and reconstructs the exact
-//! integer product from the two residues. This is the arrangement Chung, Hwang, Kannwischer,
-//! Seiler, Shih and Yang use for Saber on AVX2 (TCHES 2021, §4.2).
+//! Computes the same ring products as [`crate::arithmetic::ntt_arith`] — the same `[u16; 256]`
+//! come out — running the transform twice in `i16` lanes, over q₁ = 7681 and q₂ = 10753, and
+//! reconstructing the exact integer product from the two residues. AVX2 has `vpmulhw` (16 lanes
+//! of 16×16→high-16) but no 32-bit equivalent, which is what makes two 16-bit transforms cheaper
+//! than one 32-bit one here.
 //!
-//! # Why two primes
-//!
-//! AVX2 has `vpmulhw` (16 lanes of 16×16→high-16) but no 32-bit equivalent. Over a single
-//! 26-bit prime every high product has to be built out of `vpmuldq`, which covers only the four
-//! even lanes, plus a `vpshufd` to reach the odd ones: six multiplies and three shuffles for 8
-//! coefficients, against three multiplies for 16 here. Two transforms at 4× the per-multiply
-//! density is a net win.
-//!
-//! Every other path arrives at the same answer by its own route, so all of them are two-prime
-//! now — see [`crate::arithmetic::ntt_crt`] for the shared scheme. NEON has `sqdmulh` at both
-//! widths,
-//! so the lane-width argument above cancels there, but the single-prime code reached for
-//! widening `vmull_s32` (two lanes) against `vmulhq_s16`'s eight, which does not. The portable
-//! code compiles to baseline SSE2 on x86-64, which has no 64-bit multiply at all and must
-//! emulate the single-prime product; see [`crate::arithmetic::ntt_crt`]. What would *not* want
-//! two primes is a genuinely scalar target, where a 32×32→64 multiply costs the same as a
-//! 16×16→32 one and the doubled work buys nothing.
-//!
-//! Measured on kopis768, with this and the single-prime transform compiled into one binary and
-//! selected at runtime (the only way to compare them fairly — built separately, code moves
-//! around enough to swamp the difference and even reverse its sign), this is about 17% faster
-//! on encapsulation's NTT work and about 9% faster on encapsulation end to end.
-//!
-//! # Correctness
-//!
-//! q₁·q₂ = 82_593_793, so the centered range ±41_296_896 comfortably covers the exactness
-//! bound ℓ·256·(2^13 − 1)·(μ/2) ≤ 25_162_752 that [`crate::arithmetic::ntt_arith`] establishes; the
-//! margin is 16_134_144. Both primes are 1 mod 512, so X^256 + 1 splits completely over each
-//! and the same complete 8-layer transform applies, with the same ψ-table layout and the same
-//! Cooley-Tukey / Gentleman-Sande structure as the serial code.
-//!
-//! # What this costs, and it is not nothing
-//!
-//! The bit-packing and the binomial sampler are lane-parallel restatements of portable code
-//! that produce *bit-identical* values, and are tested against it stage by stage. That is what
-//! lets the Lean correspondence proof, which is about the portable code, keep covering the
-//! shipped binary.
-//!
-//! The two-prime NTT breaks that, here and everywhere else it is used. Its NTT-domain values
-//! are different integers entirely; only the endpoints agree, so `avx2_matches_serial` in
-//! [`crate::arithmetic::ntt_arith`] checks the pipeline end to end rather than stage by stage.
-//!
-//! Note the scope carefully: the Lean proof was about an older *single-prime* transform, and
-//! every path — portable included (see [`crate::arithmetic::ntt_crt`]) — now uses two primes.
-//! So **the Lean proof does not currently cover the ring multiplication in any build**, not
-//! just AVX2 ones. What is verified is that the algorithm is right — the same negacyclic
-//! transform, over moduli whose product covers the product bound — not that these
-//! implementations of it are. That guarantee now rests entirely on tests: the schoolbook and
-//! extremal-coefficient tests over all three parameter sets, `avx2_matches_serial` and
-//! `neon_matches_serial` pinning each vector backend against the portable two-prime pipeline,
-//! and the KATs. Re-establishing the proof means porting it to the two-prime transform.
+//! Only the endpoints of the pipeline agree with the portable code — the NTT-domain values are
+//! different integers — so `avx2_matches_serial` in [`crate::arithmetic::ntt_arith`] checks it
+//! end to end rather than stage by stage, and the Lean correspondence proof does not cover it.
 //!
 //! # Layout
 //!
-//! [`crate::arithmetic::ntt_arith::NttElem`] is `[i16; 512]`: two 256-coefficient blocks, residues
-//! mod q₁ in the first and mod q₂ in the second. The pointwise accumulator is `[i32; 512]`,
-//! split the same way. Those are the types the portable two-prime transform in
-//! [`crate::arithmetic::ntt_crt`] uses too, so this backend and the portable path agree on the
-//! representation outright rather than by reinterpretation. Since neither
-//! `NttElem` nor `NttMatrix` is ever serialized (a public key stores `matrix_seed` and
-//! re-derives its NTT form — see `crate::pke::PkePublicKey`) the representation never escapes
-//! the process that computed it.
+//! [`crate::arithmetic::ntt_arith::NttElem`] is `[i16; 512]`: two 256-coefficient blocks,
+//! residues mod q₁ in the first and mod q₂ in the second. The pointwise accumulator is
+//! `[i32; 512]`, split the same way. Those are the types [`crate::arithmetic::ntt_crt`] uses
+//! too, so this backend and the portable path agree on the representation outright.
 //!
 //! 256 `i16` are 16 vectors of 16. The first four levels (`len` ≥ 16) pair whole vectors. The
 //! last four live inside a vector, so the 16 vectors are transposed as a 16×16 matrix: lane `m`
@@ -78,27 +26,17 @@
 //!
 //! # Growth
 //!
-//! An `i16` lane holds only 3.05·q₂, so both transforms need interior reductions. The bounds,
-//! taken over the worst case q₂ = 10753:
+//! An `i16` lane holds only 3.05·q₂, so both directions need interior reductions. Forward,
+//! Barrett after levels 3 and 7 re-centers to q/2, and the final Barrett leaves the output at
+//! |a| ≤ q/2. The second run is *four* levels (len = 16, 8, 4, 2), which the per-level bound in
+//! [`crate::arithmetic::ntt_crt`] does not cover; it is safe because the ψ magnitudes at levels
+//! 4–7 are small enough that interval propagation with the actual per-butterfly values bounds
+//! the worst lane below 30_700 of 32_767. Changing the schedule or regenerating the ψ tables
+//! means re-deriving that bound.
 //!
-//! * Forward: inputs are centered, |a| ≤ q/2. Barrett after levels 3 and 7 re-centers to q/2,
-//!   and the final Barrett leaves the output at |a| ≤ q/2. Note the second run is *four*
-//!   levels (len = 16, 8, 4, 2): the crude 0.75q-per-level budget in [`crate::arithmetic::ntt_crt`]
-//!   does not cover it (it predicts 3.5q > 3.05q). The run is safe because the ψ magnitudes at
-//!   levels 4–7 are small enough — interval propagation with the actual per-butterfly ψ values
-//!   bounds the worst lane below 30_700 of 32_767. This differs from NEON, which re-centers
-//!   after levels 3 and 6; see [`crate::arithmetic::ntt_crt`] for the shared argument and the
-//!   caveat
-//!   about re-deriving the bound if the schedule or tables change.
-//! * Inverse: the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so
-//!   the usable bound is 1.52q. Starting under 0.7q, two levels reach 2.66q — as a *sum*,
-//!   which fits — and a Barrett after levels 2, 4 and 6 keeps it there. The last two levels
-//!   end at 2.0q, which the final Montgomery scaling brings back under q.
-//!
-//! Every one of those sites was checked against the `i16` range by the scalar model the
-//! constants were generated with, on random and extremal inputs for all three parameter sets;
-//! the worst lane value observed in those runs was 20411 of 32767 (the certified worst-case
-//! bound above is higher because it quantifies over all possible inputs).
+//! Inverse, the Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, so the
+//! usable bound is 1.52q; a Barrett after levels 2, 4 and 6 holds it there, and the final
+//! Montgomery scaling brings the last two levels back under q.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.
 #![allow(clippy::needless_range_loop)]
@@ -121,8 +59,8 @@ use super::intrinsics::{
 /// One prime's 256 centered residues, as 16 vectors of 16 `i16`.
 ///
 /// The transform works in these blocks throughout; the two-blocks-in-one-buffer layout that
-/// [`crate::arithmetic::ntt_arith::NttElem`] presents to the rest of the crate is applied only
-/// at this
+/// [`crate::arithmetic::ntt_arith::NttElem`] presents to the rest of the crate is applied only at
+/// this
 /// module's entry points, by the `*_of_*` accessors in [`super::intrinsics`].
 type Block = [i16; RING_DEG];
 
