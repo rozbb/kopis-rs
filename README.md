@@ -330,8 +330,7 @@ every proof without ever running charon.
   **Use revision `b59d5188` — this tree does not build against aeneas `main`.** aeneas is a
   *path* dependency, so no revision is recorded in the manifest, and the same SHA appears as
   `AENEAS_VERSION` in `extract_rust_to_lean.sh`. The next commit upstream, `e30579c0`, adds
-  `@[step]`-tagged shift lemmas that make `step*` overshoot in three of our proofs. See the setup
-  section of [`lean/NEON_VERIFICATION_PLAN.md`](lean/NEON_VERIFICATION_PLAN.md) for the symptoms.
+  `@[step]`-tagged shift lemmas that make `step*` overshoot in three of our proofs.
 * **Mathlib's build cache.** Run `lake exe cache get` from `lean/` before the first build;
   compiling Mathlib from source instead costs hours.
 * **Memory.** Each Lean worker holds ~1.75 GB resident. The `Makefile` caps parallelism at

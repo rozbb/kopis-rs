@@ -138,8 +138,7 @@ fn ld_tbl<const N: usize>(table: &Tbl<N>, g: usize) -> (Vec128, Vec128) {
 
 // One accessor per transposed level, each selecting between the two primes' tables and returning
 // the loaded pair *by value*. Both the by-value return and the selection happening inside a
-// function body rather than at the use site are aeneas constraints; see
-// `lean/NEON_VERIFICATION_PLAN.md`.
+// function body rather than at the use site are aeneas constraints.
 
 /// Group `g` of the forward len = 4 table
 #[inline]

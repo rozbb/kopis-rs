@@ -25,7 +25,7 @@
 //! # Extraction
 //!
 //! [`intrinsics`] is the one module charon is told to keep opaque; the Lean side supplies its
-//! semantics by hand. See `lean/AVX2_VERIFICATION_PLAN.md`. [`keccak`] names intrinsics outside
+//! semantics by hand. [`keccak`] names intrinsics outside
 //! [`intrinsics`], so it must be marked opaque in its own right, which puts the four-way
 //! permutation in the trusted base rather than the verified one, backed only by its
 //! `matches_scalar` test against the `turboshake` crate.

@@ -31,7 +31,7 @@
 //! # Extraction
 //!
 //! [`intrinsics`] is the one module charon is told to keep opaque; the Lean side supplies its
-//! semantics by hand. See `lean/NEON_VERIFICATION_PLAN.md`. Unlike the AVX2 backend, [`cpu`] is
+//! semantics by hand. Unlike the AVX2 backend, [`cpu`] is
 //! not kept opaque: on AArch64 `available()` is a compile-time constant `true`, so it extracts
 //! as an ordinary definition.
 

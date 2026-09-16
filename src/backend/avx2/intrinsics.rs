@@ -18,8 +18,8 @@
 //! * **The interface is the specification.** A wrapper's type is what the Lean model gets to
 //!   assume, which is why the memory accessors take array and slice references with an element
 //!   index rather than raw pointers: a bound the type system states is a bound the model can
-//!   state too. Same shape as libcrux's AVX2 proofs
-//!   (`libcrux/crates/utils/intrinsics/src/avx2_extract.rs`).
+//!   state too. Same shape as libcrux's AVX2 proofs (see that project's
+//!   `crates/utils/intrinsics/src/avx2_extract.rs`).
 //!
 //! # Safety
 //!
@@ -212,7 +212,7 @@ pub(crate) fn slli_epi32<const IMM: i32>(a: Vec256) -> Vec256 {
 /// `vpsllq`: 4 lanes of 64-bit left shift by the immediate `IMM`
 ///
 /// A count of 64 or more yields zero rather than wrapping, which is the instruction's own
-/// behaviour and is what makes a rotate by zero come out as the identity.
+/// behavior and is what makes a rotate by zero come out as the identity.
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn slli_epi64<const IMM: i32>(a: Vec256) -> Vec256 {

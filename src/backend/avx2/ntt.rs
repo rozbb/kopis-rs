@@ -448,8 +448,7 @@ fn invntt_block<const SECOND: bool>(b: &mut Block) {
             // The table entries are centered, so |ψ| ≤ q/2 and the negation cannot overflow.
             // `0 - z` rather than `z.wrapping_neg()`: aeneas leaves `i16::wrapping_neg` opaque
             // (it extracts to an axiom with no definition), whereas `wrapping_sub` gets real
-            // semantics. Identical codegen, one fewer assumption in the Lean trust base. Same
-            // reasoning as `src/arithmetic/ntt.rs`; see the note there.
+            // semantics. Identical codegen, one fewer assumption in the Lean trust base.
             let neg_zeta = 0i16.wrapping_sub(crt::zeta::<SECOND>(k));
             let z = set1_epi16(neg_zeta);
             let zq = set1_epi16(neg_zeta.wrapping_mul(crt::qinv::<SECOND>()));
