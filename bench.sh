@@ -41,14 +41,16 @@ case "${BACKEND}" in
     serial)
         # Serial benches
 
-        RUST_SERIAL_FLAGS="--cfg kopis_backend=\"serial\" --cfg keccak_backend=\"soft\" \
-            --cfg mlkem_selkie_backend=\"scalar\" --cfg sha3_selkie_backend=\"scalar\""
+        RUST_SERIAL_FLAGS="--cfg kopis_backend=\"serial\" --cfg keccak_backend=\"soft\""
         C_SERIAL_FLAGS="-DMY_ASSEMBLER_IS_TOO_OLD_FOR_AVX"
 
         set_filtered_bench_args "${SERIAL_FILTER}" "$@"
 
 	rm -rf target/criterion
+        # The selkie crates pick their backend in build.rs; `scalar` pins both to the portable
+        # path. Their build scripts declare `rerun-if-env-changed`, so flipping these rebuilds.
         RUSTFLAGS="${RUST_SERIAL_FLAGS} ${RUST_PERF_FLAGS}" AWS_LC_SYS_CFLAGS="${C_SERIAL_FLAGS}" \
+            MLKEM_SELKIE_BACKEND="scalar" SHA3_SELKIE_BACKEND="scalar" \
             cargo bench --bench all -- "${BENCH_ARGS[@]}"
         OUTDIR="target/criterion-serial"
         ;;
@@ -61,8 +63,8 @@ case "${BACKEND}" in
         case "${ARCH}" in
             x86_64 | amd64)
                 SIMD="avx2"
-		# Use a target that supports AVX2 but not AVX512. This is so that mlkem-selkie
-		# doesn't use AVX512
+		# Use a target that supports AVX2 but not AVX512. This is so that sha3-selkie's
+		# Keccak, which selkie's ML-KEM hashes with, doesn't use AVX512
                 RUST_ARCH_FLAGS="-C target-cpu=x86-64-v3"
                 set_filtered_bench_args "${AVX2_FILTER}" "$@"
                 ;;

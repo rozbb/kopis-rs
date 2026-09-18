@@ -700,7 +700,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 [[package]]
 name = "mlkem-selkie"
 version = "0.0.0"
-source = "git+https://github.com/rozbb/mlkem-selkie.git?branch=backend-override#d5f0b034f6dc9c323fe06de8484ff4d8b9fa9db5"
+source = "git+https://github.com/selkie-cryptography/mlkem-selkie?rev=9acffbf58ea2fc8c2258ed2ee1c2731d631be934#9acffbf58ea2fc8c2258ed2ee1c2731d631be934"
 dependencies = [
  "getrandom 0.2.17",
  "sha3-selkie",
@@ -1048,7 +1048,7 @@ dependencies = [
 [[package]]
 name = "sha3-selkie"
 version = "0.0.0"
-source = "git+https://github.com/rozbb/sha3-selkie.git?branch=backend-override#426ef78efe7c009f642ee1ee87d925668119be1c"
+source = "git+https://github.com/selkie-cryptography/sha3-selkie?rev=e769dcea3da3952f06b21414f53a392771d024bb#e769dcea3da3952f06b21414f53a392771d024bb"
 
 [[package]]
 name = "shake"

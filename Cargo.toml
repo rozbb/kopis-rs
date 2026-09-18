@@ -31,7 +31,7 @@ graviola = "=0.4.1"
 sha3 = "0.12.0"
 shake = "0.1.0"
 aws-lc-rs = "1.17.3"
-mlkem-selkie = "=0.0.0"
+mlkem-selkie = { git = "https://github.com/selkie-cryptography/mlkem-selkie", rev = "9acffbf58ea2fc8c2258ed2ee1c2731d631be934" }
 
 [[bench]]
 name = "all"
@@ -50,8 +50,10 @@ debug = 2
 [patch.crates-io]
 aws-lc-rs = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-derand" }
 aws-lc-sys = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-derand" }
-sha3-selkie = { git = "https://github.com/rozbb/sha3-selkie.git", branch = "backend-override" }
-mlkem-selkie = { git = "https://github.com/rozbb/mlkem-selkie.git", branch = "backend-override" }
+# mlkem-selkie pulls sha3-selkie from crates.io, and the published 0.0.0 predates the
+# `SHA3_SELKIE_BACKEND` env var that bench.sh's serial leg forces the portable Keccak with — so this
+# one has to be a patch
+sha3-selkie = { git = "https://github.com/selkie-cryptography/sha3-selkie", rev = "e769dcea3da3952f06b21414f53a392771d024bb" }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
 cpufeatures = "0.3"
