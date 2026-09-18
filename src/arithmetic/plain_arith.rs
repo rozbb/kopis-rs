@@ -43,7 +43,11 @@ impl RingElem {
     #[allow(clippy::unwrap_used)]
     pub(crate) fn deserialize<const BITS_PER_ELEM: usize>(bytes: &[u8]) -> Self {
         // We support deserialization of any number of bits up to 13
-        debug_assert!((1..=13).contains(&BITS_PER_ELEM));
+        // Spelled out rather than `(1..=13).contains(&BITS_PER_ELEM)`: charon does not lower
+        // `RangeInclusive::contains`, so aeneas emits it uninterpreted and the assertion in
+        // front of every width would land in the Lean trust base as an assumption about what
+        // `contains` returns.  Plain comparisons translate.
+        debug_assert!(BITS_PER_ELEM >= 1 && BITS_PER_ELEM <= 13);
         // The bytes must be exactly RING_DEG-many copies of BITS_PER_ELEM
         assert_eq!(bytes.len(), BITS_PER_ELEM * RING_DEG / 8);
 
@@ -89,7 +93,11 @@ impl RingElem {
     #[allow(clippy::unwrap_used)]
     pub(crate) fn serialize<const BITS_PER_ELEM: usize>(&self, out_buf: &mut [u8]) {
         // We support serialization of any number of bits up to 13
-        debug_assert!((1..=13).contains(&BITS_PER_ELEM));
+        // Spelled out rather than `(1..=13).contains(&BITS_PER_ELEM)`: charon does not lower
+        // `RangeInclusive::contains`, so aeneas emits it uninterpreted and the assertion in
+        // front of every width would land in the Lean trust base as an assumption about what
+        // `contains` returns.  Plain comparisons translate.
+        debug_assert!(BITS_PER_ELEM >= 1 && BITS_PER_ELEM <= 13);
         // The output must be exactly RING_DEG-many copies of BITS_PER_ELEM
         assert_eq!(out_buf.len(), BITS_PER_ELEM * RING_DEG / 8);
 

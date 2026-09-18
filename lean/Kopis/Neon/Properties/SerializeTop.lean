@@ -68,12 +68,10 @@ theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n :
   unfold RingElem.serialize
   simp only [consts.RING_DEG]
   -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val) = true) = ok ()
-        from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (bits >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show bits >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (bits <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show bits <= 13#usize by scalar_tac)], bind_tc_ok]
   -- `BITS_PER_ELEM * RING_DEG` is an overflow check whose value the body discards; the product
   -- is then recomputed as a wrapping multiply, which `mul_spec` says does not wrap
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec (show bits.val * (256#usize).val ≤ Usize.max by

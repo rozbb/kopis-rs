@@ -76,15 +76,12 @@ theorem ringElem_deserialize_dispatch (bytes : Slice U8) (bits : Usize)
     arithmetic.plain_arith.RingElem.deserialize bits bytes ⦃ P ⦄ := by
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
-  -- The width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))` now fronts the body as a
-  -- `massert`, so it has to be discharged rather than case-split; see
-  -- `rangeInclusive_contains_usize_eq` in `Intrinsics.lean`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ bits.val ∧ bits.val ≤ ri.«end».val) = true) = ok ()
-        from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  -- The two `debug_assert!` width comparisons now front the body as `massert`s; both are
+  -- discharged from `1 ≤ bits ≤ 13`, so neither costs an assumption.
+  rw [show massert (bits >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show bits >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (bits <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show bits <= 13#usize by scalar_tac)], bind_tc_ok]
   -- `BITS_PER_ELEM * RING_DEG` is an overflow check whose value the body discards, then the same
   -- product recomputed as a wrapping multiply; `mul_spec` succeeding is what rules out the wrap.
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec

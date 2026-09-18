@@ -43,38 +43,6 @@ def toRingElem13 (a : RingElem) : Spec.Kopis.Polynomial (2 ^ 13) :=
   Vector.ofFn fun (i : Fin 256) =>
     ((a.val[i.val]'(by have := a.property; grind)).val : ZMod (2 ^ 13))
 
-/-! ## `RangeInclusive::contains` — the width guard
-
-`RingElem::{serialize,deserialize}` open with `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`.
-`contains` is a `core` comparison charon does not lower, so aeneas emits it uninterpreted
-(`core.ops.range.RangeInclusive.contains` is an `axiom` in the extraction), and the `massert` it
-guards therefore cannot be discharged from the extraction alone — the triple would be *false*,
-not merely unproved, since `⦃ ⦄` forbids failure.
-
-This gives the call its `core` semantics at the `Usize` instantiation: `contains` decides
-`start ≤ x ≤ end` (`RangeInclusive::contains` ignores the `exhausted` flag, as `core` does).
-
-The AVX2 and NEON stacks used to carry `rangeInclusive_contains_ok`, which assumed only that the
-call *returns*.  That was enough while this guard sat inside an `if` — both branches were proved —
-and is not enough now that the same guard fronts a `massert` in `plain_arith`, which is compiled
-into all three backends; each `Intrinsics.lean` now carries this assumption instead, about its own
-extraction's `contains`. -/
-axiom rangeInclusive_contains_usize_eq
-    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
-    (i3 : core.cmp.PartialOrd Usize Usize)
-    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
-    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
-      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val))
-
-/-- `rangeInclusive_contains_usize_eq` in triple form, for `step*`. -/
-@[step] theorem rangeInclusive_contains_usize_spec
-    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
-    (i3 : core.cmp.PartialOrd Usize Usize)
-    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
-    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
-      ⦃ (b : Bool) => b = decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val) ⦄ := by
-  rw [rangeInclusive_contains_usize_eq]; simp
-
 /-! ## `deserialize` / `from_bytes` correspondence -/
 
 set_option maxHeartbeats 1000000
@@ -785,12 +753,10 @@ theorem from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
   have hlen416 : bytes.length = 416 := by omega
   -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
   -- `match` and spends the whole heartbeat budget normalising `↑13#usize` down to `13`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (13#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show 13#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (13#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show 13#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
   have hw : (13#usize).val = 13 := by simp

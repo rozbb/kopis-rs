@@ -102,7 +102,6 @@ def serialAudited : List String :=
    "Kopis.Properties.hasher_default_spec",
    "Kopis.Properties.hasher_finalize_spec",
    "Kopis.Properties.hasher_update_spec",
-   "Kopis.Properties.rangeInclusive_contains_usize_eq",
    "Kopis.Properties.reader_read136_spec",
    "Kopis.Properties.reader_read168_spec",
    "Quot.sound",
@@ -112,7 +111,6 @@ def serialAudited : List String :=
    "RustKopisSerial.U8.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisSerial.core.num.U16.count_ones",
    "RustKopisSerial.core.num.U8.count_ones",
-   "RustKopisSerial.core.ops.range.RangeInclusive.contains",
    "RustKopisSerial.subtle.Choice",
    "RustKopisSerial.turboshake.TurboShake",
    "RustKopisSerial.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
@@ -161,20 +159,18 @@ tested: `Kopis/Avx2/Model.lean` derives a computable model from each axiom, and
 (`src/backend/avx2/intrinsics_vectors.rs`) through those models. A wrong axiom is therefore caught
 by `cargo test` on an AVX2 host, not silently believed.
 
-**(f) The two dispatch guards (2 assumptions).** `available_ok` says the CPUID probe returns —
+**(f) The dispatch guard (1 assumption).** `available_ok` says the CPUID probe returns —
 `∃ b, cpu.available = ok b`. It does not say *which* answer is given, and does not need to: every
 dispatch point is proved on both branches. That is the whole of feature detection's contribution
 to the trust base.
 
-`rangeInclusive_contains_usize_eq` is the width guard `(1..=13).contains(&BITS_PER_ELEM)`, which
-charon does not lower, so aeneas emits it uninterpreted. This one *does* pin down the answer —
-`contains` decides `start ≤ x ≤ end` — because `BITS_PER_ELEM` became a const generic and the
-guard is now a `debug_assert!` at the top of `plain_arith::RingElem::{serialize,deserialize}`
-rather than a branch condition. A `massert` on an uninterpreted `Bool` cannot be discharged and
-cannot be case-split away: `⦃ ⦄` forbids failure, so the triple would be false, not merely
-unproved. The assumption is `core`'s own definition of the method
-(`library/core/src/ops/range.rs`), and the serial stack carries the same one as
-`Kopis.Properties.rangeInclusive_contains_usize_eq`.
+The *width* guard at the top of `plain_arith::RingElem::{serialize,deserialize}` costs nothing.
+It was briefly an assumption: written `debug_assert!((1..=13).contains(&BITS_PER_ELEM))` it
+extracted through an uninterpreted `RangeInclusive::contains` — charon does not lower it — and a
+`massert` on an opaque `Bool` can neither be discharged nor case-split away, since `⦃ ⦄` forbids
+failure. Spelling the same guard as `BITS_PER_ELEM >= 1 && BITS_PER_ELEM <= 13` extracts to two
+ordinary `massert`s on `Usize` comparisons, both discharged from the width bounds the callers
+already carry. Keep it spelled that way.
 
 **(g) Popcount, twice more.** `CbdGeneric.U{8,16}.count_ones_spec` are the same assumption as (c),
 for the copy of the portable sampler that `Kopis/Avx2/CbdGeneric.lean` carries; the extracted
@@ -224,7 +220,6 @@ def avx2Audited : List String :=
    "Kopis.Avx2.packus_epi32_spec",
    "Kopis.Avx2.permute2x128_si256_spec",
    "Kopis.Avx2.permute4x64_epi64_spec",
-   "Kopis.Avx2.rangeInclusive_contains_usize_eq",
    "Kopis.Avx2.set1_epi16_spec",
    "Kopis.Avx2.set1_epi32_spec",
    "Kopis.Avx2.setzero_si256_spec",
@@ -314,7 +309,6 @@ def avx2Audited : List String :=
    "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi64",
    "RustKopisAvx2.core.num.U16.count_ones",
    "RustKopisAvx2.core.num.U8.count_ones",
-   "RustKopisAvx2.core.ops.range.RangeInclusive.contains",
    "RustKopisAvx2.subtle.Choice",
    "RustKopisAvx2.turboshake.TurboShake",
    "RustKopisAvx2.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
@@ -419,7 +413,6 @@ def neonAudited : List String :=
    "Kopis.Neon.load_u8x16_spec",
    "Kopis.Neon.mla_32_spec",
    "Kopis.Neon.mul_16_spec",
-   "Kopis.Neon.rangeInclusive_contains_usize_eq",
    "Kopis.Neon.rax1_spec",
    "Kopis.Neon.set_u64x2_spec",
    "Kopis.Neon.shrn16_pair_s32_spec",
@@ -504,7 +497,6 @@ def neonAudited : List String :=
    "RustKopisNeon.core.num.U16.count_ones",
    "RustKopisNeon.core.num.U8.count_ones",
    "RustKopisNeon.core.num.Usize.div_ceil",
-   "RustKopisNeon.core.ops.range.RangeInclusive.contains",
    "RustKopisNeon.subtle.Choice",
    "RustKopisNeon.turboshake.TurboShake",
    "RustKopisNeon.turboshake.TurboShake.Insts.CoreDefaultDefault.default",

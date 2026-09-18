@@ -49,42 +49,6 @@ def toRingElem13 (a : RingElem) : Spec.Kopis.Polynomial (2 ^ 13) :=
   Vector.ofFn fun (i : Fin 256) =>
     ((a.val[i.val]'(by have := a.property; grind)).val : ZMod (2 ^ 13))
 
-/-! ## `RangeInclusive::contains` — the width guard
-
-`RingElem::{serialize,deserialize}` open with `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`.
-`contains` is a `core` comparison charon does not lower, so aeneas emits it uninterpreted
-(`core.ops.range.RangeInclusive.contains` is an `axiom` in the extraction), and the `massert` it
-guards therefore cannot be discharged from the extraction alone — the triple would be *false*,
-not merely unproved, since `⦃ ⦄` forbids failure.
-
-This gives the call its `core` semantics at the `Usize` instantiation: `contains` decides
-`start ≤ x ≤ end` (`RangeInclusive::contains` ignores the `exhausted` flag, as `core` does).
-
-The AVX2 and NEON stacks used to carry `rangeInclusive_contains_ok`, which assumed only that the
-call *returns*.  That was enough while this guard sat inside an `if` — both branches were proved —
-and is not enough now that the same guard fronts a `massert` in `plain_arith`, which is compiled
-into all three backends; each `Intrinsics.lean` now carries this assumption instead, about its own
-extraction's `contains`. -/
-/-- In the backend stacks this is **not** a second assumption.  The width guard is assumed once,
-in `Kopis/Neon/Intrinsics.lean`, next to the other backend-level assumptions; this re-exports it
-under the serial name so that the twinned proof text below goes through unchanged. -/
-theorem rangeInclusive_contains_usize_eq
-    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
-    (i3 : core.cmp.PartialOrd Usize Usize)
-    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
-    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
-      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val)) :=
-  Kopis.Neon.rangeInclusive_contains_usize_eq i1 i2 i3 r x
-
-/-- `rangeInclusive_contains_usize_eq` in triple form, for `step*`. -/
-@[step] theorem rangeInclusive_contains_usize_spec
-    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
-    (i3 : core.cmp.PartialOrd Usize Usize)
-    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
-    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
-      ⦃ (b : Bool) => b = decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val) ⦄ := by
-  rw [rangeInclusive_contains_usize_eq]; simp
-
 /-! ## `deserialize` / `from_bytes` correspondence -/
 
 set_option maxHeartbeats 1000000

@@ -298,12 +298,10 @@ theorem ringElem_deserialize_10_spec (bytes : Slice U8) (hlen : bytes.length = 3
   have hlen320 : bytes.length = 320 := by omega
   -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
   -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (10#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show 10#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (10#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show 10#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
   have hw : (10#usize).val = 10 := by simp

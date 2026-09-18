@@ -52,12 +52,10 @@ PATCHES = [
   have hlen416 : bytes.length = 416 := by omega
   -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
   -- `match` and spends the whole heartbeat budget normalising `↑13#usize` down to `13`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (13#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show 13#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (13#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show 13#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
   have hw : (13#usize).val = 13 := by simp
@@ -106,12 +104,10 @@ PATCHES = [
   have hlen320 : bytes.length = 320 := by omega
   -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
   -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (10#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show 10#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (10#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show 10#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
   have hw : (10#usize).val = 10 := by simp
@@ -157,38 +153,16 @@ PATCHES = [
     # spec as a hypothesis; doing it here instead took this file from 106 s to over thirty
     # minutes, because unfolding the AVX2 dispatch body (three nested copies of the portable
     # path) and case-splitting it is expensive in this file's environment.
-    # The width guard is assumed once per backend, in `Intrinsics.lean`.  Without this the twin
-    # of the serial `axiom` would be a second, identical assumption about the same constant,
-    # and the trust base would carry both.
-    ("Serialize.lean",
-     """axiom rangeInclusive_contains_usize_eq
-    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
-    (i3 : core.cmp.PartialOrd Usize Usize)
-    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
-    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
-      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val))""",
-     """/-- In the backend stacks this is **not** a second assumption.  The width guard is assumed once,
-in `Kopis/Avx2/Intrinsics.lean`, next to the other backend-level assumptions; this re-exports it
-under the serial name so that the twinned proof text below goes through unchanged. -/
-theorem rangeInclusive_contains_usize_eq
-    (i1 : core.cmp.PartialOrd Usize Usize) (i2 : core.cmp.PartialOrd Usize Usize)
-    (i3 : core.cmp.PartialOrd Usize Usize)
-    (r : core.ops.range.RangeInclusive Usize) (x : Usize) :
-    core.ops.range.RangeInclusive.contains i1 i2 i3 r x
-      = ok (decide (r.start.val ≤ x.val ∧ x.val ≤ r.«end».val)) :=
-  Kopis.Avx2.rangeInclusive_contains_usize_eq i1 i2 i3 r x"""),
     ("Serialize.lean",
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen416 : bytes.length = 416 := by omega
   -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
   -- `match` and spends the whole heartbeat budget normalising `↑13#usize` down to `13`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (13#usize).val ∧ (13#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (13#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show 13#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (13#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show 13#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
   have hw : (13#usize).val = 13 := by simp
@@ -235,12 +209,10 @@ theorem rangeInclusive_contains_usize_eq
      """  unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2, hnv]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (n#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show n#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (n#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show n#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   -- the discarded overflow check, then the same product as a wrapping multiply
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
@@ -285,12 +257,10 @@ theorem rangeInclusive_contains_usize_eq
   have hlen320 : bytes.length = 320 := by omega
   -- The preamble is stepped by hand rather than with `step*`.  `step*` walks into the width
   -- `match` and spends the whole heartbeat budget normalising `↑10#usize` down to `10`.
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (10#usize).val ∧ (10#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (10#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show 10#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (10#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show 10#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
   have hw : (10#usize).val = 10 := by simp

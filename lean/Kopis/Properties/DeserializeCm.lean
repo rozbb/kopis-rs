@@ -279,12 +279,10 @@ theorem ringElem_deserialize_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`
-  let* ⟨ ri, hri1, hri2, hri3 ⟩ ← core.ops.range.RangeInclusive.new_spec
-  have hin : ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val := by
-    rw [hri1, hri2, hnv]; constructor <;> scalar_tac
-  rw [rangeInclusive_contains_usize_eq, bind_tc_ok]
-  rw [show massert (decide (ri.start.val ≤ (n#usize).val ∧ (n#usize).val ≤ ri.«end».val) = true)
-        = ok () from by simp only [massert, decide_eq_true_eq, if_pos hin], bind_tc_ok]
+  rw [show massert (n#usize >= 1#usize) = ok () from by
+        simp only [massert, if_pos (show n#usize >= 1#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (n#usize <= 13#usize) = ok () from by
+        simp only [massert, if_pos (show n#usize <= 13#usize by scalar_tac)], bind_tc_ok]
   -- the discarded overflow check, then the same product as a wrapping multiply
   let* ⟨ chk, hchk ⟩ ← Std.Usize.mul_spec
   have h256 : (256#usize).val = 256 := by simp
