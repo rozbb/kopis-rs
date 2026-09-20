@@ -2,7 +2,9 @@
 
 use crate::{
     consts::{DOMSEP_FO, DOMSEP_NOREJECT},
-    pke::{self, PkePublicKey, PkeSecretKey, ciphertext_len, expand_secret_key, max_ciphertext_len},
+    pke::{
+        self, PkePublicKey, PkeSecretKey, ciphertext_len, expand_secret_key, max_ciphertext_len,
+    },
     turboshake256_hash,
 };
 
