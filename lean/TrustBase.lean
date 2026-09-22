@@ -316,30 +316,31 @@ def neonAudited : List String := commonAxioms ++
    "RustKopisNeon.turboshake.TurboShakeReader",
    "RustKopisNeon.turboshake.TurboShakeReader.Insts.DigestXofReader.read"]
 
-/- Go through all the theorems and dump their axioms. Make sure every axiom is on the list. If not,
-throw an error -/
+/- Go through everything declared in the backend's namespace and dump its axioms. Make sure every axiom is on the list, and that
+the list has no unnecessary axioms. Otherwise throw an error -/
+
 open Lean in
 run_cmd do
   let backends : List (String × Name × List String) :=
     [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited),
      ("RustKopisAvx2", `Kopis.TopLevelAvx2, avx2Audited),
      ("RustKopisNeon", `Kopis.TopLevelNeon, neonAudited)]
-  let constants := (← getEnv).constants.toList
+  let names := (← getEnv).constants.toList.map (·.1)
   for (label, ns, audited) in backends do
-    let theorems := constants.filterMap fun (n, ci) =>
-      if ns.isPrefixOf n && !n.isInternal && ci matches .thmInfo _ then some n else none
-    if theorems.isEmpty then
-      throwError "NO AUDIT SURFACE for {label} — {ns} contains no theorems. Has it been \
-        renamed, or did its import fail?"
+    -- Everything in the namespace, not just the theorems: a definition that pulls in a new
+    -- axiom should fail the check even if no proof reaches it.
+    let decls := names.filter ns.isPrefixOf
+    if decls.isEmpty then
+      throwError "NO AUDIT SURFACE for {label} — {ns} is empty. Has it been renamed, or did \
+        its import fail?"
     let mut found : Array String := #[]
-    for t in theorems do
-      for a in (← Lean.collectAxioms t) do
+    for d in decls do
+      for a in (← Lean.collectAxioms d) do
         let s := a.toString
         if !found.contains s then found := found.push s
     let unexpected := found.filter (fun a => !audited.contains a)
     let unused := audited.filter (fun a => !found.contains a)
     unless unexpected.isEmpty && unused.isEmpty do
       throwError "TRUST BASE CHANGED for {label} — TrustBase.lean is out of date.\n\
-        Checked the {theorems.length} theorems in {ns}.\n\
         New assumptions not in the audited list: {unexpected.toList}\n\
         Audited assumptions no longer used: {unused}"

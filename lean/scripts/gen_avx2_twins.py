@@ -569,6 +569,12 @@ import Kopis.Avx2.SampleBridge"""),
     (hlen : bytes.length = 320 * L.val + 32)
     (hfit : L.val * 10 * 256 ≤ Usize.max) (hLsq : L.val * L.val + 4 ≤ Usize.max) :"""),
     ("PkeFromBytes.lean",
+     """    (hfit : L.val * 10 * 256 ≤ Usize.max) (_hLsq : L.val * L.val + 4 ≤ Usize.max) :""",
+     """    (hfit : L.val * 10 * 256 ≤ Usize.max) (hLsq : L.val * L.val + 4 ≤ Usize.max) :"""),
+    ("PkeFromBytes.lean",
+     """  apply WP.spec_bind (pke_from_bytes_spec bytes hlen hfit)""",
+     """  apply WP.spec_bind (pke_from_bytes_spec bytes hlen hfit hLsq)"""),
+    ("PkeFromBytes.lean",
      """  let* ⟨ mat_a, hmat, hmatbnd ⟩ ← spec_and (gen_matrix_from_seed_spec L matrix_seed)
     (gen_matrix_uniformBounded matrix_seed)""",
      """  let* ⟨ mat_a, hmat, hmatbnd ⟩ ←

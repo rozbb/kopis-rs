@@ -199,4 +199,77 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
       (by rw [hkvec]; exact hpkb))
   have hE := congrArg (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)) hpk3
   exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
+
+/-! ## Discharge lemmas for the audit surface
+
+`TopLevelTheoremsSerial.lean` states its theorems and hands each straight back to a lemma; these
+are the ones it hands back to that have no other home. -/
+
+/-- **A `⦃ … ⦄` triple means the computation succeeds and its result satisfies the
+postcondition.** -/
+theorem triple_means_success {α : Type} {x : Result α} {p : α → Prop} (h : x ⦃ p ⦄) :
+    ∃ v, x = ok v ∧ p v := by
+  cases x with
+  | ok v => exact ⟨v, rfl, h⟩
+  | fail e => simp [WP.spec, WP.theta] at h
+  | div => simp [WP.spec, WP.theta] at h
+
+/-- **Generate a key, serialize its public key, get the spec's `pk`.**  `expand_from_seed_spec`
+pins the struct's abstract serialization `pkStructBytes` to the spec's `pk`; `pke_serialize_spec`
+says the crate's serializer writes exactly that pairing of bytes.  Composing them removes
+`pkStructBytes` from the claim, leaving Rust bytes against spec bytes. -/
+private theorem keygen_serialize_aux {L MU : Usize} {p : Spec.Kopis.ParameterSet}
+    (seed : Array U8 32#usize) (out_buf : Slice U8) (hℓ : Spec.Kopis.ℓ p = L.val)
+    (hμ : Spec.Kopis.μ p = MU.val) (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
+    (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
+    (hL : L.val < 256) (hL0 : 0 < L.val)
+    (hout : out_buf.val.length = L.val * 320 + 32) :
+    (do let ksk ← kem.KemSecretKey.expand_from_seed L MU seed
+        pke.PkePublicKey.serialize ksk.kem_pk.pke_pk out_buf)
+      ⦃ (r : Slice U8) =>
+          r.val.map (·.bv)
+            = (Spec.Kopis.ExpandSecretKey p (arrayToBytes seed)).2.2.1.toList ⦄ := by
+  apply WP.spec_bind (expand_from_seed_spec L MU seed p hℓ hμ hMU hbuf hfit hL hL0)
+  rintro ksk ⟨_, _, hpkb, _, _, _⟩
+  apply WP.spec_mono (pke_serialize_spec ksk.kem_pk.pke_pk out_buf hout hfit)
+  rintro r ⟨_, hbytes⟩
+  have hmat : (arrayToBytes ksk.kem_pk.pke_pk.matrix_seed).toList
+      = (matSeedBytes ksk.kem_pk.pke_pk).toList := by
+    simp only [matSeedBytes, Vector.toList_cast]; rfl
+  rw [hbytes, hmat, ← pkStructBytes_toList _ p hℓ, hpkb]
+  rfl
+
+/-- **Kopis-512: key generation then public-key serialization matches the spec's `pk`.** -/
+theorem kopis512_keygen_serialize_spec (seed : Array U8 32#usize) (out_buf : Slice U8)
+    (hout : out_buf.val.length = 672) :
+    (do let ksk ← kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
+        pke.PkePublicKey.serialize ksk.kem_pk.pke_pk out_buf)
+      ⦃ (r : Slice U8) =>
+          r.val.map (·.bv)
+            = (Spec.Kopis.ExpandSecretKey .Kopis_512 (arrayToBytes seed)).2.2.1.toList ⦄ :=
+  keygen_serialize_aux seed out_buf rfl rfl (by decide) (by decide) (by scalar_tac)
+    (by decide) (by decide) (by rw [hout]; rfl)
+
+/-- **Kopis-768: key generation then public-key serialization matches the spec's `pk`.** -/
+theorem kopis768_keygen_serialize_spec (seed : Array U8 32#usize) (out_buf : Slice U8)
+    (hout : out_buf.val.length = 992) :
+    (do let ksk ← kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
+        pke.PkePublicKey.serialize ksk.kem_pk.pke_pk out_buf)
+      ⦃ (r : Slice U8) =>
+          r.val.map (·.bv)
+            = (Spec.Kopis.ExpandSecretKey .Kopis_768 (arrayToBytes seed)).2.2.1.toList ⦄ :=
+  keygen_serialize_aux seed out_buf rfl rfl (by decide) (by decide) (by scalar_tac)
+    (by decide) (by decide) (by rw [hout]; rfl)
+
+/-- **Kopis-1024: key generation then public-key serialization matches the spec's `pk`.** -/
+theorem kopis1024_keygen_serialize_spec (seed : Array U8 32#usize) (out_buf : Slice U8)
+    (hout : out_buf.val.length = 1312) :
+    (do let ksk ← kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
+        pke.PkePublicKey.serialize ksk.kem_pk.pke_pk out_buf)
+      ⦃ (r : Slice U8) =>
+          r.val.map (·.bv)
+            = (Spec.Kopis.ExpandSecretKey .Kopis_1024 (arrayToBytes seed)).2.2.1.toList ⦄ :=
+  keygen_serialize_aux seed out_buf rfl rfl (by decide) (by decide) (by scalar_tac)
+    (by decide) (by decide) (by rw [hout]; rfl)
+
 end Kopis.Neon.Properties

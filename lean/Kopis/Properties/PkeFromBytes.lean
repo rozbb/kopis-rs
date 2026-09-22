@@ -264,4 +264,66 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
         if_pos (Nat.zero_le _), hpe,
         List.getElem!_map_eq _ pos (fun (x : U8) => x.bv) (by omega)]
 
+/-! ## `serialize ∘ from_bytes = id` -/
+
+/-- **Parsing a public key and serializing it again returns the bytes it came from.**  The
+struct is only an intermediate: `from_bytes` splits the input into a vector encoding and a
+matrix seed, and `serialize` writes those two back out in the same order, so the composite is
+the identity on bytes for *any* input of the right length — malformed or adversarial included.
+
+Together with the spec's public key simply *being* that byte string, this is what says the two
+round-trips agree: the spec's is the identity, and so is the crate's.
+
+`_hLsq` is unused here and carried only so that this lemma has the same arity in all three
+backends: the AVX2 and NEON twins of `pke_from_bytes_spec` need it, and `scripts/gen_*_twins.py`
+patches it into the call below. -/
+theorem pke_from_bytes_serialize_spec {L : Usize} (bytes out_buf : Slice U8)
+    (hlen : bytes.length = 320 * L.val + 32)
+    (hout : out_buf.val.length = L.val * 320 + 32)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (_hLsq : L.val * L.val + 4 ≤ Usize.max) :
+    (do let pk ← pke.PkePublicKey.from_bytes L bytes
+        pke.PkePublicKey.serialize pk out_buf)
+      ⦃ (r : Slice U8) => r.val.map (·.bv) = bytes.val.map (·.bv) ⦄ := by
+  apply WP.spec_bind (pke_from_bytes_spec bytes hlen hfit)
+  rintro pk ⟨_, hseed, _, hvecbytes⟩
+  apply WP.spec_mono (pke_serialize_spec pk out_buf hout hfit)
+  rintro r ⟨_, hbytes⟩
+  have hlenB : (sliceToBytes bytes (320 * L.val + 32) hlen).toList.length = 320 * L.val + 32 := by
+    rw [Vector.toList_length]
+  have hdrop : ((sliceToBytes bytes (320 * L.val + 32) hlen).toList.drop (32 * 10 * L.val)).take 32
+      = (sliceToBytes bytes (320 * L.val + 32) hlen).toList.drop (32 * 10 * L.val) :=
+    List.take_of_length_le (by rw [List.length_drop, hlenB]; omega)
+  have hmat : (arrayToBytes pk.matrix_seed).toList = (matSeedBytes pk).toList := by
+    simp only [matSeedBytes, Vector.toList_cast]; rfl
+  rw [hbytes, hmat, hvecbytes, hseed, Vector.toList_cast, slice_toList, slice_toList,
+    List.drop_zero, hdrop, List.take_append_drop, sliceToBytes_toList]
+
+
+/-- **Kopis-512: parse a public key and serialize it again; the bytes are unchanged.** -/
+theorem kopis512_from_bytes_serialize_spec (bytes out_buf : Slice U8)
+    (hlen : bytes.length = 672) (hout : out_buf.val.length = 672) :
+    (do let pk ← pke.PkePublicKey.from_bytes 2#usize bytes
+        pke.PkePublicKey.serialize pk out_buf)
+      ⦃ (r : Slice U8) => r.val.map (·.bv) = bytes.val.map (·.bv) ⦄ :=
+  pke_from_bytes_serialize_spec bytes out_buf (by rw [hlen]; rfl) (by rw [hout]; rfl)
+    (by scalar_tac) (by scalar_tac)
+
+/-- **Kopis-768: parse a public key and serialize it again; the bytes are unchanged.** -/
+theorem kopis768_from_bytes_serialize_spec (bytes out_buf : Slice U8)
+    (hlen : bytes.length = 992) (hout : out_buf.val.length = 992) :
+    (do let pk ← pke.PkePublicKey.from_bytes 3#usize bytes
+        pke.PkePublicKey.serialize pk out_buf)
+      ⦃ (r : Slice U8) => r.val.map (·.bv) = bytes.val.map (·.bv) ⦄ :=
+  pke_from_bytes_serialize_spec bytes out_buf (by rw [hlen]; rfl) (by rw [hout]; rfl)
+    (by scalar_tac) (by scalar_tac)
+
+/-- **Kopis-1024: parse a public key and serialize it again; the bytes are unchanged.** -/
+theorem kopis1024_from_bytes_serialize_spec (bytes out_buf : Slice U8)
+    (hlen : bytes.length = 1312) (hout : out_buf.val.length = 1312) :
+    (do let pk ← pke.PkePublicKey.from_bytes 4#usize bytes
+        pke.PkePublicKey.serialize pk out_buf)
+      ⦃ (r : Slice U8) => r.val.map (·.bv) = bytes.val.map (·.bv) ⦄ :=
+  pke_from_bytes_serialize_spec bytes out_buf (by rw [hlen]; rfl) (by rw [hout]; rfl)
+    (by scalar_tac) (by scalar_tac)
+
 end Kopis.Properties
