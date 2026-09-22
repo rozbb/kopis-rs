@@ -122,31 +122,6 @@ def serialAudited : List String :=
    "RustKopisSerial.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
    "propext"]
 
-/-- The theorems whose footprint `serialAudited` describes: **every** theorem in
-`Kopis.TopLevelSerial`, which the coverage check below enforces. That is the thirteen top-level
-results of `TopLevelTheoremsSerial.lean` §3, plus the two lemmas that explain how to read them —
-`triple_means_success` (§1), which is what licenses reading each `⦃ … ⦄` as "terminates without
-panicking", and `arrayToBytes_is_identity` (§2), which is what says the translation layer is not
-throwing information away. Those two are as load-bearing for an auditor as the theorems they
-explain, and auditing them costs nothing: their axioms are a subset of the list above. -/
-def serialTheorems : List Name :=
-  [``Kopis.TopLevelSerial.triple_means_success,
-   ``Kopis.TopLevelSerial.arrayToBytes_is_identity,
-   ``Kopis.TopLevelSerial.kopis512_keygen,
-   ``Kopis.TopLevelSerial.kopis768_keygen,
-   ``Kopis.TopLevelSerial.kopis1024_keygen,
-   ``Kopis.TopLevelSerial.kopis512_keygen_then_encapsulate,
-   ``Kopis.TopLevelSerial.kopis768_keygen_then_encapsulate,
-   ``Kopis.TopLevelSerial.kopis1024_keygen_then_encapsulate,
-   ``Kopis.TopLevelSerial.kopis512_keygen_then_decapsulate,
-   ``Kopis.TopLevelSerial.kopis768_keygen_then_decapsulate,
-   ``Kopis.TopLevelSerial.kopis1024_keygen_then_decapsulate,
-   ``Kopis.TopLevelSerial.pk_serialize_matches_translation,
-   ``Kopis.TopLevelSerial.kopis512_from_bytes_then_encapsulate,
-   ``Kopis.TopLevelSerial.kopis768_from_bytes_then_encapsulate,
-   ``Kopis.TopLevelSerial.kopis1024_from_bytes_then_encapsulate]
-
-
 /-! ## The AVX2 (`RustKopisAvx2`) backend
 
 The same theorems, about the `--cfg kopis_backend="avx2"` extraction. Its assumptions are the
@@ -367,25 +342,6 @@ def avx2Audited : List String :=
    "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.shl_sar_eq._native.bv_decide.ax_1_5",
    "propext"]
 
-/-- The AVX2 twins of `serialTheorems`; the coverage check enforces that this is every theorem in
-`Kopis.TopLevelAvx2`. -/
-def avx2Theorems : List Name :=
-  [``Kopis.TopLevelAvx2.triple_means_success,
-   ``Kopis.TopLevelAvx2.arrayToBytes_is_identity,
-   ``Kopis.TopLevelAvx2.kopis512_keygen,
-   ``Kopis.TopLevelAvx2.kopis768_keygen,
-   ``Kopis.TopLevelAvx2.kopis1024_keygen,
-   ``Kopis.TopLevelAvx2.kopis512_keygen_then_encapsulate,
-   ``Kopis.TopLevelAvx2.kopis768_keygen_then_encapsulate,
-   ``Kopis.TopLevelAvx2.kopis1024_keygen_then_encapsulate,
-   ``Kopis.TopLevelAvx2.kopis512_keygen_then_decapsulate,
-   ``Kopis.TopLevelAvx2.kopis768_keygen_then_decapsulate,
-   ``Kopis.TopLevelAvx2.kopis1024_keygen_then_decapsulate,
-   ``Kopis.TopLevelAvx2.pk_serialize_matches_translation,
-   ``Kopis.TopLevelAvx2.kopis512_from_bytes_then_encapsulate,
-   ``Kopis.TopLevelAvx2.kopis768_from_bytes_then_encapsulate,
-   ``Kopis.TopLevelAvx2.kopis1024_from_bytes_then_encapsulate]
-
 /-! ## The NEON (`RustKopisNeon`) backend
 
 Extracted from an `--cfg kopis_backend="neon" -C target-feature=+sha3` build cross-compiled for
@@ -556,53 +512,45 @@ def neonAudited : List String :=
    "RustKopisNeon.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
    "propext"]
 
-/-- The NEON twins of `serialTheorems`; the coverage check enforces that this is every theorem in
-`Kopis.TopLevelNeon`. -/
-def neonTheorems : List Name :=
-  [``Kopis.TopLevelNeon.triple_means_success,
-   ``Kopis.TopLevelNeon.arrayToBytes_is_identity,
-   ``Kopis.TopLevelNeon.kopis512_keygen,
-   ``Kopis.TopLevelNeon.kopis768_keygen,
-   ``Kopis.TopLevelNeon.kopis1024_keygen,
-   ``Kopis.TopLevelNeon.kopis512_keygen_then_encapsulate,
-   ``Kopis.TopLevelNeon.kopis768_keygen_then_encapsulate,
-   ``Kopis.TopLevelNeon.kopis1024_keygen_then_encapsulate,
-   ``Kopis.TopLevelNeon.kopis512_keygen_then_decapsulate,
-   ``Kopis.TopLevelNeon.kopis768_keygen_then_decapsulate,
-   ``Kopis.TopLevelNeon.kopis1024_keygen_then_decapsulate,
-   ``Kopis.TopLevelNeon.pk_serialize_matches_translation,
-   ``Kopis.TopLevelNeon.kopis512_from_bytes_then_encapsulate,
-   ``Kopis.TopLevelNeon.kopis768_from_bytes_then_encapsulate,
-   ``Kopis.TopLevelNeon.kopis1024_from_bytes_then_encapsulate]
-
 /-! ## The check
 
-One row per backend: a label, the namespace its theorems live in, its audited assumptions, and
-the theorems those are the assumptions *of*. Each row is checked on its own — see the header on
-why the lists must not be merged.
+One row per backend: a label, the namespace its theorems live in, and its audited assumptions.
+Each row is checked on its own — see the header on why the lists must not be merged.
 
-Two things are checked, because the audited list and the theorem list can each rot:
+**What is audited is whatever is in the namespace.** The theorems are enumerated from the
+environment rather than listed here, so the audit surface is exactly what `TopLevelTheorems*.lean`
+declares, and a theorem added there is audited the moment it compiles. There is no exemption
+list and no way to forget an entry: a theorem sitting in the audit surface that nothing checks
+the assumptions of is the situation this file exists to prevent, and "it only explains the
+notation" would not have been a reason — an explanatory lemma proved by `sorry` would mislead an
+auditor about how to read every theorem below it.
 
-* **Footprint.** The axioms actually reachable from the listed theorems are exactly the audited
-  ones. A new assumption means the audit is incomplete; an unused one means it is stale.
-* **Coverage.** Every theorem in the backend's namespace is audited. There is no exemption
-  list, and there should not be one: a theorem sitting in the audit surface that nothing checks
-  the assumptions of is exactly the situation this file exists to prevent, and "it only explains
-  the notation" is not a reason — an explanatory lemma proved by `sorry` would mislead an
-  auditor about how to read every theorem below it. Without this check, adding a theorem to
-  `TopLevelTheoremsSerial.lean` and forgetting to list it here would leave it unaudited while the
-  build stayed green, which is an easy mistake now that the statements and the assumptions live
-  in different files. -/
+For the serial backend that surface is the thirteen top-level results of
+`TopLevelTheoremsSerial.lean` §3 plus the two lemmas that explain how to read them:
+`triple_means_success` (§1), which licenses reading each `⦃ … ⦄` as "terminates without
+panicking", and `arrayToBytes_is_identity` (§2), which says the translation layer is not throwing
+information away. Those two are as load-bearing for an auditor as the theorems they explain, and
+auditing them costs nothing — their axioms are a subset of the list either way. The other two
+backends carry the generated twins of all fifteen.
+
+So there is one thing to check rather than two: **the axioms reachable from those theorems are
+exactly the audited ones.** A new assumption means the audit is incomplete; an unused one means
+it is stale. An empty namespace is an error too — otherwise a renamed or unimported audit
+surface would quietly audit nothing. -/
 
 open Lean in
 run_cmd do
-  let backends : List (String × Name × List String × List Name) :=
-    [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited, serialTheorems),
-     ("RustKopisAvx2", `Kopis.TopLevelAvx2, avx2Audited, avx2Theorems),
-     ("RustKopisNeon", `Kopis.TopLevelNeon, neonAudited, neonTheorems)]
-  let env ← getEnv
-  for (label, ns, audited, theorems) in backends do
-    -- Footprint.
+  let backends : List (String × Name × List String) :=
+    [("RustKopisSerial", `Kopis.TopLevelSerial, serialAudited),
+     ("RustKopisAvx2", `Kopis.TopLevelAvx2, avx2Audited),
+     ("RustKopisNeon", `Kopis.TopLevelNeon, neonAudited)]
+  let constants := (← getEnv).constants.toList
+  for (label, ns, audited) in backends do
+    let theorems := constants.filterMap fun (n, ci) =>
+      if ns.isPrefixOf n && !n.isInternal && ci matches .thmInfo _ then some n else none
+    if theorems.isEmpty then
+      throwError "NO AUDIT SURFACE for {label} — {ns} contains no theorems. Has it been \
+        renamed, or did its import fail?"
     let mut found : Array String := #[]
     for t in theorems do
       for a in (← Lean.collectAxioms t) do
@@ -612,16 +560,6 @@ run_cmd do
     let unused := audited.filter (fun a => !found.contains a)
     unless unexpected.isEmpty && unused.isEmpty do
       throwError "TRUST BASE CHANGED for {label} — TrustBase.lean is out of date.\n\
+        Checked the {theorems.length} theorems in {ns}.\n\
         New assumptions not in the audited list: {unexpected.toList}\n\
         Audited assumptions no longer used: {unused}"
-    -- Coverage.
-    let mut unaudited : Array Name := #[]
-    for (n, ci) in env.constants.toList do
-      if ns.isPrefixOf n && !n.isInternal then
-        if ci matches .thmInfo _ then
-          unless theorems.contains n do
-            unaudited := unaudited.push n
-    unless unaudited.isEmpty do
-      throwError "UNAUDITED THEOREM in {ns} — TrustBase.lean is out of date.\n\
-        Nothing is checking what these theorems assume — add them to the backend's \
-        theorem list: {unaudited.toList}"
