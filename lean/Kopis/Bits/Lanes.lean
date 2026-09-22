@@ -15,8 +15,8 @@
 
   Nothing here mentions an extracted constant, a register width or a backend — the AVX2 words
   are 256 bits and the NEON ones 128, and every statement below is generic in the word length.
-  `Kopis/Avx2/Lanes.lean` and `Kopis/Neon/Lanes.lean` fix the widths their backend uses and add
-  the `bits_inj` corollaries, which are the only part that does mention a backend.  This file
+  `Kopis/Avx2/Lanes.lean` and `Kopis/Neon/Lanes.lean` fix the widths their backend uses, and now
+  that the `bits_inj` corollaries are gone they mention no extracted constant either.  This file
   lives beside `Kopis/Bits/Stream.lean`, the other thing both stacks share, for the same reason.
 -/
 import Aeneas

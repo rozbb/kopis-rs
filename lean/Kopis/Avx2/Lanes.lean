@@ -7,8 +7,13 @@
   `Kopis.Avx2` so that every proof below `Kopis/Avx2/` sees one vocabulary.
 
   What is left here is what genuinely is AVX2's: the seven `ofLanes*` widths a 256-bit register
-  (and the 128-bit halves the shuffles produce) decomposes into, and the `bits_inj` corollaries
-  that turn "agrees on every lane" into "is the same register".
+  (and the 128-bit halves the shuffles produce) decomposes into.
+
+  There used to be a second half — `vec_eq_of_lane*`, turning "agrees on every lane" into "is
+  the same register" through the `bits_inj` axiom in `Kopis/Avx2/Intrinsics.lean`.  Both are
+  gone.  Nothing used them: a register is only ever observed through `bits`, so every goal that
+  looked like it wanted them is really an equality of `BitVec`s, which `eq_of_laneOf_eq` below
+  discharges with no assumption at all.  This file now mentions no extracted constant.
 -/
 import Kopis.Avx2.Intrinsics
 
@@ -38,8 +43,6 @@ def ofLanes64 (f : Nat → BitVec 64) : BitVec 256 := concatLanes 64 f 4
 def ofLanes128 (f : Nat → BitVec 128) : BitVec 256 := concatLanes 128 f 2
 /-- The 128-bit word whose 8-bit lane `i` is `f i`. -/
 def ofLanes8' (f : Nat → BitVec 8) : BitVec 128 := concatLanes 8 f 16
-/-- The 128-bit word whose 16-bit lane `i` is `f i`. -/
-def ofLanes16' (f : Nat → BitVec 16) : BitVec 128 := concatLanes 16 f 8
 
 theorem laneOf_ofLanes8 (f : Nat → BitVec 8) {i : Nat} (h : i < 32) :
     laneOf 8 (ofLanes8 f) i = f i := laneOf_concatLanes 8 f 32 i h
@@ -51,10 +54,6 @@ theorem laneOf_ofLanes64 (f : Nat → BitVec 64) {i : Nat} (h : i < 4) :
     laneOf 64 (ofLanes64 f) i = f i := laneOf_concatLanes 64 f 4 i h
 theorem laneOf_ofLanes128 (f : Nat → BitVec 128) {i : Nat} (h : i < 2) :
     laneOf 128 (ofLanes128 f) i = f i := laneOf_concatLanes 128 f 2 i h
-theorem laneOf_ofLanes8' (f : Nat → BitVec 8) {i : Nat} (h : i < 16) :
-    laneOf 8 (ofLanes8' f) i = f i := laneOf_concatLanes 8 f 16 i h
-theorem laneOf_ofLanes16' (f : Nat → BitVec 16) {i : Nat} (h : i < 8) :
-    laneOf 16 (ofLanes16' f) i = f i := laneOf_concatLanes 16 f 8 i h
 
 /-! ## Lanes determine the word
 
@@ -70,43 +69,4 @@ theorem eq_of_lane64_bv {x y : BitVec 256} (h : ∀ i < 4, laneOf 64 x i = laneO
   eq_of_laneOf_eq 64 4 rfl h
 theorem eq_of_lane128_bv {x y : BitVec 256} (h : ∀ i < 2, laneOf 128 x i = laneOf 128 y i) :
     x = y := eq_of_laneOf_eq 128 2 rfl h
-theorem eq_of_lane8'_bv {x y : BitVec 128} (h : ∀ i < 16, laneOf 8 x i = laneOf 8 y i) : x = y :=
-  eq_of_laneOf_eq 8 16 rfl h
-theorem eq_of_lane16'_bv {x y : BitVec 128} (h : ∀ i < 8, laneOf 16 x i = laneOf 16 y i) : x = y :=
-  eq_of_laneOf_eq 16 8 rfl h
-
-/-! ## …and hence determine the register
-
-`bits_inj` says a `Vec256` is nothing but its 256 bits, so agreeing on every lane of any one
-width is enough to be the same vector.  These are the only statements in the lane algebra that
-mention an extracted constant. -/
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec_eq_of_lane8 {a b : Vec256} (h : ∀ i < 32, lane8 a i = lane8 b i) : a = b :=
-  bits_inj (eq_of_lane8_bv h)
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec_eq_of_lane16 {a b : Vec256} (h : ∀ i < 16, lane16 a i = lane16 b i) : a = b :=
-  bits_inj (eq_of_lane16_bv h)
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec_eq_of_lane32 {a b : Vec256} (h : ∀ i < 8, lane32 a i = lane32 b i) : a = b :=
-  bits_inj (eq_of_lane32_bv h)
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec_eq_of_lane64 {a b : Vec256} (h : ∀ i < 4, lane64 a i = lane64 b i) : a = b :=
-  bits_inj (eq_of_lane64_bv h)
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec_eq_of_half {a b : Vec256} (h : ∀ i < 2, half a i = half b i) : a = b :=
-  bits_inj (eq_of_lane128_bv h)
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec128_eq_of_lane8' {a b : Vec128} (h : ∀ i < 16, lane8' a i = lane8' b i) : a = b :=
-  bits'_inj (eq_of_lane8'_bv h)
-
-open RustKopisAvx2.backend.avx2.intrinsics in
-theorem vec128_eq_of_lane16' {a b : Vec128} (h : ∀ i < 8, lane16' a i = lane16' b i) : a = b :=
-  bits'_inj (eq_of_lane16'_bv h)
-
 end Kopis.Avx2

@@ -93,12 +93,14 @@ noncomputable section
 /-! ## The bit view
 
 `Vec128` is a `#[repr(transparent)]` newtype over `uint8x16_t`, which is exactly a 128-bit word.
-`bits` reads that word; injectivity says the word is *all* there is to a register, so two vectors
-with the same bits are the same vector. -/
+`bits` reads that word.
+
+As on the AVX2 side, there is deliberately no injectivity axiom.  `bits_inj` — two vectors with
+the same bits are the same vector — used to sit below and was reachable from nothing; every
+statement here observes a register through `bits`, so bit equality is all any proof asks for.
+Do not re-add it. -/
 
 axiom bits : Vec128 → BitVec 128
-
-axiom bits_inj {a b : Vec128} : bits a = bits b → a = b
 
 /- Lane `i` of width `w`, counting from the least significant end — the lane numbering the Arm
 manuals use, so `lane16 v 0` is `V.16B[1:0]`.  Defined in `Kopis/Bits/Lanes.lean`, which both

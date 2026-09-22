@@ -49,31 +49,7 @@ def stateWords (st : Std.Array Vec128 25#usize) (l : ℕ) : Words :=
 
 /-! ## Flat index back to coordinates -/
 
-theorem coordY_val (k : ℕ) (h : k < 25) : (coordY k).val = k / 5 := by
-  simp only [coordY]; omega
-
-/-- Every register index is a lane's — `idx` is a bijection `Fin 5 × Fin 5 ≃ Fin 25`.  This is
-what makes "write all 25 registers" equal "write every lane". -/
-theorem idx_surjective (k : ℕ) (h : k < 25) : ∃ x y : Fin 5, idx x y = k :=
-  ⟨coordX k, coordY k, idx_coord k h⟩
-
 /-! ## Reading a register the round has just written -/
-
-theorem stateWords_update_ne (st : Std.Array Vec128 25#usize) (k : Std.Usize) (v : Vec128)
-    (l : ℕ) (x y : Fin 5) (hne : idx x y ≠ k.val) (hk : k.val < 25) :
-    stateWords (st.set k v) l x y = stateWords st l x y := by
-  have hlen : st.val.length = 25 := st.property
-  have hval : (st.set k v).val = st.val.set k.val v := by simp only [Std.Array.set_val_eq]
-  simp only [stateWords_apply, hval,
-    getElem!_list_set st.val k.val v (idx x y) (by rw [hlen]; exact hk), if_neg hne]
-
-theorem stateWords_update_self (st : Std.Array Vec128 25#usize) (k : Std.Usize) (v : Vec128)
-    (l : ℕ) (x y : Fin 5) (heq : idx x y = k.val) (hk : k.val < 25) :
-    stateWords (st.set k v) l x y = lane64 v l := by
-  have hlen : st.val.length = 25 := st.property
-  have hval : (st.set k v).val = st.val.set k.val v := by simp only [Std.Array.set_val_eq]
-  simp only [stateWords_apply, hval,
-    getElem!_list_set st.val k.val v (idx x y) (by rw [hlen]; exact hk), if_pos heq]
 
 /-! ## Folding the register computation into the spec's vocabulary
 
@@ -139,5 +115,4 @@ theorem chiRow_of (src : Std.Array Vec128 25#usize) (y x : Fin 5) (t0 t1 t2 v : 
   rw [hv i hi, h0 i hi, h1 i hi, h2 i hi, chiRow, BitVec.and_comm]
 
 end
-
 end Kopis.Neon.Keccak

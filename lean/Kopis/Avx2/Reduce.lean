@@ -1258,16 +1258,6 @@ jointly and scales in `c`.  Both facts are needed to turn a *sum of pointwise pr
 single leaf state: `State_leaf_mul` handles one product, these two handle the sum and the
 Montgomery factor the reduction introduces. -/
 
-theorem State_add {q : ℕ} {ζ : ℕ → ZMod q} {c : ZMod q} {f g a b : ℕ → ZMod q}
-    (hf : NttAlg.State ζ 256 1 c f a) (hg : NttAlg.State ζ 256 1 c g b) :
-    NttAlg.State ζ 256 1 c (fun n => f n + g n) (fun n => a n + b n) := by
-  intro n hn r hr
-  show a (n * 1 + r) + b (n * 1 + r)
-    = c * ∑ i ∈ Finset.range 256, (f (i * 1 + r) + g (i * 1 + r)) * NttAlg.cst ζ (256 + n) ^ i
-  rw [hf n hn r hr, hg n hn r hr, ← mul_add, ← Finset.sum_add_distrib]
-  congr 1
-  exact Finset.sum_congr rfl fun i _ => by ring
-
 theorem State_scale {q : ℕ} {ζ : ℕ → ZMod q} {c k : ZMod q} {f a : ℕ → ZMod q}
     (h : NttAlg.State ζ 256 1 c f a) :
     NttAlg.State ζ 256 1 (k * c) f (fun n => k * a n) := by
@@ -1702,82 +1692,6 @@ theorem pointwise_mul_acc_avx (hb : backend.avx2.cpu.available = ok true)
   simp only [if_true]
   exact pointwise_acc_int acc lhs rhs Bl Br Ba h0 h1 hl hr ha hfit
 
-/-- **The accumulate loop.**  `B` is the common lane bound of both operand families; after `n`
-terms the accumulator is inside `n·B²`. -/
-theorem mul_inner_avx {X Y Z : Usize} (hb : backend.avx2.cpu.available = ok true)
-    (iter : core.ops.range.Range Usize)
-    (self : arithmetic.ntt_arith.NttMatrix X Y) (other : arithmetic.ntt_arith.NttMatrix Y Z)
-    (i k : Usize) (acc : Array I32 512#usize) (B : ℤ) (h0 : 0 ≤ B) (hB : 4 * (B * B) < 2 ^ 31)
-    (hi : i.val < X.val) (hk : k.val < Z.val)
-    (hstart : iter.start.val ≤ Y.val) (hend : iter.«end».val = Y.val) (hY : Y.val ≤ 4)
-    (hself : ∀ j t, j < Y.val → t < 512 →
-      |(i16View ((self.val[i.val]!).val[j]!) t).toInt| ≤ B)
-    (hother : ∀ j t, j < Y.val → t < 512 →
-      |(i16View ((other.val[j]!).val[k.val]!) t).toInt| ≤ B)
-    (hacc : ∀ t < 512, |(i32View acc t).toInt| ≤ (iter.start.val : ℤ) * (B * B)) :
-    arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0 iter self other i k acc
-      ⦃ (p : (arithmetic.ntt_arith.NttMatrix X Y) × (arithmetic.ntt_arith.NttMatrix Y Z) ×
-             (Array I32 512#usize)) =>
-          p.1 = self ∧ p.2.1 = other ∧
-          (∀ t < 512, (i32View p.2.2 t).toInt = (i32View acc t).toInt
-            + ∑ jj ∈ Finset.Ico iter.start.val Y.val,
-                (i16View ((self.val[i.val]!).val[jj]!) t).toInt
-                  * (i16View ((other.val[jj]!).val[k.val]!) t).toInt) ∧
-          (∀ t < 512, |(i32View p.2.2 t).toInt| ≤ (Y.val : ℤ) * (B * B)) ⦄ := by
-  unfold arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
-  by_cases hlt : iter.start.val < iter.«end».val
-  · let* ⟨o, iter1, ho, hstart', hend'⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
-    rw [ho]; simp only
-    have hj_lt : iter.start.val < Y.val := by omega
-    have hsi : i.val < self.val.length := by have := self.property; scalar_tac
-    let* ⟨a, ha⟩ ← Array.index_usize_spec self i hsi
-    have ha' : a = self.val[i.val]! := by rw [ha, getElem!_pos self.val i.val hsi]
-    have haj : iter.start.val < a.val.length := by have := a.property; scalar_tac
-    let* ⟨ne, hne⟩ ← Array.index_usize_spec a iter.start haj
-    have hne' : ne = (self.val[i.val]!).val[iter.start.val]! := by
-      rw [hne, ha', getElem!_pos (self.val[i.val]!).val iter.start.val (by rw [← ha']; exact haj)]
-    have hoj : iter.start.val < other.val.length := by have := other.property; scalar_tac
-    let* ⟨a1, ha1⟩ ← Array.index_usize_spec other iter.start hoj
-    have ha1' : a1 = other.val[iter.start.val]! := by
-      rw [ha1, getElem!_pos other.val iter.start.val hoj]
-    have ha1k : k.val < a1.val.length := by have := a1.property; scalar_tac
-    let* ⟨ne1, hne1⟩ ← Array.index_usize_spec a1 k ha1k
-    have hne1' : ne1 = (other.val[iter.start.val]!).val[k.val]! := by
-      rw [hne1, ha1',
-        getElem!_pos (other.val[iter.start.val]!).val k.val (by rw [← ha1']; exact ha1k)]
-    have hstz : (0 : ℤ) ≤ (iter.start.val : ℤ) := Int.natCast_nonneg _
-    have hstle : ((iter.start.val : ℤ)) ≤ 3 := by
-      exact_mod_cast (by omega : iter.start.val ≤ 3)
-    have hBB : (0 : ℤ) ≤ B * B := mul_nonneg h0 h0
-    apply WP.spec_bind (pointwise_mul_acc_avx hb acc ne ne1 B B
-      ((iter.start.val : ℤ) * (B * B)) h0 h0
-      (by rw [hne']; exact fun t ht => hself iter.start.val t hj_lt ht)
-      (by rw [hne1']; exact fun t ht => hother iter.start.val t hj_lt ht) hacc
-      (by nlinarith))
-    intro acc1 hacc1
-    apply WP.spec_mono (mul_inner_avx hb iter1 self other i k acc1 B h0 hB hi hk
-      (by omega) (by rw [hend']; exact hend) hY hself hother
-      (fun t ht => by
-        refine le_trans (hacc1 t ht).2 ?_
-        rw [hstart']
-        push_cast
-        linarith))
-    rintro ⟨p1, p2, p3⟩ ⟨hp1, hp2, hp3, hp4⟩
-    simp only at hp1 hp2 hp3 hp4
-    refine ⟨hp1, hp2, ?_, hp4⟩
-    intro t ht
-    rw [hp3 t ht, (hacc1 t ht).1, hstart', hne', hne1', sum_Ico_peel _ hj_lt]
-    ring
-  · let* ⟨o, iter1, hnone, _⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
-    rw [hnone]; simp only [WP.spec_ok]
-    refine ⟨trivial, trivial, fun t ht => ?_, fun t ht => ?_⟩
-    · rw [Finset.Ico_eq_empty (by omega), Finset.sum_empty, add_zero]
-    · refine le_trans (hacc t ht) ?_
-      have : ((iter.start.val : ℤ)) ≤ (Y.val : ℤ) := by exact_mod_cast (by omega : iter.start.val ≤ Y.val)
-      nlinarith [mul_nonneg h0 h0]
-termination_by iter.«end».val - iter.start.val
-decreasing_by scalar_decr_tac
-
 /-! ## `reduce_invntt_to_ring_elem`, on the AVX2 branch
 
 The postcondition here is representation-independent — it is about the coefficients of the answer,
@@ -1808,5 +1722,4 @@ theorem reduce_invntt_to_ring_elem_avx (hb : backend.avx2.cpu.available = ok tru
   simp only [WP.spec_ok]
   intro n hn
   rw [hr n hn, Int.emod_emod_of_dvd _ (by norm_num)]
-
 end Kopis.Avx2

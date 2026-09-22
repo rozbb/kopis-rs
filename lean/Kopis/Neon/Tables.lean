@@ -478,7 +478,7 @@ theorem zetas_qinv_spec (zetas : Array I16 256#usize) (qinv : I16) :
   unfold arithmetic.ntt_crt.zetas_qinv
   exact zetas_qinv_loop_spec zetas qinv _ 0#usize (by simp) (by intro j hj; simp at hj)
 
-/-- **The ζ hypothesis of `ntt_block_bnd`, discharged.** -/
+/-- **The q₁ ζ-table hypothesis, discharged.** -/
 theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
     |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
@@ -518,7 +518,7 @@ theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
       _ = 2 ^ 16 * (zi.val * d + c * 7681) := by ring
   · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simpa using hkk)]
 
-/-- **The ζ hypothesis of `ntt_block_bnd_q2`, discharged.** -/
+/-- **The q₂ ζ-table hypothesis, discharged.** -/
 theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
     |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧

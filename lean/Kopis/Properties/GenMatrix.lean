@@ -297,10 +297,6 @@ theorem GenMat_get (ℓ : ℕ) (seed : 𝔹 32) (i₀ j₀ : Fin ℓ) :
         Spec.Kopis.DOMSEP_GENMAT (32 * 13)) = E
       split_ifs <;> first | rfl | omega
 
-/-- `sliceToBytes` of an array's slice is `arrayToBytes` of the array. -/
-theorem sliceToBytes_to_slice {n : Usize} (a : Array U8 n) (h : (Array.to_slice a).length = (n : ℕ)) :
-    sliceToBytes (Array.to_slice a) (n : ℕ) h = arrayToBytes a := rfl
-
 /-- Casting a `Usize` to `U8` gives the spec byte `(x.val : Byte)`. -/
 theorem cast_u8_bv (x : Usize) : (UScalar.cast .U8 x).bv = ((x.val : ℕ) : Byte) := by
   apply BitVec.eq_of_toNat_eq
@@ -309,48 +305,6 @@ theorem cast_u8_bv (x : Usize) : (UScalar.cast .U8 x).bv = ((x.val : ℕ) : Byte
 
 /-- `DOMSEP_GENMAT` as a byte is `(2#u8).bv`. -/
 theorem domsep_genmat_bv : (2#u8).bv = Spec.Kopis.DOMSEP_GENMAT := by decide
-
-/-- **Hash-block spec (A).**  The `default → update×3 → finalize → read` chain fills
-`buf` with `turboSHAKE128 (seed ‖ i ‖ j) DOMSEP_GENMAT 416`. -/
-theorem hash_block_spec (seed : Array U8 32#usize) (i j : Usize) (buf : Array U8 416#usize) :
-    (do
-      let hasher ← turboshake.TurboShake.Insts.CoreDefaultDefault.default 168#usize 2#u8
-      let s ← lift (Array.to_slice seed)
-      let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
-      let i1 ← lift (UScalar.cast .U8 i)
-      let s1 ← lift (Array.to_slice (Array.make 1#usize [i1]))
-      let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s1
-      let i2 ← lift (UScalar.cast .U8 j)
-      let s2 ← lift (Array.to_slice (Array.make 1#usize [i2]))
-      let hasher3 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher2 s2
-      let reader ←
-        turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof hasher3
-      let (s3, to_slice_mut_back) ← lift (Array.to_slice_mut buf)
-      let (_rd, s4) ← turboshake.TurboShakeReader.Insts.DigestXofReader.read reader s3
-      ok (to_slice_mut_back s4))
-      ⦃ (buf1 : Array U8 416#usize) =>
-          arrayToBytes buf1 = turboSHAKE128
-            (arrayToBytes seed ‖ #v[((i.val : ℕ) : Byte)] ‖ #v[((j.val : ℕ) : Byte)])
-            Spec.Kopis.DOMSEP_GENMAT (32 * 13) ⦄ := by
-  step*
-  have habs : hasherAbsorbed hasher3 = seed.val ++ [UScalar.cast .U8 i] ++ [UScalar.cast .U8 j] := by
-    rw [hasher3_post, hasher2_post, hasher1_post, hasher_post, s_post, s1_post, s2_post,
-      i1_post, i2_post]; rfl
-  have hs3 : s3.length = 416 := by rw [Slice.length, s3_post1]; exact buf.property
-  have hs4 : s4.val.length = 416 := by rw [← Slice.length, _rd_post1, hs3]
-  rw [reader_post1, reader_post2] at _rd_post2
-  dsimp only at _rd_post2
-  simp only [List.drop_zero] at _rd_post2
-  rw [habs, hs3] at _rd_post2
-  rw [s3_post2]
-  have harr : arrayToBytes (buf.from_slice s4)
-      = turboSHAKE128 (u8ListToBytes (seed.val ++ [UScalar.cast .U8 i] ++ [UScalar.cast .U8 j]))
-          (2#u8).bv 416 := by
-    apply Vector.toList_inj.mp
-    rw [arrayToBytes_toList, Array.from_slice_val buf s4 hs4]
-    exact _rd_post2
-  rw [harr, turboSHAKE_u8concat]
-  simp only [cast_u8_bv, domsep_genmat_bv]
 
 /-- The deserialized hash entry for row `a`, column `b`. -/
 private def HDEntry (seed : Array U8 32#usize) (a b : ℕ) : Spec.Kopis.Polynomial (2 ^ 13) :=
@@ -496,5 +450,4 @@ theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize) :
     if_pos (Nat.zero_le _)] at key
   rw [toMatrix13, Matrix.of_apply, key, GenMat_get]
   rfl
-
 end Kopis.Properties

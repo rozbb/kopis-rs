@@ -216,7 +216,6 @@ theorem invntt_len1_bnd (SECOND : Bool) (qv : Vec128) (Q Zb B Bt C : ℤ)
 termination_by iter.«end».val - iter.start.val
 decreasing_by scalar_decr_tac
 
-
 /-! ## `len = 2`, inverse -/
 
 theorem invntt_len2_bnd (qv z zq : Vec128) (Q Zb B Bt C : ℤ)
@@ -298,7 +297,6 @@ theorem invntt_len2_bnd (qv z zq : Vec128) (Q Zb B Bt C : ℤ)
 termination_by iter.«end».val - iter.start.val
 decreasing_by scalar_decr_tac
 
-
 /-! ## `len = 4`, inverse -/
 
 theorem invntt_len4_bnd (qv z zq : Vec128) (Q Zb B Bt C : ℤ)
@@ -376,7 +374,6 @@ theorem invntt_len4_bnd (qv z zq : Vec128) (Q Zb B Bt C : ℤ)
     rw [if_neg (by unfold pend4; omega)]
 termination_by iter.«end».val - iter.start.val
 decreasing_by scalar_decr_tac
-
 
 /-! ## The inverse re-centring pass -/
 
@@ -654,13 +651,12 @@ theorem invntt_inner_bnd (b : Array I16 256#usize) (qv z zq : Vec128) (Q Zb B Bt
 termination_by (start.val + half.val) - i.val
 decreasing_by scalar_decr_tac
 
-
 /-! ## The blocks of one inverse whole-vector level
 
 `start` walks the block boundaries as in the forward direction, but `k` walks *down* and the ψ
 pair is built at run time rather than read from a table — `−ζ(k)` and its wrapping product with
-`q⁻¹`.  That is the whole difference, and it is why this is not an instance of
-`ntt_start_bnd`. -/
+`q⁻¹`.  That is the whole difference, and it is why this is not an instance of the forward
+block-boundary walk. -/
 
 theorem invntt_start_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv : Vec128)
     (Q Zb B Bt C : ℤ)
@@ -790,8 +786,8 @@ theorem GSLevel.fit {Q Zb B T C : ℤ} (h : GSLevel Q Zb B T C) : 2 * B ≤ 3276
 theorem GSLevel.c1 {Q Zb B T C : ℤ} (h : GSLevel Q Zb B T C) : 2 * B ≤ C := h.2.2.1
 theorem GSLevel.c2 {Q Zb B T C : ℤ} (h : GSLevel Q Zb B T C) : T ≤ C := h.2.2.2
 
-/-- `half` doubles each inverse level, and the product is not `rfl` — same reason
-`usize_add_one` exists on the forward side. -/
+/-- `half` doubles each inverse level, and the product is not `rfl`, so the step needs a lemma
+of its own. -/
 theorem usize_mul_two (a c : Usize) (h : a.val * 2 = c.val) : a * 2#usize = ok c := by
   obtain ⟨v, hv, hvv⟩ :=
     WP.spec_imp_exists (Std.Usize.mul_spec (x := a) (y := 2#usize) (by scalar_tac))
@@ -806,13 +802,6 @@ theorem blockBnd_of_inv_start {r bb : Array I16 256#usize} {B' : ℤ}
   intro p hp
   have := h p hp
   rwa [if_pos (by scalar_tac)] at this
-
-theorem usize_add_one' (a c : Usize) (h : a.val + 1 = c.val) : a + 1#usize = ok c := by
-  obtain ⟨v, hv, hvv⟩ :=
-    WP.spec_imp_exists (Std.Usize.add_spec (x := a) (y := 1#usize) (by scalar_tac))
-  rw [hv]
-  congr 1
-  exact UScalar.eq_of_val_eq (by scalar_tac)
 
 /-! ## Levels 3 and 4, inverse direction
 
@@ -1434,8 +1423,8 @@ decreasing_by scalar_decr_tac
 
 /-! ## The inverse table hypotheses, discharged
 
-The mirror of `psiOk_fwd4` / `_fwd2` / `_fwd1`: the ψ pair each transposed inverse level loads is
-centred and Montgomery-paired.  The only difference is the sign flag — the inverse tables hold
+The inverse-side table hypotheses: the ψ pair each transposed inverse level loads is centred
+and Montgomery-paired.  The only difference is the sign flag — the inverse tables hold
 `−ζ`, so the bound goes through `abs_neg` — and the closed-form index. -/
 
 theorem psiOk_inv4 (SECOND : Bool) (Q Zb : ℤ)
@@ -1664,5 +1653,4 @@ theorem invntt_block_bnd_q2 (b : Array I16 256#usize) (hb : BlockBnd b 7141) :
     ⟨⟨by norm_num, by norm_num, by norm_num⟩, by norm_num, by norm_num, by norm_num⟩
     ⟨⟨by norm_num, by norm_num, by norm_num⟩, by norm_num, by norm_num, by norm_num⟩
     (by norm_num) (by norm_num) (by norm_num) hb
-
 end Kopis.Neon

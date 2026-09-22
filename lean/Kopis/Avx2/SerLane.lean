@@ -72,12 +72,6 @@ def planShuffle (w k b : ℕ) : ℕ := k * w / 8 + b
 first byte. -/
 def planShift (w k : ℕ) : ℕ := k * w % 8
 
-/-- The two together put coefficient `k` back at bit `k·w` of the group — the identity the
-whole scheme rests on. -/
-theorem planShuffle_planShift (w k : ℕ) : 8 * planShuffle w k 0 + planShift w k = k * w := by
-  unfold planShuffle planShift
-  omega
-
 /-- The shuffle control never leaves its own 128-bit half: `⌊7·13/8⌋ + 3 = 14`. -/
 theorem planShuffle_lt (w k b : ℕ) (hw : w ≤ 13) (hk : k < 8) (hb : b < 4) :
     planShuffle w k b < 16 := by
@@ -279,5 +273,4 @@ theorem pack_permute_value (wide0 wide1 packed res : Vec256)
   split
   · exact satU_of_lt _ (by have := hb0 j (by omega); omega)
   · exact satU_of_lt _ (by have := hb1 (j - 8) (by omega); omega)
-
 end Kopis.Avx2

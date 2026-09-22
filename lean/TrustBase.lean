@@ -157,6 +157,13 @@ that exist only here**.
 `Kopis/Avx2/Intrinsics.lean` gives one axiom per wrapper in `src/backend/avx2/intrinsics.rs` —
 there are 50 of them, one per `pub(crate) fn` in that file — phrased over the two uninterpreted
 bit views `bits : Vec256 → BitVec 256` and `bits' : Vec128 → BitVec 128`.
+
+Note what the bit views do *not* come with: an injectivity axiom.  `bits_inj` / `bits'_inj` —
+two registers with the same bits are the same register — were assumed until 2026-09-22 and
+reached by nothing, because every statement in the development observes a register through
+`bits` and so can be phrased as an equality of `BitVec`s.  They were deleted rather than left in
+the file for someone to reach for; the same goes for `Kopis.Neon.bits_inj` in the third row.
+
 This is the largest addition and the file a reviewer must read. It is not proved, but it *is*
 tested: `Kopis/Avx2/Model.lean` derives a computable model from each axiom, and
 `make test-avx2-model` replays 47 858 vectors recorded from real silicon

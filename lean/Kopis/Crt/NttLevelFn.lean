@@ -97,17 +97,6 @@ Nothing here mentions an extraction, so it is shared.  `Kopis/Avx2/Reduce.lean` 
 own copies from before this file existed. -/
 
 open Kopis.CrtScheme.NttAlg in
-theorem State_add {q : ℕ} {ζ : ℕ → ZMod q} {c : ZMod q} {f g a b : ℕ → ZMod q}
-    (hf : State ζ 256 1 c f a) (hg : State ζ 256 1 c g b) :
-    State ζ 256 1 c (fun n => f n + g n) (fun n => a n + b n) := by
-  intro n hn r hr
-  show a (n * 1 + r) + b (n * 1 + r)
-    = c * ∑ i ∈ Finset.range 256, (f (i * 1 + r) + g (i * 1 + r)) * cst ζ (256 + n) ^ i
-  rw [hf n hn r hr, hg n hn r hr, ← mul_add, ← Finset.sum_add_distrib]
-  congr 1
-  exact Finset.sum_congr rfl fun i _ => by ring
-
-open Kopis.CrtScheme.NttAlg in
 theorem State_scale {q : ℕ} {ζ : ℕ → ZMod q} {c k : ZMod q} {f a : ℕ → ZMod q}
     (h : State ζ 256 1 c f a) :
     State ζ 256 1 (k * c) f (fun n => k * a n) := by
@@ -132,5 +121,4 @@ theorem State_sum {q : ℕ} {ζ : ℕ → ZMod q} {N : ℕ} {F A : ℕ → ℕ �
   simp only [one_mul]
   rw [Finset.sum_comm]
   exact Finset.sum_congr rfl fun i _ => (Finset.sum_mul _ _ _).symm
-
 end Kopis.CrtScheme.LevelFn

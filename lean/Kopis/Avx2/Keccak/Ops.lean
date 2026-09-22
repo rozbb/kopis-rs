@@ -270,12 +270,6 @@ theorem lane64_xor_bits (x y : BitVec 256) (l : ℕ) :
     laneOf 64 (x ^^^ y) l = laneOf 64 x l ^^^ laneOf 64 y l := by
   simp only [laneOf]; rw [BitVec.extractLsb'_xor]
 
-/-- The third AC lemma for `^^^`.  Lean core has `BitVec.xor_assoc` and `BitVec.xor_comm` but no
-`xor_left_comm`, and without all three `simp` cannot AC-normalise an xor tree — which is exactly
-what matching `round`'s two sides needs. -/
-theorem xor_left_comm {w : ℕ} (a b c : BitVec w) : a ^^^ (b ^^^ c) = b ^^^ (a ^^^ c) := by
-  rw [← BitVec.xor_assoc, ← BitVec.xor_assoc, BitVec.xor_comm a b]
-
 /-- `vpandn` acts lanewise, at 64 bits — the companion to `lane64_xor_bits`, and what turns
 `andnot_si256_step`'s whole-register equation into χ's per-lane one.
 
@@ -445,5 +439,4 @@ rotation halves, so `decide` discharges them without the caller saying anything.
   rw [hc]; simp only [WP.spec_ok]; exact hl
 
 end
-
 end Kopis.Avx2.Keccak

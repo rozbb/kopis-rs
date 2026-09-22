@@ -135,7 +135,7 @@ theorem zetas_qinv_spec (zetas : Array I16 256#usize) (qinv : I16) :
   unfold arithmetic.ntt_crt.zetas_qinv
   exact zetas_qinv_loop_spec zetas qinv _ 0#usize (by simp) (by intro j hj; simp at hj)
 
-/-- **The ζ hypothesis of `ntt_block_bnd_q1`, discharged.** -/
+/-- **The q₁ ζ-table hypothesis, discharged.** -/
 theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
     |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
@@ -175,7 +175,7 @@ theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
       _ = 2 ^ 16 * (zi.val * d + c * 7681) := by ring
   · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simpa using hkk)]
 
-/-- **The ζ hypothesis of `ntt_block_bnd_q2`, discharged.** -/
+/-- **The q₂ ζ-table hypothesis, discharged.** -/
 theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
     |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
@@ -214,7 +214,6 @@ theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
       _ = zi.val * (1 + 2 ^ 16 * d) + 2 ^ 16 * (c * 10753) - zi.val := by rw [e2]
       _ = 2 ^ 16 * (zi.val * d + c * 10753) := by ring
   · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q2.property]; simpa using hkk)]
-
 
 /-! ## The finite checks, on this extraction's tables -/
 
@@ -263,50 +262,6 @@ theorem zeta2_pair : ∀ nb b : ℕ, (∃ j, j < 8 ∧ nb = 2 ^ j) → b < nb �
     zeta2 (nb + b) * zeta2 (2 * nb - 1 - b) = -1 :=
   zetaQ_pair arithmetic.ntt_crt.ZETAS_Q2 1018 (1764 : ZMod 10753) (by decide) pairOK_q2
 
-/-- One GS layer, at `q₁`. -/
-theorem State_gs_q1 {nb m' : ℕ} (hnb1 : 1 ≤ nb) (hnb : 2 * nb ≤ 256)
-    (hpow : ∃ j, j < 8 ∧ nb = 2 ^ j) {c : ZMod 7681} {f a a' : ℕ → ZMod 7681}
-    (hst : State zeta1 (2 * nb) m' c f a)
-    (hbut : ∀ b < nb, ∀ r < m',
-      a' (b * (2 * m') + r) = a (b * (2 * m') + r) + a (b * (2 * m') + m' + r) ∧
-      a' (b * (2 * m') + m' + r)
-        = (-(zeta1 (2 * nb - 1 - b))) * (a (b * (2 * m') + r) - a (b * (2 * m') + m' + r))) :
-    State zeta1 nb (2 * m') (2 * c) f a' :=
-  State_gs zeta1_sq zeta1_pair hnb1 hnb hpow hst hbut
-
-/-- One GS layer, at `q₂`. -/
-theorem State_gs_q2 {nb m' : ℕ} (hnb1 : 1 ≤ nb) (hnb : 2 * nb ≤ 256)
-    (hpow : ∃ j, j < 8 ∧ nb = 2 ^ j) {c : ZMod 10753} {f a a' : ℕ → ZMod 10753}
-    (hst : State zeta2 (2 * nb) m' c f a)
-    (hbut : ∀ b < nb, ∀ r < m',
-      a' (b * (2 * m') + r) = a (b * (2 * m') + r) + a (b * (2 * m') + m' + r) ∧
-      a' (b * (2 * m') + m' + r)
-        = (-(zeta2 (2 * nb - 1 - b))) * (a (b * (2 * m') + r) - a (b * (2 * m') + m' + r))) :
-    State zeta2 nb (2 * m') (2 * c) f a' :=
-  State_gs zeta2_sq zeta2_pair hnb1 hnb hpow hst hbut
-
-/-- One CT layer, at `q₁`. -/
-theorem State_ct_q1 {nb m' : ℕ} (hnb1 : 1 ≤ nb) (hnb : 2 * nb ≤ 256)
-    {c : ZMod 7681} {f a a' : ℕ → ZMod 7681}
-    (hst : State zeta1 nb (2 * m') c f a)
-    (hbut : ∀ b < nb, ∀ r < m',
-      a' (b * (2 * m') + r) = a (b * (2 * m') + r) + zeta1 (nb + b) * a (b * (2 * m') + m' + r) ∧
-      a' (b * (2 * m') + m' + r)
-        = a (b * (2 * m') + r) - zeta1 (nb + b) * a (b * (2 * m') + m' + r)) :
-    State zeta1 (2 * nb) m' c f a' :=
-  State_ct zeta1_sq hnb1 hnb hst hbut
-
-/-- One CT layer, at `q₂`. -/
-theorem State_ct_q2 {nb m' : ℕ} (hnb1 : 1 ≤ nb) (hnb : 2 * nb ≤ 256)
-    {c : ZMod 10753} {f a a' : ℕ → ZMod 10753}
-    (hst : State zeta2 nb (2 * m') c f a)
-    (hbut : ∀ b < nb, ∀ r < m',
-      a' (b * (2 * m') + r) = a (b * (2 * m') + r) + zeta2 (nb + b) * a (b * (2 * m') + m' + r) ∧
-      a' (b * (2 * m') + m' + r)
-        = a (b * (2 * m') + r) - zeta2 (nb + b) * a (b * (2 * m') + m' + r)) :
-    State zeta2 (2 * nb) m' c f a' :=
-  State_ct zeta2_sq hnb1 hnb hst hbut
-
 /-- **Lanewise product = negacyclic product, at `q₁`.** -/
 theorem State_leaf_mul_q1 {f g a b : ℕ → ZMod 7681}
     (ha : State zeta1 256 1 1 f a) (hb : State zeta1 256 1 1 g b) :
@@ -318,5 +273,4 @@ theorem State_leaf_mul_q2 {f g a b : ℕ → ZMod 10753}
     (ha : State zeta2 256 1 1 f a) (hb : State zeta2 256 1 1 g b) :
     State zeta2 256 1 1 (nconv f g) (fun n => a n * b n) :=
   State_leaf_mul zeta2_sq ha hb
-
 end Kopis.Neon.Properties

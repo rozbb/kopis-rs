@@ -49,12 +49,6 @@ def headGroups (w : ℕ) : ℕ := 32 - tailGroups w
 /-- Byte offset at which the scratch buffer's copy begins. -/
 def tailStart (w : ℕ) : ℕ := headGroups w * w
 
-/-- At most fifteen bytes are copied — the scratch buffer is 32 bytes, so this is what keeps
-its 16-byte loads in range. -/
-theorem tailGroups_lt (w : ℕ) : tailGroups w ≤ 15 := by
-  unfold tailGroups
-  exact Nat.div_le_self 15 w
-
 theorem tailGroups_mul (w : ℕ) : tailGroups w < 32 := by
   unfold tailGroups
   have : 15 / w ≤ 15 := Nat.div_le_self 15 w
@@ -100,5 +94,4 @@ theorem copy_len_le (w : ℕ) (_hw : 1 ≤ w) : 32 * w - tailStart w ≤ 15 := b
   have h15 : (15 / w) * w + 15 % w = 15 := by rw [Nat.mul_comm]; exact hdm
   have hmul : (15 / w) * w ≤ 32 * w := Nat.mul_le_mul_right w (by omega)
   omega
-
 end Kopis.Neon

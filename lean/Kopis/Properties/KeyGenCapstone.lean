@@ -63,54 +63,6 @@ theorem kopis1024_keygen_decap_spec (seed : Array U8 32#usize) (ek : Array U8 14
     (keygen_hpkmat ksk.kem_pk.pke_pk Am .Kopis_1024 rfl (by decide) hAmat) hAbnd
     (keygen_hpkh ksk.kem_pk.pke_pk ksk.kem_pk.hash_pke_pk .Kopis_1024 rfl (skBytes seed) hhash hpkb)
 
-
-@[step]
-theorem matrix_clone_spec {X Y : Usize} (self : arithmetic.plain_arith.Matrix X Y) :
-    arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone self
-      ⦃ (r : arithmetic.plain_arith.Matrix X Y) => r = self ⦄ := by
-  unfold arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
-  let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec
-    (core.clone.CloneArray Y arithmetic.plain_arith.RingElem.Insts.CoreCloneClone) self (by
-    intro x _
-    show core.array.CloneArray.clone arithmetic.plain_arith.RingElem.Insts.CoreCloneClone x = ok x
-    obtain ⟨x', hx', hxx'⟩ :=
-      Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
-        arithmetic.plain_arith.RingElem.Insts.CoreCloneClone x (fun y _ => rfl))
-    rw [hx', ← hxx'])
-  exact ha.symm
-
-theorem ntt_matrix_clone_spec {X Y : Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
-    arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone self
-      ⦃ (r : arithmetic.ntt_arith.NttMatrix X Y) => r = self ⦄ := by
-  unfold arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
-  let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec
-    (core.clone.CloneArray Y arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone) self (by
-    intro x _
-    show core.array.CloneArray.clone arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone x = ok x
-    obtain ⟨x', hx', hxx'⟩ :=
-      Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
-        arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone x (fun y _ => rfl))
-    rw [hx', ← hxx'])
-  exact ha.symm
-
-theorem pke_pk_clone_spec {L : Usize} (self : pke.PkePublicKey L) :
-    pke.PkePublicKey.Insts.CoreCloneClone.clone self
-      ⦃ (r : pke.PkePublicKey L) => r = self ⦄ := by
-  unfold pke.PkePublicKey.Insts.CoreCloneClone.clone
-  let* ⟨a, ha⟩ ← core.array.CloneArray.clone_spec core.clone.CloneU8 self.matrix_seed (by intro x _; rfl)
-  let* ⟨nm, hnm⟩ ← ntt_matrix_clone_spec self.mat_a_ntt
-  let* ⟨nm1, hnm1⟩ ← ntt_matrix_clone_spec self.vec_ntt
-  let* ⟨a1, ha1⟩ ← core.array.CloneArray.clone_spec
-    (core.clone.CloneArray 320#usize core.clone.CloneU8) self.vec_bytes (by
-    intro x _
-    show core.array.CloneArray.clone core.clone.CloneU8 x = ok x
-    obtain ⟨x', hx', hxx'⟩ :=
-      Aeneas.Std.WP.spec_imp_exists (core.array.CloneArray.clone_spec
-        core.clone.CloneU8 x (fun y _ => rfl))
-    rw [hx', ← hxx'])
-  subst ha hnm hnm1 ha1
-  rfl
-
 /-- `SkToPk` unfolds definitionally to the public-key component of `ExpandSecretKey`. Proved
 here (cheaply, by `rfl`) *before* the local-irreducible attribute below, so the
 `keygen_encap` composites can bridge the two forms by rewriting with this equation rather than
@@ -241,5 +193,4 @@ theorem kopis1024_keygen_encap_spec (seed randomness : Array U8 32#usize) :
       (by rw [hkvec]; exact hpkb))
   have hE := congrArg (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)) hpk3
   exact ⟨hc.trans (congrArg Prod.snd hE), hk.trans (congrArg Prod.fst hE)⟩
-
 end Kopis.Properties

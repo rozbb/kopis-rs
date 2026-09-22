@@ -4,7 +4,7 @@
   `NttMatrix::mul_transpose`'s innermost loop is `mul`'s with the outer index of `self` playing
   the role of the inner one: entry `(j,k)` of `Aᵀ·s` accumulates over `ii`, reading `A[ii][j]`
   against `s[ii][k]`.  Because the two are *different extracted constants*, the loop walk has to
-  be done twice; the argument is `Kopis/Avx2/Reduce.lean`'s `mul_inner_avx` verbatim with the
+  be done twice; the argument here is the one `Kopis/Avx2/Reduce.lean` makes for `mul`, with the
   indices moved, and it consumes the same `pointwise_mul_acc_avx`.
 -/
 import Kopis.Avx2.Reduce

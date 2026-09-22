@@ -95,17 +95,4 @@ a literal vector and computes, so rewriting *to* the table is what lets a rotati
 a numeral. -/
 theorem rho_offset_eq (y x : Fin 5) :
     ρ.Offsets[x + 3 * y][x] % 64 = (rustTable[y][x]).2 := ((rustTable_eq y x).2).symm
-
-/-- The table's rotations, restated as the thing `tVal` rotates by. -/
-theorem tVal_rot (W : Words) (y x : Fin 5) :
-    tVal W y x = (W (x + 3 * y) x ^^^ dTerm W (x + 3 * y)).rotateLeft (rustTable[y][x]).2 := by
-  rw [tVal, (rustTable_eq y x).2]
-
-/-- The table's source indices are a permutation of all 25 lanes: every input lane is read
-exactly once per round, which is π being a bijection. -/
-theorem rustTable_srcIdx_nodup :
-    (List.finRange 5).flatMap (fun y => (List.finRange 5).map (fun x => (rustTable[y][x]).1))
-      |>.Perm (List.range 25) := by
-  decide +kernel
-
 end Kopis.Keccak

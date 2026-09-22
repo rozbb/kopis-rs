@@ -824,12 +824,6 @@ vectors of four `i32`, and the accumulator's index arithmetic lines up exactly: 
 `256·block + 8·i + j` takes `lhs` and `rhs` at the same position, whichever half of the pair `j`
 falls in. -/
 
-theorem toInt32_bounds (x : BitVec 32) : -2147483648 ≤ x.toInt ∧ x.toInt < 2147483648 := by
-  have h1 := BitVec.le_toInt x
-  have h2 := BitVec.toInt_lt (x := x)
-  norm_num at h1 h2
-  omega
-
 private theorem bmod32_eq_self (x : ℤ) (h1 : -2147483648 ≤ x) (h2 : x < 2147483648) :
     x.bmod (2 ^ 32) = x := by
   unfold Int.bmod
@@ -1915,14 +1909,6 @@ theorem ntt_entry_neon (N : ℕ) (hN : N ≤ 4)
 
 /-! ## Two utilities the twin stack wants -/
 
-/-- The `i32` view of a zero-filled accumulator. -/
-theorem acc_zero (t : ℕ) (ht : t < 512) :
-    (((Array.repeat 512#usize (0#i32)).val[t]!).val : ℤ) = 0 := by
-  rw [Array.repeat_val, getElem!_pos _ t
-      (by rw [List.length_replicate]; show t < 512; omega),
-    List.getElem_replicate]
-  rfl
-
 /-- Both halves of an `NttOK` block are inside `5376`, which is the common operand bound the
 accumulate loop wants. -/
 theorem NttOK_lane_bound {g : ℕ → ℤ} {ne : Array I16 512#usize} (h : NttOK g ne)
@@ -1986,5 +1972,4 @@ theorem elem_from_secret_NttOK (elem : arithmetic.plain_arith.RingElem) (g : ℕ
   intro r hr
   simp only [WP.spec_ok]
   exact hr
-
 end Kopis.Neon

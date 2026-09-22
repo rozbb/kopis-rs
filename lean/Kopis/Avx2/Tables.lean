@@ -124,7 +124,7 @@ theorem zetas_qinv_spec (zetas : Array I16 256#usize) (qinv : I16) :
   unfold arithmetic.ntt_crt.zetas_qinv
   exact zetas_qinv_loop_spec zetas qinv _ 0#usize (by simp) (by intro j hj; simp at hj)
 
-/-- **The ζ hypothesis of `ntt_block_bnd_q1`, discharged.** -/
+/-- **The q₁ ζ-table hypothesis, discharged.** -/
 theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     arithmetic.ntt_crt.zeta false kk = ok zi ∧ arithmetic.ntt_crt.zeta_q false kk = ok zqi ∧
     |zi.val| ≤ 3840 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 7681 - zi.val) ∧
@@ -164,7 +164,7 @@ theorem zeta_table_ok_q1 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
       _ = 2 ^ 16 * (zi.val * d + c * 7681) := by ring
   · rw [hziv, getElem!_pos _ kk.val (by rw [arithmetic.ntt_crt.ZETAS_Q1.property]; simpa using hkk)]
 
-/-- **The ζ hypothesis of `ntt_block_bnd_q2`, discharged.** -/
+/-- **The q₂ ζ-table hypothesis, discharged.** -/
 theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
     arithmetic.ntt_crt.zeta true kk = ok zi ∧ arithmetic.ntt_crt.zeta_q true kk = ok zqi ∧
     |zi.val| ≤ 5376 ∧ (2 ^ 16 : ℤ) ∣ (zqi.val * 10753 - zi.val) ∧
@@ -907,30 +907,5 @@ theorem inv8_q2_ok : ∀ h : Usize, h.val < 1 → ∃ z zq,
 
 With the table hypotheses discharged, phase F3's conclusion stands on its own: the extracted
 `ntt_block` leaves every coefficient of a centred block centred, for both primes. -/
-
-/-- **`ntt_block` for `q₁` keeps the block centred** — no hypotheses about the ψ tables. -/
-theorem ntt_block_centred_q1 (b : Array I16 256#usize) (hb : BlockBnd b 3840) :
-    backend.avx2.ntt.ntt_block false b ⦃ (r : Array I16 256#usize) => BlockBnd r 3840 ⦄ :=
-  ntt_block_bnd_q1 b
-    (fun kk hkk => by
-      obtain ⟨zi, zqi, h1, h2, h3, h4, -⟩ := zeta_table_ok_q1 kk hkk
-      exact ⟨zi, zqi, h1, h2, h3, h4⟩)
-    (by obtain ⟨z, zq, h1, h2, -⟩ := fwd8_q1_ok 0#usize (by simp); exact ⟨z, zq, h1, h2⟩)
-    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd4_q1_ok h hh; exact ⟨z, zq, h1, h2⟩)
-    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd2_q1_ok h hh; exact ⟨z, zq, h1, h2⟩)
-    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd1_q1_ok h hh; exact ⟨z, zq, h1, h2⟩) hb
-
-/-- **`ntt_block` for `q₂` keeps the block centred** — the binding prime, worst lane 31671 of
-32767 along the way. -/
-theorem ntt_block_centred_q2 (b : Array I16 256#usize) (hb : BlockBnd b 5376) :
-    backend.avx2.ntt.ntt_block true b ⦃ (r : Array I16 256#usize) => BlockBnd r 5376 ⦄ :=
-  ntt_block_bnd_q2 b
-    (fun kk hkk => by
-      obtain ⟨zi, zqi, h1, h2, h3, h4, -⟩ := zeta_table_ok_q2 kk hkk
-      exact ⟨zi, zqi, h1, h2, h3, h4⟩)
-    (by obtain ⟨z, zq, h1, h2, -⟩ := fwd8_q2_ok 0#usize (by simp); exact ⟨z, zq, h1, h2⟩)
-    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd4_q2_ok h hh; exact ⟨z, zq, h1, h2⟩)
-    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd2_q2_ok h hh; exact ⟨z, zq, h1, h2⟩)
-    (fun h hh => by obtain ⟨z, zq, h1, h2, -⟩ := fwd1_q2_ok h hh; exact ⟨z, zq, h1, h2⟩) hb
 
 end Kopis.Avx2

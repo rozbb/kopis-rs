@@ -47,9 +47,6 @@ theorem iter_mut_spec {T : Type} (s : Slice T) :
 one, so this replaces `getElem!` throughout the `IterMut` framing. -/
 def sAt (s : Slice Vec128) (j : ℕ) (h : j < s.val.length) : Vec128 := s.val[j]'h
 
-theorem sAt_congr (s : Slice Vec128) {a b : ℕ} (ha : a < s.val.length) (hb : b < s.val.length)
-    (h : a = b) : sAt s a ha = sAt s b hb := by subst h; rfl
-
 /-- Writing element `i` leaves the others alone. -/
 theorem sAt_setAtNat (s : Slice Vec128) (i : ℕ) (x : Vec128) (j : ℕ)
     (hj : j < (s.setAtNat i x).val.length) (hj' : j < s.val.length) :
@@ -166,5 +163,4 @@ theorem ntt_barrett_iter_bnd (iter : core.slice.iter.IterMut Vec128)
     simp only [hnb]
     exact ⟨hback_len im him, fun j hj => hback_writes im him j
       (by rw [hback_len im him] at hj; omega) hj⟩
-
 end Kopis.Neon

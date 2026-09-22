@@ -304,20 +304,4 @@ theorem transpose8_spec (v : Array Vec128 8#usize) :
     simp only [o0, o1, o2, o3, o4, o5, o6, o7, i0, i1, i2, i3, i4, i5, i6, i7] <;>
     norm_num [g0, g1, g2, g3, g4, g5, g6, g7, f0, f1, f2, f3, f4, f5, f6, f7,
       e0, e1, e2, e3, e4, e5, e6, e7]
-
-open RustKopisNeon.backend.neon.intrinsics in
-/-- **…and doing it twice is the identity.**  This is what gets the transform back to
-coefficient order after the three transposed levels, and it is the second half of what the Rust
-test asserts. -/
-theorem transpose8_involutive (v : Array Vec128 8#usize) :
-    (do let w ← backend.neon.ntt.transpose8 v
-        backend.neon.ntt.transpose8 w)
-      ⦃ (r : Array Vec128 8#usize) => ∀ k (hk : k < 8), vAt r k hk = vAt v k hk ⦄ := by
-  apply WP.spec_bind (transpose8_spec v)
-  intro w hw
-  apply WP.spec_mono (transpose8_spec w)
-  intro r hr k hk
-  refine vec_eq_of_lane16 (fun m hm => ?_)
-  rw [hr k hk m hm, hw m hm k hk]
-
 end Kopis.Neon

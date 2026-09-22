@@ -151,12 +151,6 @@ def planShuffle (w k b : ℕ) : ℕ := k * w / 8 + b
 first byte.  The extracted table holds `-(planShift w k)`. -/
 def planShift (w k : ℕ) : ℕ := k * w % 8
 
-/-- The two together put coefficient `k` back at bit `k·w` of the group — the identity the
-whole scheme rests on. -/
-theorem planShuffle_planShift (w k : ℕ) : 8 * planShuffle w k 0 + planShift w k = k * w := by
-  unfold planShuffle planShift
-  omega
-
 /-- The shift is a bit offset within a byte, so at most 7 — which is what keeps the `i32` the
 plan stores inside the eight bits `ushl` reads. -/
 theorem planShift_lt (w k : ℕ) : planShift w k ≤ 7 := by
@@ -249,5 +243,4 @@ theorem lane_chain_value
         unfold planShift; ring
     _ = 8 * group * w + (base + j) * w := by rw [h8]
     _ = w * (8 * group + base + j) := by ring
-
 end Kopis.Neon

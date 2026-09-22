@@ -200,7 +200,7 @@ def transpose16Model (B : ℕ → BitVec 256) (k : ℕ) : BitVec 256 :=
 
 /-- **`transpose16` is the 16×16 transpose.**  Vector `k` lane `m` of the result is vector `m`
 lane `k` of the input — equivalently, it holds coefficient `16m + k`.  Being a transpose, it is
-its own inverse, which is `transpose16Model_involutive` below. -/
+its own inverse. -/
 theorem laneOf_transpose16Model (B : ℕ → BitVec 256) (k m : ℕ) (hk : k < 16) (hm : m < 16) :
     laneOf 16 (transpose16Model B k) m = laneOf 16 (B m) k := by
   rw [transpose16Model]
@@ -221,13 +221,4 @@ theorem laneOf_transpose16Model (B : ℕ → BitVec 256) (k m : ℕ) (hk : k < 1
     · rw [if_neg (by omega : ¬ m / 8 = 0), laneOf_inlane8 _ _ _ (by omega) (by omega)]
       simp only [show 8 + m % 8 = m from by omega, show m / 8 = 1 from by omega, Nat.mul_one,
         show 8 + (k - 8) = k from by omega]
-
-/-- **Applied twice, `transpose16` is the identity** — which is how the transform, having done
-its four innermost levels vertically, gets back into coefficient order. -/
-theorem transpose16Model_involutive (B : ℕ → BitVec 256) (k : ℕ) (hk : k < 16) :
-    transpose16Model (transpose16Model B) k = B k := by
-  apply eq_of_lane16_bv
-  intro m hm
-  rw [laneOf_transpose16Model _ k m hk hm, laneOf_transpose16Model _ m k hm hk]
-
 end Kopis.Avx2

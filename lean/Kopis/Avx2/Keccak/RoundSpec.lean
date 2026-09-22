@@ -6,8 +6,9 @@
   independently, exactly `Rnd` of FIPS 202 §3.3 — read through `Round.lean`'s word form `RndW`
   and `Fused.lean`'s account of how the Rust fuses ρ, π and θ into `chi_row!`.
 
-  `dst` does not appear in the postcondition: every one of its 25 registers is overwritten, which
-  is what `State.lean`'s `idx_surjective` certifies.  `l` and `hl : l < 4` are parameters rather
+  `dst` does not appear in the postcondition: `idx` runs over all 25 lane coordinates, so every
+  one of its registers is overwritten and none of the old contents survives to be mentioned.
+  `l` and `hl : l < 4` are parameters rather
   than `∀ l < 4` inside the postcondition, because `step*` introduces four binders either way and
   with the `∀` inside, `rename_i` binds the proof where the index is meant.
 

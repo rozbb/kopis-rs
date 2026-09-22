@@ -47,9 +47,6 @@ def uP (re : arithmetic.plain_arith.RingElem) (c : ℕ) : ℤ := uZ re c
 /-- The coefficient function `from_secret` transforms. -/
 def sP (re : arithmetic.plain_arith.RingElem) (c : ℕ) : ℤ := sZ re c
 
-theorem uP_eq (re : arithmetic.plain_arith.RingElem) (c : ℕ) : uP re c = uZ re c := rfl
-theorem sP_eq (re : arithmetic.plain_arith.RingElem) (c : ℕ) : sP re c = sZ re c := rfl
-
 /-- What `from_uniform` establishes, once its input is known to be a uniform coefficient. -/
 def UOK (f : ℕ → ℤ) (ne : arithmetic.ntt_arith.NttElem) : Prop :=
   (∀ c, c < 256 → 0 ≤ f c ∧ f c < 8192) → NttOK f ne
@@ -98,7 +95,6 @@ theorem NttOK_lane_bound {g : ℕ → ℤ} {ne : arithmetic.ntt_arith.NttElem} (
   · have := h2 (t - 256) (by omega)
     rwa [show 256 + (t - 256) = t from by omega] at this
 
-
 /-! ### The NTT representation functions and the decomposed bridge
 
 `from_uniform_matrix` / `from_secret_matrix` map a coefficient matrix into the NTT domain;
@@ -133,9 +129,6 @@ def Result.getD {α : Type} [Inhabited α] (r : Result α) : α :=
   | .ok v => v
   | _ => default
 
-@[simp] theorem Result.getD_ok {α : Type} [Inhabited α] (v : α) :
-    Result.getD (.ok v) = v := rfl
-
 /-- The NTT-domain matrix denoting the uniform coefficient matrix `A` — i.e. what
 `from_uniform_matrix` computes from it. -/
 def nttFwdU {X Y : Usize} (A : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=
@@ -145,7 +138,6 @@ def nttFwdU {X Y : Usize} (A : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=
 `from_secret_matrix` computes from it. -/
 def nttFwdS {X Y : Usize} (s : Mat X Y) : arithmetic.ntt_arith.NttMatrix X Y :=
   Result.getD (arithmetic.ntt_arith.NttMatrix.from_secret_matrix s)
-
 
 /-! ### The matrix loops
 
@@ -1156,5 +1148,4 @@ theorem ntt_mul_transpose_spec {X Y Z : Usize}
   rw [hr j k hj hk,
     if_pos (show ({ start := 0#usize, «end» := Y } : core.ops.range.Range Usize).start.val ≤ j
       from Nat.zero_le j)]
-
 end Kopis.Properties

@@ -1155,47 +1155,6 @@ theorem ctLvl_group1 (q : ℕ) (ψ a0 : ℕ → ZMod q) (g m k : ℕ) (_hm : m <
 two together turns the closed forms `fwd4Idx` / `fwd2Idx` / `fwd1Idx` into exactly the block
 indices `ctLvl_group4` / `_group2` / `_group1` ask for. -/
 
-open Kopis.CrtZeta in
-theorem psiVal_fwd4 (SECOND : Bool) (q : ℕ) (Rinv : ZMod q) (g : Usize) (hg : g.val < 4) :
-    ∃ z zq : Vec128, backend.neon.ntt.fwd4 SECOND g = ok (z, zq) ∧
-      ∀ m < 8, laneZ q z m * Rinv
-        = zetaQ (zetasOf SECOND) Rinv (32 + (8 * g.val + m)) := by
-  obtain ⟨r, hr, hp⟩ := WP.spec_imp_exists (fwd4_spec SECOND g (by scalar_tac))
-  refine ⟨r.1, r.2, by rw [hr], fun m hm => ?_⟩
-  unfold laneZ zetaQ zint
-  rw [(hp m hm).1]
-  simp only [tblZ, Bool.false_eq_true, if_false]
-  rw [show (fwd4Idx (8 * g.val + m)).toNat = 32 + (8 * g.val + m) from by
-    unfold fwd4Idx; omega]
-
-open Kopis.CrtZeta in
-theorem psiVal_fwd2 (SECOND : Bool) (q : ℕ) (Rinv : ZMod q) (kk : Usize) (hkk : kk.val < 8) :
-    ∃ z zq : Vec128, backend.neon.ntt.fwd2 SECOND kk = ok (z, zq) ∧
-      ∀ m < 8, laneZ q z m * Rinv
-        = zetaQ (zetasOf SECOND) Rinv (64 + (16 * (kk.val / 2) + 2 * m + kk.val % 2)) := by
-  obtain ⟨r, hr, hp⟩ := WP.spec_imp_exists (fwd2_spec SECOND kk (by scalar_tac))
-  refine ⟨r.1, r.2, by rw [hr], fun m hm => ?_⟩
-  unfold laneZ zetaQ zint
-  rw [(hp m hm).1]
-  simp only [tblZ, Bool.false_eq_true, if_false]
-  rw [show (fwd2Idx (8 * kk.val + m)).toNat
-      = 64 + (16 * (kk.val / 2) + 2 * m + kk.val % 2) from by
-    unfold fwd2Idx; omega]
-
-open Kopis.CrtZeta in
-theorem psiVal_fwd1 (SECOND : Bool) (q : ℕ) (Rinv : ZMod q) (kk : Usize) (hkk : kk.val < 16) :
-    ∃ z zq : Vec128, backend.neon.ntt.fwd1 SECOND kk = ok (z, zq) ∧
-      ∀ m < 8, laneZ q z m * Rinv
-        = zetaQ (zetasOf SECOND) Rinv (128 + (32 * (kk.val / 4) + 4 * m + kk.val % 4)) := by
-  obtain ⟨r, hr, hp⟩ := WP.spec_imp_exists (fwd1_spec SECOND kk (by scalar_tac))
-  refine ⟨r.1, r.2, by rw [hr], fun m hm => ?_⟩
-  unfold laneZ zetaQ zint
-  rw [(hp m hm).1]
-  simp only [tblZ, Bool.false_eq_true, if_false]
-  rw [show (fwd1Idx (8 * kk.val + m)).toNat
-      = 128 + (32 * (kk.val / 4) + 4 * m + kk.val % 4) from by
-    unfold fwd1Idx; omega]
-
 /-! ## The three layers the group carries *before* the transpose, in coefficient coordinates
 
 Levels 2, 3 and 4 run while the group is still in coefficient order, so lane `m` of vector `j` is
@@ -2118,8 +2077,8 @@ decreasing_by scalar_decr_tac
 
 /-! ## The forward transform
 
-The constant setup, the two whole-vector levels and the four groups — the same composition
-`ntt_block_bnd` makes, with the value chain riding along.  The result is centred *and* equal to
+The constant setup, the two whole-vector levels and the four groups — the same composition the
+bound argument makes, with the value chain riding along.  The result is centred *and* equal to
 the eight Cooley-Tukey layers applied to the input view, and everything outside this prime's
 window is untouched. -/
 
@@ -2216,8 +2175,8 @@ theorem ntt_block_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
 
 /-! ## The table hypotheses of `ntt_block_val`, discharged
 
-`psiOk_fwd4` and `psiVal_fwd4` are two statements about the same accessor call; the walk wants
-them together, and pairing them after the fact would mean identifying the two `ok (z, zq)`s.
+Boundedness and value are two statements about the same accessor call; the walk wants them
+together, and pairing them after the fact would mean identifying the two `ok (z, zq)`s.
 These prove all three conjuncts from one `fwd4_spec`. -/
 
 open Kopis.CrtZeta in
@@ -2480,5 +2439,4 @@ theorem ntt_block_State_q2 {N : Usize} (b : Array I16 N) (base : Usize) (f : ℕ
           State zeta2 256 1 1 f (fwdAll 10753 zeta2 f) ⦄ := by
   apply WP.spec_mono (ntt_block_val_q2 b base f hN hb hf)
   exact fun r hr => ⟨hr.1, hr.2, fwdAll_State zeta2 zeta2_sq f⟩
-
 end Kopis.Neon

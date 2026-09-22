@@ -50,37 +50,10 @@ theorem idx_coord (k : ℕ) (h : k < 25) : idx (coordX k) (coordY k) = k := by
   simp only [idx, coordX, coordY]
   omega
 
-/-- …and `y` really is `k / 5` there, without the wrap. -/
-theorem coordY_val (k : ℕ) (h : k < 25) : (coordY k).val = k / 5 := by
-  simp only [coordY]; omega
-
-/-- Every register index is a lane's, and the map is injective — `idx` is a bijection
-`Fin 5 × Fin 5 ≃ Fin 25`.  This is what makes "write all 25 registers" equal "write every lane". -/
-theorem idx_surjective (k : ℕ) (h : k < 25) : ∃ x y : Fin 5, idx x y = k :=
-  ⟨coordX k, coordY k, idx_coord k h⟩
-
 /-! ## Reading a register the round has just written
 
 `round` fills `dst` with 25 `Array.update`s at literal indices.  After the last of them the
 value at `idx x y` is whatever was written there, which is the shape the postcondition wants. -/
-
-/-- An `Array.update` at a *different* index leaves a register alone. -/
-theorem stateWords_update_ne (st : Std.Array Vec256 25#usize) (k : Std.Usize) (v : Vec256)
-    (l : ℕ) (x y : Fin 5) (hne : idx x y ≠ k.val) (hk : k.val < 25) :
-    stateWords (st.set k v) l x y = stateWords st l x y := by
-  have hlen : st.val.length = 25 := st.property
-  have hval : (st.set k v).val = st.val.set k.val v := by simp only [Std.Array.set_val_eq]
-  simp only [stateWords_apply, hval,
-    getElem!_list_set st.val k.val v (idx x y) (by rw [hlen]; exact hk), if_neg hne]
-
-/-- An `Array.update` at *this* index installs the new register. -/
-theorem stateWords_update_self (st : Std.Array Vec256 25#usize) (k : Std.Usize) (v : Vec256)
-    (l : ℕ) (x y : Fin 5) (heq : idx x y = k.val) (hk : k.val < 25) :
-    stateWords (st.set k v) l x y = lane64 v l := by
-  have hlen : st.val.length = 25 := st.property
-  have hval : (st.set k v).val = st.val.set k.val v := by simp only [Std.Array.set_val_eq]
-  simp only [stateWords_apply, hval,
-    getElem!_list_set st.val k.val v (idx x y) (by rw [hlen]; exact hk), if_pos heq]
 
 /-! ## Folding the register computation into the spec's vocabulary
 
@@ -168,8 +141,8 @@ With the above, the statement `keccak::round` has to be given is
           ⦃ (r : Std.Array Vec256 25#usize) => ∀ l < 4, ∀ x y : Fin 5,
               stateWords r l x y = RndW (stateWords src l) iᵣ x y ⦄
 
-— `dst` does not appear in the postcondition because every one of its 25 registers is
-overwritten, which is exactly what `idx_surjective` above certifies.  Take `l` and `hl : l < 4`
+— `dst` does not appear in the postcondition because `idx` runs over all 25 lane coordinates, so
+every one of its registers is overwritten.  Take `l` and `hl : l < 4`
 as *parameters* rather than writing `∀ l < 4` inside the postcondition: `step*` introduces four
 binders either way, and with the `∀` inside, `rename_i` binds the proof where the index is meant.
 
@@ -188,5 +161,4 @@ lemmas above — `parity_of` for the five column registers, `dTerm_of` for the f
 normalisation is involved anywhere; see the note above for why that matters. -/
 
 end
-
 end Kopis.Avx2.Keccak

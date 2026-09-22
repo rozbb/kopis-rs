@@ -8,8 +8,12 @@
 
   What is left is what is NEON's: a register is 128 bits, so there are four widths rather than
   AVX2's seven and no 128-bit-half view at all — which is the whole reason the permute proofs
-  here are shorter than their AVX2 counterparts.  `vec_eq_of_lane*` turn "agrees on every lane"
-  into "is the same register", through `bits_inj`.
+  here are shorter than their AVX2 counterparts.
+
+  `vec_eq_of_lane*`, which turned "agrees on every lane" into "is the same register" through the
+  `bits_inj` axiom, is gone along with that axiom — see the note in `Kopis/Neon/Intrinsics.lean`.
+  Goals that read as register equality are really `BitVec` equality, which `eq_of_laneOf_eq`
+  settles outright.
 -/
 import Kopis.Neon.Intrinsics
 
@@ -57,27 +61,5 @@ theorem eq_of_lane32_bv {x y : BitVec 128} (h : ∀ i < 4, laneOf 32 x i = laneO
   eq_of_laneOf_eq 32 4 rfl h
 theorem eq_of_lane64_bv {x y : BitVec 128} (h : ∀ i < 2, laneOf 64 x i = laneOf 64 y i) : x = y :=
   eq_of_laneOf_eq 64 2 rfl h
-
-/-! ## …and hence determine the register
-
-`bits_inj` says a `Vec128` is nothing but its 128 bits, so agreeing on every lane of any one
-width is enough to be the same vector.  These are the only statements in the lane algebra that
-mention an extracted constant. -/
-
-open RustKopisNeon.backend.neon.intrinsics in
-theorem vec_eq_of_lane8 {a b : Vec128} (h : ∀ i < 16, lane8 a i = lane8 b i) : a = b :=
-  bits_inj (eq_of_lane8_bv h)
-
-open RustKopisNeon.backend.neon.intrinsics in
-theorem vec_eq_of_lane16 {a b : Vec128} (h : ∀ i < 8, lane16 a i = lane16 b i) : a = b :=
-  bits_inj (eq_of_lane16_bv h)
-
-open RustKopisNeon.backend.neon.intrinsics in
-theorem vec_eq_of_lane32 {a b : Vec128} (h : ∀ i < 4, lane32 a i = lane32 b i) : a = b :=
-  bits_inj (eq_of_lane32_bv h)
-
-open RustKopisNeon.backend.neon.intrinsics in
-theorem vec_eq_of_lane64 {a b : Vec128} (h : ∀ i < 2, lane64 a i = lane64 b i) : a = b :=
-  bits_inj (eq_of_lane64_bv h)
 
 end Kopis.Neon

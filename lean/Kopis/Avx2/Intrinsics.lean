@@ -67,8 +67,14 @@ noncomputable section
 /-! ## The bit view
 
 `Vec256` and `Vec128` are `#[repr(transparent)]` newtypes over `__m256i` / `__m128i`, which are
-exactly a 256- and a 128-bit word. `bits` / `bits'` read that word; injectivity says the word is
-*all* there is to a register, so two vectors with the same bits are the same vector. -/
+exactly a 256- and a 128-bit word. `bits` / `bits'` read that word.
+
+Note what is deliberately *not* here: an injectivity axiom.  `bits_inj` / `bits'_inj` — two
+vectors with the same bits are the same vector — used to sit below, and nothing needed them.
+Every statement in this development observes a register through `bits` and can therefore be
+phrased as an equality of bits rather than of registers, so assuming that a `Vec256` is nothing
+*but* its bits bought expressiveness no proof was spending.  Do not re-add them: an assumption
+that no theorem needs is one an auditor has to think about for nothing. -/
 
 axiom bits : Vec256 → BitVec 256
 axiom bits' : Vec128 → BitVec 128
@@ -77,9 +83,6 @@ axiom bits' : Vec128 → BitVec 128
 gives: every dispatch point is proved on both branches.  This is the whole of `cpu::available`'s
 contribution to the trust base. -/
 axiom available_ok : ∃ b, RustKopisAvx2.backend.avx2.cpu.available = ok b
-
-axiom bits_inj {a b : Vec256} : bits a = bits b → a = b
-axiom bits'_inj {a b : Vec128} : bits' a = bits' b → a = b
 
 /- Lane `i` of width `w`, counting from the least significant end — the lane numbering the
 Intel manuals use, so `lane16 v 0` is `v[15:0]`.  Defined in `Kopis/Bits/Lanes.lean`, which both

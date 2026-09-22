@@ -44,12 +44,6 @@ def headGroups (w : ℕ) : ℕ := 32 - tailGroups w
 /-- Byte offset at which the scratch buffer's copy begins. -/
 def tailStart (w : ℕ) : ℕ := headGroups w * w
 
-/-- At most fifteen bytes are copied — the scratch buffer is 32 bytes, so this is what keeps
-its 16-byte loads in range. -/
-theorem tailGroups_lt (w : ℕ) : tailGroups w ≤ 15 := by
-  unfold tailGroups
-  exact Nat.div_le_self 15 w
-
 theorem tailGroups_mul (w : ℕ) : tailGroups w < 32 := by
   unfold tailGroups
   have : 15 / w ≤ 15 := Nat.div_le_self 15 w
@@ -116,5 +110,4 @@ theorem broadcast_bytes (bytes : Slice U8) (base : ℕ) (v : Vec128) (raw : Vec2
     show laneOf 8 (bits raw) i = laneOf 8 (bits' v) (i % 16)
     rw [laneOf_laneOf 8 16 (bits raw) i (by omega), hhalf]
   rw [this, hv _ (by omega)]
-
 end Kopis.Avx2

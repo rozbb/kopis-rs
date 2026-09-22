@@ -33,14 +33,6 @@ def wordsOf (A : State) : Words := fun x y => ofLane A[x][y]
 
 @[simp] theorem wordsOf_apply (A : State) (x y : Fin 5) : wordsOf A x y = ofLane A[x][y] := rfl
 
-/-- Two states with the same words are the same state. -/
-theorem state_ext {A B : State} (h : wordsOf A = wordsOf B) : A = B := by
-  apply Vector.ext
-  intro x hx
-  apply Vector.ext
-  intro y hy
-  exact ofLane_inj (congrFun (congrFun h ⟨x, hx⟩) ⟨y, hy⟩)
-
 /-! ## θ (§3.2.1)
 
 The column parity `C x` and the mixing term `D x = C (x-1) ⊕ rotl 1 (C (x+1))`.  `keccak.rs`
@@ -133,5 +125,4 @@ theorem rounds_succ (W : Words) (start n : ℕ) :
 /-- Two rounds at a time — the step `permute`'s loop body takes. -/
 theorem rounds_two (W : Words) (start n : ℕ) :
     rounds W start (n + 2) = rounds (RndW (RndW W start) (start + 1)) (start + 2) n := rfl
-
 end Kopis.Avx2.Keccak

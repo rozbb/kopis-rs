@@ -325,18 +325,6 @@ private theorem toRingElem_getElem (x : RingElem) (i : ℕ) (hi : i < 256) :
   unfold toRingElem zc
   rw [Vector.getElem_ofFn, getElem!_pos x.val i (by have := x.property; scalar_tac)]
 
-/-- The abstraction of the all-zero `RingElem` is the zero polynomial. -/
-theorem toRingElem_repeat_zero : toRingElem (Array.repeat 256#usize 0#u16) = 0 := by
-  apply Vector.ext; intro p hp
-  have h1 : (toRingElem (Array.repeat 256#usize 0#u16))[p]! = 0 := by
-    rw [toRingElem_getElem _ p hp]; unfold zc
-    rw [show (Array.repeat 256#usize 0#u16).val = List.replicate 256 (0#u16) from rfl,
-      getElem!_pos _ p (by rw [List.length_replicate]; exact hp), List.getElem_replicate]; rfl
-  rw [show (0 : Spec.Kopis.Polynomial (2 ^ 16)) = Spec.Kopis.Polynomial.zero (2 ^ 16) from rfl,
-    Spec.Kopis.Polynomial.zero, Vector.getElem_replicate,
-    ← getElem!_pos (toRingElem (Array.repeat 256#usize 0#u16)) p hp]
-  exact h1
-
 /-! ## `RingElem::shift_right` / `RingElem::shift_left`
 
 Both iterate over the coefficient slice via `IterMut`, replacing each `u16`
@@ -768,5 +756,4 @@ theorem wrapping_add_to_all_spec (self : RingElem) (val : U16) :
         = (core.num.U16.wrapping_add (self.val[j]'(by have := self.property; grind)) val).val
         from by rw [hval, hself]]
   rw [wrapping_add_toZMod]
-
 end Kopis.Properties

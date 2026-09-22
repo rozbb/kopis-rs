@@ -21,15 +21,6 @@ theorem byte_eq (x y : ℕ) (hx : x < 256) (hy : y < 256) (h : ∀ j, j < 8 → 
     have h256 : (256 : ℕ) = 2 ^ 8 := by norm_num
     rw [Nat.testBit_lt_two_pow (by omega), Nat.testBit_lt_two_pow (by omega)]
 
-/-- Byte `p` of a Nat as a sum of its 8 bits. -/
-theorem sum_bit_byte (x p : ℕ) :
-    ∑ j ∈ Finset.range 8, (x.testBit (8 * p + j)).toNat * 2 ^ j = x / 256 ^ p % 256 := by
-  have hbit : ∀ j, x.testBit (8 * p + j) = (x >>> (8 * p)).testBit j := fun j => by
-    rw [Nat.testBit_shiftRight]
-  simp_rw [hbit]
-  rw [sum_testBit_eq_mod, show (2 : ℕ) ^ 8 = 256 from by norm_num, Nat.shiftRight_eq_div_pow,
-    show (2 : ℕ) ^ (8 * p) = 256 ^ p from by rw [pow_mul]; norm_num]
-
 theorem packedSum_lt (a : ℕ → ℕ) (n q : ℕ) (ha : ∀ i, a i < 2 ^ n) :
     (∑ i ∈ Finset.range q, a i * 2 ^ (n * i)) < 2 ^ (n * q) := by
   induction q with
@@ -73,5 +64,4 @@ theorem packed_testBit (a : ℕ → ℕ) (n K : ℕ) (ha : ∀ i, a i < 2 ^ n) (
   rw [hsplit, Nat.testBit_two_pow_mul_add _ hL_lt, if_neg (by omega),
     show n * q + s - n * q = s from by omega,
     show a q + 2 ^ n * H = 2 ^ n * H + a q from by ring, Nat.testBit_two_pow_mul_add _ (ha q), if_pos hs]
-
 end Kopis.Properties

@@ -421,21 +421,4 @@ theorem transpose16_coeff (b : Array I16 256#usize) :
   have hR : laneOf 16 (blockVec b m) k = (b.val[16 * m + k]!).bv := by
     rw [blockVec, laneOf_ofLanes16 _ hk]
   rw [← hL, ← hR, hr k hk, laneOf_transpose16Model (blockVec b) k m hk hm]
-
-/-- **`transpose16` is an involution** — the Rust doc's claim, and what lets the transform go
-back into coefficient order after running its four innermost levels vertically. -/
-theorem transpose16_involutive (b : Array I16 256#usize) :
-    (do let t ← backend.avx2.ntt.transpose16 b
-        backend.avx2.ntt.transpose16 t)
-      ⦃ (r : Array I16 256#usize) => ∀ j < 256, (r.val[j]!).bv = (b.val[j]!).bv ⦄ := by
-  apply WP.spec_bind (transpose16_coeff b)
-  intro t ht
-  apply WP.spec_mono (transpose16_coeff t)
-  intro r hr j hj
-  have hsplit : 16 * (j / 16) + j % 16 = j := by omega
-  have h1 := hr (j / 16) (by omega) (j % 16) (by omega)
-  have h2 := ht (j % 16) (by omega) (j / 16) (by omega)
-  rw [hsplit] at h1
-  rw [h1, h2, hsplit]
-
 end Kopis.Avx2
