@@ -25,11 +25,12 @@ would let a theorem about the portable code start depending on an AVX2 intrinsic
 still pass — exactly the drift this file exists to catch. Adding a backend means adding a
 `def`-pair below and one row to `backends`, not extending an existing list.
 
-As of 2026-08-03 there are two rows: every twin in `TopLevelTheoremsAvx2.lean` is discharged, so
-the AVX2 trust base is now *enforced* rather than documented. Note that this file therefore
-imports both audit surfaces, and so `make prove-kopis-serial` — which builds `TrustBase` — pulls
-the AVX2 extraction in with it. That is the price of checking the whole trust base in one place;
-run `lake build Kopis TopLevelTheoremsSerial` if you want the serial proofs alone.
+As of 2026-09-22 there are three rows: every twin in `TopLevelTheoremsAvx2.lean` and
+`TopLevelTheoremsNeon.lean` is discharged, so both SIMD trust bases are now *enforced* rather
+than documented. Note that this file therefore imports all three audit surfaces, and so
+`make prove-kopis-serial` — which builds `TrustBase` — pulls the AVX2 and NEON extractions in
+with it. That is the price of checking the whole trust base in one place; run
+`lake build Kopis TopLevelTheoremsSerial` if you want the serial proofs alone.
 -/
 
 open Lean
@@ -82,7 +83,8 @@ own.
 `Spec/Defs.lean` used to discharge two small finite bit-manipulation facts with `native_decide`,
 which put the Lean compiler and runtime in the trust base for those steps. They are now
 `decide +kernel`, which reduces the same 2⁸ cases in the kernel in about a second and adds no
-axiom, so no compiled-evaluation assumption remains anywhere in the closure.
+axiom, so **no compiled-evaluation assumption remains anywhere in the serial closure**. That is
+a claim about *this* row only: the AVX2 row still carries four, from `bv_decide` — see (h).
 
 **`sorryAx` is NOT in the list.** There are no `sorry`s left anywhere in the dependency closure
 of the top-level theorems — the NTT-multiplication hole `ntt_spec` is discharged
@@ -148,11 +150,13 @@ def serialTheorems : List Name :=
 /-! ## The AVX2 (`RustKopisAvx2`) backend
 
 The same theorems, about the `--cfg kopis_backend="avx2"` extraction. Its assumptions are the
-portable backend's, restated for the second extraction's opaque constants, **plus three groups
+portable backend's, restated for the second extraction's opaque constants, **plus four groups
 that exist only here**.
 
-**(e) The SIMD instruction semantics (42 assumptions + 2 opaque types).** `Kopis/Avx2/Intrinsics.lean`
-gives one axiom per wrapper in `src/backend/avx2/intrinsics.rs`, over `bits : Vec256 → BitVec 256`.
+**(e) The SIMD instruction semantics (50 assumptions + 2 bit views + 2 opaque types).**
+`Kopis/Avx2/Intrinsics.lean` gives one axiom per wrapper in `src/backend/avx2/intrinsics.rs` —
+there are 50 of them, one per `pub(crate) fn` in that file — phrased over the two uninterpreted
+bit views `bits : Vec256 → BitVec 256` and `bits' : Vec128 → BitVec 128`.
 This is the largest addition and the file a reviewer must read. It is not proved, but it *is*
 tested: `Kopis/Avx2/Model.lean` derives a computable model from each axiom, and
 `make test-avx2-model` replays 47 858 vectors recorded from real silicon
@@ -176,6 +180,40 @@ already carry. Keep it spelled that way.
 for the copy of the portable sampler that `Kopis/Avx2/CbdGeneric.lean` carries; the extracted
 `RustKopisAvx2.core.num.U{8,16}.count_ones` are different opaque constants from the serial ones,
 so they are genuinely new for this backend.
+
+**(h) Four `bv_decide` calls (4 assumptions).** The entries named
+`…_native.bv_decide.ax_1_5`. One is minted by each `bv_decide` in the tree that a top-level
+theorem reaches — `shl_sar_eq`, `sar_eq` and `and_low16` in `Kopis/Avx2/Reduce.lean` and
+`join_prod` in `Kopis/Avx2/NttMulLane.lean` — and each has the form
+
+    Std.Tactic.BVDecide.Reflect.verifyBVExpr <the goal, bitblasted> <the certificate> = true
+
+**The SAT solver is not what is trusted.** `bv_decide` runs CaDiCaL, gets back an LRAT
+refutation certificate, and checks that certificate with `verifyBVExpr` — a checker written *and
+proved correct* in Lean. A lying solver is caught. What is trusted is the *execution* of that
+checker: Lean runs it under the compiled evaluator rather than in the kernel and asserts the
+resulting `Bool` as the axiom above. `Lean/Meta/Native.lean` in the toolchain says so in as many
+words — "proofs by native evaluation (`native decide`, `bv_decide`) … involve a native
+computation … and then assert the result of that computation as an axiom towards the logic".
+
+So these four are in the same trust class as the `native_decide` that (d) records retiring: they
+put the Lean compiler, its runtime and its GMP-backed `Nat`/`UInt` operations in the trust base,
+scoped to four `Bool` evaluations. Getting a wrong answer out of one needs a compiler or runtime
+bug, not a solver bug.
+
+**Why they are still here.** In `leanprover/lean4:v4.31.0` `bv_decide` has no kernel-checking
+mode — `BVDecideConfig` carries no such field, and `LratCert.toReflectionProof` has exactly the
+one path. Nor can `decide +kernel` stand in as it does in (d): all four goals quantify over
+`BitVec 32`, so there are 2³² cases, not 2⁸. Retiring one means replacing it with a
+`getLsbD`-level proof, which is what was done to the NEON row's fifth such axiom
+(`Kopis.Neon.sshr15_bits`, over `BitVec 16` — see the note on that theorem); that row now has
+none.
+
+Two things worth knowing when reviewing this group. The axiom names embed a per-declaration
+counter, so adding or moving a `bv_decide` call renames one and the exact-match check below
+fails **loudly** rather than letting a new one in unnoticed. And grepping for `Lean.ofReduceBool`
+or `sorryAx` will not find these: `bv_decide` mints a fresh axiom per call rather than routing
+through the shared `ofReduceBool`, which is exactly why they have to be listed here by name.
 
 Everything else in the list below is the portable backend's list with `RustKopisSerial` renamed to
 `RustKopisAvx2` and `Kopis.Properties` to `Kopis.Avx2.Properties` — the same turboshake, subtle and
@@ -348,14 +386,20 @@ AArch64, and proved against the same statements as the other two — `TopLevelTh
 generated from `TopLevelTheoremsSerial.lean` by `make generated`, so a statement that drifted
 would fail to compile.
 
-One difference from the AVX2 row is worth stating, because it is the whole of what makes this row
-shorter.
+Two differences from the AVX2 row are worth stating, because together they are the whole of what
+makes this row shorter.
 
 * **No `available_ok`.** On AArch64 NEON is baseline and `cpu::available()` is
   `cfg!(target_arch = "aarch64")` — a compile-time `true`. aeneas extracts it as an ordinary
   definition (`ok true`) rather than opaquely, so every dispatch point resolves at elaboration
   time and nothing at all is assumed about feature detection. Both branches are still proved
   where the generated twins case-split on it; the `false` branch is the portable proof.
+* **No `bv_decide` axiom.** Group (h) of the AVX2 row has no counterpart here, so nothing in
+  this row's closure is believed on the word of the compiled evaluator. `sshr15_bits` in
+  `Kopis/Neon/Reduce.lean` — arithmetic-shifting an `i16` right by 15 gives all-ones or zero
+  according to the sign — was the one NEON goal discharged by `bv_decide`, and it is now proved
+  bit by bit. It could go where the AVX2 four cannot for a mundane reason: it quantifies over
+  `BitVec 16`, so the bitwise argument is four lines, while theirs are over `BitVec 32`.
 
 **The intrinsic axioms are checked against silicon**, as the AVX2 ones are, and this row is no
 longer the weaker of the two on that point. Both halves of the check exist and both have run:
@@ -420,7 +464,6 @@ def neonAudited : List String :=
    "Kopis.Neon.smull_high_s16_spec",
    "Kopis.Neon.smull_low_s16_spec",
    "Kopis.Neon.sqdmulh_s16_spec",
-   "Kopis.Neon.sshr15_bits._native.bv_decide.ax_1_5",
    "Kopis.Neon.sshr_n_s16_spec",
    "Kopis.Neon.store_i16_spec",
    "Kopis.Neon.store_i32_spec",

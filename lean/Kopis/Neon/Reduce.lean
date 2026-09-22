@@ -1109,8 +1109,23 @@ Garner, one lane at a time.  Both residues arrive *centred*; the combine first l
 negative — then forms `t = (a₂ − a₁)·q₁⁻¹ mod q₂`, lifts that too, and widens
 `a₁ + t·q₁` into 32 bits.  A conditional subtract of `CRT_Q` centres the result. -/
 
+/- Proved bit by bit rather than by `bv_decide`: every `bv_decide` call mints a
+`…_native.bv_decide.ax_…` axiom asserting the result of running the LRAT checker under the
+*compiled* evaluator, which would put the Lean compiler and runtime in this backend's trust base
+for no gain — see group (h) in `TrustBase.lean`.  Both sides are `x.msb` at every bit: at bit 0
+because `15 + 0 < 16` reads bit 15, and above it because the shift has run off the top. -/
 theorem sshr15_bits (x : BitVec 16) :
-    x.sshiftRight 15 = if x.msb then BitVec.allOnes 16 else 0#16 := by bv_decide
+    x.sshiftRight 15 = if x.msb then BitVec.allOnes 16 else 0#16 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [BitVec.getLsbD_sshiftRight, BitVec.msb_eq_getLsbD_last]
+  rcases i with _ | i
+  · cases x.getLsbD 15 <;> simp
+  · rw [if_neg (by omega : ¬ (15 + (i + 1) < 16))]
+    cases x.getLsbD 15 <;>
+      simp only [if_false, if_true, Bool.false_eq_true, BitVec.getLsbD_allOnes,
+        BitVec.getLsbD_zero, hi, decide_true, Nat.not_le.mpr hi, decide_false, Bool.not_false,
+        Bool.true_and]
 
 theorem msb_iff_neg (x : BitVec 16) : x.msb = true ↔ x.toInt < 0 := by
   rw [BitVec.toInt_eq_msb_cond]
