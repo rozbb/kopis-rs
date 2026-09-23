@@ -121,17 +121,27 @@ theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
   | .k768, pk, r => Kopis.Neon.Properties.kopis768_from_bytes_encap_spec pk r
   | .k1024, pk, r => Kopis.Neon.Properties.kopis1024_from_bytes_encap_spec pk r
 
-/-- from_bytes → to_bytes is the identity on bytes. Note this doesn't actually make any reference to
+/-- pk from_bytes → to_bytes is the identity on bytes. Note this doesn't actually make any reference to
 the spec. That's because the spec's API only ever represents public keys as byte strings, so there's
 really no notion of (de)serialization. Instead, we just check that the Rust impl's notion of public
 key is consistent with itself. -/
-theorem from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen),
+theorem pk_from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen),
     (do let kpk ← s.fromBytes pk_bytes
         s.toBytes kpk)
       ⦃ (r : Array U8 s.pkLen) => arrayToBytes r = arrayToBytes pk_bytes ⦄
   | .k512, pk => Kopis.Neon.Properties.kopis512_from_bytes_to_bytes_spec pk
   | .k768, pk => Kopis.Neon.Properties.kopis768_from_bytes_to_bytes_spec pk
   | .k1024, pk => Kopis.Neon.Properties.kopis1024_from_bytes_to_bytes_spec pk
+
+/-- sk from_bytes → to_bytes is the identity on bytes. Similar to above, this doesn't make any
+reference to the spec because the spec only ever represents sk as a 32B bytestring. -/
+theorem sk_from_bytes_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
+    (do let ksk ← RustKopisNeon.kem.KemSecretKey.expand_from_seed s.L s.MU seed
+        RustKopisNeon.kem.KemSecretKey.impl.seed ksk)
+      ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes seed ⦄
+  | .k512, seed => Kopis.Neon.Properties.kopis512_expand_seed_spec seed
+  | .k768, seed => Kopis.Neon.Properties.kopis768_expand_seed_spec seed
+  | .k1024, seed => Kopis.Neon.Properties.kopis1024_expand_seed_spec seed
 
 /-- keygen → decapsulate matches the spec -/
 theorem keygen_then_decapsulate : ∀ (s : Size) (seed : Array U8 32#usize)

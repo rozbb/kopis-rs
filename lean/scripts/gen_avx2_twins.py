@@ -527,6 +527,9 @@ import Kopis.Avx2.SampleBridge"""),
   let* ⟨vec_s, hvecs, hvecbnd⟩ ←
     spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU hL0 hL4)
     (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU hL0 hL4)"""),
+    ("KeyGen.lean",
+     """  apply WP.spec_bind (expand_secret_key_spec L MU sd p hl hm hmu hb hf hlt)""",
+     """  apply WP.spec_bind (expand_secret_key_spec L MU sd p hl hm hmu hb hf hlt _hl0)"""),
     # The two remaining callers of the sampler specs, threading the same hypotheses onward.
     ("KeyGen.lean",
      """    expand_secret_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL""",

@@ -44,4 +44,42 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     expand_secret_key_spec L MU seed p hℓ hμ hMU hbuf hfit hL _hL0
   exact ⟨⟨S, hS1, hS2, hS3⟩, hz, hpk, hhash, ⟨Am, hA1, hA2, hA3⟩, ⟨V, hV1, hV2, hV3⟩⟩
 
+
+/-- **`expand_from_seed` stores the seed it was handed.**  `KemSecretKey`'s wire form
+is the 32-byte seed it stores, so this is what makes a generated key persistable: reloading those
+bytes with `from_seed` rebuilds the same key.  Nothing else in the development reads that field,
+so nothing else pins it.
+
+The binder names are deliberately unlike `expand_from_seed_spec`'s: `scripts/gen_*_twins.py`
+patches the call below to pass the extra `0 < L` the twins' `expand_secret_key_spec` wants, and
+the patch anchors on this line's exact text. -/
+theorem expand_from_seed_seed (L MU : Usize) (sd : Array U8 32#usize)
+    (p : Spec.Kopis.ParameterSet)
+    (hl : Spec.Kopis.ℓ p = L.val) (hm : Spec.Kopis.μ p = MU.val)
+    (hmu : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
+    (hb : L.val * 320 + 32 ≤ 1312) (hf : L.val * 10 * 256 ≤ Usize.max)
+    (hlt : L.val < 256) (_hl0 : 0 < L.val) :
+    kem.KemSecretKey.expand_from_seed L MU sd
+      ⦃ (ksk : kem.KemSecretKey L) => arrayToBytes ksk.seed = arrayToBytes sd ⦄ := by
+  unfold kem.KemSecretKey.expand_from_seed
+  apply WP.spec_bind (expand_secret_key_spec L MU sd p hl hm hmu hb hf hlt _hl0)
+  rintro _ -
+  rfl
+
+/-- **… and `seed()` hands it back.**  The accessor is `ok self.seed`, so this is the previous
+lemma read through the public entry point. -/
+theorem expand_from_seed_then_seed (L MU : Usize) (sd : Array U8 32#usize)
+    (p : Spec.Kopis.ParameterSet)
+    (hl : Spec.Kopis.ℓ p = L.val) (hm : Spec.Kopis.μ p = MU.val)
+    (hmu : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
+    (hb : L.val * 320 + 32 ≤ 1312) (hf : L.val * 10 * 256 ≤ Usize.max)
+    (hlt : L.val < 256) (hl0 : 0 < L.val) :
+    (do let ksk ← kem.KemSecretKey.expand_from_seed L MU sd
+        kem.KemSecretKey.impl.seed ksk)
+      ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes sd ⦄ := by
+  apply WP.spec_bind (expand_from_seed_seed L MU sd p hl hm hmu hb hf hlt hl0)
+  rintro ksk h
+  exact h
+
+
 end Kopis.Neon.Properties
