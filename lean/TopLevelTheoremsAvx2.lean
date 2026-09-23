@@ -121,7 +121,10 @@ theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
   | .k768, pk, r => Kopis.Avx2.Properties.kopis768_from_bytes_encap_spec pk r
   | .k1024, pk, r => Kopis.Avx2.Properties.kopis1024_from_bytes_encap_spec pk r
 
-/-- from_bytes → to_bytes matches the spec -/
+/-- from_bytes → to_bytes is the identity on bytes. Note this doesn't actually make any reference to
+the spec. That's because the spec's API only ever represents public keys as byte strings, so there's
+really no notion of (de)serialization. Instead, we just check that the Rust impl's notion of public
+key is consistent with itself. -/
 theorem from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen),
     (do let kpk ← s.fromBytes pk_bytes
         s.toBytes kpk)
