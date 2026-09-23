@@ -1,8 +1,3 @@
-# `ct-check` is the constant-time validation harness (see ct-check.sh). It is a separate crate so
-# that the `unsafe` its Valgrind client requests need stays out of kopis, which forbids it.
-[workspace]
-members = ["ct-check", "ct-check/probe"]
-
 [package]
 name = "kopis"
 authors = ["Michael Rosenberg <michael@mrosenberg.pub>"]
@@ -41,6 +36,11 @@ harness = false
 name = "noic"
 harness = false
 
+# `ct-check` is the constant-time validation harness (see ct-check.sh). It is a separate crate so
+# that the `unsafe` its Valgrind client requests need stays out of kopis, which forbids it.
+[workspace]
+members = ["ct-check", "ct-check/probe"]
+
 # What ct-check.sh builds: release codegen, because a debug build's constant-time behaviour says
 # nothing about the one that ships, plus symbols so Valgrind reports name the offending function.
 [profile.ct]
@@ -48,6 +48,7 @@ inherits = "release"
 debug = 2
 
 [patch.crates-io]
+# Needed for benching against the hidden derandomized API in aws-lc-rs
 aws-lc-rs = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-derand" }
 aws-lc-sys = { git = "https://github.com/rozbb/aws-lc-rs.git", branch = "mlkem-derand" }
 # mlkem-selkie pulls sha3-selkie from crates.io, and the published 0.0.0 predates the

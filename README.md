@@ -1,10 +1,6 @@
 # kopis-rs
 
-This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation mechanism (KEM). Kopis is a lattice-based KEM that is designed to be secure against classical and quantum adversaries. It comes in three variants:
-
-* Kopis-512, which is designed to have security roughly equivalent to AES-128
-* Kopis-768, which is designed to have security roughly equivalent to AES-192
-* Kopis-1024, which is designed to have security roughly equivalent to AES-256
+This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation mechanism (KEM). Kopis is a lattice-based KEM that is designed to be secure against classical and quantum adversaries. Kopis has three security levels: Kopis-512, Kopis-768, and Kopis-1024. If you don't know what to use, just use Kopis-768.
 
 # Example code
 
@@ -59,9 +55,14 @@ println!("KEM ran successfully");
 
 We have implemented benchmarks for key generation, encapsulation, and decapsulation for all variants. Simply run `cargo bench`.
 
-# Backends
+# Backend selection
 
-This crate supports three "backends": **Portable** (no special hardware necessary), **AVX2**, and **NEON + SHA3** (meaning it only executes if there is NEON with `+sha3` in the target features). By default, this crate will look at the target architecture, pick the right backend, and do CPU feature support testing as needed.
+This crate supports three backends:
+* Portable — No special hardware necessary
+* AVX2 — x86-64 CPUs with AVX2
+* NEON — aarch64 CPUs with NEON _and also SHA3_ (meaning presence of `+sha3` in the target features)
+
+By default, this crate will look at the target architecture, pick the right backend, and do CPU feature support testing as needed.
 
 If you want to **force a specific backend** to be used, you can do so via CFG flags:
 ```sh
@@ -75,48 +76,11 @@ RUSTFLAGS='--cfg kopis_backend="avx2"' cargo build
 RUSTFLAGS='--cfg kopis_backend="neon"' cargo build
 ```
 
-# Formal Verification
+# Formal verification
 
-We formally verify that this Rust crate matches the Lean specification in [`lean/Spec/Kopis/Spec.lean`]. Specifically, we check that the public KEM API matches the spec, for all supported backends. See [`lean/TopLevelTheoremsSerial.lean`] to see the specific properties tested.
+We formally verify that this Rust crate matches the Lean specification in [`lean/Spec/Kopis/Spec.lean`](lean/Spec/Kopis/Spec.lean). Specifically, we check that the public KEM API matches the spec, for all supported backends. We use [aeneas](https://github.com/AeneasVerif/aeneas) to lift the Rust implementation to Lean.
 
-## What is not proved
-
-Some details are outside our formalization:
-
-1. Rust SIMD intrinsics are not currently supported by aeneas. Thus, we axiomatize them and use test vectors to ensure equivalence (see `src/backend/{neon,avx2}/intrinsics_vectors.rs`).
-2. `turboshake` and `subtle` are dependencies, and thus cannot be directly extracted. We axiomatize their behavior using a TurboSHAKE Lean specification. We also have our own parallelized TurboSHAKE impl for AVX2, which we prove matches the Lean spec.
-3. We cannot prove in Lean that anything operates in constant-time. For this, see "Checking for constant-time" below
-
-You can regenerate the SIMD test vectors as follows:
-```sh
-# on an AVX2 x86-64 machine
-KOPIS_REGEN_VECTORS=1 cargo test --lib intrinsics_vectors
-
-# on an AArch64 machine with FEAT_SHA3 (any Apple silicon Mac)
-RUSTFLAGS='-C target-feature=+sha3' KOPIS_REGEN_VECTORS=1 \
-  cargo test --lib neon::intrinsics_vectors
-```
-
-A plain `cargo test` on either host re-checks the committed file against that CPU, so drift is
-caught continuously.
-
-## Transpiling Rust to Lean
-
-In order to prove correctness of Rust, it must first be translated to Lean. This is already done for you, and stored in the `lean/ExtractedRust*.lean` files. But if you made code changes and want to re-transpile, then do as follows.
-
-1. Install [nix](https://nixos.org/download/). This is so we can run aeneas.
-2. Install [rustup](https://rustup.rs/) so we can compile Rust
-3. Run `extract_rust_to_lean.sh`
-
-## Running Lean
-
-To verify the theorems, you need to build the Lean project. To do this, follow these steps:
-
-1. Install [elan](https://github.com/leanprover/elan), the Lean toolchain manager
-2. `cd lean`
-3. Run `lake exe cache get`. This will fetch the Mathlib cache and reduce build times by a lot.
-4. Run `make prove-kopis` to prove the top-level theorems and check that all axioms have been audited. This will take a while. If you want to increase the number of threads (default is 8), then run `make prove-kopis LEAN_NUM_THREAD=16` or whatever you want.
-5. Extra: Run `make test-avx2-model` and `make test-neon-model` to run unit tests on the Lean formalizations of AVX2 and NEON SIMD instructions. aeneas doesn't know how to extract these, so we had to axiomatize them.
+Read [`lean/README.md`](lean/README.md) for more info on what is proved, what is not proved, and how to run proofs.
 
 # Checking for constant-timeness
 

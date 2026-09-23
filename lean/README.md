@@ -1,112 +1,65 @@
 # Kopis formal verification
 
-Machine-checked proof that the `kopis-rs` Rust implementation matches an
-audited, executable specification of the Kopis KEM.
+This folder contains the machinery necessary to formally verify the `kopis-rs` crate against a Lean specification of Kopis. The pipeline is as follows:
 
-The chain has three links:
+1. Transpile the Rust to Lean, using all three backends. This outputs to `ExtractedRustSerial.lean`, `ExtractedRustAvx2.lean`, and `ExtractedRustNeon.lean`
+2. Prove the top-level theorems, showing that the Rust implementation matches the Lean implementation. These are in `TopLevelTheoremsSerial.lean`, `TopLevelTheoremsAvx2.lean`, and `TopLevelTheoremsNeon.lean`. The only one that matters is `TopLevelTheoremsSerial.lean`. The other two are copies of the first, with find-replace substitutions to point at other backends.
 
-```
-  ../src/*.rs        charon + aeneas       ExtractedRustSerial.lean       Kopis/Properties/*.lean
-  (Rust impl)   ──────────────────────▶   (extracted Lean)   ◀──────────────────────────▶   Spec/Kopis/Spec.lean
-                 ../extract_rust_to_lean.sh                    correspondence proofs          (audited spec)
-```
+# Transpiling Rust to Lean
 
-Nothing in `Kopis/Properties/` is trusted: `lake` type-checks it all, and the
-Lean kernel re-checks every proof term. What *is* trusted is (a) the audited
-spec in `Spec/`, which you should read against `kopis-spec.md`, and (b) the
-charon/aeneas extraction that produced `ExtractedRustSerial.lean` from the Rust.
+In order to prove correctness of Rust, it must first be translated to Lean. This is already done for you, and stored in the `ExtractedRust*.lean` files. But if you made code changes and want to re-transpile, then do as follows.
 
-## Reviewing this: start with `TopLevelTheoremsSerial.lean`
+1. Install [nix](https://nixos.org/download/). This is so we can run aeneas.
+2. Install [rustup](https://rustup.rs/) so we can compile Rust
+3. Run `extract_rust_to_lean.sh` in the root of this crate
 
-**[`TopLevelTheoremsSerial.lean`](TopLevelTheoremsSerial.lean) is the file to read.** It is
-written for a human reviewer and collects, in one place, everything you need in
-order to judge what has actually been proved:
+# Building Lean
 
-- the nine top-level theorems (key generation, encapsulation, decapsulation × three
-  parameter sets), each unconditional and quantified over all inputs;
-- the translation functions relating Rust values to spec values, pinned down so you
-  can confirm the theorems are not vacuous;
-- an explicit list of what is *not* covered.
+To verify the theorems, you need to build the Lean project. To do this, follow these steps:
 
-It re-proves nothing — each statement is discharged by the corresponding theorem in
-`Kopis/Properties/`, so a restatement that drifted from what was proved would fail
-to compile.
+1. Install [elan](https://github.com/leanprover/elan), the Lean toolchain manager
+2. `cd lean`
+3. Run `lake exe cache get`. This will fetch the Mathlib cache and reduce build times by a lot.
+4. Run `make prove-kopis` to prove the top-level theorems and check that all axioms have been audited. This will take a while. If you want to increase the number of threads (default is 8), then run `make prove-kopis LEAN_NUM_THREAD=16` or whatever you want.
+5. Extra: Run `make test-kopis-spec` to run known-answer tests against the Lean implementations of Kopis and TurboSHAKE
+6. Extra: Run `make test-avx2-model` and `make test-neon-model` to run unit tests on the Lean formalizations of AVX2 and NEON SIMD instructions. aeneas doesn't know how to extract these, so we had to axiomatize them.
 
-**Then read [`TrustBase.lean`](TrustBase.lean)**, which is the other half: the
-complete list of assumed axioms with an explanation of each, and a build-time check
-that recomputes the axiom footprint of every top-level theorem and fails if it is
-not exactly that list — and fails too if a theorem is added without being audited.
-It is separate because the trust base is the one part of the audit that differs per
-backend; the theorem statements do not.
+# What is not proved
 
-## Usage
+Some details are outside our formalization:
 
+1. Rust SIMD intrinsics are not currently supported by aeneas. Thus, we axiomatize them and use test vectors to ensure equivalence (see `src/backend/{neon,avx2}/intrinsics_vectors.rs`).
+2. `turboshake` and `subtle` are dependencies, and thus cannot be directly extracted. We axiomatize their behavior using a TurboSHAKE Lean specification. We also have our own parallelized TurboSHAKE impl for AVX2, which we prove matches the Lean spec.
+3. We cannot prove in Lean that anything operates in constant-time. For this, see "Checking for constant-time" below
+
+You can regenerate the SIMD test vectors as follows:
 ```sh
-make prove-kopis         # every backend, regenerating the audit copies first
-make prove-kopis-serial  # the portable backend: the proofs and their trust base
-make prove-kopis-avx2    # the AVX2 proofs + its assumed intrinsic semantics
-make prove-kopis-neon    # the NEON extraction + its assumed intrinsic semantics
-make test-kopis-spec     # lake exe kopisTests — run the spec against test vectors
-make test-avx2-model     # replay recorded silicon vectors through the AVX2 intrinsic models
-make test-neon-model     # the same for the NEON intrinsic models
+# on an AVX2 x86-64 machine
+KOPIS_REGEN_VECTORS=1 cargo test --lib intrinsics_vectors
+
+# on an AArch64 machine with FEAT_SHA3 (any Apple silicon Mac)
+RUSTFLAGS='-C target-feature=+sha3' KOPIS_REGEN_VECTORS=1 \
+  cargo test --lib neon::intrinsics_vectors
 ```
 
-`TopLevelTheoremsAvx2.lean` and `TopLevelTheoremsNeon.lean` are generated from
-`TopLevelTheoremsSerial.lean` by swapping the backend names — the top-level
-statements are the same for every backend, so an auditor reads one file rather
-than one per backend. Both are checked in, and `make prove-kopis` regenerates
-them and fails if that changed anything, so a committed copy cannot quietly go
-stale. Do not edit them by hand.
+Running `cargo test` on either arch will automatically check test vectors.
 
-Run these from this directory: `test-kopis-spec` reads its vectors from the
-crate's `tests/` directory (as `../tests/ref_test_vectors-*.jsonl`, the same
-files the Rust `tests/ref_kat.rs` consumes) relative to the current directory.
+# File layout
 
-`make prove-kopis` succeeding *is* the proof — a green build means every
-theorem checked, with no `sorry`s and no errors.
-
-## Layout
-
-| Path                   | Trusted? | Contents                                                                                         |
-| ---------------------- | -------- | -------------------------------------------------------------------------------------------------|
-| `TopLevelTheoremsSerial.lean`| *proved* | **Start here.** The audit surface: top-level statements, translations, and known gaps.          |
-| `TopLevelTheoremsAvx2.lean`| *proved* | **Autogenerated. Do not edit.** The same statements with the backend names swapped; `make prove-kopis` keeps it current.                       |
-| `TopLevelTheoremsNeon.lean`| *proved* | **Autogenerated. Do not edit.** Likewise for NEON; `make prove-kopis` keeps it current.          |
-| `TrustBase.lean`       | *checked*| Read second. Every assumption the theorems rest on, with the build-time check that enforces it.  |
-| `ExtractedRustSerial.lean`   | trusted  | **Autogenerated. Do not edit.** This is the Aeneas output. Run `../extract_rust_to_lean.sh`      |
-| `Spec/Kopis/Spec.lean` | trusted  | A running Lean implementation of the Kopis spec, with unit tests and known-answer tests.         |
-| `Spec/TurboSHAKE/`     | trusted  | TurboSHAKE (RFC 9861), the XOF Kopis samples from.                                               |
-| `Spec/SHA3/`           | trusted  | Keccak-p permutation (FIPS 202) that TurboSHAKE rides on.                                        |
-| `Spec/Defs.lean`       | trusted  | Shared spec-level definitions (bit/byte conversions and friends).                                |
-| `Kopis/Properties/`    | *proved* | The correspondence proofs: extracted code ≡ spec, bottom-up to keygen/encap/decap.               |
-| `ExtractedRustAvx2.lean`| trusted | **Autogenerated. Do not edit.** The same crate extracted from an AVX2 build.                     |
-| `Kopis/Avx2/Intrinsics.lean`| trusted | The assumed semantics of the AVX2 instructions, one axiom each — *tested* against recorded silicon by `make test-avx2-model`.|
-| `ExtractedRustNeon.lean`| trusted | **Autogenerated. Do not edit.** The same crate extracted from an AArch64 NEON build (`+sha3`).    |
-| `Kopis/Neon/Intrinsics.lean`| trusted | The assumed semantics of the NEON instructions, one axiom each — *tested* against recorded silicon by `make test-neon-model`.|
-| `Kopis.lean`           | —        | Aggregator: importing it pulls in the whole proof closure. Target of `lake build Kopis`.         |
-| `SpecTests/`           | —        | Runs the *spec* (not the Rust) against known-answer vectors, to catch spec transcription bugs.   |
-
-## Dependencies
-
-The full list — elan, the Mathlib cache, memory limits, and what re-running the
-extraction additionally needs (nix, and the two rustup cross-targets) — is in
-the *Dependencies* subsection of the root
-[`README.md`](../README.md)'s Formal Verification section. What follows is only
-the aeneas half, because it is the one with a trap in it.
-
-`lakefile.lean` requires [aeneas](https://github.com/AeneasVerif/aeneas)'s Lean
-backend as a local path dependency at `../../aeneas/backends/lean`, i.e. aeneas
-is expected to be checked out as a sibling of the `kopis-rs` checkout. Adjust
-that path (in both `lakefile.lean` and `lake-manifest.json`) if yours lives
-elsewhere. Everything else — Mathlib and its transitive dependencies — is
-fetched by `lake`. Only the Lean backend is needed to check the proofs; charon
-and the `aeneas` binary are needed only to re-run the extraction.
-
-**Use aeneas `b59d5188` or earlier.** Because aeneas is a *path* dependency,
-`lake-manifest.json` records no revision for it, and this tree does not build
-against current `main`: aeneas `e30579c0` ("Add IScalar shift-left/right specs",
-2026-07-20) adds `@[step]`-tagged shift lemmas that make `step*` consume a step
-three of our proofs handle by hand, and `Kopis/Avx2/NttGrowth.lean`,
-`Kopis/Neon/Keccak/Squeeze.lean` and `Kopis/Properties/KeyGenCapstone.lean` then
-fail. Neither the mathlib pin nor the manifest date identifies the right
-revision.
+| Path                         | Contents                                                                                         |
+| -----------------------------|--------------------------------------------------------------------------------------------------|
+| `TopLevelTheoremsSerial.lean`| The set of theorems we prove about the serial backend of `kopis-rs` |
+| `TopLevelTheoremsAvx2.lean`  | **Autogenerated. Do not edit.** The set of theorems we prove about the AVX2 backend of `kopis-rs`. These are identical to `TopLevelTheoremsSerial.lean`, just with the backend names swapped out. |
+| `TopLevelTheoremsNeon.lean`  | **Autogenerated. Do not edit.** The set of theorems we prove about the NEON backend of `kopis-rs`. These are identical to `TopLevelTheoremsSerial.lean`, just with the backend names swapped out. |
+| `Spec/Kopis/Spec.lean`       | A running Lean implementation of the Kopis spec, with unit tests and known-answer tests. Tested by `make test-kopis-spec`         |
+| `Spec/TurboSHAKE/`           | A running TurboSHAKE (RFC 9861). Tested by `make test-kopis-spec`. |
+| `Spec/SHA3/`                 | Keccak-p permutation (FIPS 202) that TurboSHAKE relies on.                                       |
+| `Spec/Defs.lean`             | Shared spec-level helper definitions (bit/byte conversions etc.)                                |
+| `TrustBase.lean`             | Every axiom we use in our proofs. This is executed automatically by `make prove-kopis`, and will error out if any unexpected axiom is found. |
+| `Kopis/Avx2/Intrinsics.lean` | Definitions of AVX2 intrinsics that aeneas doesn't yet support. These are tested with `make test-avx2-model` |
+| `Kopis/Neon/Intrinsics.lean` | Definitions of NEON intrinsics that aeneas doesn't yet support. These are tested with `make test-neon-model` |
+| `ExtractedRustSerial.lean`   | **Autogenerated. Do not edit.** This is the Aeneas output. Run `../extract_rust_to_lean.sh`      |
+| `ExtractedRustAvx2.lean`     | Ditto |
+| `ExtractedRustNeon.lean`     | Ditto |
+| `Kopis/Properties/`          | All the stuff needed for proving top-level theorems. |
+| `SpecTests/`                 | Test harness for known-answer test of Lean implementations |
