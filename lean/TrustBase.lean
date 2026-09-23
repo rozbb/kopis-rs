@@ -124,7 +124,6 @@ def avx2Audited : List String := commonAxioms ++
    "RustKopisAvx2.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisAvx2.U8.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisAvx2.U8.Insts.SubtleConstantTimeEq.ct_eq",
-   "RustKopisAvx2.backend.avx2.cpu.available",
    "RustKopisAvx2.backend.avx2.intrinsics.Vec128",
    "RustKopisAvx2.backend.avx2.intrinsics.Vec256",
    "RustKopisAvx2.backend.avx2.intrinsics.add_epi16",

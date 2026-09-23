@@ -3,3 +3,6 @@
 
 # Python bytecode cache from lean/scripts/.
 /lean/scripts/__pycache__/
+
+# Prebuilt aeneas/charon, fetched by extract_rust_to_lean.sh.
+/.aeneas-bin/

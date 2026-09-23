@@ -2,102 +2,61 @@
 
 set -eux
 
-AENEAS_VERSION="b59d5188c082f704a418c7cb4e52ad69328002d1"
+REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-CHARON="nix run github:AeneasVerif/aeneas/${AENEAS_VERSION}#charon \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    --"
-AENEAS="nix run github:AeneasVerif/aeneas/${AENEAS_VERSION} \
-    --extra-experimental-features nix-command \
-    --extra-experimental-features flakes \
-    --"
+# The aeneas version we use is dictated by AENEAS_VERSION.txt in the crate root
+AENEAS_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/AENEAS_VERSION.txt")"
+# Place to save aeneas and charon prebuilt binaries
+BIN_DIR="${REPO_ROOT}/.aeneas-bin/${AENEAS_VERSION}"
 
-# Charon does not build against the normal standard library. It needs a `core`/`std` compiled
-# with full MIR, so it builds its own copy and then compiles *everything* against it — kopis and
-# every one of its dependencies.
+# Fetch the appropriate aeneas/charon prebuilt binaries from Github, and cache them locally
+case "$(uname -s)-$(uname -m)" in
+    Linux-x86_64)               AENEAS_ASSET="aeneas-linux-x86_64.tar.gz" ;;
+    Linux-aarch64 | Linux-arm64) AENEAS_ASSET="aeneas-linux-aarch64.tar.gz" ;;
+    Darwin-arm64)               AENEAS_ASSET="aeneas-macos-aarch64.tar.gz" ;;
+    Darwin-x86_64)              AENEAS_ASSET="aeneas-macos-x86_64.tar.gz" ;;
+    *)
+        echo "No prebuilt aeneas for $(uname -s)-$(uname -m)." >&2
+        echo "Upstream publishes linux-{x86_64,aarch64} and macos-{x86_64,aarch64}." >&2
+        exit 1
+        ;;
+esac
+if [ ! -x "${BIN_DIR}/aeneas" ] || [ ! -x "${BIN_DIR}/charon" ]; then
+    rm -rf "${BIN_DIR}"
+    mkdir -p "${BIN_DIR}"
+    echo "Fetching aeneas binary from Github..."
+    curl -fsSL --retry 3 \
+        "https://github.com/AeneasVerif/aeneas/releases/download/${AENEAS_VERSION}/${AENEAS_ASSET}" \
+        | tar xz -C "${BIN_DIR}"
+fi
+
+CHARON="${BIN_DIR}/charon"
+AENEAS="${BIN_DIR}/aeneas"
+
 # We don't want Charon's build artifacts to interfere with other builds, and
 # vice-versa. So we give it its own directory
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-target/charon}"
 
-# All three backends are extracted, into separate files and separate Lean namespaces. The backend
-# is forced here rather than left to `build.rs`'s autodetection so that each run sees exactly one
-# set of `#[cfg(kopis_avx2)]` / `#[cfg(kopis_neon)]` dispatch blocks — either all of them or none
-# — and the extracted code is the code the corresponding proofs are written against.
-#
-# This goes through RUSTFLAGS rather than charon's --rustc-arg because build.rs has to see it
-# too: build.rs is what turns the cfg into the backend selection.
 
-# ---------------------------------------------------------------------------------------
-# The serial backend: the portable code, with every dispatch block cfg'd out. `ExtractedRustSerial.lean`
-# is what `lean/Kopis/Properties/*` and `TopLevelTheoremsSerial.lean` are proved about.
-# ---------------------------------------------------------------------------------------
-
+# Extract the serial backend
 export RUSTFLAGS='--cfg kopis_backend="serial"'
 $CHARON cargo --preset=aeneas
 $AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopisSerial
 mv Kopis.lean ./lean/ExtractedRustSerial.lean
 rm kopis.llbc
 
-# ---------------------------------------------------------------------------------------
-# The AVX2 backend. Two modules are kept opaque, which aeneas emits as axioms:
-#
-#   * `backend::avx2::intrinsics` — the SIMD instruction set. `__m256i` is a rustc builtin with
-#     no MIR and the intrinsics are bodyless `extern "unadjusted"` declarations, so there is
-#     nothing for charon to lower; without this, aeneas aborts with `Unreachable` at the first
-#     `_mm256_set1_epi16`. Their semantics are supplied by hand in
-#     `lean/Kopis/Avx2/Intrinsics.lean` — that file is this backend's whole added trust base.
-#   * `backend::avx2::cpu` — the CPUID/XGETBV feature probe. Nothing can be proved about it
-#     here, so `available()` becomes an assumption rather than a definition.
-#
-# Everything else in `backend/avx2/` is ordinary Rust and is translated normally.
-#
-# Like the NEON one below, this is a *cross* extraction, and for the same reason: the target is
-# named explicitly rather than left as the host, so that the extraction is the same on every
-# machine. Without `--target`, `build.rs` accepts the configuration only when the *host* is x86
-# with AVX2 (see `avx2_is_available`), so the script would die here on an Apple silicon or other
-# non-x86 machine — and, worse, would silently be extracting a host-dependent build on the ones
-# where it succeeded.
-#
-# `-C target-feature=+avx2` is then required rather than merely tidy: it is what makes
-# `avx2_is_available()` true for a cross build, since the host-CPU fallback it would otherwise
-# rely on is disabled the moment host and target differ.
-# ---------------------------------------------------------------------------------------
-
+# Extract the AVX2 backend. We omit extraction of our AVX2 intrinsics, since
+# they're not supported by aeneas
 export RUSTFLAGS='--cfg kopis_backend="avx2" -C target-feature=+avx2'
 $CHARON cargo --preset=aeneas \
     --opaque 'kopis::backend::avx2::intrinsics' \
-    --opaque 'kopis::backend::avx2::cpu' \
     -- --target x86_64-unknown-linux-gnu
 $AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopisAvx2
 mv Kopis.lean ./lean/ExtractedRustAvx2.lean
 rm kopis.llbc
 
-# ---------------------------------------------------------------------------------------
-# The NEON backend. This one is a *cross* extraction: the code only exists on AArch64, so
-# charon has to run rustc for `aarch64-unknown-linux-gnu` rather than the host. Nothing else
-# about the run differs — the sysroot charon builds carries full MIR for that target too.
-#
-# `-C target-feature=+sha3` is not optional: `build.rs` compiles the NEON backend only for
-# targets that enable both `neon` and `sha3`, so `--cfg kopis_backend="neon"` without it is a
-# hard build error rather than a quietly smaller backend. `aarch64-apple-darwin` — every Apple
-# silicon core — enables `sha3` by default, so this is the configuration that actually ships,
-# and it is the only NEON configuration there is: a generic AArch64 target without the extension
-# gets the portable serial backend, which `ExtractedRustSerial.lean` already covers.
-#
-# One module is kept opaque, which aeneas emits as axioms:
-#
-#   * `backend::neon::intrinsics` — the SIMD instruction set. The NEON vector types are rustc
-#     builtins with no MIR and the intrinsics are bodyless `extern "unadjusted"` declarations,
-#     so there is nothing for charon to lower. Their semantics are supplied by hand in
-#     `lean/Kopis/Neon/Intrinsics.lean` — that file is this backend's whole added trust base.
-#
-# Note what is *not* here: `backend::neon::cpu`. AVX2 has to keep its CPUID/XGETBV probe opaque,
-# but NEON is baseline on AArch64 and `available()` is a compile-time constant `true`, so it
-# extracts as an ordinary definition and adds no assumption at all. This backend's trust base is
-# therefore the intrinsics and nothing else.
-# ---------------------------------------------------------------------------------------
-
+# Extract the AVX2 backend. We omit extraction of our NEON intrinsics, since
+# they're not supported by aeneas
 export RUSTFLAGS='--cfg kopis_backend="neon" -C target-feature=+sha3'
 $CHARON cargo --preset=aeneas \
     --opaque 'kopis::backend::neon::intrinsics' \

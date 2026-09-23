@@ -104,3 +104,69 @@ jobs:
       # valgrind cannot run on an x86 runner.
       - name: instruction scan (all targets)
         run: ./ct-check.sh --scan-only
+
+  # The Lean proofs. Everything here runs on a stock x86 runner: the two model checks replay
+  # committed vectors through the Lean models rather than executing SIMD, so neither needs an
+  # AVX2 or AArch64 host. Only *recording* those vectors does — see lean/README.md.
+  lean:
+    name: Lean proofs and model checks
+    runs-on: ubuntu-latest
+    # A cold build is hours; a warm one is minutes. The cache below makes the common case warm.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install elan
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      # Keyed on every Lean source and on the manifest, which carries the pinned aeneas revision;
+      # restore-keys falls back to the newest build for this toolchain, which lake then updates
+      # incrementally.
+      - name: Cache Lean build
+        uses: actions/cache@v4
+        with:
+          path: |
+            lean/.lake
+            ~/.elan
+          key: lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/**/*.lean') }}
+          restore-keys: |
+            lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
+      # AENEAS_VERSION.txt is the single source of truth for the aeneas release: the extractor
+      # downloads that release's binaries and the lakefile depends on that release's Lean backend.
+      # The manifest can go stale behind it, because `include_str` bakes the file's contents into
+      # lake's cached config and that cache does not track the included file — so editing the file
+      # alone is not enough. Without this check a build would silently prove against a different
+      # aeneas than the one that produced the extraction.
+      - name: Pinned aeneas matches AENEAS_VERSION.txt
+        run: |
+          want=$(tr -d '[:space:]' < AENEAS_VERSION.txt)
+          got=$(python3 -c "import json;print([p['inputRev'] for p in json.load(open('lean/lake-manifest.json'))['packages'] if p['name']=='aeneas'][0])")
+          if [ "$want" != "$got" ]; then
+            echo "AENEAS_VERSION.txt is '$want' but lean/lake-manifest.json pins '$got'."
+            echo "Refresh it with:  cd lean && rm -rf .lake/config && lake update aeneas"
+            exit 1
+          fi
+      - name: Fetch Mathlib cache
+        working-directory: lean
+        run: lake exe cache get
+      # The twin proof stacks are checked in *and* generated. Regenerating and diffing catches a
+      # stale committed copy, which `make prove-kopis` would otherwise silently overwrite.
+      - name: Generated twins match the committed ones
+        run: |
+          make -C lean twins
+          git diff --exit-code -- lean/Kopis/Avx2/Properties lean/Kopis/Neon/Properties
+      # Proves all three backends and runs TrustBase, which fails if the axiom footprint is not
+      # exactly the audited list. Also fails if the generated audit surfaces are out of date.
+      - name: Prove
+        working-directory: lean
+        run: make prove-kopis
+      - name: Spec known-answer tests
+        working-directory: lean
+        run: make test-kopis-spec
+      - name: AVX2 intrinsic models vs recorded vectors
+        working-directory: lean
+        run: make test-avx2-model
+      - name: NEON intrinsic models vs recorded vectors
+        working-directory: lean
+        run: make test-neon-model

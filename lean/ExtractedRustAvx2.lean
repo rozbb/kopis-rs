@@ -49,6 +49,13 @@ axiom core.num.U16.count_ones : Std.U16 → Result Std.U32
 @[rust_fun "core::num::{u8}::count_ones"]
 axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 
+/-- [core::num::{u8}::max_value]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 4153:8-4153:40
+    Name pattern: [core::num::{u8}::max_value]
+    Visibility: public -/
+@[rust_fun "core::num::{u8}::max_value"]
+axiom core.num.U8.max_value : Result Std.U8
+
 /-- Trait declaration: [core::ops::arith::Sub]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 188:0-188:31
     Name pattern: [core::ops::arith::Sub]
@@ -57,6 +64,31 @@ axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 structure core.ops.arith.Sub (Self : Type) (Rhs : Type) (Self_Output : Type)
   where
   sub : Self → Rhs → Result Self_Output
+
+/-- [core::sync::atomic::private::Align1]
+    Source: '/rustc/library/core/src/sync/atomic.rs', lines 264:4-264:24
+    Name pattern: [core::sync::atomic::private::Align1]
+    Visibility: public -/
+@[rust_type "core::sync::atomic::private::Align1"]
+axiom core.sync.atomic.private.Align1 (T : Type) : Type
+
+/-- [core::sync::atomic::Atomic]
+    Source: '/rustc/library/core/src/sync/atomic.rs', lines 366:0-366:37
+    Name pattern: [core::sync::atomic::Atomic]
+    Visibility: public -/
+@[rust_type "core::sync::atomic::Atomic"]
+axiom core.sync.atomic.Atomic (T : Type) (Clause0_Storage : Type) : Type
+
+/-- [core::sync::atomic::{core::sync::atomic::Atomic<u8, core::sync::atomic::private::Align1<u8>>}::new]:
+    Source: '/rustc/library/core/src/sync/atomic.rs', lines 2628:12-2628:50
+    Name pattern: [core::sync::atomic::{core::sync::atomic::Atomic<u8, core::sync::atomic::private::Align1<u8>>}::new]
+    Visibility: public -/
+@[rust_fun
+  "core::sync::atomic::{core::sync::atomic::Atomic<u8, core::sync::atomic::private::Align1<u8>>}::new"]
+axiom core.sync.atomic.AtomicU8Align1U8.new
+  :
+  Std.U8 → Result (core.sync.atomic.Atomic Std.U8
+    (core.sync.atomic.private.Align1 Std.U8))
 
 /-- Trait declaration: [rand_core::RngCore]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.9.5/src/lib.rs', lines 130:0-130:17
@@ -307,6 +339,114 @@ def Array.Insts.ZeroizeZeroize {Z : Type} (N : Std.Usize) (ZeroizeInst :
   "zeroize::__internal::{zeroize::__internal::AssertZeroize<@T>}::zeroize_or_on_drop"]
 axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::UNINIT]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 40:12-40:47 -/
+@[global_simps, irreducible]
+def backend.avx2.cpu.cpuid_avx2.UNINIT : Result Std.U8 := core.num.U8.max_value
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::STORAGE]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 41:12-41:61 -/
+@[global_simps, irreducible]
+def backend.avx2.cpu.cpuid_avx2.STORAGE
+  :
+  Result (core.sync.atomic.Atomic Std.U8 (core.sync.atomic.private.Align1
+    Std.U8))
+  := do
+  let i ← backend.avx2.cpu.cpuid_avx2.UNINIT
+  core.sync.atomic.AtomicU8Align1U8.new i
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::InitToken]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 45:12-45:37
+    Visibility: public -/
+@[reducible]
+def backend.avx2.cpu.cpuid_avx2.InitToken := Unit
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::clone::Clone for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::clone]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone.clone
+  (self : backend.avx2.cpu.cpuid_avx2.InitToken) :
+  Result backend.avx2.cpu.cpuid_avx2.InitToken
+  := do
+  ok self
+
+/-- Trait implementation: [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::clone::Clone for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32 -/
+@[reducible]
+def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone :
+  core.clone.Clone backend.avx2.cpu.cpuid_avx2.InitToken := {
+  clone := backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::marker::Copy for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:21-44:25 -/
+@[reducible]
+def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreMarkerCopy :
+  core.marker.Copy backend.avx2.cpu.cpuid_avx2.InitToken := {
+  cloneInst := backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone
+}
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::fmt::Debug for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::fmt]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug.fmt
+  (self : backend.avx2.cpu.cpuid_avx2.InitToken) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUnit) ()
+  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "InitToken") dyn
+
+/-- Trait implementation: [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::fmt::Debug for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39 -/
+@[reducible]
+def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug : core.fmt.Debug
+  backend.avx2.cpu.cpuid_avx2.InitToken := {
+  fmt := backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug.fmt
+}
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::init_get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 72:12-94:13
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.init_get
+  : Result (backend.avx2.cpu.cpuid_avx2.InitToken × Bool) := do
+  ok ((), true)
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::init]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 98:12-100:13
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.init
+  : Result backend.avx2.cpu.cpuid_avx2.InitToken := do
+  let (it, _) ← backend.avx2.cpu.cpuid_avx2.init_get
+  ok it
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::{kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::init]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 49:16-51:17
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.InitToken.init
+  : Result backend.avx2.cpu.cpuid_avx2.InitToken := do
+  backend.avx2.cpu.cpuid_avx2.init
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::{kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::init_get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 54:16-56:17
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.InitToken.init_get
+  : Result (backend.avx2.cpu.cpuid_avx2.InitToken × Bool) := do
+  backend.avx2.cpu.cpuid_avx2.init_get
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::{kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 60:16-66:17
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.InitToken.get
+  (self : backend.avx2.cpu.cpuid_avx2.InitToken) : Result Bool := do
+  ok true
+
+/-- [kopis::backend::avx2::cpu::cpuid_avx2::get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 104:12-106:13
+    Visibility: public -/
+def backend.avx2.cpu.cpuid_avx2.get : Result Bool := do
+  let (_, b) ← backend.avx2.cpu.cpuid_avx2.init_get
+  ok b
 
 /-- [kopis::arithmetic::ntt_arith::NttElem]
     Source: 'src/arithmetic/ntt_arith.rs', lines 41:0-41:58 -/
@@ -1429,7 +1569,8 @@ def backend.avx2.ntt.from_uniform
 
 /-- [kopis::backend::avx2::cpu::available]:
     Source: 'src/backend/avx2/cpu.rs', lines 20:0-22:1 -/
-axiom backend.avx2.cpu.available : Result Bool
+def backend.avx2.cpu.available : Result Bool := do
+  ok true
 
 /-- [kopis::arithmetic::plain_arith::RingElem]
     Source: 'src/arithmetic/plain_arith.rs', lines 18:0-18:48
@@ -5628,14 +5769,14 @@ structure pke.PkePublicKey (L : Std.Usize) where
   vec_bytes : Array (Array Std.U8 320#usize) L
 
 /-- [kopis::kem::KemPublicKey]
-    Source: 'src/kem.rs', lines 17:0-22:1
+    Source: 'src/kem.rs', lines 19:0-24:1
     Visibility: public -/
 structure kem.KemPublicKey (L : Std.Usize) where
   pke_pk : pke.PkePublicKey L
   hash_pke_pk : Array Std.U8 32#usize
 
 /-- [kopis::kem::KemSecretKey]
-    Source: 'src/kem.rs', lines 66:0-76:1
+    Source: 'src/kem.rs', lines 68:0-78:1
     Visibility: public -/
 structure kem.KemSecretKey (L : Std.Usize) where
   seed : Array Std.U8 32#usize
@@ -5686,7 +5827,7 @@ def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
   32#usize + i2
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/kem.rs', lines 25:4-25:72
+    Source: 'src/kem.rs', lines 27:4-27:72
     Visibility: public -/
 @[global_simps, irreducible]
 def kem.KemPublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize :=
@@ -6166,7 +6307,7 @@ def pke.expand_secret_key
     pkh)
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::expand_from_seed]:
-    Source: 'src/kem.rs', lines 80:4-93:5 -/
+    Source: 'src/kem.rs', lines 82:4-95:5 -/
 def kem.KemSecretKey.expand_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (kem.KemSecretKey L)
@@ -6194,7 +6335,7 @@ def pke.PkeSecretKey.Insts.ZeroizeZeroize (L : Std.Usize) : zeroize.Zeroize
 }
 
 /-- [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::KemSecretKey<L>}::drop]:
-    Source: 'src/kem.rs', lines 65:9-65:22
+    Source: 'src/kem.rs', lines 67:9-67:22
     Visibility: public -/
 def kem.KemSecretKey.Insts.CoreOpsDropDrop.drop
   {L : Std.Usize} (self : kem.KemSecretKey L) :
@@ -6214,7 +6355,7 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop.drop
   ok { self with seed, z, pke_sk }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::generate_inner]:
-    Source: 'src/kem.rs', lines 96:4-103:5 -/
+    Source: 'src/kem.rs', lines 98:4-105:5 -/
 def kem.KemSecretKey.generate_inner
   {T2 : Type} (L : Std.Usize) (MU : Std.Usize) (rand_coreCryptoRngInst :
   rand_core.CryptoRng T2) (rng : T2) :
@@ -6356,7 +6497,7 @@ def pke.PkePublicKey.serialize
   ok (index_mut_back s2)
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::serialize]:
-    Source: 'src/kem.rs', lines 28:4-30:5 -/
+    Source: 'src/kem.rs', lines 30:4-32:5 -/
 def kem.KemPublicKey.serialize
   {L : Std.Usize} (self : kem.KemPublicKey L) (out_buf : Slice Std.U8) :
   Result (Slice Std.U8)
@@ -6445,7 +6586,7 @@ def pke.PkePublicKey.from_bytes
   ok { matrix_seed, mat_a_ntt, vec_ntt, vec_bytes := vec_bytes1 }
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::from_bytes_inner]:
-    Source: 'src/kem.rs', lines 33:4-41:5 -/
+    Source: 'src/kem.rs', lines 35:4-43:5 -/
 def kem.KemPublicKey.from_bytes_inner
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (kem.KemPublicKey L) := do
   let pke_pk ← pke.PkePublicKey.from_bytes L bytes
@@ -6477,7 +6618,7 @@ def impls.kopis1024.KemPublicKey4.from_bytes
   kem.KemPublicKey.from_bytes_inner 4#usize s
 
 /-- [kopis::kem::SharedSecret]
-    Source: 'src/kem.rs', lines 47:0-47:34
+    Source: 'src/kem.rs', lines 49:0-49:34
     Visibility: public -/
 @[reducible]
 def kem.SharedSecret := Array Std.U8 32#usize
@@ -6526,7 +6667,7 @@ def pke.encrypt_deterministic
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
 /-- [kopis::kem::encap_deterministic]:
-    Source: 'src/kem.rs', lines 113:0-140:1 -/
+    Source: 'src/kem.rs', lines 115:0-142:1 -/
 def kem.encap_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize)
   (randomness : Array Std.U8 32#usize) (kem_pk : kem.KemPublicKey L)
@@ -6557,7 +6698,7 @@ def kem.encap_deterministic
   ok (k1, out_buf1)
 
 /-- [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::SharedSecret}::drop]:
-    Source: 'src/kem.rs', lines 46:9-46:22
+    Source: 'src/kem.rs', lines 48:9-48:22
     Visibility: public -/
 def kem.SharedSecret.Insts.CoreOpsDropDrop.drop
   (self : kem.SharedSecret) : Result kem.SharedSecret := do
@@ -6727,7 +6868,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
-    Source: 'src/kem.rs', lines 145:0-184:1
+    Source: 'src/kem.rs', lines 147:0-186:1
     Visibility: public -/
 def kem.decap
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (sk : kem.KemSecretKey L)
@@ -6827,7 +6968,7 @@ def pke.PkePublicKey.Insts.CoreCloneClone.clone
   ok { matrix_seed := a, mat_a_ntt := nm, vec_ntt := nm1, vec_bytes := a1 }
 
 /-- [kopis::kem::{impl core::clone::Clone for kopis::kem::KemPublicKey<L>}::clone]:
-    Source: 'src/kem.rs', lines 16:9-16:14
+    Source: 'src/kem.rs', lines 18:9-18:14
     Visibility: public -/
 def kem.KemPublicKey.Insts.CoreCloneClone.clone
   {L : Std.Usize} (self : kem.KemPublicKey L) :
@@ -6838,7 +6979,7 @@ def kem.KemPublicKey.Insts.CoreCloneClone.clone
   ok { pke_pk := ppk, hash_pke_pk := a }
 
 /-- Trait implementation: [kopis::kem::{impl core::clone::Clone for kopis::kem::KemPublicKey<L>}]
-    Source: 'src/kem.rs', lines 16:9-16:14 -/
+    Source: 'src/kem.rs', lines 18:9-18:14 -/
 @[reducible]
 def kem.KemPublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
   (kem.KemPublicKey L) := {
@@ -6846,7 +6987,7 @@ def kem.KemPublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
 }
 
 /-- Trait implementation: [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::SharedSecret}]
-    Source: 'src/kem.rs', lines 46:9-46:22 -/
+    Source: 'src/kem.rs', lines 48:9-48:22 -/
 @[reducible]
 def kem.SharedSecret.Insts.CoreOpsDropDrop : core.ops.drop.Drop
   kem.SharedSecret := {
@@ -6854,21 +6995,21 @@ def kem.SharedSecret.Insts.CoreOpsDropDrop : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::kem::{impl zeroize::ZeroizeOnDrop for kopis::kem::SharedSecret}]
-    Source: 'src/kem.rs', lines 46:9-46:22 -/
+    Source: 'src/kem.rs', lines 48:9-48:22 -/
 @[reducible]
 def kem.SharedSecret.Insts.ZeroizeZeroizeOnDrop : zeroize.ZeroizeOnDrop
   kem.SharedSecret := {
 }
 
 /-- [kopis::kem::{kopis::kem::SharedSecret}::as_bytes]:
-    Source: 'src/kem.rs', lines 51:4-53:5
+    Source: 'src/kem.rs', lines 53:4-55:5
     Visibility: public -/
 def kem.SharedSecret.as_bytes
   (self : kem.SharedSecret) : Result (Array Std.U8 32#usize) := do
   ok self
 
 /-- [kopis::kem::{impl subtle::ConstantTimeEq for kopis::kem::SharedSecret}::ct_eq]:
-    Source: 'src/kem.rs', lines 57:4-59:5
+    Source: 'src/kem.rs', lines 59:4-61:5
     Visibility: public -/
 def kem.SharedSecret.Insts.SubtleConstantTimeEq.ct_eq
   (self : kem.SharedSecret) (other : kem.SharedSecret) :
@@ -6879,7 +7020,7 @@ def kem.SharedSecret.Insts.SubtleConstantTimeEq.ct_eq
   Slice.Insts.SubtleConstantTimeEq.ct_eq U8.Insts.SubtleConstantTimeEq s s1
 
 /-- Trait implementation: [kopis::kem::{impl subtle::ConstantTimeEq for kopis::kem::SharedSecret}]
-    Source: 'src/kem.rs', lines 56:0-60:1 -/
+    Source: 'src/kem.rs', lines 58:0-62:1 -/
 @[reducible]
 def kem.SharedSecret.Insts.SubtleConstantTimeEq : subtle.ConstantTimeEq
   kem.SharedSecret := {
@@ -6887,7 +7028,7 @@ def kem.SharedSecret.Insts.SubtleConstantTimeEq : subtle.ConstantTimeEq
 }
 
 /-- Trait implementation: [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::KemSecretKey<L>}]
-    Source: 'src/kem.rs', lines 65:9-65:22 -/
+    Source: 'src/kem.rs', lines 67:9-67:22 -/
 @[reducible]
 def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
   (kem.KemSecretKey L) := {
@@ -6895,14 +7036,14 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::kem::{impl zeroize::ZeroizeOnDrop for kopis::kem::KemSecretKey<L>}]
-    Source: 'src/kem.rs', lines 65:9-65:22 -/
+    Source: 'src/kem.rs', lines 67:9-67:22 -/
 @[reducible]
 def kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
   zeroize.ZeroizeOnDrop (kem.KemSecretKey L) := {
 }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::seed]:
-    Source: 'src/kem.rs', lines 106:4-108:5
+    Source: 'src/kem.rs', lines 108:4-110:5
     Visibility: public -/
 def kem.KemSecretKey.impl.seed
   {L : Std.Usize} (self : kem.KemSecretKey L) :

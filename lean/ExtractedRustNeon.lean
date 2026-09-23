@@ -5933,14 +5933,14 @@ structure pke.PkePublicKey (L : Std.Usize) where
   vec_bytes : Array (Array Std.U8 320#usize) L
 
 /-- [kopis::kem::KemPublicKey]
-    Source: 'src/kem.rs', lines 17:0-22:1
+    Source: 'src/kem.rs', lines 19:0-24:1
     Visibility: public -/
 structure kem.KemPublicKey (L : Std.Usize) where
   pke_pk : pke.PkePublicKey L
   hash_pke_pk : Array Std.U8 32#usize
 
 /-- [kopis::kem::KemSecretKey]
-    Source: 'src/kem.rs', lines 66:0-76:1
+    Source: 'src/kem.rs', lines 68:0-78:1
     Visibility: public -/
 structure kem.KemSecretKey (L : Std.Usize) where
   seed : Array Std.U8 32#usize
@@ -5991,7 +5991,7 @@ def pke.PkePublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize := do
   32#usize + i2
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::SERIALIZED_LEN]
-    Source: 'src/kem.rs', lines 25:4-25:72
+    Source: 'src/kem.rs', lines 27:4-27:72
     Visibility: public -/
 @[global_simps, irreducible]
 def kem.KemPublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize :=
@@ -6288,7 +6288,7 @@ def pke.expand_secret_key
     pkh)
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::expand_from_seed]:
-    Source: 'src/kem.rs', lines 80:4-93:5 -/
+    Source: 'src/kem.rs', lines 82:4-95:5 -/
 def kem.KemSecretKey.expand_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (kem.KemSecretKey L)
@@ -6316,7 +6316,7 @@ def pke.PkeSecretKey.Insts.ZeroizeZeroize (L : Std.Usize) : zeroize.Zeroize
 }
 
 /-- [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::KemSecretKey<L>}::drop]:
-    Source: 'src/kem.rs', lines 65:9-65:22
+    Source: 'src/kem.rs', lines 67:9-67:22
     Visibility: public -/
 def kem.KemSecretKey.Insts.CoreOpsDropDrop.drop
   {L : Std.Usize} (self : kem.KemSecretKey L) :
@@ -6336,7 +6336,7 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop.drop
   ok { self with seed, z, pke_sk }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::generate_inner]:
-    Source: 'src/kem.rs', lines 96:4-103:5 -/
+    Source: 'src/kem.rs', lines 98:4-105:5 -/
 def kem.KemSecretKey.generate_inner
   {T2 : Type} (L : Std.Usize) (MU : Std.Usize) (rand_coreCryptoRngInst :
   rand_core.CryptoRng T2) (rng : T2) :
@@ -6478,7 +6478,7 @@ def pke.PkePublicKey.serialize
   ok (index_mut_back s2)
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::serialize]:
-    Source: 'src/kem.rs', lines 28:4-30:5 -/
+    Source: 'src/kem.rs', lines 30:4-32:5 -/
 def kem.KemPublicKey.serialize
   {L : Std.Usize} (self : kem.KemPublicKey L) (out_buf : Slice Std.U8) :
   Result (Slice Std.U8)
@@ -6567,7 +6567,7 @@ def pke.PkePublicKey.from_bytes
   ok { matrix_seed, mat_a_ntt, vec_ntt, vec_bytes := vec_bytes1 }
 
 /-- [kopis::kem::{kopis::kem::KemPublicKey<L>}::from_bytes_inner]:
-    Source: 'src/kem.rs', lines 33:4-41:5 -/
+    Source: 'src/kem.rs', lines 35:4-43:5 -/
 def kem.KemPublicKey.from_bytes_inner
   (L : Std.Usize) (bytes : Slice Std.U8) : Result (kem.KemPublicKey L) := do
   let pke_pk ← pke.PkePublicKey.from_bytes L bytes
@@ -6599,7 +6599,7 @@ def impls.kopis1024.KemPublicKey4.from_bytes
   kem.KemPublicKey.from_bytes_inner 4#usize s
 
 /-- [kopis::kem::SharedSecret]
-    Source: 'src/kem.rs', lines 47:0-47:34
+    Source: 'src/kem.rs', lines 49:0-49:34
     Visibility: public -/
 @[reducible]
 def kem.SharedSecret := Array Std.U8 32#usize
@@ -6648,7 +6648,7 @@ def pke.encrypt_deterministic
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
 /-- [kopis::kem::encap_deterministic]:
-    Source: 'src/kem.rs', lines 113:0-140:1 -/
+    Source: 'src/kem.rs', lines 115:0-142:1 -/
 def kem.encap_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize)
   (randomness : Array Std.U8 32#usize) (kem_pk : kem.KemPublicKey L)
@@ -6679,7 +6679,7 @@ def kem.encap_deterministic
   ok (k1, out_buf1)
 
 /-- [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::SharedSecret}::drop]:
-    Source: 'src/kem.rs', lines 46:9-46:22
+    Source: 'src/kem.rs', lines 48:9-48:22
     Visibility: public -/
 def kem.SharedSecret.Insts.CoreOpsDropDrop.drop
   (self : kem.SharedSecret) : Result kem.SharedSecret := do
@@ -6849,7 +6849,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
-    Source: 'src/kem.rs', lines 145:0-184:1
+    Source: 'src/kem.rs', lines 147:0-186:1
     Visibility: public -/
 def kem.decap
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (sk : kem.KemSecretKey L)
@@ -6949,7 +6949,7 @@ def pke.PkePublicKey.Insts.CoreCloneClone.clone
   ok { matrix_seed := a, mat_a_ntt := nm, vec_ntt := nm1, vec_bytes := a1 }
 
 /-- [kopis::kem::{impl core::clone::Clone for kopis::kem::KemPublicKey<L>}::clone]:
-    Source: 'src/kem.rs', lines 16:9-16:14
+    Source: 'src/kem.rs', lines 18:9-18:14
     Visibility: public -/
 def kem.KemPublicKey.Insts.CoreCloneClone.clone
   {L : Std.Usize} (self : kem.KemPublicKey L) :
@@ -6960,7 +6960,7 @@ def kem.KemPublicKey.Insts.CoreCloneClone.clone
   ok { pke_pk := ppk, hash_pke_pk := a }
 
 /-- Trait implementation: [kopis::kem::{impl core::clone::Clone for kopis::kem::KemPublicKey<L>}]
-    Source: 'src/kem.rs', lines 16:9-16:14 -/
+    Source: 'src/kem.rs', lines 18:9-18:14 -/
 @[reducible]
 def kem.KemPublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
   (kem.KemPublicKey L) := {
@@ -6968,7 +6968,7 @@ def kem.KemPublicKey.Insts.CoreCloneClone (L : Std.Usize) : core.clone.Clone
 }
 
 /-- Trait implementation: [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::SharedSecret}]
-    Source: 'src/kem.rs', lines 46:9-46:22 -/
+    Source: 'src/kem.rs', lines 48:9-48:22 -/
 @[reducible]
 def kem.SharedSecret.Insts.CoreOpsDropDrop : core.ops.drop.Drop
   kem.SharedSecret := {
@@ -6976,21 +6976,21 @@ def kem.SharedSecret.Insts.CoreOpsDropDrop : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::kem::{impl zeroize::ZeroizeOnDrop for kopis::kem::SharedSecret}]
-    Source: 'src/kem.rs', lines 46:9-46:22 -/
+    Source: 'src/kem.rs', lines 48:9-48:22 -/
 @[reducible]
 def kem.SharedSecret.Insts.ZeroizeZeroizeOnDrop : zeroize.ZeroizeOnDrop
   kem.SharedSecret := {
 }
 
 /-- [kopis::kem::{kopis::kem::SharedSecret}::as_bytes]:
-    Source: 'src/kem.rs', lines 51:4-53:5
+    Source: 'src/kem.rs', lines 53:4-55:5
     Visibility: public -/
 def kem.SharedSecret.as_bytes
   (self : kem.SharedSecret) : Result (Array Std.U8 32#usize) := do
   ok self
 
 /-- [kopis::kem::{impl subtle::ConstantTimeEq for kopis::kem::SharedSecret}::ct_eq]:
-    Source: 'src/kem.rs', lines 57:4-59:5
+    Source: 'src/kem.rs', lines 59:4-61:5
     Visibility: public -/
 def kem.SharedSecret.Insts.SubtleConstantTimeEq.ct_eq
   (self : kem.SharedSecret) (other : kem.SharedSecret) :
@@ -7001,7 +7001,7 @@ def kem.SharedSecret.Insts.SubtleConstantTimeEq.ct_eq
   Slice.Insts.SubtleConstantTimeEq.ct_eq U8.Insts.SubtleConstantTimeEq s s1
 
 /-- Trait implementation: [kopis::kem::{impl subtle::ConstantTimeEq for kopis::kem::SharedSecret}]
-    Source: 'src/kem.rs', lines 56:0-60:1 -/
+    Source: 'src/kem.rs', lines 58:0-62:1 -/
 @[reducible]
 def kem.SharedSecret.Insts.SubtleConstantTimeEq : subtle.ConstantTimeEq
   kem.SharedSecret := {
@@ -7009,7 +7009,7 @@ def kem.SharedSecret.Insts.SubtleConstantTimeEq : subtle.ConstantTimeEq
 }
 
 /-- Trait implementation: [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::KemSecretKey<L>}]
-    Source: 'src/kem.rs', lines 65:9-65:22 -/
+    Source: 'src/kem.rs', lines 67:9-67:22 -/
 @[reducible]
 def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
   (kem.KemSecretKey L) := {
@@ -7017,14 +7017,14 @@ def kem.KemSecretKey.Insts.CoreOpsDropDrop (L : Std.Usize) : core.ops.drop.Drop
 }
 
 /-- Trait implementation: [kopis::kem::{impl zeroize::ZeroizeOnDrop for kopis::kem::KemSecretKey<L>}]
-    Source: 'src/kem.rs', lines 65:9-65:22 -/
+    Source: 'src/kem.rs', lines 67:9-67:22 -/
 @[reducible]
 def kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
   zeroize.ZeroizeOnDrop (kem.KemSecretKey L) := {
 }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::seed]:
-    Source: 'src/kem.rs', lines 106:4-108:5
+    Source: 'src/kem.rs', lines 108:4-110:5
     Visibility: public -/
 def kem.KemSecretKey.impl.seed
   {L : Std.Usize} (self : kem.KemSecretKey L) :

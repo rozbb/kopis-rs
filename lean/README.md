@@ -7,11 +7,7 @@ This folder contains the machinery necessary to formally verify the `kopis-rs` c
 
 # Transpiling Rust to Lean
 
-In order to prove correctness of Rust, it must first be translated to Lean. This is already done for you, and stored in the `ExtractedRust*.lean` files. But if you made code changes and want to re-transpile, then do as follows.
-
-1. Install [nix](https://nixos.org/download/). This is so we can run aeneas.
-2. Install [rustup](https://rustup.rs/) so we can compile Rust
-3. Run `extract_rust_to_lean.sh` in the root of this crate
+In order to prove correctness of Rust, it must first be translated to Lean. This is already done for you, and stored in the `ExtractedRust*.lean` files. But if you made code changes and want to re-transpile, then simply run `extract_rust_to_lean.sh` in the root of this crate.
 
 # Building Lean
 
