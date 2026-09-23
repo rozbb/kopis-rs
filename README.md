@@ -61,72 +61,9 @@ We have implemented benchmarks for key generation, encapsulation, and decapsulat
 
 # Backends
 
-The crate ships two implementations of its arithmetic. The **serial** backend is portable
-`no_std` Rust with no `unsafe` anywhere; it is the reference. The **avx2** backend is an x86-64/x86 rewrite of the hot paths — the negacyclic NTT, the
-bit-packing, and the binomial sampler; the **neon** backend does the same on AArch64. The
-bit-packing and the sampler compute bit-identical results, checked against the serial code by
-tests (the sampler directly in its own module; the bit-packing through the shared
-deserialization tests, which dispatch to the vector backend on hardware that has it).
+This crate supports three "backends": **Portable** (no special hardware necessary), **AVX2**, and **NEON + SHA3** (meaning it only executes if there is NEON with `+sha3` in the target features). By default, this crate will look at the target architecture, pick the right backend, and do CPU feature support testing as needed.
 
-The NTT is the exception, and it is now the exception everywhere. All three implementations —
-serial included — transform over two 16-bit primes and recombine by the CRT rather than using a
-single 26-bit prime. On the vector backends the reason is that neither vector unit's 32-bit
-multiply is as cheap as its 16-bit one. On the serial backend the reason is the same one seen
-from the other side: "portable" does not mean "scalar", because LLVM auto-vectorizes the
-butterfly loops, and baseline SSE2 has no 64-bit multiply for the single-prime product to use —
-it has to emulate it, while the 16-bit butterfly is one `pmullw` and one `pmulhw` over eight
-lanes. Switching the serial backend to two primes made its forward transform 1.68× faster and
-its inverse 2.40× faster, which is 20–45% off every serial KEM operation. The scheme, its
-constants and its correctness argument live in `src/arithmetic/ntt_crt.rs`, alongside the
-portable implementation built on them.
-
-These transforms are tested against schoolbook multiplication over all three parameter sets,
-against each other (`avx2_matches_serial`, `neon_matches_serial` pin each vector backend to the
-portable pipeline), and by the KATs. But their intermediate values are different integers from
-the older single-prime transform the Lean correspondence proof was written about, so that proof
-does not extend to them. Since the single-prime transform no longer ships in any configuration,
-**the proofs do not currently cover the ring multiplication in any build**. Re-establishing that
-coverage means porting the proof to the two-prime transform; there is no longer a build
-configuration that gets it for free.
-
-Hashing is a path on both vector backends. `src/backend/avx2/keccak.rs` runs four independent
-TurboSHAKE sponges side by side, one per 64-bit lane, which is the shape Kopis samples in: the
-public matrix is ℓ² independent XOF calls differing only in a two-byte index, and the secret is
-ℓ more. `src/backend/neon/keccak.rs` is the two-way counterpart, narrower only because a
-`uint64x2_t` holds two 64-bit lanes to a `Vec256`'s four — which also wastes fewer lanes on the
-batch sizes Kopis uses, since ℓ = 2 fills a two-lane batch exactly.
-
-The NEON version is written against the ARMv8.2 SHA3 extension, whose four instructions are
-Keccak steps rather than general bit tricks (`eor3` for θ's column fold, `rax1` for its
-neighbour mixing, `xar` for θ's per-lane xor fused with ρ's rotation, `bcax` for χ), and that is
-what makes it worth doing: scalar AArch64 gets its rotates free in the second operand, so a
-plain-NEON two-way permutation does not clearly beat two scalar sponges. Since that is the bulk
-of what the backend buys, the extension is a requirement for the **whole** NEON backend rather
-than for this file alone: `build.rs` compiles it only when the target has both `neon` and
-`sha3` — `aarch64-apple-darwin` has both by default — and an AArch64 target without the
-extension gets the portable serial backend instead. There is therefore exactly one NEON
-configuration to build, test, and prove. The decision is made at build time rather than by a
-runtime probe because the crate is `no_std` and `core` has no AArch64 feature detection.
-
-Serial builds — which is what AArch64 targets without the extension get — and every other
-TurboSHAKE call in the crate still go through the
-[`turboshake`](https://crates.io/crates/turboshake) crate. Both
-batched versions are checked against it byte for byte by `keccak::test::matches_scalar`, and the
-batched samplers against the definition of the XOF by `gen_matrix_matches_definition` and
-`gen_secret_matches_definition`.
-
-Both are also covered by the proofs: `xof4` and `xof2` are each proved to be TurboSHAKE, against
-the same FIPS 202 specification, so they rest on more than their tests. See the *Formal
-Verification* section.
-
-By default there is nothing to configure: on x86 targets both backends are compiled and the
-AVX2 one is selected at first use by a CPUID check, so the binary still runs on machines
-without AVX2. On AArch64 targets that enable `neon` and `sha3` with a hardfloat ABI the NEON
-backend is compiled in and always used, since both features are confirmed at build time. On
-every other target only the serial backend exists.
-
-The choice can be forced with the `kopis_backend` cfg:
-
+If you want to **force a specific backend** to be used, you can do so via CFG flags:
 ```sh
 # portable only: no unsafe, no runtime dispatch
 RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
@@ -138,234 +75,19 @@ RUSTFLAGS='--cfg kopis_backend="avx2"' cargo build
 RUSTFLAGS='--cfg kopis_backend="neon"' cargo build
 ```
 
-`avx2` makes the build script verify that AVX2 really is available for the target — the target
-must be x86, and either `avx2` must be in the enabled target features (`-C target-feature=+avx2`,
-`-C target-cpu=native`) or the build must be a native one on a CPU that reports AVX2. `neon`
-does the same for AArch64: the target must enable both `neon` and `sha3` and must not use the
-softfloat ABI. If the check fails, the build fails with an explanatory panic rather than
-producing a binary that would fault at run time.
-
-# Constant-Time Checking
-
-`ct-check.sh` runs two phases. **Phase 1** catches secret-dependent branches and memory addresses;
-**phase 2** catches instructions whose latency depends on their operands, which phase 1 is blind
-to. Both must pass.
-
-## Phase 1: Valgrind
-
-It tags the crate's secret inputs as *undefined* memory using Valgrind's client requests, then
-runs the public API under Memcheck. Memcheck already reports
-"conditional jump depends on uninitialised value" and "address depends on uninitialised value",
-and under this tagging those are exactly the two leak shapes. Definedness propagates bit-precisely
-through arithmetic, so masks, rotations and `subtle`'s constant-time selects stay silent no matter
-how much secret data flows through them.
-
-It needs Valgrind and its headers:
-
-```bash
-sudo apt install valgrind        # Debian/Ubuntu
-sudo dnf install valgrind valgrind-devel
-```
-
-```bash
-# every operation, every parameter set, on the backend this machine would normally build
-./ct-check.sh
-
-# pin a backend. There is no way to narrow the run further: every parameter set and all three
-# operations are always checked, because a partial run looks exactly like a full one in the output
-./ct-check.sh --backend serial
-
-# prove both phases can still see a problem at all. Phase 1 runs deliberately leaky code that
-# Valgrind must report; phase 2 plants variable-latency instructions the scan must find, checks
-# 35 matcher cases, and rejects any allowlist entry broad enough to cover the crate's
-# secret-handling code. Worth running whenever the tooling or the toolchain changes.
-./ct-check.sh --selftest
-
-# run one phase on its own. --scan-only is fast and needs no Valgrind.
-./ct-check.sh --no-scan
-./ct-check.sh --scan-only
-```
-
-Three operations are covered. **Decapsulation** is the important one — it is the oracle a
-chosen-ciphertext attacker gets to query — and it is checked with the whole expanded secret key
-tagged and the ciphertext left public, since the attacker chooses that. It runs against a
-well-formed ciphertext, a one-bit-corrupted one, and an unstructured one, so that both sides of
-the implicit-rejection comparison are exercised. **Encapsulation** tags the encapsulation
-randomness, and **key generation** tags the 32-byte seed. All of them are clean today, and the
-script has no suppression mechanism at all: kopis samples the public matrix by deserialising
-13-bit coefficients rather than by rejection, so there is no intentional leak to allowlist the way
-a mod-3329 scheme would need, and every Valgrind report counts as a failure.
-
-Memcheck sees only the path that actually ran, so a leak in a branch these inputs never take goes
-unreported; that is why each check drives several distinct inputs. What it does give, on the code
-it did run, is soundness: it works on the executed instruction stream, so it covers the
-hand-written AVX2 and NEON intrinsics as thoroughly as the portable Rust, and it cannot be fooled
-by an optimiser turning a select into a branch after the fact.
-
-## Phase 2: the instruction scan
-
-Memcheck is blind to one whole class of leak. A `div` whose divisor is secret takes a
-data-dependent number of cycles, but the taint flows through the quotient without ever reaching a
-branch, so nothing is reported. Phase 2 works the other way round — on the instruction stream
-rather than the data — disassembling every target we can cross-compile to and flagging
-instructions whose latency depends on their operands:
-
-| | flagged |
-|---|---|
-| **x86-64** | `DIV`/`IDIV`; `PEXT`/`PDEP` (microcoded and mask-dependent on AMD Zen 1/2); FP divide/sqrt; `REP CMPS`/`SCAS`; gathers |
-| **AArch64** | `UDIV`/`SDIV` (early-terminating on Cortex-A and Neoverse); `FDIV`/`FSQRT` |
-| **Cortex-M** | `UDIV`/`SDIV` |
-
-Deliberately *not* flagged, because they are constant-time on every CPU this crate targets:
-variable-count shifts, `POPCNT`/`LZCNT`/`TZCNT`/`BSF`/`BSR` (the CBD sampler calls `count_ones()`
-straight on secret bytes, and that is fine), integer `MUL`/`IMUL`, and `CMOV`/`CSEL`.
-
-Like phase 1, this phase's failure mode is silence — a regex that stopped matching, a
-disassembler whose output format moved, or an allowlist entry broad enough to swallow a real
-finding all produce a clean report rather than an error. `--selftest` covers it: it compiles a
-real divide for every target and requires the scan to report it, runs 35 matcher cases (including
-negative ones, so that constant-time instructions stay unflagged), and fails if any allowlist
-entry would cover a symbol like `kopis::kem::decap`.
-
-This phase is coarse — it sees instructions, not dataflow, so it cannot tell a secret operand from
-a public one. Hits that are known-public live in `ct-check/instr-allowlist.txt`, each with a
-written justification. There are currently four, all the same thing: `15 / bits` in the two
-`ser::deserialize` unpackers, where `bits` is the serialisation width, plus `core`'s `Zip` length
-arithmetic.
-
-It needs `llvm-objdump` (`rustup component add llvm-tools`) and the cross targets you want
-covered (`rustup target add aarch64-unknown-none thumbv7em-none-eabi`); missing targets are
-skipped with a note rather than silently passing. The system `objdump` is **not** a substitute: it
-is typically built for one architecture and prints nothing, successfully, for every other one.
-
-## What is actually guaranteed, and where
-
-| platform | phase 1 (branches, addresses) | phase 2 (instruction latency) |
-|---|---|---|
-| x86-64, serial backend | ✅ checked in CI | ✅ |
-| x86-64, AVX2 backend | ✅ checked in CI | ✅ |
-| AArch64 Linux, serial backend | ⚠️ only if you run it there | ✅ |
-| AArch64 Linux, NEON backend | ⚠️ only if you run it there, needs FEAT_SHA3 | ✅ |
-| macOS (either arch) | ❌ no usable Valgrind | ✅ |
-| `thumbv7em` (Cortex-M4/M7) | ❌ no emulation | ✅ |
-
-Phase 1 cannot cross architectures: Valgrind interprets the guest's own instruction set, so a
-backend can only be checked on hardware that runs it. On x86-64 that is `serial` and `avx2`. The
-NEON backend needs Linux on AArch64 with FEAT_SHA3 — Apple silicon or Neoverse V-series; Neoverse
-N1 (Graviton2) lacks the extension and macOS has no arm64 Valgrind port. `ct-check.sh` refuses up
-front rather than pretending otherwise. Phase 2 has no such limit and covers every target above.
-
-**On macOS you get phase 2 only.** Valgrind has no arm64 Darwin port and its x86 macOS support
-stopped at 10.13, so there is nothing to install — `./ct-check.sh --scan-only` is the whole story
-there, and the summary line says so rather than printing a bare PASS. Phase 1 needs Linux.
-
-So: **on x86-64 Linux the crate is checked end to end, both backends.** Everywhere else the guarantee is
-weaker — phase 2 plus the equivalence tests and the Lean proofs, but no dynamic secret-tracking.
-Running `./ct-check.sh` on an AArch64 box would close that gap and is the single highest-value
-thing anyone can do here.
-
-**Cortex-M3 and below are explicitly out of scope.** `UMULL` early-terminates on those cores, so
-its latency depends on the operand magnitudes, and the TurboSHAKE sponge multiplies secret data.
-Constant time is not claimed for `thumbv7m` or `thumbv6m`, and the scanner does not check them.
-
-The harness lives in `ct-check/`, kept out of the main crate so that the `unsafe` its client
-requests need does not weaken kopis's own `forbid(unsafe_code)`.
-
 # Formal Verification
 
-We use [aeneas](https://github.com/AeneasVerif/aeneas) to extract our Rust implementation to Lean. After making changes to the Rust, run `extract_rust_to_lean.sh`, which regenerates the three
-extracted files.
+We formally verify that this Rust crate matches the Lean specification in [`lean/Spec/Kopis/Spec.lean`]. Specifically, we check that the public KEM API matches the spec, for all supported backends. See [`lean/TopLevelTheoremsSerial.lean`] to see the specific properties tested.
 
-**All three backends are extracted and proved.** The script runs the extraction once per
-backend, forcing `kopis_backend` each time so that each run sees exactly one set of dispatch
-blocks: `lean/ExtractedRustSerial.lean` (the portable code), `lean/ExtractedRustAvx2.lean`, and
-`lean/ExtractedRustNeon.lean`. Both vector backends are cross-extractions against a named
-target — `x86_64-unknown-linux-gnu` with `-C target-feature=+avx2`, and
-`aarch64-unknown-linux-gnu` with `-C target-feature=+sha3` — rather than against whatever host
-happens to run the script. Each of the three is proved to satisfy the same nine top-level
-theorems, so the vector backends are held by the proofs and not merely by the differential
-tests.
+## What is not proved
 
-What stays opaque — and therefore becomes an assumption rather than a definition — is the
-instruction set, plus AVX2's CPUID probe:
+Some details are outside our formalization:
 
-* `backend::avx2::intrinsics` and `backend::neon::intrinsics`, whose semantics are supplied by
-  hand in `lean/Kopis/Avx2/Intrinsics.lean` and `lean/Kopis/Neon/Intrinsics.lean`. Those two
-  files are the whole of what each backend adds to the trust base, and both are *tested against
-  real silicon*: each axiom is proved to pin its operation down to a computable model, and those
-  models are replayed against input/output pairs recorded by executing the real instructions
-  (`make test-avx2-model`, `make test-neon-model`).
-* `backend::avx2::cpu`, the CPUID/XGETBV probe. NEON needs no counterpart: it is baseline on
-  AArch64, so `available()` extracts as a compile-time `true`.
+1. Rust SIMD intrinsics are not currently supported by aeneas. Thus, we axiomatize them and use test vectors to ensure equivalence (see `src/backend/{neon,avx2}/intrinsics_vectors.rs`).
+2. `turboshake` and `subtle` are dependencies, and thus cannot be directly extracted. We axiomatize their behavior using a TurboSHAKE Lean specification. We also have our own parallelized TurboSHAKE impl for AVX2, which we prove matches the Lean spec.
+3. We cannot prove in Lean that anything operates in constant-time. For this, see "Checking for constant-time" below
 
-The four-way and two-way TurboSHAKE are *not* opaque — `xof4` and `xof2` are both proved to be
-TurboSHAKE against FIPS 202.
-
-That extracted code is then proved to match an audited Lean specification of Kopis. The proofs live in [`lean/`](lean/); see [`lean/README.md`](lean/README.md) for the layout, and
-[`lean/TrustBase.lean`](lean/TrustBase.lean) for the enumerated assumptions of each backend. To check them:
-
-```sh
-cd lean
-make prove-kopis      # build + kernel-verify the correspondence proofs, all three backends
-make test-kopis-spec  # run the audited spec against the Kopis test vectors
-make test-avx2-model  # replay recorded silicon vectors through the AVX2 intrinsic models
-make test-neon-model  # the same for NEON
-```
-
-## Dependencies
-
-Checking the proofs and re-running the extraction have *different* requirements, and only the
-first is something most people need. The extracted `.lean` files are committed, so you can check
-every proof without ever running charon.
-
-### To check the proofs
-
-* **[elan](https://github.com/leanprover/elan)**, the Lean toolchain manager. Do not install Lean
-  by hand: `lean/lean-toolchain` pins `leanprover/lean4:v4.31.0` and elan honours it
-  automatically.
-* **A checkout of [aeneas](https://github.com/AeneasVerif/aeneas)'s Lean backend** as a *sibling*
-  of this repository, so that `../../aeneas/backends/lean` resolves from `lean/`. Adjust the path
-  in `lean/lakefile.lean` and `lean/lake-manifest.json` if yours lives elsewhere.
-
-  **Use revision `b59d5188` — this tree does not build against aeneas `main`.** aeneas is a
-  *path* dependency, so no revision is recorded in the manifest, and the same SHA appears as
-  `AENEAS_VERSION` in `extract_rust_to_lean.sh`. The next commit upstream, `e30579c0`, adds
-  `@[step]`-tagged shift lemmas that make `step*` overshoot in three of our proofs.
-* **Mathlib's build cache.** Run `lake exe cache get` from `lean/` before the first build;
-  compiling Mathlib from source instead costs hours.
-* **Memory.** Each Lean worker holds ~1.75 GB resident. The `Makefile` caps parallelism at
-  `LEAN_NUM_THREADS=8`; lower it on a small host (`make prove-kopis LEAN_NUM_THREADS=2`) or the
-  build will swap-thrash.
-
-No Rust toolchain, and no nix, are needed for any of this.
-
-### To re-run the extraction
-
-Only needed after changing the Rust. `extract_rust_to_lean.sh` pins the toolchain by SHA and
-fetches it through nix, so nothing has to be installed by hand:
-
-* **[nix](https://nixos.org/download/)**. The script passes `--extra-experimental-features
-  nix-command --extra-experimental-features flakes` itself, so flakes need not be enabled in your
-  `nix.conf`. The first run builds charon and aeneas from source, which is slow.
-* **rustup, and the two targets the vector extractions cross-compile to:**
-
-  ```sh
-  rustup target add x86_64-unknown-linux-gnu   # AVX2
-  rustup target add aarch64-unknown-linux-gnu  # NEON
-  ```
-
-  Both vector backends name their target explicitly rather than building for the host, so the
-  extraction is the same on every machine and the script runs anywhere — including Apple
-  silicon, where an AVX2 build for the *host* is impossible. The AVX2 block also passes
-  `-C target-feature=+avx2`, which is what makes `build.rs` accept the configuration for a cross
-  build: the host-CPU fallback it would otherwise use is disabled as soon as host and target
-  differ.
-
-### To re-record the intrinsic vectors
-
-Both vector files are committed, so `make test-avx2-model` and `make test-neon-model` run
-anywhere. Regenerating them means *executing* the instructions, so each needs its own host:
-
+You can regenerate the SIMD test vectors as follows:
 ```sh
 # on an AVX2 x86-64 machine
 KOPIS_REGEN_VECTORS=1 cargo test --lib intrinsics_vectors
@@ -377,6 +99,33 @@ RUSTFLAGS='-C target-feature=+sha3' KOPIS_REGEN_VECTORS=1 \
 
 A plain `cargo test` on either host re-checks the committed file against that CPU, so drift is
 caught continuously.
+
+## Transpiling Rust to Lean
+
+In order to prove correctness of Rust, it must first be translated to Lean. This is already done for you, and stored in the `lean/ExtractedRust*.lean` files. But if you made code changes and want to re-transpile, then do as follows.
+
+1. Install [nix](https://nixos.org/download/). This is so we can run aeneas.
+2. Install [rustup](https://rustup.rs/) so we can compile Rust
+3. Run `extract_rust_to_lean.sh`
+
+## Running Lean
+
+To verify the theorems, you need to build the Lean project. To do this, follow these steps:
+
+1. Install [elan](https://github.com/leanprover/elan), the Lean toolchain manager
+2. `cd lean`
+3. Run `lake exe cache get`. This will fetch the Mathlib cache and reduce build times by a lot.
+4. Run `make prove-kopis` to prove the top-level theorems and check that all axioms have been audited. This will take a while. If you want to increase the number of threads (default is 8), then run `make prove-kopis LEAN_NUM_THREAD=16` or whatever you want.
+5. Extra: Run `make test-avx2-model` and `make test-neon-model` to run unit tests on the Lean formalizations of AVX2 and NEON SIMD instructions. aeneas doesn't know how to extract these, so we had to axiomatize them.
+
+# Checking for constant-timeness
+
+To ensure that we don't accidentally introduce timing side channels in the code, we perform two checks in `ct-check.sh`:
+
+1. Run valgrind with memory tainting to see if any functions branch on secrets. This is done in `ct-check/src/main.rs`.
+2. Compile the library and search the resulting binary for non-constant-time instructions. The list of non-constant-time instructions is in `ct-check/scan-instrs.py` (we make no guarantees for Cortex M3 and below). The list of known false positives is in `ct-check/instr-allowlist.txt`.
+
+Note that macOS does not have a valgrind implementation we can use, so we cannot run this on Macs.
 
 # License
 

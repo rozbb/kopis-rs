@@ -101,6 +101,14 @@ noncomputable def fromBytes : (s : Size) →
   | .k768 => RustKopisSerial.impls.kopis768.KemPublicKey3.from_bytes
   | .k1024 => RustKopisSerial.impls.kopis1024.KemPublicKey4.from_bytes
 
+/-- `KemPublicKey::to_bytes` at each size.  This is the serializer a caller reaches for; it
+allocates its own buffer, where `PkePublicKey::serialize` writes into one it is handed. -/
+noncomputable def toBytes : (s : Size) →
+    RustKopisSerial.kem.KemPublicKey s.L → Result (Array U8 s.pkLen)
+  | .k512 => RustKopisSerial.impls.kopis512.KemPublicKey2.to_bytes
+  | .k768 => RustKopisSerial.impls.kopis768.KemPublicKey3.to_bytes
+  | .k1024 => RustKopisSerial.impls.kopis1024.KemPublicKey4.to_bytes
+
 /-- `KemPublicKey::encapsulate_deterministic` at each size. -/
 noncomputable def encap : (s : Size) →
     RustKopisSerial.kem.KemPublicKey s.L → Array U8 32#usize →
@@ -132,18 +140,14 @@ end Size
 
 `KemSecretKey::expand_from_seed` is what `KemSecretKey::<ℓ>::from_seed` and (via a random seed)
 `KemSecretKey::<ℓ>::generate_from_rng` call. The theorem below generates a key from a seed, hands
-the resulting public key to the crate's own serializer, and says the bytes that come out are
+the resulting public key to `KemPublicKey::to_bytes`, and says the bytes that come out are
 exactly the spec's `pk` for that seed.
 
 **Why it is stated through the serializer** rather than about the key struct directly: see the
 note in §2. Comparing the struct would need a struct-to-bytes definition in this file that a
-reader has to audit; comparing `serialize`'s output needs none, and is about the bytes that go
-on the wire.
-
-`out_buf` is the caller's output buffer, and its length is the theorem's one hypothesis. That is
-a shape side condition, not a restriction on inputs: `serialize` writes into a slice the caller
-supplies, so there has to be one, and `pkLen` is the only length at which the call means
-anything.
+reader has to audit; comparing what `to_bytes` returns needs none, and is about the bytes that
+go on the wire. `to_bytes` is also the entry point a caller reaches for, and it allocates its
+own buffer, so the theorem is unconditional — its only argument is the seed.
 
 **Why the other components of the key are not stated here.** The struct also holds `z` (the
 implicit-rejection seed), `hash_pke_pk`, `pke_sk : NttMatrix ℓ 1` and `pke_pk.mat_a_ntt :
@@ -156,7 +160,7 @@ theorems did, is a claim about *representation* rather than behaviour, and it fo
 representation-bridging definition into the audit surface that a reader would then have to check
 is the right one. Neither field reaches a byte buffer anyway: `KemSecretKey`'s wire form is the
 32-byte `seed` it stores (see `seed()` in `src/kem.rs`), and `mat_a_ntt` is never serialized —
-`serialize` writes `vec_bytes ‖ matrix_seed` and `from_bytes` re-derives the matrix, which is
+serialization writes `vec_bytes ‖ matrix_seed` and `from_bytes` re-derives the matrix, which is
 what the theorem below already pins down byte for byte.
 
 What pins them instead: §3.2 (`keygen_then_encapsulate`) runs encapsulation against the generated
@@ -169,18 +173,17 @@ over *all* ciphertexts, the rejection path is covered too. Between them, every u
 makes of these fields is covered at the byte level, with no representation bridge anywhere in a
 statement. -/
 
-/-- **Generating a key and serializing its public key yields the spec's `pk`, at every
-parameter set.** -/
-theorem keygen_then_serialize : ∀ (s : Size) (seed : Array U8 32#usize) (out_buf : Slice U8),
-    out_buf.val.length = s.pkLen.val →
+/-- keygen → pubkey → to_bytes matches the spec -/
+theorem keygen_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed s.L s.MU seed
-        RustKopisSerial.pke.PkePublicKey.serialize ksk.kem_pk.pke_pk out_buf)
-      ⦃ (r : Slice U8) =>
-          r.val.map (·.bv)
+        let kpk ← s.publicKey ksk
+        s.toBytes kpk)
+      ⦃ (r : Array U8 s.pkLen) =>
+          (arrayToBytes r).toList
             = (Spec.Kopis.ExpandSecretKey s.ps (arrayToBytes seed)).2.2.1.toList ⦄
-  | .k512, seed, buf, h => Kopis.Properties.kopis512_keygen_serialize_spec seed buf h
-  | .k768, seed, buf, h => Kopis.Properties.kopis768_keygen_serialize_spec seed buf h
-  | .k1024, seed, buf, h => Kopis.Properties.kopis1024_keygen_serialize_spec seed buf h
+  | .k512, seed => Kopis.Properties.kopis512_keygen_to_bytes_spec seed
+  | .k768, seed => Kopis.Properties.kopis768_keygen_to_bytes_spec seed
+  | .k1024, seed => Kopis.Properties.kopis1024_keygen_to_bytes_spec seed
 
 /-! ### §3.2 Encapsulation — key generation then encapsulate matches `KemEncap`
 
@@ -197,7 +200,7 @@ deserialization. Of course, this should not matter, but you have to prove that.
 The `let` names the spec's result once; it returns (shared secret, ciphertext), i.e. the
 opposite order from Rust. -/
 
-/-- **Key-gen → public key → encapsulate matches `KemEncap`, at every parameter set.** -/
+/-- keygen → pubkey → encapsulate matches the spec -/
 theorem keygen_then_encapsulate : ∀ (s : Size) (seed randomness : Array U8 32#usize),
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed s.L s.MU seed
         let kpk ← s.publicKey ksk
@@ -222,7 +225,7 @@ Nothing constrains the input bytes beyond their length, so a malformed or
 adversarially chosen public-key encoding is covered — and, this being a `⦃ … ⦄` triple,
 the composite is also proved not to panic on one. -/
 
-/-- **Parse a received public key, then encapsulate to it, at every parameter set.** -/
+/-- from_bytes → encapsulate matches the spec -/
 theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen)
     (randomness : Array U8 32#usize),
     (do let kpk ← s.fromBytes pk_bytes
@@ -239,25 +242,24 @@ theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
 /-! ### §3.2c Re-serializing a received public key returns the bytes it came from
 
 §3.2b encapsulates to a parsed key. This says what parsing does to the bytes themselves: run the
-crate's `from_bytes` and then its `serialize`, and you get back exactly what you handed in. The
+crate's `from_bytes` and then its `to_bytes`, and you get back exactly what you handed in. The
 spec's public key *is* that byte string, so the spec's own round-trip is the identity; this says
 the crate's is too, which is what lets §3.2b state its result against the input bytes rather than
 against some re-encoding of them.
 
 Nothing constrains the input beyond its length — a malformed or adversarially chosen encoding is
-covered, and the composite is proved not to panic on one. The two hypotheses are the input and
-output buffer lengths, which `serialize` needs because it writes into a caller-supplied slice. -/
+covered, and the composite is proved not to panic on one. Both entry points allocate, so there
+are no buffer-length hypotheses: for *any* byte array of the right size, parsing and
+re-serializing gives it back. -/
 
-/-- **Parse a received public key and serialize it again: the bytes are unchanged, at every
-parameter set.** -/
-theorem deserialize_then_serialize : ∀ (s : Size) (bytes out_buf : Slice U8),
-    bytes.length = s.pkLen.val → out_buf.val.length = s.pkLen.val →
-    (do let pk ← RustKopisSerial.pke.PkePublicKey.from_bytes s.L bytes
-        RustKopisSerial.pke.PkePublicKey.serialize pk out_buf)
-      ⦃ (r : Slice U8) => r.val.map (·.bv) = bytes.val.map (·.bv) ⦄
-  | .k512, b, buf, h1, h2 => Kopis.Properties.kopis512_from_bytes_serialize_spec b buf h1 h2
-  | .k768, b, buf, h1, h2 => Kopis.Properties.kopis768_from_bytes_serialize_spec b buf h1 h2
-  | .k1024, b, buf, h1, h2 => Kopis.Properties.kopis1024_from_bytes_serialize_spec b buf h1 h2
+/-- from_bytes → to_bytes matches the spec -/
+theorem from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen),
+    (do let kpk ← s.fromBytes pk_bytes
+        s.toBytes kpk)
+      ⦃ (r : Array U8 s.pkLen) => arrayToBytes r = arrayToBytes pk_bytes ⦄
+  | .k512, pk => Kopis.Properties.kopis512_from_bytes_to_bytes_spec pk
+  | .k768, pk => Kopis.Properties.kopis768_from_bytes_to_bytes_spec pk
+  | .k1024, pk => Kopis.Properties.kopis1024_from_bytes_to_bytes_spec pk
 
 /-! ### §3.3 Decapsulation — key generation then decapsulate matches `KemDecap`
 
@@ -267,8 +269,7 @@ adversarially chosen and replayed ciphertexts included — and in particular the
 implicit-rejection path, where a ciphertext that fails the re-encryption check
 must yield the pseudorandom `z`-derived secret rather than an error or a leak. -/
 
-/-- **Key-gen → decapsulate an arbitrary ciphertext matches `KemDecap`, at every
-parameter set.** -/
+/-- keygen → decapsulate matches the spec -/
 theorem keygen_then_decapsulate : ∀ (s : Size) (seed : Array U8 32#usize)
     (ek : Array U8 s.ctLen),
     (do let ksk ← RustKopisSerial.kem.KemSecretKey.expand_from_seed s.L s.MU seed

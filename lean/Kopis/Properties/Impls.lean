@@ -1,4 +1,5 @@
 import Kopis.Properties.KemDecap
+import Kopis.Properties.PkeFromBytes
 open Aeneas Aeneas.Std Result RustKopisSerial
 open Spec (𝔹)
 open Spec.TurboSHAKE (turboSHAKE256)
@@ -254,5 +255,117 @@ theorem kopis1024_decapsulate_spec
     hpkmatbnd hpkh
   rw [ha]
   congr 1
+
+
+/-! ## `KemPublicKey::to_bytes`
+
+The public serialization entry point: unlike `PkePublicKey::serialize` it allocates its own
+buffer, so the specs below take no length hypothesis. -/
+
+/-- **Kopis-512 `KemPublicKey::to_bytes` writes the vector rows then the matrix seed.** -/
+theorem kopis512_to_bytes_spec (self : kem.KemPublicKey 2#usize) :
+    impls.kopis512.KemPublicKey2.to_bytes self
+      ⦃ (r : Array U8 672#usize) =>
+          (arrayToBytes r).toList
+            = (vecBytesFlat self.pke_pk).toList
+              ++ (arrayToBytes self.pke_pk.matrix_seed).toList ⦄ := by
+  unfold impls.kopis512.KemPublicKey2.to_bytes kem.KemPublicKey.serialize
+  let* ⟨s, back, hs_val, hback⟩ ← Array.to_slice_mut_spec
+  have hlenout : s.val.length = (2#usize).val * 320 + 32 := by
+    rw [hs_val]; show (Array.repeat 672#usize 0#u8).val.length = _; simp
+  let* ⟨s1, h1, hbytes⟩ ← pke_serialize_spec self.pke_pk s hlenout (by scalar_tac)
+  rw [hback, arrayToBytes_toList,
+    Array.from_slice_val _ s1 (by rw [← Slice.length, h1]; rfl)]
+  exact hbytes
+
+/-- **Kopis-768 `KemPublicKey::to_bytes` writes the vector rows then the matrix seed.** -/
+theorem kopis768_to_bytes_spec (self : kem.KemPublicKey 3#usize) :
+    impls.kopis768.KemPublicKey3.to_bytes self
+      ⦃ (r : Array U8 992#usize) =>
+          (arrayToBytes r).toList
+            = (vecBytesFlat self.pke_pk).toList
+              ++ (arrayToBytes self.pke_pk.matrix_seed).toList ⦄ := by
+  unfold impls.kopis768.KemPublicKey3.to_bytes kem.KemPublicKey.serialize
+  let* ⟨s, back, hs_val, hback⟩ ← Array.to_slice_mut_spec
+  have hlenout : s.val.length = (3#usize).val * 320 + 32 := by
+    rw [hs_val]; show (Array.repeat 992#usize 0#u8).val.length = _; simp
+  let* ⟨s1, h1, hbytes⟩ ← pke_serialize_spec self.pke_pk s hlenout (by scalar_tac)
+  rw [hback, arrayToBytes_toList,
+    Array.from_slice_val _ s1 (by rw [← Slice.length, h1]; rfl)]
+  exact hbytes
+
+/-- **Kopis-1024 `KemPublicKey::to_bytes` writes the vector rows then the matrix seed.** -/
+theorem kopis1024_to_bytes_spec (self : kem.KemPublicKey 4#usize) :
+    impls.kopis1024.KemPublicKey4.to_bytes self
+      ⦃ (r : Array U8 1312#usize) =>
+          (arrayToBytes r).toList
+            = (vecBytesFlat self.pke_pk).toList
+              ++ (arrayToBytes self.pke_pk.matrix_seed).toList ⦄ := by
+  unfold impls.kopis1024.KemPublicKey4.to_bytes kem.KemPublicKey.serialize
+  let* ⟨s, back, hs_val, hback⟩ ← Array.to_slice_mut_spec
+  have hlenout : s.val.length = (4#usize).val * 320 + 32 := by
+    rw [hs_val]; show (Array.repeat 1312#usize 0#u8).val.length = _; simp
+  let* ⟨s1, h1, hbytes⟩ ← pke_serialize_spec self.pke_pk s hlenout (by scalar_tac)
+  rw [hback, arrayToBytes_toList,
+    Array.from_slice_val _ s1 (by rw [← Slice.length, h1]; rfl)]
+  exact hbytes
+
+
+/-- **Kopis-512: parse a received public key and serialize it again through the public entry
+points; the bytes are unchanged.**  Both `from_bytes` and `to_bytes` allocate, so unlike the
+`PkePublicKey` form there is no buffer-length hypothesis. -/
+theorem kopis512_from_bytes_to_bytes_spec (pk_bytes : Array U8 672#usize) :
+    (do let kpk ← impls.kopis512.KemPublicKey2.from_bytes pk_bytes
+        impls.kopis512.KemPublicKey2.to_bytes kpk)
+      ⦃ (r : Array U8 672#usize) => arrayToBytes r = arrayToBytes pk_bytes ⦄ := by
+  unfold impls.kopis512.KemPublicKey2.from_bytes
+  rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
+    bind_tc_ok]
+  apply WP.spec_bind (from_bytes_inner_bytes_spec (L := 2#usize) (Array.to_slice pk_bytes)
+    (by simp only [Slice.length, Array.val_to_slice]; exact pk_bytes.property)
+    (by scalar_tac) (by scalar_tac))
+  rintro kpk hparts
+  apply WP.spec_mono (kopis512_to_bytes_spec kpk)
+  rintro r hbytes
+  apply Vector.toList_inj.mp
+  rw [hbytes, hparts, arrayToBytes_toList, Array.val_to_slice]
+
+/-- **Kopis-768: parse a received public key and serialize it again through the public entry
+points; the bytes are unchanged.**  Both `from_bytes` and `to_bytes` allocate, so unlike the
+`PkePublicKey` form there is no buffer-length hypothesis. -/
+theorem kopis768_from_bytes_to_bytes_spec (pk_bytes : Array U8 992#usize) :
+    (do let kpk ← impls.kopis768.KemPublicKey3.from_bytes pk_bytes
+        impls.kopis768.KemPublicKey3.to_bytes kpk)
+      ⦃ (r : Array U8 992#usize) => arrayToBytes r = arrayToBytes pk_bytes ⦄ := by
+  unfold impls.kopis768.KemPublicKey3.from_bytes
+  rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
+    bind_tc_ok]
+  apply WP.spec_bind (from_bytes_inner_bytes_spec (L := 3#usize) (Array.to_slice pk_bytes)
+    (by simp only [Slice.length, Array.val_to_slice]; exact pk_bytes.property)
+    (by scalar_tac) (by scalar_tac))
+  rintro kpk hparts
+  apply WP.spec_mono (kopis768_to_bytes_spec kpk)
+  rintro r hbytes
+  apply Vector.toList_inj.mp
+  rw [hbytes, hparts, arrayToBytes_toList, Array.val_to_slice]
+
+/-- **Kopis-1024: parse a received public key and serialize it again through the public entry
+points; the bytes are unchanged.**  Both `from_bytes` and `to_bytes` allocate, so unlike the
+`PkePublicKey` form there is no buffer-length hypothesis. -/
+theorem kopis1024_from_bytes_to_bytes_spec (pk_bytes : Array U8 1312#usize) :
+    (do let kpk ← impls.kopis1024.KemPublicKey4.from_bytes pk_bytes
+        impls.kopis1024.KemPublicKey4.to_bytes kpk)
+      ⦃ (r : Array U8 1312#usize) => arrayToBytes r = arrayToBytes pk_bytes ⦄ := by
+  unfold impls.kopis1024.KemPublicKey4.from_bytes
+  rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
+    bind_tc_ok]
+  apply WP.spec_bind (from_bytes_inner_bytes_spec (L := 4#usize) (Array.to_slice pk_bytes)
+    (by simp only [Slice.length, Array.val_to_slice]; exact pk_bytes.property)
+    (by scalar_tac) (by scalar_tac))
+  rintro kpk hparts
+  apply WP.spec_mono (kopis1024_to_bytes_spec kpk)
+  rintro r hbytes
+  apply Vector.toList_inj.mp
+  rw [hbytes, hparts, arrayToBytes_toList, Array.val_to_slice]
 
 end Kopis.Properties

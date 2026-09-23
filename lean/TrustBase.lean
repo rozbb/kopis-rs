@@ -316,8 +316,8 @@ def neonAudited : List String := commonAxioms ++
    "RustKopisNeon.turboshake.TurboShakeReader",
    "RustKopisNeon.turboshake.TurboShakeReader.Insts.DigestXofReader.read"]
 
-/- Go through everything declared in the backend's namespace and dump its axioms. Make sure every axiom is on the list, and that
-the list has no unnecessary axioms. Otherwise throw an error -/
+/- Go through everything declared in the backend's namespace and dump its axioms. Make sure every
+axiom is on the list, and that the list has no unnecessary axioms. Otherwise throw an error -/
 
 open Lean in
 run_cmd do
