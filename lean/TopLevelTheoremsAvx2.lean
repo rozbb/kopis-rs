@@ -20,58 +20,6 @@ theorem triple_means_success {α : Type} {x : Result α} {p : α → Prop} (h : 
 def arrayToBytes {n : Usize} (a : Array U8 n) : 𝔹 (n : ℕ) :=
   Vector.ofFn fun (i : Fin (n : ℕ)) => (a.val[i.val]'(by have := a.property; grind)).bv
 
-/-! ### The public key, and why nothing here is question-begging
-
-A Rust `PkePublicKey` is a *struct* — the serialized vector bytes plus a 32-byte matrix seed —
-while the spec's `pk` is a flat byte string. Something has to say how the two correspond, and the
-tempting move is to *declare* the struct's meaning to be `vec_bytes ‖ matrix_seed`. That would be
-an assumption: we would be defining the struct to mean whatever makes the theorems come out
-right, and a reader would have to check that the definition is the honest one.
-
-**There is no such declaration.** §3.1 never mentions the struct's bytes. It runs the crate's own
-`PkePublicKey::serialize` and compares what that writes into the output buffer with the spec's
-`pk`, byte for byte — so the correspondence is a theorem about the serializer rather than a
-definition chosen to suit, and the bytes it is about are the ones a caller actually transmits.
-
-§3.2c is the companion fact for a key that arrived as bytes rather than one that was generated:
-parsing it and serializing it again gives back exactly the bytes it came from. The spec's public
-key simply *is* that byte string, so the spec's own round-trip is the identity — and that theorem
-says the crate's is too. -/
-
-/-! ## §3. The theorems
-
-Four operations, each stated **once** and quantified over the three parameter sets. Every one
-is **unconditional**: apart from the parameter set itself the only arguments are the inputs,
-there are no hypotheses to discharge and no side conditions hiding a restricted input range.
-Read them as:
-
-> for *every* parameter set, and for *all* seeds / ciphertexts / randomness, the Rust
-> computation succeeds and its output equals the spec's.
-
-§3.0 sets up what "for every parameter set" ranges over. The four theorems are §3.1–§3.3. -/
-
-/-! ### §3.0 The parameter sets, and the Rust entry point at each
-
-`Size` is the index the theorems quantify over, and `Size.L` / `Size.MU` are the Rust const
-generics `ℓ` and `μ`: (2, 10) is Kopis-512, (3, 8) is Kopis-768, (4, 6) is Kopis-1024.
-`Size.ps` is the spec's name for the same parameter set and `Size.pkLen` / `Size.ctLen` are the
-serialized public-key and ciphertext lengths in bytes.
-
-**Why there are function tables here at all.** Key generation is one Rust function taking `ℓ`
-and `μ` as arguments, so §3.1 can just apply it. The other three are not: `src/impls.rs`
-provides a *separate* `impl` block per size, so `KemPublicKey::<2>::encapsulate_deterministic`
-and `KemPublicKey::<3>::encapsulate_deterministic` are different functions, each allocating its
-own fixed-size buffer. Quantifying over them therefore needs a table naming which function
-belongs to which size, and that table is the one place in this file where a reader checks a
-*correspondence* rather than reading a statement.
-
-**What keeps the table honest.** Not care — the type checker. Each entry's type is fixed by the
-`L`, `pkLen` and `ctLen` of its own row, and those differ across the three rows (672/992/1312
-and 736/1088/1472), so an entry in the wrong row does not compile. The three lemmas at the end
-close the loop on the spec side: each is proved by `cases s <;> rfl`, so they hold only because
-the spec's own `ℓ`, `pkSize` and `ctSize` at `Size.ps s` compute to the same numbers the Rust
-types carry. A row that paired Kopis-768's `ps` with Kopis-512's functions would fail there. -/
-
 /-- The three parameter sets, as an index to quantify over. -/
 inductive Size | k512 | k768 | k1024
 
@@ -127,56 +75,13 @@ noncomputable def decap : (s : Size) →
   | .k768 => RustKopisAvx2.impls.kopis768.KemSecretKey3.decapsulate
   | .k1024 => RustKopisAvx2.impls.kopis1024.KemSecretKey4.decapsulate
 
-/-! The spec's sizes are the Rust ones. Each holds by computation at each parameter set, which
-is what ties the rows above to the spec rather than merely to each other. The statements below
-transport along them; since both sides are the same natural number, the transport is the
-identity on bytes and moves nothing. These two are the only theorems in this file that are not
-themselves the audited claims — they exist so the claims can be written down at all. -/
-
+-- The spec's sizes are the Rust ones
 theorem pkSize (s : Size) : Spec.Kopis.pkSize s.ps = s.pkLen.val := by cases s <;> rfl
 theorem ctSize (s : Size) : Spec.Kopis.ctSize s.ps = s.ctLen.val := by cases s <;> rfl
 
 end Size
 
-/-! ### §3.1 Key generation — generate, serialize, and match `ExpandSecretKey`
-
-`KemSecretKey::expand_from_seed` is what `KemSecretKey::<ℓ>::from_seed` and (via a random seed)
-`KemSecretKey::<ℓ>::generate_from_rng` call. The theorem below generates a key from a seed, hands
-the resulting public key to `KemPublicKey::to_bytes`, and says the bytes that come out are
-exactly the spec's `pk` for that seed.
-
-**Why it is stated through the serializer** rather than about the key struct directly: see the
-note in §2. Comparing the struct would need a struct-to-bytes definition in this file that a
-reader has to audit; comparing what `to_bytes` returns needs none, and is about the bytes that
-go on the wire. `to_bytes` is also the entry point a caller reaches for, and it allocates its
-own buffer, so the theorem is unconditional — its only argument is the seed.
-
-**Why the other components of the key are not stated here.** The struct also holds `z` (the
-implicit-rejection seed), `hash_pke_pk`, `pke_sk : NttMatrix ℓ 1` and `pke_pk.mat_a_ntt :
-NttMatrix ℓ ℓ`. None of them is stated, for the same reason in each case: none is observable, and
-each is pinned *behaviourally*, and more strongly, by the composite theorems that follow.
-
-The two matrices hold NTT-domain data — an invertible linear image of the coefficient form, not
-the coefficient form itself. Characterising them coefficient-wise, as earlier versions of these
-theorems did, is a claim about *representation* rather than behaviour, and it forced a
-representation-bridging definition into the audit surface that a reader would then have to check
-is the right one. Neither field reaches a byte buffer anyway: `KemSecretKey`'s wire form is the
-32-byte `seed` it stores (see `seed()` in `src/kem.rs`), and `mat_a_ntt` is never serialized —
-serialization writes `vec_bytes ‖ matrix_seed` and `from_bytes` re-derives the matrix, which is
-what the theorem below already pins down byte for byte.
-
-What pins them instead: §3.2 (`keygen_then_encapsulate`) runs encapsulation against the generated
-key, which multiplies by `mat_a_ntt` and mixes in `hash_pke_pk`, so a wrong value of either gives
-ciphertext or shared-secret bytes that differ from `KemEncap`'s. §3.3
-(`keygen_then_decapsulate`) runs decapsulation, which multiplies by `pke_sk` and falls back to
-`z` on the implicit-rejection path, against the spec's `KemDecap` — and `KemDecap` re-derives both
-from the seed, so a wrong stored value gives a different shared secret. Since §3.3 quantifies
-over *all* ciphertexts, the rejection path is covered too. Between them, every use the library
-makes of these fields is covered at the byte level, with no representation bridge anywhere in a
-statement. -/
-
-/-- **Generating a key and serializing its public key yields the spec's `pk`, at every parameter
-set.** -/
+/-- keygen → pubkey → to_bytes matches the spec -/
 theorem keygen_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
     (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
         let kpk ← s.publicKey ksk
@@ -188,22 +93,7 @@ theorem keygen_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
   | .k768, seed => Kopis.Avx2.Properties.kopis768_keygen_to_bytes_spec seed
   | .k1024, seed => Kopis.Avx2.Properties.kopis1024_keygen_to_bytes_spec seed
 
-/-! ### §3.2 Encapsulation — key generation then encapsulate matches `KemEncap`
-
-This states the composite operation a user actually performs: generate a secret
-key from a seed, derive the public key, encapsulate to it. The result is the
-spec's `KemEncap` applied to the spec's `SkToPk` of the same seed — so the two
-halves agree about what the public key is, which is what makes the composition
-meaningful rather than each half matching a different notion of "public key".
-
-Note this is needed separately from encapsulating to a deserialized public key.
-This is because the public key you get from keygen is not the result of
-deserialization. Of course, this should not matter, but you have to prove that.
-
-The `let` names the spec's result once; it returns (shared secret, ciphertext), i.e. the
-opposite order from Rust. -/
-
-/-- **Key-gen → public key → encapsulate matches `KemEncap`, at every parameter set.** -/
+/-- keygen → pubkey → encapsulate matches the spec -/
 theorem keygen_then_encapsulate : ∀ (s : Size) (seed randomness : Array U8 32#usize),
     (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
         let kpk ← s.publicKey ksk
@@ -217,18 +107,7 @@ theorem keygen_then_encapsulate : ∀ (s : Size) (seed randomness : Array U8 32#
   | .k768, seed, randomness => Kopis.Avx2.Properties.kopis768_keygen_encap_spec seed randomness
   | .k1024, seed, randomness => Kopis.Avx2.Properties.kopis1024_keygen_encap_spec seed randomness
 
-/-! ### §3.2b Receiving a public key — parse then encapsulate matches `KemEncap`
-
-The theorem above starts from a locally generated key. This one starts from a public key
-*received as bytes*, which is what a caller does with a key off the wire: parse it with
-`from_bytes`, then encapsulate to it. The result is the spec's `KemEncap` applied to
-exactly those bytes.
-
-Nothing constrains the input bytes beyond their length, so a malformed or
-adversarially chosen public-key encoding is covered — and, this being a `⦃ … ⦄` triple,
-the composite is also proved not to panic on one. -/
-
-/-- **Parse a received public key, then encapsulate to it, at every parameter set.** -/
+/-- from_bytes → encapsulate matches the spec -/
 theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen)
     (randomness : Array U8 32#usize),
     (do let kpk ← s.fromBytes pk_bytes
@@ -242,21 +121,7 @@ theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
   | .k768, pk, r => Kopis.Avx2.Properties.kopis768_from_bytes_encap_spec pk r
   | .k1024, pk, r => Kopis.Avx2.Properties.kopis1024_from_bytes_encap_spec pk r
 
-/-! ### §3.2c Re-serializing a received public key returns the bytes it came from
-
-§3.2b encapsulates to a parsed key. This says what parsing does to the bytes themselves: run the
-crate's `from_bytes` and then its `to_bytes`, and you get back exactly what you handed in. The
-spec's public key *is* that byte string, so the spec's own round-trip is the identity; this says
-the crate's is too, which is what lets §3.2b state its result against the input bytes rather than
-against some re-encoding of them.
-
-Nothing constrains the input beyond its length — a malformed or adversarially chosen encoding is
-covered, and the composite is proved not to panic on one. Both entry points allocate, so there
-are no buffer-length hypotheses: for *any* byte array of the right size, parsing and
-re-serializing gives it back. -/
-
-/-- **Parse a received public key and serialize it again: the bytes are unchanged, at every
-parameter set.** -/
+/-- from_bytes → to_bytes matches the spec -/
 theorem from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen),
     (do let kpk ← s.fromBytes pk_bytes
         s.toBytes kpk)
@@ -265,16 +130,7 @@ theorem from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen),
   | .k768, pk => Kopis.Avx2.Properties.kopis768_from_bytes_to_bytes_spec pk
   | .k1024, pk => Kopis.Avx2.Properties.kopis1024_from_bytes_to_bytes_spec pk
 
-/-! ### §3.3 Decapsulation — key generation then decapsulate matches `KemDecap`
-
-Note what is *not* assumed: the ciphertext `ek` is an arbitrary byte array, not
-one produced by encapsulation. So this covers the adversarial case — malformed,
-adversarially chosen and replayed ciphertexts included — and in particular the
-implicit-rejection path, where a ciphertext that fails the re-encryption check
-must yield the pseudorandom `z`-derived secret rather than an error or a leak. -/
-
-/-- **Key-gen → decapsulate an arbitrary ciphertext matches `KemDecap`, at every
-parameter set.** -/
+/-- keygen → decapsulate matches the spec -/
 theorem keygen_then_decapsulate : ∀ (s : Size) (seed : Array U8 32#usize)
     (ek : Array U8 s.ctLen),
     (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
@@ -286,54 +142,5 @@ theorem keygen_then_decapsulate : ∀ (s : Size) (seed : Array U8 32#usize)
   | .k512, seed, ek => Kopis.Avx2.Properties.kopis512_keygen_decap_spec seed ek
   | .k768, seed, ek => Kopis.Avx2.Properties.kopis768_keygen_decap_spec seed ek
   | .k1024, seed, ek => Kopis.Avx2.Properties.kopis1024_keygen_decap_spec seed ek
-
-/-! ## §4. The trust base — in `TrustBase.lean`
-
-The assumptions everything in §3 rests on, the reasoning for each, and the build-time check
-that enforces the list are in `TrustBase.lean`. Read it next; it is short.
-
-It is a separate file because the trust base is the one part of this audit that differs per
-backend — an AVX2 build additionally assumes the semantics of every SIMD instruction it uses —
-whereas the statements in §3 do not differ that way. Keeping the split means the statements are
-read once and the per-backend difference is visible in one place.
-
-In summary, and beyond Lean's own three axioms: the `turboshake` crate's API implements RFC 9861
-(5 assumptions, the largest one here), `subtle`'s constant-time select and equality have their
-obvious functional meaning (2, functional only — nothing about actual timing), Rust's two
-popcount intrinsics mean popcount (2). Nothing is discharged by compiled evaluation any more.
-No `sorry` is in the closure, and the check fails the build if one reappears. -/
-
-/-! ## §5. What is *not* proved
-
-A verification claim is only as useful as its boundary. This one does not cover:
-
-**Randomness.** `KemSecretKey::<2>::generate_from_rng` and
-`KemPublicKey::<2>::encapsulate_with_rng`
-draw from a caller-supplied `CryptoRng`. The theorems in §3 cover the deterministic
-cores those wrappers call (`expand_from_seed`, `encapsulate_deterministic`) as
-functions of the seed / randomness they are handed. Nothing here says anything
-about the quality of the RNG, and nothing checks that the wrappers pass the random
-bytes through faithfully.
-
-**Trivial accessors.** `SecretKey::seed`, `SharedSecret::as_bytes` and similar
-getters have no theorems.
-
-**KEM correctness as a mathematical property.** Nothing here proves that
-decapsulating a validly encapsulated ciphertext recovers the encapsulator's shared
-secret. That is a property of the *specification*, not of the Rust, and it is not
-proved anywhere in this development — it is only checked empirically, by
-`make test-kopis-spec`, on the bundled test vectors.
-
-**Side channels.** The `subtle` assumptions (`TrustBase.lean`, group (b)) fix only the *functional* meaning
-of constant-time primitives. Nothing here rules out timing or cache leaks; those
-are properties of compiled machine code, which is outside what a source-level
-proof about Rust semantics can see.
-
-**Memory zeroization.** No claim that secret material is wiped after use.
-
-**The extraction and the spec themselves.** As noted at the top: that
-`ExtractedRustAvx2.lean` faithfully reflects `../src/*.rs` is a property of
-charon/aeneas, and that `Spec/Kopis/Spec.lean` faithfully reflects `kopis-spec.md`
-is a matter for human review plus the KAT runner. -/
 
 end Kopis.TopLevelAvx2
