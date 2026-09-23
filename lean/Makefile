@@ -89,10 +89,11 @@ generated: $(GENERATED_AUDIT) twins
 # scripts/gen_avx2_bridge.py for the four `cpu::available` sites in the NTT).
 # Derived in full from the serial stack.
 #
-# Unlike the audit copy above it is **not** checked in, and so the rule is
-# different in two ways.  It regenerates silently instead of failing, because
-# there is no committed copy for a reviewer to have reviewed — the thing under
-# review is the serial proof and the patch list, both of which are.  And it is
+# It is checked in, as the NEON twins are, but the rule still differs from the
+# audit copy's in two ways.  It regenerates silently instead of failing: the
+# thing under review is the serial proof and the patch list, and the twins
+# follow from those mechanically, so a regenerated diff is noise rather than
+# something to re-review.  And it is
 # `.PHONY` rather than file-tracked: the twins depend on every serial module,
 # both generator scripts and the patch anchors inside them, so any dependency
 # list would be a second source of truth that could drift.  Running it always is
