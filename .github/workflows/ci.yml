@@ -13,20 +13,42 @@ env:
   RUSTFLAGS: '-D warnings'
 
 jobs:
+  # Test every backend forcibly, then test autodetect on Ubuntu and macOS
   test:
-    name: Test on Rust stable
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.backend }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: serial
+            os: ubuntu-latest
+            flags: '--cfg kopis_backend="serial"'
+          - backend: avx2
+            os: ubuntu-latest
+            flags: '-C target-feature=+avx2 --cfg kopis_backend="avx2"'
+          - backend: neon
+            os: macos-latest
+            flags: '-C target-feature=+sha3 --cfg kopis_backend="neon"'
+          - backend: autodetect
+            os: ubuntu-latest
+            flags: ''
+          - backend: autodetect
+            os: macos-latest
+            flags: ''
     steps:
-    - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@stable
-    - run: cargo test
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test
+        env:
+          RUSTFLAGS: '-D warnings ${{ matrix.flags }}'
 
   rustfmt:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: dtolnay/rust-toolchain@stable
-    - run: cargo fmt --all -- --check
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
@@ -35,48 +57,36 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy --all-features -- -D warnings
+      - run: cargo clippy -- -D warnings
 
-  # Test no_std build-only
+  # Build every backend for a nostd target
   build-nostd:
-    name: Build on no_std target (thumbv7em-none-eabi)
+    name: Build no_std (${{ matrix.backend }}, ${{ matrix.target }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: serial
+            target: thumbv7em-none-eabi
+            flags: '--cfg kopis_backend="serial"'
+          - backend: neon
+            target: aarch64-unknown-none
+            flags: '-C target-feature=+sha3 --cfg kopis_backend="neon"'
+          - backend: avx2
+            target: x86_64-unknown-none
+            flags: '-C target-feature=-soft-float,+sse,+sse2,+avx,+avx2 --cfg kopis_backend="avx2"'
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          targets: thumbv7em-none-eabi
-      - uses: taiki-e/install-action@cargo-hack
-      # No default features build
-      - name: no_std / no feat
-        run: cargo build --target thumbv7em-none-eabi --release --no-default-features
-      - name: no_std / cargo hack
-        run: cargo hack build --target thumbv7em-none-eabi --release --each-feature --exclude-features default,std
-
-  # The serial backend is what gets extracted to Lean, so it has to keep building and passing
-  # on its own — an x86 runner would otherwise only ever exercise the AVX2 paths.
-  backends:
-    name: Test each backend explicitly
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
-      - name: serial
-        run: cargo test
+          targets: ${{ matrix.target }}
+      - run: cargo build --target ${{ matrix.target }} --release
         env:
-          RUSTFLAGS: '-D warnings --cfg kopis_backend="serial"'
-      - name: avx2 (forced, no runtime detection)
-        run: cargo test
-        env:
-          RUSTFLAGS: '-D warnings -C target-feature=+avx2 --cfg kopis_backend="avx2"'
+          RUSTFLAGS: '-D warnings ${{ matrix.flags }}'
 
-  # Constant-time validation: run the public API under Valgrind with every secret byte tagged as
-  # undefined memory, so a branch or a memory address that depends on one becomes a hard error.
-  # Both x86 backends go through valgrind, because the AVX2 code is written by hand and the serial
-  # code is what gets extracted to Lean; a leak in either is a leak. NEON gets the instruction
-  # scan only — valgrind interprets the guest ISA, so checking it properly needs a real AArch64
-  # runner with FEAT_SHA3.
+  # Run ct-check.sh on all backends
   constant-time:
     name: Constant-time
     runs-on: ubuntu-latest
@@ -94,20 +104,16 @@ jobs:
       # and fails if valgrind stays quiet. Without it a broken shim looks like a clean bill.
       - name: Self-test (must detect a planted leak)
         run: ./ct-check.sh --selftest
-      # Phase 1 only; the instruction scan does not depend on which backend the harness was
-      # built against, so it runs once at the end rather than twice here.
+      # Do a binary scan once. This covers all backends
+      - name: instruction scan (all targets)
+        run: ./ct-check.sh --scan-only
+      # Now do Valgrind tests on serial and AVX2. No support on macOS
       - name: valgrind / serial
         run: ./ct-check.sh --backend serial --no-scan
       - name: valgrind / avx2
         run: ./ct-check.sh --backend avx2 --no-scan
-      # Phase 2 covers every target we can cross-compile to, including the NEON backend that
-      # valgrind cannot run on an x86 runner.
-      - name: instruction scan (all targets)
-        run: ./ct-check.sh --scan-only
 
-  # The Lean proofs. Everything here runs on a stock x86 runner: the two model checks replay
-  # committed vectors through the Lean models rather than executing SIMD, so neither needs an
-  # AVX2 or AArch64 host. Only *recording* those vectors does — see lean/README.md.
+  # Build the Lean proofs
   lean:
     name: Lean proofs and model checks
     runs-on: ubuntu-latest
@@ -132,12 +138,6 @@ jobs:
           key: lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-${{ hashFiles('lean/**/*.lean') }}
           restore-keys: |
             lean-${{ hashFiles('lean/lean-toolchain', 'lean/lake-manifest.json') }}-
-      # AENEAS_VERSION.txt is the single source of truth for the aeneas release: the extractor
-      # downloads that release's binaries and the lakefile depends on that release's Lean backend.
-      # The manifest can go stale behind it, because `include_str` bakes the file's contents into
-      # lake's cached config and that cache does not track the included file — so editing the file
-      # alone is not enough. Without this check a build would silently prove against a different
-      # aeneas than the one that produced the extraction.
       - name: Pinned aeneas matches AENEAS_VERSION.txt
         run: |
           want=$(tr -d '[:space:]' < AENEAS_VERSION.txt)
