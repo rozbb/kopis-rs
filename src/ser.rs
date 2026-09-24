@@ -125,7 +125,7 @@ pub(crate) fn serialize_generic<const BITS_PER_ELEM: usize>(data: &[u16], out_bu
 // The fast 10- and 13-bit paths must agree with the generic sliding-window deserializer.
 #[test]
 fn specialized_deser_matches_generic() {
-    use rand::Rng;
+    use rand::RngExt;
     let mut rng = rand::rng();
 
     // Test deserialize_13
@@ -148,7 +148,7 @@ fn specialized_deser_matches_generic() {
 // The fast 10-bit serialization path must agree with the generic sliding-window serializer.
 #[test]
 fn specialized_ser_matches_generic() {
-    use rand::Rng;
+    use rand::RngExt;
     let mut rng = rand::rng();
 
     // Use full-range u16 coefficients so the test also covers the 10-bit masking behavior

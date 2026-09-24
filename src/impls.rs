@@ -6,7 +6,7 @@ use crate::{
     pke::ciphertext_len,
 };
 
-use rand_core::CryptoRng;
+use kem::common::rand_core::CryptoRng;
 use zeroize::Zeroize;
 
 /// Defines convenience types and impls for a given Kopis variant
@@ -48,8 +48,9 @@ macro_rules! variant_impl {
 
             impl $privkey_name {
                 /// Generate a fresh secret key
-                pub fn generate_from_rng(rng: &mut impl CryptoRng) -> Self {
-                    KemSecretKey::generate_inner::<$variant_mu>(rng)
+                pub fn generate_from_rng(rng: &mut impl kem::common::rand_core::CryptoRng) -> Self {
+                    // Can unwrap because <CryptoRng as TryCryptoRng> is infallible
+                    KemSecretKey::generate_inner::<$variant_mu, _>(rng).unwrap()
                 }
 
                 /// Deserializes a secret key from a 32-byte seed
@@ -186,3 +187,102 @@ variant_impl!(
     KOPIS1024_MU,
     KOPIS1024_T
 );
+
+use kem::{
+    Decapsulate, Decapsulator, Encapsulate, Generate, Kem, KeyExport, KeyInit, KeySizeUser,
+    TryKeyInit,
+    consts::{U32, U672, U736},
+};
+
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct NewKopis512;
+
+impl Kem for NewKopis512 {
+    type DecapsulationKey = NewKopis512SecretKey;
+
+    type EncapsulationKey = NewKopis512PublicKey;
+
+    type SharedKeySize = U32;
+
+    type CiphertextSize = U736;
+}
+
+pub type NewKopis512SecretKey = KemSecretKey<KOPIS512_L>;
+pub type NewKopis512PublicKey = KemPublicKey<KOPIS512_L>;
+
+impl KeySizeUser for NewKopis512PublicKey {
+    type KeySize = U672;
+}
+
+impl KeyExport for NewKopis512PublicKey {
+    fn to_bytes(&self) -> kem::Key<Self> {
+        let mut buf = [0u8; Self::SERIALIZED_LEN];
+        self.serialize(&mut buf);
+        buf.into()
+    }
+}
+
+impl KeyInit for NewKopis512PublicKey {
+    fn new(key: &kem::Key<Self>) -> Self {
+        Self::from_bytes_inner(key)
+    }
+}
+
+impl TryKeyInit for NewKopis512PublicKey {
+    fn new(key: &kem::Key<Self>) -> Result<Self, kem::InvalidKey> {
+        Ok(<NewKopis512PublicKey as KeyInit>::new(key))
+    }
+}
+
+impl Encapsulate for NewKopis512PublicKey {
+    type Kem = NewKopis512;
+
+    fn encapsulate_with_rng<R>(
+        &self,
+        rng: &mut R,
+    ) -> (kem::Ciphertext<Self::Kem>, kem::SharedKey<Self::Kem>)
+    where
+        R: CryptoRng + ?Sized,
+    {
+        let mut randomness = [0u8; 32];
+        rng.fill_bytes(&mut randomness);
+        let (ct, ss) = self.encapsulate_deterministic(&randomness);
+
+        randomness.zeroize();
+        // TODO: Remove SharedSecret type so we don't have to do this nasty conversion
+        (ct.into(), (*ss.as_bytes()).into())
+    }
+}
+
+impl Generate for NewKopis512SecretKey {
+    fn try_generate_from_rng<R: kem::common::rand_core::TryCryptoRng + ?Sized>(
+        rng: &mut R,
+    ) -> Result<Self, R::Error> {
+        KemSecretKey::generate_inner::<KOPIS512_MU, _>(rng)
+    }
+}
+
+impl KeySizeUser for NewKopis512SecretKey {
+    type KeySize = U32;
+}
+
+impl KeyInit for NewKopis512SecretKey {
+    fn new(key: &kem::Key<Self>) -> Self {
+        KemSecretKey::expand_from_seed::<KOPIS512_MU>(key.into())
+    }
+}
+
+impl Decapsulator for NewKopis512SecretKey {
+    type Kem = NewKopis512;
+
+    fn encapsulation_key(&self) -> &kem::EncapsulationKey<Self::Kem> {
+        &self.kem_pk
+    }
+}
+
+impl Decapsulate for NewKopis512SecretKey {
+    fn decapsulate(&self, ct: &kem::Ciphertext<Self::Kem>) -> kem::SharedKey<Self::Kem> {
+        let ss = crate::kem::decap::<KOPIS512_L, KOPIS512_MU, KOPIS512_T>(&self, ct);
+        (*ss.as_bytes()).into()
+    }
+}

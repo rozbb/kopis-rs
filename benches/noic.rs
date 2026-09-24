@@ -1,6 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use kopis::kopis768::{KOPIS768_CIPHERTEXT_LEN, Kopis768PublicKey, Kopis768SecretKey};
-use rand::{CryptoRng, Rng};
+use rand::{CryptoRng, Rng, RngExt};
 use sha3::{Digest, Sha3_512};
 use shake::{
     Shake256,

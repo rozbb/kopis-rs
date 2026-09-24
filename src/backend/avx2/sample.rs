@@ -200,7 +200,7 @@ mod test {
         }
         let mut rng = rand::rng();
 
-        fn check<const MU: usize>(rng: &mut impl rand::RngCore) {
+        fn check<const MU: usize>(rng: &mut impl rand::Rng) {
             let mut buf = [0u8; RING_DEG * MAX_MU / 8];
             let buf = &mut buf[..RING_DEG * MU / 8];
             for _ in 0..200 {

@@ -25,16 +25,25 @@ pub(crate) struct PkeSecretKey<const L: usize>(NttMatrix<L, 1>);
 #[derive(Clone)]
 pub struct PkePublicKey<const L: usize> {
     /// The seed used to generate `mat_a` and thus `mat_a_ntt`
-    matrix_seed: [u8; 32],
-    /// The expanded public matrix `mat_a`, in NTT form. Precomputed here so that repeated encryptions
-    /// (e.g. every encapsulation and every FO re-encryption during decapsulation) don't have to
-    /// re-run the XOF that derives it from `matrix_seed`, nor re-transform it.
+    pub(crate) matrix_seed: [u8; 32],
+    /// The expanded matrix, in NTT form. Precomputed so we can avoid computing at encap and decap
+    // INVARIANT: This is always the NTT of the expansion of matrix_seed
     mat_a_ntt: NttMatrix<L, L>,
-    /// The public vector in NTT form, precomputed for the inner product in every encryption.
+    /// The public vector in NTT form, precomputed so we can avoid computing at encap
+    // INVARIANT: This is always the NTT of the vector represented by `vec_bytes`
     vec_ntt: NttMatrix<L, 1>,
-    /// The serialized public vector. Stored here so that `vec_ntt` doesn't have to be
-    /// repeatedly converted on `Self::serialize`
-    vec_bytes: [[u8; PK_VEC_ELEM_BYTES]; L],
+    /// The serialized public vector. Precomputed so that we can avoid un-NTTing `vec_ntt` and
+    /// serializing it every time `Self::serialize` is called.
+    pub(crate) vec_bytes: [[u8; PK_VEC_ELEM_BYTES]; L],
+}
+
+impl<const L: usize> core::fmt::Debug for PkePublicKey<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("PkePublicKey")
+            .field("matrix_seed", &self.matrix_seed)
+            .field("vec_bytes", &self.vec_bytes)
+            .finish()
+    }
 }
 
 impl<const L: usize> PkePublicKey<L> {
@@ -67,10 +76,10 @@ impl<const L: usize> PkePublicKey<L> {
         // Deserialize the vector transiently, only to build its NTT form; the structured vector
         // itself is not kept.
         let vec = Matrix::deserialize_10(vec_slice);
+        // Invariant holds: this is the NTT of vec_bytes below
         let vec_ntt = NttMatrix::from_uniform_matrix(&vec);
 
-        // Store the vector's packed bytes verbatim (10-bit packing is canonical, so this is
-        // exactly what `serialize` would re-emit).
+        // Store vec_slice in L chunks
         let mut vec_bytes = [[0u8; PK_VEC_ELEM_BYTES]; L];
         for i in 0..L {
             let start = i * PK_VEC_ELEM_BYTES;
@@ -78,6 +87,7 @@ impl<const L: usize> PkePublicKey<L> {
         }
 
         let mat_a = gen_matrix_from_seed::<L>(&matrix_seed);
+        // Invariant holds: this is the NTT of the expansion of matrix_seed
         let mat_a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
         Self {
             matrix_seed,
@@ -88,7 +98,6 @@ impl<const L: usize> PkePublicKey<L> {
     }
 
     /// Returns the public key hash
-    ///
     // `needless_range_loop`: explicit index loop kept for aeneas-extraction friendliness, as in
     // `serialize` above. The parts cannot be passed to `turboshake256_hash` instead, because
     // there are `L + 1` of them and a `&[&[u8]]` is a nested borrow, which aeneas rejects.
@@ -163,6 +172,7 @@ pub(crate) fn expand_secret_key<const L: usize, const MU: usize>(
     };
 
     // b was shifted by 3, so each coeff is < 2^13, as required by from_uniform_matrix
+    // Invariant holds: this is the NTT of vec_bytes below
     let vec_ntt = NttMatrix::from_uniform_matrix(&b);
 
     // Pack b into its serialized bytes; we keep those, not the structured vector.
@@ -254,7 +264,7 @@ mod test {
     use super::*;
     use crate::consts::*;
 
-    use rand::RngCore;
+    use rand::Rng;
 
     // Tests that Decrypt(Encrypt(m)) == m
     #[test]

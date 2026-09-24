@@ -221,10 +221,10 @@ impl<const X: usize, const Y: usize> NttMatrix<X, Y> {
 mod test {
     use super::*;
 
-    use rand::{Rng, rng};
+    use rand::{RngExt, rng};
 
     /// A random CBD-like secret: wrapping-u16 coefficients in [-mu/2, mu/2]
-    fn rand_secret(rng: &mut impl Rng, half_mu: u16) -> RingElem {
+    fn rand_secret(rng: &mut impl RngExt, half_mu: u16) -> RingElem {
         let mut ret = RingElem::default();
         for coeff in ret.0.iter_mut() {
             *coeff = rng.random_range(0..=2 * half_mu).wrapping_sub(half_mu);
@@ -233,7 +233,7 @@ mod test {
     }
 
     /// A random uniform ring element with `bits`-bit coefficients
-    fn rand_uniform(rng: &mut impl Rng, bits: usize) -> RingElem {
+    fn rand_uniform(rng: &mut impl RngExt, bits: usize) -> RingElem {
         let mut ret = RingElem::default();
         for coeff in ret.0.iter_mut() {
             *coeff = rng.random_range(0..(1u16 << bits));

@@ -8,7 +8,7 @@ use crate::{
     turboshake256_hash,
 };
 
-use rand_core::CryptoRng;
+use kem::common::rand_core::TryCryptoRng;
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 use turboshake::CTurboShake256;
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
@@ -20,7 +20,28 @@ pub struct KemPublicKey<const L: usize> {
     /// The PKE public key
     pke_pk: PkePublicKey<L>,
     /// The hash of `pke_pk`
+    // INVARIANT: this is always the hash of pke_pk
     hash_pke_pk: [u8; 32],
+}
+
+impl<const L: usize> PartialEq for KemPublicKey<L> {
+    fn eq(&self, other: &Self) -> bool {
+        // Suffices to check the pubkey hash, since 1) it is the hash of pke_pk, 2) the hash of
+        // pke_pk is computed over its seed and public vec, and 3) the cached NTT representations
+        // are always in sync with the bytes that are inputted into the hash
+        self.hash_pke_pk == other.hash_pke_pk
+    }
+}
+
+impl<const L: usize> Eq for KemPublicKey<L> {}
+
+impl<const L: usize> core::fmt::Debug for KemPublicKey<L> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("KemPublicKey")
+            .field("matrix_seed", &self.pke_pk.matrix_seed)
+            .field("vec_bytes", &self.pke_pk.vec_bytes)
+            .finish()
+    }
 }
 
 impl<const L: usize> KemPublicKey<L> {
@@ -95,13 +116,15 @@ impl<const L: usize> KemSecretKey<L> {
     }
 
     /// Generates a fresh secret key
-    pub(crate) fn generate_inner<const MU: usize>(rng: &mut impl CryptoRng) -> KemSecretKey<L> {
+    pub(crate) fn generate_inner<const MU: usize, R: TryCryptoRng + ?Sized>(
+        rng: &mut R,
+    ) -> Result<KemSecretKey<L>, R::Error> {
         let mut seed = [0u8; 32];
-        rng.fill_bytes(&mut seed);
+        rng.try_fill_bytes(&mut seed)?;
         let out = Self::expand_from_seed::<MU>(&seed);
 
         seed.zeroize();
-        out
+        Ok(out)
     }
 
     /// Returns the seed that produced this expanded secret key
@@ -190,7 +213,7 @@ mod test {
     use super::*;
     use crate::consts::*;
 
-    use rand::Rng;
+    use rand::RngExt;
     use subtle::ConstantTimeEq;
 
     #[test]
@@ -215,7 +238,7 @@ mod test {
         let mut backing_buf = [0u8; max_ciphertext_len()];
 
         for _ in 0..100 {
-            let sk = KemSecretKey::<L>::generate_inner::<MU>(&mut rng);
+            let sk = KemSecretKey::<L>::generate_inner::<MU, _>(&mut rng).unwrap();
             let pk = &sk.kem_pk;
             let ct_buf = &mut backing_buf[..ciphertext_len::<L, T>()];
 

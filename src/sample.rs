@@ -163,8 +163,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
 #[cfg(test)]
 mod test {
     use super::*;
-
-    use rand::RngCore;
+    use rand::Rng;
 
     /// Naive bit-by-bit CBD for testing: coefficient c is
     /// popcount(bits [c*MU, c*MU + MU/2)) - popcount(bits [c*MU + MU/2, c*MU + MU))
@@ -184,7 +183,7 @@ mod test {
     // The specialized MU=6, 8, and 10 paths must agree with the naive bit-by-bit CBD
     #[test]
     fn specialized_cbd_matches_reference() {
-        fn check<const MU: usize>(rng: &mut impl RngCore) {
+        fn check<const MU: usize>(rng: &mut impl Rng) {
             let mut backing_buf = [0u8; RING_DEG * MAX_MU / 8];
             let buf = &mut backing_buf[..RING_DEG * MU / 8];
 

@@ -26,7 +26,7 @@ impl Default for RingElem {
 impl RingElem {
     /// Creates a random ring element
     #[cfg(test)]
-    pub(crate) fn rand(rng: &mut impl rand_core::CryptoRng) -> Self {
+    pub(crate) fn rand(rng: &mut impl rand::Rng) -> Self {
         let modulus = 1u32 << 13;
 
         let mut result = [0; RING_DEG];
@@ -240,7 +240,7 @@ mod test {
     use super::*;
     use crate::consts::RING_DEG;
 
-    use rand::{Rng, RngCore, rng};
+    use rand::{Rng, RngExt, rng};
 
     // Tests serialization and deserialization of ring elements
     #[test]
