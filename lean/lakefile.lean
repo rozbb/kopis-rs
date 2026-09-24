@@ -27,6 +27,10 @@ lean_lib «ExtractedRustNeon» where
 @[default_target]
 lean_lib «KopisSerial» where
   roots := #[`Kopis.Serial]
+  globs := #[.one `Kopis.Serial, .andSubmodules `Kopis.Properties,
+             .andSubmodules `Kopis.Bits, .andSubmodules `Kopis.Crt,
+             .andSubmodules `Kopis.Keccak, .one `Kopis.CrtArith,
+             .one `Kopis.CrtConv, .one `Kopis.CrtZeta]
 lean_lib «KopisAvx2» where
   roots := #[`Kopis.Avx2]
 lean_lib «KopisNeon» where
