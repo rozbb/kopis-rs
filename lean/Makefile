@@ -59,7 +59,7 @@ define audit_copy
 	@sed -e 's/ExtractedRustSerial/ExtractedRust$(1)/g' \
 	     -e 's/RustKopisSerial/RustKopis$(1)/g' \
 	     -e 's/TopLevelSerial/TopLevel$(1)/g' \
-	     -e 's/^import Kopis$$/import Kopis.$(1).Properties/' \
+	     -e 's/^import Kopis\.Serial$$/import Kopis.$(1).Properties/' \
 	     -e 's/Kopis\.Properties/Kopis.$(1).Properties/g' \
 	     -e 's/^namespace Kopis\.TopLevel$(1)$$/open Kopis.$(1)\nnamespace Kopis.TopLevel$(1)/' $< >> $@.tmp
 	@if cmp -s $@.tmp $@; then rm -f $@.tmp; else \
@@ -131,10 +131,10 @@ prove-kopis: prove-kopis-serial prove-kopis-avx2 prove-kopis-neon
 # A green build IS the machine-checked proof.  Note that TrustBase now holds both
 # backends' rows, so this target builds the AVX2 stack too — hence the generated
 # prerequisites; for the serial proofs alone, run
-# `lake build Kopis TopLevelTheoremsSerial`.
+# `lake build KopisSerial TopLevelTheoremsSerial`.
 .PHONY: prove-kopis-serial
 prove-kopis-serial: $(GENERATED_AUDIT) twins
-	$(LAKE) build Kopis TopLevelTheoremsSerial TrustBase
+	$(LAKE) build KopisSerial TopLevelTheoremsSerial TrustBase
 
 # The AVX2 backend.  This builds the second extraction (ExtractedRustAvx2.lean,
 # from an `--cfg kopis_backend="avx2"` build), Kopis/Avx2/Intrinsics.lean — which

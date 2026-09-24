@@ -1,4 +1,4 @@
-import Kopis
+import Kopis.Serial
 
 open Aeneas Aeneas.Std Result
 open Spec (𝔹)
