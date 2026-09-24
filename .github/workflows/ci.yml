@@ -113,6 +113,38 @@ jobs:
       - name: valgrind / avx2
         run: ./ct-check.sh --backend avx2 --no-scan
 
+  # Check that `./extract_rust_to_lean.sh` has been run on the latest code changes
+  rust-to-lean-extraction:
+    name: Extraction is up to date
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      # ~120 MB of prebuilt aeneas + charon, keyed on the release the script pins.
+      - name: Cache aeneas binaries
+        uses: actions/cache@v4
+        with:
+          path: .aeneas-bin
+          key: aeneas-${{ hashFiles('AENEAS_VERSION.txt') }}
+      # charon compiles core/std with full MIR, then the crate and every dependency against
+      # them, into its own target dir. Caching it is the difference between minutes and tens.
+      - name: Cache charon target dir
+        uses: actions/cache@v4
+        with:
+          path: target/charon
+          key: charon-${{ hashFiles('AENEAS_VERSION.txt', 'Cargo.lock') }}
+          restore-keys: charon-
+      - run: ./extract_rust_to_lean.sh
+      - name: Committed extraction matches
+        run: |
+          if ! git diff --exit-code -- lean/ExtractedRust*.lean; then
+            echo
+            echo "The committed extraction is stale. Run ./extract_rust_to_lean.sh and commit"
+            echo "the result alongside the src/ change that caused this."
+            exit 1
+          fi
+
   # Build the Lean proofs
   lean:
     name: Lean proofs and model checks
