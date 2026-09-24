@@ -376,9 +376,18 @@ fn CompressToR10(v: VecR13) -> VecR10:
   let h = make_vec13([h1; ℓ])
   let s = (v + h) >> 3
   return (s as VecR10)
+```
+-/
 def CompressToR10 (ℓ : ℕ) (v : PolyVector (2 ^ 13) ℓ) : PolyVector (2 ^ 10) ℓ :=
   let h : PolyVector (2 ^ 13) ℓ := Vector.replicate ℓ (Polynomial.const (2 ^ 13) 4)
   ((v + h).shiftRight 3).coerce (2 ^ 10)
+
+/-- From the spec:
+```
+fn CompressToRt(r: R10) -> Rt:
+  let h1 = make_r10([4u10; 256])
+  let s = (r + h1) >> (10 - t)
+  return (s as Rt)
 ```
 -/
 def CompressToRt (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ t) :=
