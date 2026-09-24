@@ -43,11 +43,11 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     (hpk : pk_bytes = (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.1)
     (hpkvec : toVecN 10 V
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes sk.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.decap MU T sk ciphertext
@@ -91,12 +91,12 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     rw [Slice.length, s4_post1]; simp
   have hoff1 : readerOffset xof1 = 32 := by rw [xof1_post3, xof_post2, hs2len]
   set b := turboSHAKE256 (arrayToBytes randomness ‖ arrayToBytes sk.kem_pk.hash_pke_pk) DOMSEP_FO 64 with hb
-  have hkbytes : s3.val.map (·.bv) = (Spec.slice b 0 32 (by omega)).toList := by
+  have hkbytes : s3.val.map (·.bv) = (Spec.Kopis.slice b 0 32 (by omega)).toList := by
     rw [xof1_post2, hrm0, xof_post2, hs2len]
     dsimp only
     simp only [domsep_fo_bv]
     rw [turboSHAKE256_two_array_concat, turboSHAKE256_read_window_gen _ _ 0 64 (by omega)]
-  have hrbytes : s5.val.map (·.bv) = (Spec.slice b 32 32 (by omega)).toList := by
+  have hrbytes : s5.val.map (·.bv) = (Spec.Kopis.slice b 32 32 (by omega)).toList := by
     rw [__post2, hrm1, hoff1, hs4len]
     dsimp only
     simp only [domsep_fo_bv]
@@ -108,9 +108,9 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     rw [s2_post2]; exact Array.from_slice_val _ s3 (by rw [← Slice.length, hs3len]; exact e32.symm)
   have hr1val : (to_slice_mut_back1 s5).val = s5.val := by
     rw [s4_post2]; exact Array.from_slice_val _ s5 (by rw [← Slice.length, hs5len]; exact e32.symm)
-  have hk1bytes : arrayToBytes (to_slice_mut_back s3) = Spec.slice b 0 32 (by omega) := by
+  have hk1bytes : arrayToBytes (to_slice_mut_back s3) = Spec.Kopis.slice b 0 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hk1val]; exact hkbytes
-  have hr1bytes : arrayToBytes (to_slice_mut_back1 s5) = Spec.slice b 32 32 (by omega) := by
+  have hr1bytes : arrayToBytes (to_slice_mut_back1 s5) = Spec.Kopis.slice b 32 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hr1val]; exact hrbytes
   -- reconstructed ciphertext buffer (handled by step*)
   have hrclen : reconstructed_ct.length = Spec.Kopis.ctSize p := by
@@ -143,7 +143,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
     rw [bappend_toList, bappend_toList, congrArg Vector.toList hrand]
     exact congrArg (Vector.toList _ ++ ·) (congrArg Vector.toList hpkh2.symm)
   -- `cprime = sliceToBytes reconstructed_ct1`
-  have hcprime : Spec.Kopis.PkeEncrypt p (Spec.slice b 32 32 (by omega)) pk_bytes
+  have hcprime : Spec.Kopis.PkeEncrypt p (Spec.Kopis.slice b 32 32 (by omega)) pk_bytes
         (arrayToBytes randomness)
       = sliceToBytes reconstructed_ct1 (Spec.Kopis.ctSize p) hrc1len := by
     rw [← hr1bytes]; exact hrc1eq.symm

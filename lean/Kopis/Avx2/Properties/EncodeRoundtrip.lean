@@ -12,7 +12,8 @@ import Kopis.Avx2.Properties.SerializeTop
 -/
 
 open Aeneas Aeneas.Std Result
-open Spec (𝔹 bytesToBits bitsToBytes slice)
+open Spec (𝔹)
+open Spec.Kopis (bytesToBitsLe bitsToBytesLe slice)
 open scoped BigOperators
 
 namespace Kopis.Avx2.Properties
@@ -30,10 +31,10 @@ private theorem rt_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
     _ ≤ n * 256 := Nat.mul_le_mul_left n (by omega)
     _ = 8 * (32 * n) := by ring
 
-/-- Bit `n·i + j` of `bytesToBits (serialize n r)` is bit `j` of coefficient `i`. -/
+/-- Bit `n·i + j` of `bytesToBitsLe (serialize n r)` is bit `j` of coefficient `i`. -/
 private theorem bytesToBits_serialize_bit (n : ℕ) (hn : 0 < n)
     (r : Spec.Kopis.Polynomial (2 ^ n)) (i j : ℕ) (hi : i < 256) (hj : j < n) :
-    ((bytesToBits (Spec.Kopis.serialize n r))[n * i + j]'(rt_idx_lt hi hj))
+    ((bytesToBitsLe (Spec.Kopis.serialize n r))[n * i + j]'(rt_idx_lt hi hj))
       = (r[i]'hi).val.testBit j := by
   set m := n * i + j with hm
   have hm_lt : m < 8 * (32 * n) := rt_idx_lt hi hj
@@ -43,10 +44,10 @@ private theorem bytesToBits_serialize_bit (n : ℕ) (hn : 0 < n)
   have hdiv : m / n = i := by
     rw [hm, Nat.mul_add_div hn, Nat.div_eq_of_lt hj, Nat.add_zero]
   have hmod : m % n = j := by rw [hm, Nat.mul_add_mod, Nat.mod_eq_of_lt hj]
-  -- unfold bytesToBits at position m
-  have hb : ((bytesToBits (Spec.Kopis.serialize n r))[m]'hm_lt)
+  -- unfold bytesToBitsLe at position m
+  have hb : ((bytesToBitsLe (Spec.Kopis.serialize n r))[m]'hm_lt)
       = ((Spec.Kopis.serialize n r)[m / 8]'hp8).toNat.testBit (m % 8) := by
-    simp only [bytesToBits, Vector.getElem_ofFn]
+    simp only [bytesToBitsLe, Vector.getElem_ofFn]
   rw [hb, serialize_byte_bit n r (m / 8) (m % 8) hp8 hj8 hn]
   simp only [hrec, hdiv, hmod]
 
@@ -62,7 +63,7 @@ theorem deserialize_serialize (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 13)
   rw [deserialize_get n (Spec.Kopis.serialize n r) i hi]
   -- rewrite each bit to a coefficient testBit
   have hbit : ∀ j : Fin n,
-      ((bytesToBits (Spec.Kopis.serialize n r))[n * i + j.val]'(rt_idx_lt hi j.isLt))
+      ((bytesToBitsLe (Spec.Kopis.serialize n r))[n * i + j.val]'(rt_idx_lt hi j.isLt))
         = (r[i]'hi).val.testBit j.val :=
     fun j => bytesToBits_serialize_bit n hn0 r i j.val hi j.isLt
   -- ℕ-level digit sum

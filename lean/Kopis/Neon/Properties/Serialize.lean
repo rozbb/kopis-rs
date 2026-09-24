@@ -20,7 +20,8 @@ import Spec.Kopis.Spec
 
 open Aeneas Aeneas.Std Result
 open RustKopisNeon
-open Spec (𝔹 bytesToBits)
+open Spec (𝔹)
+open Spec.Kopis (bytesToBitsLe)
 
 namespace Kopis.Neon.Properties
 
@@ -226,14 +227,14 @@ private theorem deser_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 /-- The `i`-th coefficient of the spec `deserialize` is exactly its loop body. -/
 theorem deserialize_get (n : ℕ) (B : 𝔹 (32 * n)) (i : ℕ) (hi : i < 256) :
     (Spec.Kopis.deserialize n B)[i]'hi
-      = ∑ j : Fin n, ((bytesToBits B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat * 2 ^ j.val := by
+      = ∑ j : Fin n, ((bytesToBitsLe B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat * 2 ^ j.val := by
   unfold Spec.Kopis.deserialize
   simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
     Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one]
   refine forIn'_getElem_indexed (List.range' 0 256) _ _ i hi _
     (P := fun s (F' : Spec.Kopis.Polynomial (2 ^ n)) =>
       (F'[i]'hi) = if s ≤ i then (0 : ZMod (2 ^ n))
-        else ((∑ j : Fin n, ((bytesToBits B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat
+        else ((∑ j : Fin n, ((bytesToBitsLe B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat
                 * 2 ^ j.val : ℕ) : ZMod (2 ^ n)))
     ?hInit ?hFinal ?hStep
   case hInit =>
@@ -259,20 +260,20 @@ theorem deserialize_get (n : ℕ) (B : 𝔹 (32 * n)) (i : ℕ) (hi : i < 256) :
       have hki : k ≠ i := by rw [← ha_val]; exact h_eq
       by_cases hle : k ≤ i <;> [rw [if_pos hle, if_pos (by omega)]; rw [if_neg hle, if_neg (by omega)]]
 
-/-- The bridged spec bit stream `bytesToBits (sliceToBytes …)` agrees with `streamBit`. -/
+/-- The bridged spec bit stream `bytesToBitsLe (sliceToBytes …)` agrees with `streamBit`. -/
 theorem streamBit_eq_bit (bytes : Slice U8) (n m : ℕ) (h : bytes.length = 32 * n)
     (hm : m < 8 * (32 * n)) :
-    ((bytesToBits (sliceToBytes bytes (32 * n) h))[m]'(by simpa using hm)).toNat = streamBit bytes m := by
+    ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[m]'(by simpa using hm)).toNat = streamBit bytes m := by
   have hm8 : m / 8 < 32 * n := by omega
   unfold streamBit
-  simp only [bytesToBits, sliceToBytes, Vector.getElem_ofFn]
+  simp only [bytesToBitsLe, sliceToBytes, Vector.getElem_ofFn]
   rw [getElem!_pos bytes.val (m / 8) (by simp only [Slice.length] at h ⊢; omega)]
   rfl
 
 /-- `streamNat (n·j) n` equals the spec's per-coefficient `Fin`-sum over the bridged bits. -/
 private theorem streamNat_eq_sum (bytes : Slice U8) (n j : ℕ) (h : bytes.length = 32 * n) (hj : j < 256) :
     streamNat bytes (n * j) n
-      = ∑ k : Fin n, ((bytesToBits (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt hj k.isLt)).toNat
+      = ∑ k : Fin n, ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt hj k.isLt)).toNat
           * 2 ^ k.val := by
   unfold streamNat
   rw [← Fin.sum_univ_eq_sum_range (fun b => streamBit bytes (n * j + b) * 2 ^ b) n]

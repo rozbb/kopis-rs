@@ -26,11 +26,11 @@ theorem kopis512_encapsulate_deterministic_spec
     (hpkmatfwd : self.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis512.KemPublicKey2.encapsulate_deterministic self randomness
@@ -71,11 +71,11 @@ theorem kopis512_decapsulate_spec
     (hpkmatfwd : self.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis512.KemSecretKey2.decapsulate self encapsulated_key
@@ -106,11 +106,11 @@ theorem kopis768_encapsulate_deterministic_spec
     (hpkmatfwd : self.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis768.KemPublicKey3.encapsulate_deterministic self randomness
@@ -151,11 +151,11 @@ theorem kopis768_decapsulate_spec
     (hpkmatfwd : self.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis768.KemSecretKey3.decapsulate self encapsulated_key
@@ -186,11 +186,11 @@ theorem kopis1024_encapsulate_deterministic_spec
     (hpkmatfwd : self.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis1024.KemPublicKey4.encapsulate_deterministic self randomness
@@ -231,11 +231,11 @@ theorem kopis1024_decapsulate_spec
     (hpkmatfwd : self.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes self.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     impls.kopis1024.KemSecretKey4.decapsulate self encapsulated_key

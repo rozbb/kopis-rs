@@ -1305,17 +1305,17 @@ theorem cbd_bd (MU : Usize) (buf : Slice U8) (out : RingElem)
         · exact h6 (by scalar_tac)
         · exact h10 (by scalar_tac)
 
-/-! ## Bridge to the spec's `bytesToBits` centered-binomial coefficients. -/
+/-! ## Bridge to the spec's `bytesToBitsLe` centered-binomial coefficients. -/
 
-open Spec (bytesToBits)
+open Spec.Kopis (bytesToBitsLe)
 
 /-- `cbdX` (a popcount over `cnt` stream bits) equals the spec's `Fin`-sum over the
-bridged bit stream `bytesToBits (sliceToBytes …)`. -/
+bridged bit stream `bytesToBitsLe (sliceToBytes …)`. -/
 theorem cbdX_eq_specSum (buf1 : Slice U8) (μ p cnt : ℕ) (h : buf1.length = 32 * μ)
     (hbnd : ∀ (j : Fin cnt), p + j.val < 8 * (32 * μ)) :
     cbdX buf1 cnt p
       = ∑ j : Fin cnt,
-          ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[p + j.val]'(by simpa using hbnd j)).toNat := by
+          ((bytesToBitsLe (sliceToBytes buf1 (32 * μ) h))[p + j.val]'(by simpa using hbnd j)).toNat := by
   unfold cbdX
   rw [← Fin.sum_univ_eq_sum_range (fun i => streamBit buf1 (p + i)) cnt]
   apply Finset.sum_congr rfl
@@ -1327,13 +1327,13 @@ theorem cbdX_eq_specSum (buf1 : Slice U8) (μ p cnt : ℕ) (h : buf1.length = 32
 theorem cbdVal_eq_specCoeff (buf1 : Slice U8) (μ k : ℕ) (h : buf1.length = 32 * μ) (hk : k < 256) :
     cbdVal buf1 μ (μ / 2) k
       = ((∑ j : Fin (μ / 2),
-            ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[μ * k + j.val]'(by
+            ((bytesToBitsLe (sliceToBytes buf1 (32 * μ) h))[μ * k + j.val]'(by
               have h2 : μ * k + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
               have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
               have _h4 : μ * 256 = 8 * (32 * μ) := by ring
               simpa using (by omega : μ * k + j.val < 8 * (32 * μ)))).toNat : ℕ) : ZMod (2 ^ 13))
       - ((∑ j : Fin (μ / 2),
-            ((bytesToBits (sliceToBytes buf1 (32 * μ) h))[μ * k + μ / 2 + j.val]'(by
+            ((bytesToBitsLe (sliceToBytes buf1 (32 * μ) h))[μ * k + μ / 2 + j.val]'(by
               have h2 : μ * k + μ / 2 + j.val < μ * (k + 1) := by rw [Nat.mul_succ]; omega
               have h3 : μ * (k + 1) ≤ μ * 256 := Nat.mul_le_mul_left μ (by omega)
               have _h4 : μ * 256 = 8 * (32 * μ) := by ring

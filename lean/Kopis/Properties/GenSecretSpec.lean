@@ -1,7 +1,8 @@
 import Kopis.Properties.GenSecretLoops
 open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
-open Spec (𝔹 bytesToBits)
+open Spec (𝔹)
+open Spec.Kopis (bytesToBitsLe)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
 open Spec.Kopis (DOMSEP_GENSEC)
@@ -21,10 +22,10 @@ theorem gensec_idx_lt' {μ k j : Nat} (hk : k < 256) (hj : j < μ / 2) :
 /-- The spec's centered-binomial coefficient `k` for row `i`. -/
 noncomputable def gsCoeff (μ : ℕ) (seed : 𝔹 32) (k : ℕ) (hk : k < 256) (i : ℕ) : ZMod (2 ^ 13) :=
   ((∑ j : Fin (μ / 2),
-      ((bytesToBits (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + j.val]'(by
+      ((bytesToBitsLe (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + j.val]'(by
         have := gensec_idx_lt' hk j.isLt; omega)).toNat : ℕ) : ZMod (2 ^ 13))
     - ((∑ j : Fin (μ / 2),
-      ((bytesToBits (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + μ / 2 + j.val]'(
+      ((bytesToBitsLe (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + μ / 2 + j.val]'(
         gensec_idx_lt' hk j.isLt)).toNat : ℕ) : ZMod (2 ^ 13))
 
 /-- `(v.set i x)[j] = if j = i then x else v[j]` (both bounded). -/

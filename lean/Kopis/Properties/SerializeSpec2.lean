@@ -60,7 +60,7 @@ private theorem ofNat_div_mod_eq_testBit (x s : ℕ) : Bool.ofNat ((x / 2 ^ s) %
   rcases Nat.mod_two_eq_zero_or_one (x / 2 ^ s) with h | h <;> simp [h, Bool.ofNat]
 
 private theorem bitsToBytes_run {N : ℕ} (comp : Id (Vector Bool (8 * N))) :
-    Id.run (do let b ← comp; pure (Spec.bitsToBytes b)) = Spec.bitsToBytes (Id.run comp) := rfl
+    Id.run (do let b ← comp; pure (Spec.Kopis.bitsToBytesLe b)) = Spec.bitsToBytes (Id.run comp) := rfl
 
 /-- **The serialize bit-correspondence.**  Bit `j` of byte `p` of `serialize n r` is bit
 `(8p+j) mod n` of coefficient `(8p+j)/n`. -/

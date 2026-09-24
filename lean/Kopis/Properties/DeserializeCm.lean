@@ -21,7 +21,8 @@ import Kopis.Properties.SerializeTop
 
 open Aeneas Aeneas.Std Result
 open RustKopisSerial
-open Spec (𝔹 bytesToBits)
+open Spec (𝔹)
+open Spec.Kopis (bytesToBitsLe)
 open scoped BigOperators
 
 namespace Kopis.Properties
@@ -41,7 +42,7 @@ private theorem deser_idx_lt' {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 private theorem streamNat_eq_sum' (bytes : Slice U8) (n j : ℕ) (h : bytes.length = 32 * n)
     (hj : j < 256) :
     streamNat bytes (n * j) n
-      = ∑ k : Fin n, ((bytesToBits (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt' hj k.isLt)).toNat
+      = ∑ k : Fin n, ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt' hj k.isLt)).toNat
           * 2 ^ k.val := by
   unfold streamNat
   rw [← Fin.sum_univ_eq_sum_range (fun b => streamBit bytes (n * j + b) * 2 ^ b) n]

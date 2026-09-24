@@ -40,8 +40,8 @@ theorem pkStructBytes_eq_of_parts {L : Usize} (pk : pke.PkePublicKey L)
     (pkB : 𝔹 (Spec.Kopis.pkSize p))
     (h1 : 0 + 32 * 10 * L.val ≤ Spec.Kopis.pkSize p)
     (h2 : 32 * 10 * L.val + 32 ≤ Spec.Kopis.pkSize p)
-    (hvecbytes : vecBytesFlat pk = (Spec.slice pkB 0 (32 * 10 * L.val) h1).cast (by ring))
-    (hseed : matSeedBytes pk = Spec.slice pkB (32 * 10 * L.val) 32 h2) :
+    (hvecbytes : vecBytesFlat pk = (Spec.Kopis.slice pkB 0 (32 * 10 * L.val) h1).cast (by ring))
+    (hseed : matSeedBytes pk = Spec.Kopis.slice pkB (32 * 10 * L.val) 32 h2) :
     pkStructBytes pk p hℓ = pkB := by
   have hpk : Spec.Kopis.pkSize p = 320 * L.val + 32 := by
     simp only [Spec.Kopis.pkSize, hℓ]
@@ -65,13 +65,13 @@ theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 6
           (∃ V : Mat 2#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
                 = Spec.Kopis.PolyVector.deserialize 10
-                    (Spec.slice (sliceToBytes bytes 672 hlen) 0
+                    (Spec.Kopis.slice (sliceToBytes bytes 672 hlen) 0
                       (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by decide)) ∧
               UniformBounded V) ∧
           (∃ Amat : Mat 2#usize 2#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat
                 = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
-                    (Spec.slice (sliceToBytes bytes 672 hlen)
+                    (Spec.Kopis.slice (sliceToBytes bytes 672 hlen)
                       (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by decide)) ∧
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
@@ -133,13 +133,13 @@ theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 9
           (∃ V : Mat 3#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
                 = Spec.Kopis.PolyVector.deserialize 10
-                    (Spec.slice (sliceToBytes bytes 992 hlen) 0
+                    (Spec.Kopis.slice (sliceToBytes bytes 992 hlen) 0
                       (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by decide)) ∧
               UniformBounded V) ∧
           (∃ Amat : Mat 3#usize 3#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat
                 = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
-                    (Spec.slice (sliceToBytes bytes 992 hlen)
+                    (Spec.Kopis.slice (sliceToBytes bytes 992 hlen)
                       (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by decide)) ∧
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
@@ -201,13 +201,13 @@ theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 
           (∃ V : Mat 4#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
                 = Spec.Kopis.PolyVector.deserialize 10
-                    (Spec.slice (sliceToBytes bytes 1312 hlen) 0
+                    (Spec.Kopis.slice (sliceToBytes bytes 1312 hlen) 0
                       (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by decide)) ∧
               UniformBounded V) ∧
           (∃ Amat : Mat 4#usize 4#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat
                 = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
-                    (Spec.slice (sliceToBytes bytes 1312 hlen)
+                    (Spec.Kopis.slice (sliceToBytes bytes 1312 hlen)
                       (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by decide)) ∧
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk

@@ -22,13 +22,13 @@ Given a `PkePublicKey` whose serialized form is `pkStructBytes`, the encap/decap
 roundtrip (it holds for ANY public key); `hpkmat`/`hpkh` additionally need the key-gen
 facts that `mat_a = GenMat(matrix_seed)` and `hash = turboSHAKE256(pk)`. -/
 
-/-- `Spec.slice` in list form. -/
+/-- `Spec.Kopis.slice` in list form. -/
 theorem slice_toList {m : ℕ} (v : 𝔹 m) (off len : ℕ) (h : off + len ≤ m) :
-    (Spec.slice v off len h).toList = (v.toList.drop off).take len := by
+    (Spec.Kopis.slice v off len h).toList = (v.toList.drop off).take len := by
   apply List.ext_getElem
-  · simp only [Vector.toList_length, List.length_take, List.length_drop, Spec.slice]; omega
+  · simp only [Vector.toList_length, List.length_take, List.length_drop, Spec.Kopis.slice]; omega
   · intro k h1 h2
-    have hk : k < len := by simpa [Spec.slice] using h1
+    have hk : k < len := by simpa [Spec.Kopis.slice] using h1
     rw [Vector.getElem_toList, slice_getElem, List.getElem_take, List.getElem_drop,
       Vector.getElem_toList]
 
@@ -46,7 +46,7 @@ theorem vecBytesFlat_toList_length {L : Usize} (self : pke.PkePublicKey L) :
 theorem slice_pkStructBytes_left {L : Usize} (self : pke.PkePublicKey L)
     (p : Spec.Kopis.ParameterSet) (hℓ : Spec.Kopis.ℓ p = L.val)
     (h : 0 + 32 * 10 * Spec.Kopis.ℓ p ≤ Spec.Kopis.pkSize p) :
-    Spec.slice (pkStructBytes self p hℓ) 0 (32 * 10 * Spec.Kopis.ℓ p) h
+    Spec.Kopis.slice (pkStructBytes self p hℓ) 0 (32 * 10 * Spec.Kopis.ℓ p) h
       = (vecBytesFlat self).cast (by rw [hℓ]; ring) := by
   apply Vector.toList_inj.mp
   rw [Vector.toList_cast, slice_toList, pkStructBytes_toList, List.drop_zero,
@@ -58,7 +58,7 @@ theorem slice_pkStructBytes_left {L : Usize} (self : pke.PkePublicKey L)
 theorem slice_pkStructBytes_right {L : Usize} (self : pke.PkePublicKey L)
     (p : Spec.Kopis.ParameterSet) (hℓ : Spec.Kopis.ℓ p = L.val)
     (h : 32 * 10 * Spec.Kopis.ℓ p + 32 ≤ Spec.Kopis.pkSize p) :
-    Spec.slice (pkStructBytes self p hℓ) (32 * 10 * Spec.Kopis.ℓ p) 32 h
+    Spec.Kopis.slice (pkStructBytes self p hℓ) (32 * 10 * Spec.Kopis.ℓ p) 32 h
       = matSeedBytes self := by
   apply Vector.toList_inj.mp
   rw [slice_toList, pkStructBytes_toList,
@@ -80,7 +80,7 @@ theorem keygen_hpkvec {L : Usize} (self : pke.PkePublicKey L) (V : Mat L 1#usize
       = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) :
     toVecN 10 V
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice (pkStructBytes self p hℓ) 0 (32 * 10 * Spec.Kopis.ℓ p) h) := by
+          (Spec.Kopis.slice (pkStructBytes self p hℓ) 0 (32 * 10 * Spec.Kopis.ℓ p) h) := by
   rw [slice_pkStructBytes_left,
     deserialize_vec_toList_cast hℓ
       ((vecBytesFlat self).cast (by rw [hℓ]; ring))
@@ -96,7 +96,7 @@ theorem keygen_hpkmat {L : Usize} (self : pke.PkePublicKey L) (Amat : Mat L L)
       = Spec.Kopis.GenMat L.val (arrayToBytes self.matrix_seed)) :
     toMatrix13 Amat
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice (pkStructBytes self p hℓ) (32 * 10 * Spec.Kopis.ℓ p) 32 h) := by
+          (Spec.Kopis.slice (pkStructBytes self p hℓ) (32 * 10 * Spec.Kopis.ℓ p) 32 h) := by
   rw [slice_pkStructBytes_right, hmat, genMat_cast hℓ (matSeedBytes self)]
   congr 1
 

@@ -39,10 +39,10 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     (V : Mat L 1#usize) (Amat : Mat L L)
     (hpkvecfwd : pk.vec_ntt = nttFwdU V) (hpkmatfwd : pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
-      = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10 (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10 (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
-      = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p) (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p) (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat) :
     pke.encrypt_deterministic MU T pk msg coins out_buf
       ⦃ (r : Slice U8) => ∃ h : r.length = Spec.Kopis.ctSize p,
@@ -170,7 +170,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   have hbprime : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.CompressToR10 (Spec.Kopis.ℓ p)
       (Spec.Kopis.matVecMul
         (Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
         (Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins))) := by
     rw [hbcorr, compressR10_mvm_cast, hpkmat, genSecret_cast, hvecs, ← hμ]
   have hvsc : toVector13 vec_sprime
@@ -180,13 +180,13 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
       (Spec.Kopis.Polynomial.sub
         (Spec.Kopis.innerProduct
           (Spec.Kopis.PolyVector.deserialize 10
-            (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+            (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
           ((Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins)).coerce (2 ^ 10)))
         (((Spec.Kopis.deserialize 1 ((arrayToBytes msg).cast rfl)).coerce (2 ^ 10)).shiftLeft 9)) := by
     have hA : Spec.Kopis.innerProduct (toVecN 10 V) ((toVector13 vec_sprime).coerce (2 ^ 10))
         = Spec.Kopis.innerProduct
             (Spec.Kopis.PolyVector.deserialize 10
-              (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+              (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
             ((Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins)).coerce (2 ^ 10)) := by
       rw [hpkvec, hvsc, coerceVec_cast, innerProduct_cast]
     have hmeq : toPolyN 1 a1 = Spec.Kopis.deserialize 1 ((arrayToBytes msg).cast rfl) := by

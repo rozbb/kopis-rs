@@ -18,11 +18,11 @@ set_option maxRecDepth 4000
 theorem drop_toList_eq_slice_gen (off tot : ℕ) (A : 𝔹 (off + 32)) (B : 𝔹 tot)
     (h : off + 32 ≤ tot)
     (hkey : ∀ k, (hk : k < 32) → A[off + k]'(by omega) = B[off + k]'(by omega)) :
-    A.toList.drop off = (Spec.slice B off 32 h).toList := by
+    A.toList.drop off = (Spec.Kopis.slice B off 32 h).toList := by
   apply List.ext_getElem
-  · simp only [List.length_drop, Vector.toList_length, Spec.slice]; omega
+  · simp only [List.length_drop, Vector.toList_length, Spec.Kopis.slice]; omega
   · intro k h1 h2
-    have hk : k < 32 := by simpa [Spec.slice] using h2
+    have hk : k < 32 := by simpa [Spec.Kopis.slice] using h2
     rw [List.getElem_drop, Vector.getElem_toList, Vector.getElem_toList, slice_getElem]
     exact hkey k hk
 
@@ -31,7 +31,7 @@ theorem drop_toList_eq_slice_gen (off tot : ℕ) (A : 𝔹 (off + 32)) (B : 𝔹
 theorem turboSHAKE256_read_window_gen {n : ℕ} (msg : 𝔹 n) (D : Byte) (off tot : ℕ)
     (h : off + 32 ≤ tot) :
     (turboSHAKE256 msg D (off + 32)).toList.drop off
-      = (Spec.slice (turboSHAKE256 msg D tot) off 32 h).toList :=
+      = (Spec.Kopis.slice (turboSHAKE256 msg D tot) off 32 h).toList :=
   drop_toList_eq_slice_gen off tot (turboSHAKE256 msg D (off + 32)) (turboSHAKE256 msg D tot) h
     (fun k hk => turboSHAKE256_getElem_prefix msg D (off + 32) tot (off + k) (by omega) (by omega))
 
@@ -63,11 +63,11 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     (hpkmatfwd : kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
       = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
       = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.encap_deterministic MU T randomness kem_pk out_buf
@@ -97,13 +97,13 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
   set b := turboSHAKE256 (arrayToBytes randomness ‖ arrayToBytes kem_pk.hash_pke_pk)
       DOMSEP_FO 64 with hb
   -- k window
-  have hkbytes : s3.val.map (·.bv) = (Spec.slice b 0 32 (by omega)).toList := by
+  have hkbytes : s3.val.map (·.bv) = (Spec.Kopis.slice b 0 32 (by omega)).toList := by
     rw [xof1_post2, hrm0, xof_post2, hs2len]
     dsimp only
     simp only [domsep_fo_bv]
     rw [turboSHAKE256_two_array_concat, turboSHAKE256_read_window_gen _ _ 0 64 (by omega)]
   -- r window
-  have hrbytes : s5.val.map (·.bv) = (Spec.slice b 32 32 (by omega)).toList := by
+  have hrbytes : s5.val.map (·.bv) = (Spec.Kopis.slice b 32 32 (by omega)).toList := by
     rw [__post2, hrm1, hoff1, hs4len]
     dsimp only
     simp only [domsep_fo_bv]
@@ -116,9 +116,9 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     rw [s2_post2]; exact Array.from_slice_val _ s3 (by rw [← Slice.length, hs3len]; exact e32.symm)
   have hr1val : (to_slice_mut_back1 s5).val = s5.val := by
     rw [s4_post2]; exact Array.from_slice_val _ s5 (by rw [← Slice.length, hs5len]; exact e32.symm)
-  have hk1bytes : arrayToBytes (to_slice_mut_back s3) = Spec.slice b 0 32 (by omega) := by
+  have hk1bytes : arrayToBytes (to_slice_mut_back s3) = Spec.Kopis.slice b 0 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hk1val]; exact hkbytes
-  have hr1bytes : arrayToBytes (to_slice_mut_back1 s5) = Spec.slice b 32 32 (by omega) := by
+  have hr1bytes : arrayToBytes (to_slice_mut_back1 s5) = Spec.Kopis.slice b 32 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hr1val]; exact hrbytes
   -- run the PKE encryption on (msg = randomness, coins = r1)
   let* ⟨out_buf1, hlen1, hct1⟩ ← encrypt_deterministic_spec MU T kem_pk.pke_pk randomness

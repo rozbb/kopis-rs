@@ -13,18 +13,18 @@ set_option maxRecDepth 4000
 
 /-- `slice`'s coefficient is a shifted index of the underlying vector. -/
 theorem slice_getElem {m : ℕ} (v : 𝔹 m) (off len : ℕ) (h : off + len ≤ m) (k : ℕ) (hk : k < len) :
-    (Spec.slice v off len h)[k]'hk = v[off + k]'(by omega) := by
-  unfold Spec.slice; rw [Vector.getElem_ofFn]
+    (Spec.Kopis.slice v off len h)[k]'hk = v[off + k]'(by omega) := by
+  unfold Spec.Kopis.slice; rw [Vector.getElem_ofFn]
 
 /-- Abstract: dropping the first `off` bytes of a length-`off+32` vector `A` equals the
 `[off, off+32)` slice of a length-96 vector `B`, when they agree pointwise on that window. -/
 theorem drop_toList_eq_slice (off : ℕ) (A : 𝔹 (off + 32)) (B : 𝔹 96) (h : off + 32 ≤ 96)
     (hkey : ∀ k, (hk : k < 32) → A[off + k]'(by omega) = B[off + k]'(by omega)) :
-    A.toList.drop off = (Spec.slice B off 32 h).toList := by
+    A.toList.drop off = (Spec.Kopis.slice B off 32 h).toList := by
   apply List.ext_getElem
-  · simp only [List.length_drop, Vector.toList_length, Spec.slice]; omega
+  · simp only [List.length_drop, Vector.toList_length, Spec.Kopis.slice]; omega
   · intro k h1 h2
-    have hk : k < 32 := by simpa [Spec.slice] using h2
+    have hk : k < 32 := by simpa [Spec.Kopis.slice] using h2
     rw [List.getElem_drop]
     rw [Vector.getElem_toList, Vector.getElem_toList, slice_getElem]
     exact hkey k hk
@@ -34,7 +34,7 @@ theorem drop_toList_eq_slice (off : ℕ) (A : 𝔹 (off + 32)) (B : 𝔹 96) (h 
 theorem turboSHAKE256_read_window {n : ℕ} (msg : 𝔹 n) (D : Byte) (off : ℕ)
     (h : off + 32 ≤ 96) :
     (turboSHAKE256 msg D (off + 32)).toList.drop off
-      = (Spec.slice (turboSHAKE256 msg D 96) off 32 h).toList :=
+      = (Spec.Kopis.slice (turboSHAKE256 msg D 96) off 32 h).toList :=
   drop_toList_eq_slice off (turboSHAKE256 msg D (off + 32)) (turboSHAKE256 msg D 96) h
     (fun k hk => turboSHAKE256_getElem_prefix msg D (off + 32) 96 (off + k) (by omega) (by omega))
 
@@ -258,7 +258,7 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   have hoff2 : readerOffset xof2 = 64 := by rw [xof2_post3, hoff1, hs4len]
   -- the three seed windows equal the spec's slices of the length-96 squeeze
   have hs3bytes : s3.val.map (·.bv)
-      = (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = (Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 0 32 (by omega)).toList := by
     rw [xof1_post2, hrm0, xof_post2, hs2len]
     dsimp only
@@ -266,7 +266,7 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     simp only [domsep_kgexpand_bv, hi_bv]
     rw [turboSHAKE256_read_window _ _ 0 (by omega)]
   have hs5bytes : s5.val.map (·.bv)
-      = (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = (Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 32 32 (by omega)).toList := by
     rw [xof2_post2, hrm1, hoff1, hs4len]
     dsimp only
@@ -274,7 +274,7 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     simp only [domsep_kgexpand_bv, hi_bv]
     rw [turboSHAKE256_read_window _ _ 32 (by omega)]
   have hs7bytes : s7.val.map (·.bv)
-      = (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = (Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 64 32 (by omega)).toList := by
     rw [__post2, hrm2, hoff2, hs6len]
     dsimp only
@@ -294,15 +294,15 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     rw [s6_post2]; exact Array.from_slice_val _ s7 (by rw [← Slice.length, hs7len]; exact e32.symm)
   -- seed byte-vectors equal the spec's slices of the length-96 squeeze
   have hmatseed : arrayToBytes (to_slice_mut_back s3)
-      = Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 0 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hms3]; exact hs3bytes
   have hsecseed : arrayToBytes (to_slice_mut_back1 s5)
-      = Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 32 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hms5]; exact hs5bytes
   have hzseed : arrayToBytes (to_slice_mut_back2 s7)
-      = Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 64 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hms7]; exact hs7bytes
   -- run the algebraic pipeline
@@ -354,7 +354,7 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
     rwa [if_pos (by scalar_tac)] at h
   -- matrix seed bytes correspond to the spec's `mat_seed`
   have hmsb : matSeedBytes ({ matrix_seed := to_slice_mut_back s3, mat_a_ntt := mat_a_ntt, vec_bytes := vec_bytes1, vec_ntt := vec_ntt } : pke.PkePublicKey L)
-      = Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+      = Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
           DOMSEP_KGEXPAND 96) 0 32 (by omega) := by
     apply Vector.toList_inj.mp
     unfold matSeedBytes
@@ -372,10 +372,10 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   -- the rounded vector, transported to the spec's `ℓ p` index, is the spec's `vec_b`
   have hvecbcast : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.CompressToR10 (Spec.Kopis.ℓ p)
       (Spec.Kopis.matVecMul (Matrix.transpose (Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+          (Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
             DOMSEP_KGEXPAND 96) 0 32 (by omega))))
         (Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p)
-          (Spec.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
+          (Spec.Kopis.slice (turboSHAKE256 (skBytes sk ‖ #v[((Spec.Kopis.ℓ p : ℕ) : Byte)])
             DOMSEP_KGEXPAND 96) 32 32 (by omega)))) := by
     rw [hvecb, hmata, hmatseed, hvecs, hsecseed, compressExpr_cast hℓ, hμ]
   simp only [Spec.Kopis.ExpandSecretKey]

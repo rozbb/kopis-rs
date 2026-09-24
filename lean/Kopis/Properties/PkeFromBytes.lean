@@ -157,17 +157,17 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
           (∃ V : Mat L 1#usize, pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
                 = Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
-                    (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
+                    (Spec.Kopis.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
                       (32 * 10 * L.val) (by omega)) ∧
               UniformBounded V) ∧
           matSeedBytes pk
-            = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
+            = Spec.Kopis.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
                 (32 * 10 * L.val) 32 (by omega) ∧
           (∃ Amat : Mat L L, pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes pk.matrix_seed) ∧
               UniformBounded Amat) ∧
           vecBytesFlat pk
-            = (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
+            = (Spec.Kopis.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
                 (32 * 10 * L.val) (by omega)).cast (by ring) ⦄ := by
   have hmax : 320 * L.val + 32 ≤ Usize.max := by
     rw [← hlen]; exact bytes.property
@@ -227,20 +227,20 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
   -- the matrix seed is the [32·10·ℓ, +32) window of the input
   have hseedbytes : matSeedBytes (L := L)
         ⟨matrix_seed, mat_a_ntt, vec_ntt, vec_bytes1⟩
-      = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
+      = Spec.Kopis.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
           (32 * 10 * L.val) 32 (by omega) := by
     rw [matSeed_eq_sliceToBytes _ seed hseedlen (by show matrix_seed.val = _; exact hms_val)]
     exact sliceToBytes_drop_eq_slice bytes seed (320 * L.val + 32) (32 * 10 * L.val) 32
       hlen (by ring) hseeddrop hseedlen
   -- the vector encoding is the [0, 32·10·ℓ) window of the input
   have hvbtake : sliceToBytes vec_slice (32 * 10 * L.val) hvslen'
-      = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
+      = Spec.Kopis.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
           (32 * 10 * L.val) (by omega) :=
     sliceToBytes_take_eq_slice bytes vec_slice (320 * L.val + 32) (32 * 10 * L.val)
       hlen (by omega) hvsdrop hvslen'
   have hab : ((sliceToBytes vec_slice (L.val * (32 * 10)) hvslen).cast (by ring)
         : 𝔹 (32 * 10 * L.val)).toList
-      = (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
+      = (Spec.Kopis.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
           (32 * 10 * L.val) (by omega)).toList := by
     rw [Vector.toList_cast, sliceToBytes_toList, ← hvbtake, sliceToBytes_toList]
   have hbyteslen : bytes.val.length = 320 * L.val + 32 := by rw [Slice.length] at hlen; exact hlen

@@ -353,7 +353,7 @@ def GenSecret (ℓ μ : ℕ) (seed : 𝔹 32) : PolyVector (2 ^ 13) ℓ := Id.ru
   let mut s := PolyVector.zero (2 ^ 13) ℓ
   for hi : i in [0:ℓ] do
     let buf := turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)
-    let bits := bytesToBits buf
+    let bits := bytesToBitsLe buf
     let mut r := Polynomial.zero (2 ^ 13)
     for hk : k in [0:256] do
       -- vals[2k]   = bits[k·μ       .. k·μ + μ/2)

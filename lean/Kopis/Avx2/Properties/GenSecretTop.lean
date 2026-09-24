@@ -6,7 +6,8 @@ import Kopis.Avx2.Properties.GenSecretSpec
 import Kopis.Avx2.SecretBridge
 open Aeneas Aeneas.Std Result RustKopisAvx2
 open scoped BigOperators
-open Spec (𝔹 bytesToBits)
+open Spec (𝔹)
+open Spec.Kopis (bytesToBitsLe)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
 open Spec.Kopis (DOMSEP_GENSEC)
