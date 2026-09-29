@@ -86,10 +86,12 @@ Read [`lean/README.md`](lean/README.md) for more info on what is proved, what is
 
 To ensure that we don't accidentally introduce timing side channels in the code, we perform two checks in `ct-check.sh`:
 
-1. Run valgrind with memory tainting to see if any functions branch on secrets. This is done in `ct-check/src/main.rs`.
+1. Run Valgrind with memory tainting to see if any functions branch on secrets. This is done in `ct-check/src/main.rs`.
 2. Compile the library and search the resulting binary for non-constant-time instructions. The list of non-constant-time instructions is in `ct-check/scan-instrs.py` (we make no guarantees for Cortex M3 and below). The list of known false positives is in `ct-check/instr-allowlist.txt`.
 
-Note that macOS does not have a valgrind implementation we can use, so we cannot run this on Macs.
+Unlike ML-KEM, Kopis algorithms are constant time in _all_ inputs, not just the secret ones. So, in taint testing, when we test public key `from_bytes`, we taint the bytes. Similarly, we taint the randomness and public key bytes for `encapsulate`, and the secret key and ciphertext bytes in `deacpsulate`.
+
+macOS has no Valgrind implementation we can use. So on a Mac, only check 2 runs (`./ct-check.sh --scan-only`).
 
 # License
 

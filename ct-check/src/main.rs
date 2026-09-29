@@ -21,22 +21,17 @@ fn fill(byte: u8) -> [u8; 32] {
     out
 }
 
-/// Generates the three checks for one Kopis variant.
+/// Generates the checks for one Kopis variant.
 ///
 /// Each variant is a distinct set of monomorphised functions — different `L`, `MU` and `T` mean
-/// different NTT and serialisation code paths — so all three have to be exercised separately.
+/// different NTT and serialisation code paths — so every one has to be exercised separately.
 macro_rules! variant_checks {
-    ($modname:ident, $sk:ident, $ct_len:ident) => {
+    ($modname:ident, $sk:ident, $pk:ident, $ct_len:ident, $pk_len:ident) => {
         mod $modname {
             use super::{black_box, classify, declassify, fill};
-            use kopis::$modname::{$ct_len, $sk};
+            use kopis::$modname::{$ct_len, $pk, $pk_len, $sk};
 
-            /// Key generation from a **secret** 32-byte seed.
-            ///
-            /// Nothing is expected to be reported, which is not a given for a lattice KEM: a
-            /// scheme that rejection-samples its public matrix would branch on values derived
-            /// from a seed this check has tagged, and would need those reports allowlisted.
-            /// Kopis deserialises 13-bit coefficients instead, so there is nothing to allowlist.
+            /// Key generation from a **secret** 32-byte seed. Checks constant-timeness wrt `seed`
             pub fn keygen() -> Vec<u8> {
                 let mut out = Vec::new();
                 for v in [0x11u8, 0xa7, 0xfe] {
@@ -53,10 +48,8 @@ macro_rules! variant_checks {
                 out
             }
 
-            /// Encapsulation against a public key, with **secret** encapsulation randomness.
-            ///
-            /// The public key is untagged: the caller of a KEM encapsulation knows it. Only the
-            /// randomness — and therefore the shared secret — is secret here.
+            /// Encapsulation against an already-expanded public key. Must be constant-time wrt the
+            /// encapsulation randomness.
             pub fn encap() -> Vec<u8> {
                 let mut out = Vec::new();
                 for (ks, rs) in [(0x11u8, 0x22u8), (0x00, 0xff), (0x5c, 0x01)] {
@@ -77,21 +70,46 @@ macro_rules! variant_checks {
                 out
             }
 
-            /// Decapsulation with a **secret** key and a public, attacker-chosen ciphertext.
-            ///
-            /// This is the check that matters most: it is the oracle a chosen-ciphertext attacker
-            /// actually gets to query. The ciphertext stays public because the attacker picks it.
-            ///
-            /// Three shapes of ciphertext are driven through, because the implicit-rejection path
-            /// is only meaningful if both outcomes of the re-encryption comparison are covered,
-            /// and a single mismatching bit is the case most likely to expose an early-exit
-            /// comparison:
-            ///   * a well-formed ciphertext, which re-encrypts to itself;
-            ///   * one with a single bit flipped, which does not;
-            ///   * an entirely unstructured one.
+            /// Deserialize a public key, then encapsulate to it. Must be constant-time wrt the
+            /// public key bytes (not true in ML-KEM) and the encapsulation randomness.
+            pub fn import_encap() -> Vec<u8> {
+                let mut out = Vec::new();
+                for (ps, rs) in [(0x3du8, 0x22u8), (0x00, 0xff), (0xff, 0x5c)] {
+                    let mut pk_bytes = [0u8; $pk_len];
+                    for (i, b) in pk_bytes.iter_mut().enumerate() {
+                        *b = (i as u8).wrapping_mul(ps).wrapping_add(ps);
+                    }
+                    classify(&mut pk_bytes);
+
+                    let pk = $pk::from_bytes(&pk_bytes);
+
+                    let mut randomness = fill(rs);
+                    classify(&mut randomness);
+
+                    let (ct, ss) = pk.encapsulate_deterministic(&randomness);
+
+                    // `pk` is declassified along with its source bytes: the expanded key holds
+                    // the tags too, and leaving them on stack memory that later checks reuse
+                    // would blur whose tag a report belongs to.
+                    declassify(&pk);
+                    declassify(&pk_bytes);
+                    declassify(&randomness);
+                    declassify(&ct);
+                    declassify(ss.as_bytes());
+                    out.extend_from_slice(&ct);
+                    out.extend_from_slice(ss.as_bytes());
+                }
+                out
+            }
+
+            /// Decapsulate an attacker-chosen ciphertext. Must be constant-time in the
+            /// ciphertext and the decapsulation key.
             pub fn decap() -> Vec<u8> {
                 let mut out = Vec::new();
                 for (ks, rs) in [(0x11u8, 0x22u8), (0x93, 0x4d)] {
+                    // Test wrt a correct ciphertext, a bit-flipped ciphertext, and a random
+                    // ciphertext
+
                     let mut sk = $sk::from_seed(&fill(ks));
                     let (valid_ct, expected) = sk.public_key().encapsulate_deterministic(&fill(rs));
 
@@ -103,17 +121,17 @@ macro_rules! variant_checks {
                         *b = (i as u8).wrapping_mul(31).wrapping_add(ks);
                     }
 
-                    for (ct, should_agree) in
+                    for (mut ct, should_agree) in
                         [(valid_ct, true), (one_bit_off, false), (garbage, false)]
                     {
-                        // The whole expanded key is tagged, seed and PKE secret alike. That is
-                        // stricter than necessary — the cached public matrix lives in here too —
-                        // but a stricter tag can only add reports, never hide one.
+                        // Impl must be constant-time in both sk and ct
                         classify(&mut sk);
+                        classify(&mut ct);
 
                         let ss = sk.decapsulate(black_box(&ct));
 
                         declassify(&sk);
+                        declassify(&ct);
                         declassify(ss.as_bytes());
 
                         // Both sides are declassified, so comparing them is not itself a leak.
@@ -136,18 +154,29 @@ macro_rules! variant_checks {
     };
 }
 
-variant_checks!(kopis512, Kopis512SecretKey, KOPIS512_CIPHERTEXT_LEN);
-variant_checks!(kopis768, Kopis768SecretKey, KOPIS768_CIPHERTEXT_LEN);
-variant_checks!(kopis1024, Kopis1024SecretKey, KOPIS1024_CIPHERTEXT_LEN);
+variant_checks!(
+    kopis512,
+    Kopis512SecretKey,
+    Kopis512PublicKey,
+    KOPIS512_CIPHERTEXT_LEN,
+    KOPIS512_PUBKEY_LEN
+);
+variant_checks!(
+    kopis768,
+    Kopis768SecretKey,
+    Kopis768PublicKey,
+    KOPIS768_CIPHERTEXT_LEN,
+    KOPIS768_PUBKEY_LEN
+);
+variant_checks!(
+    kopis1024,
+    Kopis1024SecretKey,
+    Kopis1024PublicKey,
+    KOPIS1024_CIPHERTEXT_LEN,
+    KOPIS1024_PUBKEY_LEN
+);
 
-/// Negative control: code that is *supposed* to be reported.
-///
-/// A silently broken shim — headers from a different Valgrind, a `classify` that got inlined into
-/// nothing, a run that never actually reached Valgrind — would make every other check pass for
-/// the wrong reason. So `ct-check.sh --selftest` runs this and fails if Memcheck stays quiet.
-///
-/// Both classic leak shapes are here, since they are reported differently: a branch whose
-/// direction depends on a secret, and a table index that does.
+/// Should-panic test. Make a data-dependent for loop bound and see if Valgrind catches it
 fn selftest() -> u8 {
     let mut secret = [0u8; 32];
     secret[0] = 7;
@@ -178,13 +207,6 @@ fn selftest() -> u8 {
 }
 
 /// One runnable check: parameter set, operation name, and the body.
-///
-/// A check hands back the key material and shared secrets it produced. `main` sinks that through
-/// `black_box` so the operation under test cannot be optimised away as an unused computation.
-///
-/// Every check in the table runs on every invocation. There is no way to ask for a subset: a
-/// partial run is a weaker claim that looks identical to a full one in the output, and narrowing
-/// saves a couple of minutes at most.
 struct Check {
     variant: &'static str,
     op: &'static str,
@@ -200,12 +222,15 @@ const fn check(variant: &'static str, op: &'static str, run: fn() -> Vec<u8>) ->
 const CHECKS: &[Check] = &[
     check("kopis512", "keygen", kopis512::keygen),
     check("kopis512", "encap", kopis512::encap),
+    check("kopis512", "import_encap", kopis512::import_encap),
     check("kopis512", "decap", kopis512::decap),
     check("kopis768", "keygen", kopis768::keygen),
     check("kopis768", "encap", kopis768::encap),
+    check("kopis768", "import_encap", kopis768::import_encap),
     check("kopis768", "decap", kopis768::decap),
     check("kopis1024", "keygen", kopis1024::keygen),
     check("kopis1024", "encap", kopis1024::encap),
+    check("kopis1024", "import_encap", kopis1024::import_encap),
     check("kopis1024", "decap", kopis1024::decap),
 ];
 
@@ -243,8 +268,9 @@ fn main() -> ExitCode {
     }
 
     if selftest_only {
-        println!("running selftest (Valgrind is expected to report two errors here)");
+        println!("running selftest (Valgrind is expected to report errors here)");
         black_box(selftest());
+        black_box(selftest_public_key());
         return ExitCode::SUCCESS;
     }
 
