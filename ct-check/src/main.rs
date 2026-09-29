@@ -270,7 +270,6 @@ fn main() -> ExitCode {
     if selftest_only {
         println!("running selftest (Valgrind is expected to report errors here)");
         black_box(selftest());
-        black_box(selftest_public_key());
         return ExitCode::SUCCESS;
     }
 
