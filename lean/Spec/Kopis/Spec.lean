@@ -400,10 +400,6 @@ fn DecodeMsg(r: R10) -> R1:
   let h2 = make_r10([2^8 - 2^(10-t-1) + 4; 256])
   let s = (r + h2) >> 9
   return (s as R1)
-def DecodeMsg (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ 1) :=
-  let c : ZMod (2 ^ 10) := ((2 ^ 8 - 2 ^ (10 - t - 1) + 4 : ℕ) : ZMod (2 ^ 10))
-  let h := Polynomial.const (2 ^ 10) c
-  ((r + h).shiftRight 9).coerce (2 ^ 1)
 ```
 -/
 def DecodeMsg (t : ℕ) (r : Polynomial (2 ^ 10)) : Polynomial (2 ^ 1) :=

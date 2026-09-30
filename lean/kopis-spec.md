@@ -14,7 +14,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 ## Syntax
 
-We use pseudocode resembling a mix of Rust and Python. Variables declared with `let mut` are mutable. Function definitions are preceded with `fn`, each function input name is followed by a colon, then the type signature, and each function  is followed by an arrow `->` then the return type. Ranges are denoted `a..b`, and indicate the range `[a, b)` (i.e., including `a`, excluding `b`). When `s` is a sequence type (e.g., a bitstring or bytestring), `s[a..b]` is used to denote the subsequence starting at index `a` (0-indexed), and ending at and excluding index `b`. We use underscores in the LHS of assignments to denote the elision of a value that is normally bound, e.g., `let (a, _) = f()` where `f()` returns two values. We use ellipses to denote the elision of multiple values, e.g., `let (a, ...) = f()`, where `f()` returns three values. We use infix `||` to denote concatenation of bytestrings. We use infix `^` to denote integer exponentiation when the inputs are expressions. We write `[uK; N]` to mean an array of `N` many `K`-bit integers. Subtraction over `uK` is always defined as wrapping subtraction, e.g., `0u8 - 1u8 = 255u8`.
+We use pseudocode resembling a mix of Rust and Python. Variables declared with `let mut` are mutable. Function definitions are preceded with `fn`, each function input name is followed by a colon, then the type signature, and each function is followed by an arrow `->` then the return type. Ranges are denoted `a..b`, and indicate the range `[a, b)` (i.e., including `a`, excluding `b`). When `s` is a sequence type (e.g., a bitstring or bytestring), `s[a..b]` is used to denote the subsequence starting at index `a` (0-indexed), and ending at and excluding index `b`. We use underscores in the LHS of assignments to denote the elision of a value that is normally bound, e.g., `let (a, _) = f()` where `f()` returns two values. We use ellipses to denote the elision of multiple values, e.g., `let (a, ...) = f()`, where `f()` returns three values. We use infix `||` to denote concatenation of bytestrings. We use infix `^` to denote integer exponentiation when the inputs are expressions. We write `[uK; N]` to mean an array of `N` many `K`-bit integers. Subtraction over `uK` is always defined as wrapping subtraction, e.g., `0u8 - 1u8 = 255u8`.
 
 ## Mathematical Definitions
 
@@ -59,7 +59,7 @@ The following variables represent security parameters, and depend on the securit
 
 ## Constants
 
-We define the constants used in our implementation. The size in bytes of our secret keys, public keys, and ciphertexts are functions of the parameters above:
+We define the constants used in our implementation. The sizes in bytes of our secret keys, public keys, and ciphertexts are functions of the parameters above:
 
 * `SK_SIZE = 32`
 * `PK_SIZE = 256*ℓ*10/8 + 32`
@@ -265,7 +265,7 @@ fn hamming(b: [bool; μ/2]) -> u13:
 
 # Parameter Sets
 
-We define three security levels for Kopis: Kopis-512, Kopis-768, and Kopis-1024, referring to dimension of the public key vector over `ℤ/2¹⁰ℤ`:
+We define three security levels for Kopis: Kopis-512, Kopis-768, and Kopis-1024, referring to the dimension of the public key vector over `ℤ/2¹⁰ℤ`:
 
 |Name       | Parameters     | `PK_SIZE` | `CT_SIZE` | `SK_SIZE` |
 |---------- |----------------|-----------|-----------|-----------|
