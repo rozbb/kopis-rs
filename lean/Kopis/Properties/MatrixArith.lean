@@ -6,7 +6,7 @@
   `RingElem`s of a row) that applies the corresponding `RingElem` primitive
   (proved in `RingArith.lean`).  Stated entrywise at the physical `2¹⁶`
   abstraction (`toRingElem`), matching `RingArith`; the logical `2¹³`/`2¹⁰`
-  moduli are recovered at composition time via `Polynomial.coerce`.
+  moduli are recovered at composition time via `Poly.coerce`.
 
   The inner loop returns `(iter, back)` unapplied; the outer computes `p.2 p.1`,
   which equals what a directly-applied 1-D loop returns — so the inner spec is a
@@ -41,7 +41,7 @@ theorem shift_right_loop0_loop0_spec
       (_him : im.slice.length = orig_slice.length)
       (j : Nat) (_hj : j < iter.i),
         toRingElem ((back im).slice.val[j]!)
-          = Spec.Kopis.Polynomial.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val)
+          = Spec.Kopis.Poly.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val)
     (hback_rest : ∀ (im : core.slice.iter.IterMut RingElem)
       (_him : im.slice.length = orig_slice.length)
       (j : Nat) (_hj_ge : iter.i ≤ j) (_hj_lt : j < orig_slice.length),
@@ -52,7 +52,7 @@ theorem shift_right_loop0_loop0_spec
           (p.2 p.1).slice.length = orig_slice.length ∧
             ∀ (j : Nat) (_hj : j < orig_slice.length),
               toRingElem ((p.2 p.1).slice.val[j]!)
-                = Spec.Kopis.Polynomial.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val ⦄ := by
+                = Spec.Kopis.Poly.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val ⦄ := by
   unfold arithmetic.plain_arith.Matrix.shift_right_loop0_loop0
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
@@ -88,7 +88,7 @@ theorem shift_right_loop0_loop0_spec
         have helem : iter.slice[iter.i] = orig_slice.val[iter.i]! := by
           rw [getElem!_pos orig_slice.val iter.i hb]
           exact List.getElem_of_eq hvaleq _
-        exact congrArg (fun x => Spec.Kopis.Polynomial.shiftRight (toRingElem x) shift.val) helem
+        exact congrArg (fun x => Spec.Kopis.Poly.shiftRight (toRingElem x) shift.val) helem
       · have hjlt : j < iter.i := by omega
         exact hback_writes (next_back im (some elem1)) him_set j hjlt
     case rest =>
@@ -113,7 +113,7 @@ theorem shift_right_loop0_loop0_spec
     show (back (next_back iter1 none)).slice.length = orig_slice.length ∧
         ∀ (j : Nat), j < orig_slice.length →
           toRingElem ((back (next_back iter1 none)).slice.val[j]!)
-            = Spec.Kopis.Polynomial.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val
+            = Spec.Kopis.Poly.shiftRight (toRingElem (orig_slice.val[j]!)) shift.val
     refine ⟨by rw [hbi]; exact hback_len iter (by rw [h_slice]), ?_⟩
     intro j hj
     rw [hbi]
@@ -137,7 +137,7 @@ theorem shift_right_loop0_spec {Y : Usize}
       (_him : im.slice.length = orig_slice.length)
       (i : Nat) (_hi : i < iter.i) (j : Nat) (_hj : j < Y.val),
         toRingElem (((back im).slice.val[i]!).val[j]!)
-          = Spec.Kopis.Polynomial.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val)
+          = Spec.Kopis.Poly.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val)
     (hback_rest : ∀ (im : core.slice.iter.IterMut (Array arithmetic.plain_arith.RingElem Y))
       (_him : im.slice.length = orig_slice.length)
       (i : Nat) (_hi_ge : iter.i ≤ i) (_hi_lt : i < orig_slice.length),
@@ -147,7 +147,7 @@ theorem shift_right_loop0_spec {Y : Usize}
           r.slice.length = orig_slice.length ∧
             ∀ (i : Nat) (_hi : i < orig_slice.length) (j : Nat) (_hj : j < Y.val),
               toRingElem (((r.slice.val[i]!).val[j]!))
-                = Spec.Kopis.Polynomial.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val ⦄ := by
+                = Spec.Kopis.Poly.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val ⦄ := by
   unfold arithmetic.plain_arith.Matrix.shift_right_loop0
   by_cases hlt : iter.i < iter.slice.len
   · let* ⟨ o, iter1, next_back, h_all ⟩ ← iter_mut_next_spec
@@ -230,7 +230,7 @@ theorem shift_right_loop0_spec {Y : Usize}
     show (back (next_back iter1 none)).slice.length = orig_slice.length ∧
         ∀ (i : Nat), i < orig_slice.length → ∀ (j : Nat), j < Y.val →
           toRingElem (((back (next_back iter1 none)).slice.val[i]!).val[j]!)
-            = Spec.Kopis.Polynomial.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val
+            = Spec.Kopis.Poly.shiftRight (toRingElem ((orig_slice.val[i]!).val[j]!)) shift.val
     have hbi : next_back iter1 none = iter := (hsome_back iter1 none).trans hit2_eq
     refine ⟨by rw [hbi]; exact hback_len iter (by rw [h_slice]), ?_⟩
     intro i hi j hj
@@ -247,7 +247,7 @@ theorem matrix_shift_right_spec {X Y : Usize}
       ⦃ (r : arithmetic.plain_arith.Matrix X Y) =>
           ∀ (i : Nat) (_hi : i < X.val) (j : Nat) (_hj : j < Y.val),
             toRingElem ((r.val[i]!).val[j]!)
-              = Spec.Kopis.Polynomial.shiftRight (toRingElem ((self.val[i]!).val[j]!)) shift.val ⦄ := by
+              = Spec.Kopis.Poly.shiftRight (toRingElem ((self.val[i]!).val[j]!)) shift.val ⦄ := by
   unfold arithmetic.plain_arith.Matrix.shift_right
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
@@ -274,8 +274,8 @@ every entry.  Same nested `IterMut` skeleton as `shift_right`; per-`RingElem`
 body is `RingElem.wrapping_add_to_all`. -/
 
 /-- Abbreviation: add the constant `val` to a physical-`2¹⁶` polynomial. -/
-def addC (val : U16) (x : Spec.Kopis.Polynomial (2 ^ 16)) : Spec.Kopis.Polynomial (2 ^ 16) :=
-  Spec.Kopis.Polynomial.add x (Spec.Kopis.Polynomial.const (2 ^ 16) ((val.val : ZMod (2 ^ 16))))
+def addC (val : U16) (x : Spec.Kopis.Poly (2 ^ 16)) : Spec.Kopis.Poly (2 ^ 16) :=
+  Spec.Kopis.Poly.add x (Spec.Kopis.Poly.const (2 ^ 16) ((val.val : ZMod (2 ^ 16))))
 
 /-- Inner loop of `Matrix.wrapping_add_to_all`. -/
 theorem wrapping_add_to_all_loop0_loop0_spec

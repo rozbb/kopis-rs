@@ -13,7 +13,7 @@ set_option maxRecDepth 4000
 
 /-- Interpret a Rust `RingElem` (`Array U16 256`) as a spec `n`-bit ring element:
 each physical `u16` coefficient reduced mod `2ⁿ`. -/
-def toPolyN (n : ℕ) (re : RingElem) : Spec.Kopis.Polynomial (2 ^ n) :=
+def toPolyN (n : ℕ) (re : RingElem) : Spec.Kopis.Poly (2 ^ n) :=
   Vector.ofFn fun (i : Fin 256) => ((re.val[i.val]'(by have := re.property; grind)).val : ZMod (2 ^ n))
 
 theorem toPolyN_val (n : ℕ) (re : RingElem) (i : ℕ) (hi : i < 256) :
@@ -39,7 +39,7 @@ theorem serialize_conclusion (re : RingElem) (n : ℕ) (hrng : 1 ≤ n ∧ n ≤
     (hrlen : r.val.length = 32 * n)
     (hbv : byteVal r (32 * n) = packedVal (Array.to_slice re) n 256) :
     ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h
-      = Spec.Kopis.serialize n (toPolyN n re) := by
+      = Spec.Kopis.serialize_elem n (toPolyN n re) := by
   have hrlen' : r.length = 32 * n := by rw [Slice.length]; exact hrlen
   refine ⟨hrlen', ?_⟩
   apply Vector.ext
@@ -54,11 +54,11 @@ theorem serialize_conclusion (re : RingElem) (n : ℕ) (hrng : 1 ≤ n ∧ n ≤
     ← serialize_byteVal n (toPolyN n re) p hp' (by omega)]
 
 /-- **`RingElem.serialize` correctness.**  Serializing a `RingElem` with `n`-bit
-coefficients produces the spec `serialize n (toPolyN n re)`. -/
+coefficients produces the spec `serialize_elem n (toPolyN n re)`. -/
 theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n : ℕ)
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hlen : out.val.length = 32 * n) :
     RingElem.serialize bits re out
-      ⦃ (r : Slice U8) => ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h = Spec.Kopis.serialize n (toPolyN n re) ⦄ := by
+      ⦃ (r : Slice U8) => ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h = Spec.Kopis.serialize_elem n (toPolyN n re) ⦄ := by
   unfold RingElem.serialize
   simp only [consts.RING_DEG]
   -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`

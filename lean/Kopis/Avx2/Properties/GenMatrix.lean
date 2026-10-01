@@ -19,7 +19,7 @@
 -/
 import Kopis.Bits.Stream
 import ExtractedRustAvx2
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 import Kopis.Avx2.Properties.Serialize
 import Kopis.Avx2.SampleBridge
 
@@ -198,7 +198,7 @@ def toMatrix13 {L : Usize} (mat : arithmetic.plain_arith.Matrix L L) :
 
 /-- Entry formula for `PolyMatrix.update`. -/
 theorem polyMatrix_update_entry {m ℓ : ℕ} (M : Spec.Kopis.PolyMatrix m ℓ) (i j : ℕ)
-    (val : Spec.Kopis.Polynomial m) (hi : i < ℓ) (hj : j < ℓ) (i₀ j₀ : Fin ℓ) :
+    (val : Spec.Kopis.Poly m) (hi : i < ℓ) (hj : j < ℓ) (i₀ j₀ : Fin ℓ) :
     (M.update i j val hi hj) i₀ j₀ = if i₀.val = i ∧ j₀.val = j then val else M i₀ j₀ := by
   unfold Spec.Kopis.PolyMatrix.update
   rw [Matrix.updateRow_apply]
@@ -244,40 +244,40 @@ theorem turboSHAKE_u8concat (seed : Array U8 32#usize) (ci cj : U8) (outLen : �
 /-- Spec-side: evaluate `GenMat`'s nested `Id.run` loop at entry `(i₀, j₀)`. -/
 theorem GenMat_get (ℓ : ℕ) (seed : 𝔹 32) (i₀ j₀ : Fin ℓ) :
     Spec.Kopis.GenMat ℓ seed i₀ j₀
-      = Spec.Kopis.deserialize 13
+      = Spec.Kopis.deserialize_elem 13
           (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
             Spec.Kopis.DOMSEP_GENMAT (32 * 13)) := by
   unfold Spec.Kopis.GenMat
   simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
     Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one, bind_pure]
-  rw [show Spec.Kopis.deserialize 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
+  rw [show Spec.Kopis.deserialize_elem 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
         Spec.Kopis.DOMSEP_GENMAT (32 * 13))
-      = (if i₀.val < ℓ then Spec.Kopis.deserialize 13
+      = (if i₀.val < ℓ then Spec.Kopis.deserialize_elem 13
           (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
             Spec.Kopis.DOMSEP_GENMAT (32 * 13))
-        else Spec.Kopis.Polynomial.zero (2 ^ 13)) from (if_pos i₀.isLt).symm]
+        else Spec.Kopis.Poly.zero (2 ^ 13)) from (if_pos i₀.isLt).symm]
   refine forIn'_inv' (List.range' 0 ℓ) _ _
     (fun s (A : Spec.Kopis.PolyMatrix (2 ^ 13) ℓ) => A i₀ j₀
-      = if i₀.val < s then Spec.Kopis.deserialize 13
+      = if i₀.val < s then Spec.Kopis.deserialize_elem 13
           (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
             Spec.Kopis.DOMSEP_GENMAT (32 * 13))
-        else Spec.Kopis.Polynomial.zero (2 ^ 13)) ℓ (by simp) ?hInit ?hStep
+        else Spec.Kopis.Poly.zero (2 ^ 13)) ℓ (by simp) ?hInit ?hStep
   case hInit => simp [Spec.Kopis.PolyMatrix.zero]
   case hStep =>
     intro k hk b hb a ha ha_eq
     have ha_val : a = k := by rw [ha_eq]; simp [List.getElem_range']
     subst ha_val
     refine ⟨_, rfl, ?_⟩
-    rw [show (if i₀.val < a + 1 then Spec.Kopis.deserialize 13
+    rw [show (if i₀.val < a + 1 then Spec.Kopis.deserialize_elem 13
             (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
-              Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else Spec.Kopis.Polynomial.zero (2 ^ 13))
-          = (if a = i₀.val ∧ j₀.val < ℓ then Spec.Kopis.deserialize 13
+              Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else Spec.Kopis.Poly.zero (2 ^ 13))
+          = (if a = i₀.val ∧ j₀.val < ℓ then Spec.Kopis.deserialize_elem 13
               (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
                 Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else b i₀ j₀) from ?_]
     · -- inner loop
       refine forIn'_inv' (List.range' 0 ℓ) b _
         (fun s (A : Spec.Kopis.PolyMatrix (2 ^ 13) ℓ) => A i₀ j₀
-          = if a = i₀.val ∧ j₀.val < s then Spec.Kopis.deserialize 13
+          = if a = i₀.val ∧ j₀.val < s then Spec.Kopis.deserialize_elem 13
               (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
                 Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else b i₀ j₀) ℓ (by simp) ?hInitIn ?hStepIn
       case hInitIn => simp
@@ -300,7 +300,7 @@ theorem GenMat_get (ℓ : ℕ) (seed : 𝔹 32) (i₀ j₀ : Fin ℓ) :
     · -- the if-shape equality
       rw [hb]
       simp only [j₀.isLt, and_true]
-      generalize Spec.Kopis.deserialize 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
+      generalize Spec.Kopis.deserialize_elem 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
         Spec.Kopis.DOMSEP_GENMAT (32 * 13)) = E
       split_ifs <;> first | rfl | omega
 
@@ -314,8 +314,8 @@ theorem cast_u8_bv (x : Usize) : (UScalar.cast .U8 x).bv = ((x.val : ℕ) : Byte
 theorem domsep_genmat_bv : (2#u8).bv = Spec.Kopis.DOMSEP_GENMAT := by decide
 
 /-- The deserialized hash entry for row `a`, column `b`. -/
-private def HDEntry (seed : Array U8 32#usize) (a b : ℕ) : Spec.Kopis.Polynomial (2 ^ 13) :=
-  Spec.Kopis.deserialize 13 (turboSHAKE128
+private def HDEntry (seed : Array U8 32#usize) (a b : ℕ) : Spec.Kopis.Poly (2 ^ 13) :=
+  Spec.Kopis.deserialize_elem 13 (turboSHAKE128
     (arrayToBytes seed ‖ #v[((a : ℕ) : Byte)] ‖ #v[((b : ℕ) : Byte)])
     Spec.Kopis.DOMSEP_GENMAT (32 * 13))
 

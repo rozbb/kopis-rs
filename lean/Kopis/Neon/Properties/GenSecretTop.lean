@@ -7,7 +7,7 @@ import Kopis.Neon.SecretBridge
 open Aeneas Aeneas.Std Result RustKopisNeon
 open scoped BigOperators
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe)
+open Spec (bytesToBits)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
 open Spec.Kopis (DOMSEP_GENSEC)

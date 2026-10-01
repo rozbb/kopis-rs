@@ -269,8 +269,8 @@ theorem getElem!_seedBytes (seed : Std.Array Std.U8 32#usize) (j : ℕ) (hj : j 
     ← getElem!_pos _ j (by simpa using hj), getElem!_bytesOf seed j (by simpa using hj)]
 
 /-- The spec value of matrix entry `(a, b)`. -/
-def entryOf (seed : Std.Array Std.U8 32#usize) (a b : ℕ) : Spec.Kopis.Polynomial (2 ^ 13) :=
-  Spec.Kopis.deserialize 13
+def entryOf (seed : Std.Array Std.U8 32#usize) (a b : ℕ) : Spec.Kopis.Poly (2 ^ 13) :=
+  Spec.Kopis.deserialize_elem 13
     (turboSHAKE128 (seedBytes seed ‖ #v[(a : Byte)] ‖ #v[(b : Byte)])
       Spec.Kopis.DOMSEP_GENMAT (32 * 13))
 

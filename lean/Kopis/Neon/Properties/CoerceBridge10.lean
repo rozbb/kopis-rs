@@ -12,7 +12,7 @@ open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamB
 
 open arithmetic.plain_arith (RingElem)
 
-/-! # Modulus bridge: `Polynomial.coerce` (2¹⁶ → 2¹⁰) is a ring homomorphism.
+/-! # Modulus bridge: `Poly.coerce` (2¹⁶ → 2¹⁰) is a ring homomorphism.
 
 The Rust pipeline computes `mul_transpose` at the physical modulus `2¹⁶`, but the spec
 `matVecMul` works at `2¹⁰`.  These lemmas let us push the `2¹⁶ → 2¹⁰` reduction through
@@ -24,47 +24,47 @@ theorem castHom_eq_val10 (x : ZMod (2 ^ 16)) :
       = (x.val : ZMod (2 ^ 10)) := by
   rw [ZMod.castHom_apply, ZMod.natCast_val]
 
-theorem coerce_getElem10 (a : Spec.Kopis.Polynomial (2 ^ 16)) (i : ℕ) (hi : i < 256) :
-    (Spec.Kopis.Polynomial.coerce a (2 ^ 10))[i]'hi = ((a[i]'hi).val : ZMod (2 ^ 10)) := by
-  simp only [Spec.Kopis.Polynomial.coerce, Vector.getElem_map]
+theorem coerce_getElem10 (a : Spec.Kopis.Poly (2 ^ 16)) (i : ℕ) (hi : i < 256) :
+    (Spec.Kopis.Poly.coerce a (2 ^ 10))[i]'hi = ((a[i]'hi).val : ZMod (2 ^ 10)) := by
+  simp only [Spec.Kopis.Poly.coerce, Vector.getElem_map]
 
-theorem coerce_getElem!10 (a : Spec.Kopis.Polynomial (2 ^ 16)) (i : ℕ) (hi : i < 256) :
-    (Spec.Kopis.Polynomial.coerce a (2 ^ 10))[i]! = ((a[i]!).val : ZMod (2 ^ 10)) := by
+theorem coerce_getElem!10 (a : Spec.Kopis.Poly (2 ^ 16)) (i : ℕ) (hi : i < 256) :
+    (Spec.Kopis.Poly.coerce a (2 ^ 10))[i]! = ((a[i]!).val : ZMod (2 ^ 10)) := by
   rw [getElem!_pos _ i hi, getElem!_pos a i hi, coerce_getElem10]
 
 /-- `coerce` distributes over polynomial addition. -/
-theorem coerce_add10 (a b : Spec.Kopis.Polynomial (2 ^ 16)) :
-    Spec.Kopis.Polynomial.coerce (a + b) (2 ^ 10)
-      = Spec.Kopis.Polynomial.coerce a (2 ^ 10) + Spec.Kopis.Polynomial.coerce b (2 ^ 10) := by
+theorem coerce_add10 (a b : Spec.Kopis.Poly (2 ^ 16)) :
+    Spec.Kopis.Poly.coerce (a + b) (2 ^ 10)
+      = Spec.Kopis.Poly.coerce a (2 ^ 10) + Spec.Kopis.Poly.coerce b (2 ^ 10) := by
   apply Vector.ext; intro p hp
   rw [coerce_getElem10 _ p hp,
-    show (Spec.Kopis.Polynomial.coerce a (2 ^ 10) + Spec.Kopis.Polynomial.coerce b (2 ^ 10))
-        = Spec.Kopis.Polynomial.add (Spec.Kopis.Polynomial.coerce a (2 ^ 10))
-            (Spec.Kopis.Polynomial.coerce b (2 ^ 10)) from rfl,
-    show (a + b) = Spec.Kopis.Polynomial.add a b from rfl]
-  simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith]
+    show (Spec.Kopis.Poly.coerce a (2 ^ 10) + Spec.Kopis.Poly.coerce b (2 ^ 10))
+        = Spec.Kopis.Poly.add (Spec.Kopis.Poly.coerce a (2 ^ 10))
+            (Spec.Kopis.Poly.coerce b (2 ^ 10)) from rfl,
+    show (a + b) = Spec.Kopis.Poly.add a b from rfl]
+  simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith]
   rw [← castHom_eq_val10, map_add, castHom_eq_val10, castHom_eq_val10, coerce_getElem10 a p hp,
     coerce_getElem10 b p hp]
 
 set_option maxHeartbeats 1000000 in
 /-- `coerce` distributes over the negacyclic polynomial product. -/
-theorem coerce_mul10 (a b : Spec.Kopis.Polynomial (2 ^ 16)) :
-    Spec.Kopis.Polynomial.coerce (a * b) (2 ^ 10)
-      = Spec.Kopis.Polynomial.coerce a (2 ^ 10) * Spec.Kopis.Polynomial.coerce b (2 ^ 10) := by
+theorem coerce_mul10 (a b : Spec.Kopis.Poly (2 ^ 16)) :
+    Spec.Kopis.Poly.coerce (a * b) (2 ^ 10)
+      = Spec.Kopis.Poly.coerce a (2 ^ 10) * Spec.Kopis.Poly.coerce b (2 ^ 10) := by
   apply Vector.ext; intro p hp
   set f := ZMod.castHom (show (2 ^ 10 : ℕ) ∣ 2 ^ 16 by norm_num) (ZMod (2 ^ 10)) with hf
-  rw [coerce_getElem10 _ p hp, show (a * b) = Spec.Kopis.Polynomial.mul a b from rfl, mul_get a b p hp,
-    show (Spec.Kopis.Polynomial.coerce a (2 ^ 10) * Spec.Kopis.Polynomial.coerce b (2 ^ 10))
-        = Spec.Kopis.Polynomial.mul (Spec.Kopis.Polynomial.coerce a (2 ^ 10))
-            (Spec.Kopis.Polynomial.coerce b (2 ^ 10)) from rfl,
+  rw [coerce_getElem10 _ p hp, show (a * b) = Spec.Kopis.Poly.mul a b from rfl, mul_get a b p hp,
+    show (Spec.Kopis.Poly.coerce a (2 ^ 10) * Spec.Kopis.Poly.coerce b (2 ^ 10))
+        = Spec.Kopis.Poly.mul (Spec.Kopis.Poly.coerce a (2 ^ 10))
+            (Spec.Kopis.Poly.coerce b (2 ^ 10)) from rfl,
     mul_get _ _ p hp, ← castHom_eq_val10]
   simp only [convCoeff, map_sum]
   refine Finset.sum_congr rfl fun i hi => Finset.sum_congr rfl fun j hj => ?_
   have hi256 : i < 256 := Finset.mem_range.mp hi
   have hj256 : j < 256 := Finset.mem_range.mp hj
-  have hfa : f (a[i]!) = (Spec.Kopis.Polynomial.coerce a (2 ^ 10))[i]! := by
+  have hfa : f (a[i]!) = (Spec.Kopis.Poly.coerce a (2 ^ 10))[i]! := by
     rw [castHom_eq_val10, coerce_getElem!10 a i hi256]
-  have hfb : f (b[j]!) = (Spec.Kopis.Polynomial.coerce b (2 ^ 10))[j]! := by
+  have hfb : f (b[j]!) = (Spec.Kopis.Poly.coerce b (2 ^ 10))[j]! := by
     rw [castHom_eq_val10, coerce_getElem!10 b j hj256]
   simp only [convContrib]
   by_cases hij : (i + j) % 256 = p
@@ -75,24 +75,24 @@ theorem coerce_mul10 (a b : Spec.Kopis.Polynomial (2 ^ 16)) :
   · rw [if_neg hij, if_neg hij, map_zero]
 
 /-- `coerce` sends `0` to `0`. -/
-theorem coerce_zero10 : Spec.Kopis.Polynomial.coerce (0 : Spec.Kopis.Polynomial (2 ^ 16)) (2 ^ 10)
-    = (0 : Spec.Kopis.Polynomial (2 ^ 10)) := by
+theorem coerce_zero10 : Spec.Kopis.Poly.coerce (0 : Spec.Kopis.Poly (2 ^ 16)) (2 ^ 10)
+    = (0 : Spec.Kopis.Poly (2 ^ 10)) := by
   apply Vector.ext; intro p hp
   rw [coerce_getElem10 _ p hp]
-  show (((Spec.Kopis.Polynomial.zero (2 ^ 16))[p]'hp).val : ZMod (2 ^ 10))
-      = (Spec.Kopis.Polynomial.zero (2 ^ 10))[p]'hp
-  simp only [Spec.Kopis.Polynomial.zero, Vector.getElem_replicate, ZMod.val_zero, Nat.cast_zero]
+  show (((Spec.Kopis.Poly.zero (2 ^ 16))[p]'hp).val : ZMod (2 ^ 10))
+      = (Spec.Kopis.Poly.zero (2 ^ 10))[p]'hp
+  simp only [Spec.Kopis.Poly.zero, Vector.getElem_replicate, ZMod.val_zero, Nat.cast_zero]
 
-/-- `coerce` as a bundled additive homomorphism `Polynomial 2¹⁶ →+ Polynomial 2¹⁰`. -/
-def coerceHom10 : Spec.Kopis.Polynomial (2 ^ 16) →+ Spec.Kopis.Polynomial (2 ^ 10) where
-  toFun r := Spec.Kopis.Polynomial.coerce r (2 ^ 10)
+/-- `coerce` as a bundled additive homomorphism `Poly 2¹⁶ →+ Poly 2¹⁰`. -/
+def coerceHom10 : Spec.Kopis.Poly (2 ^ 16) →+ Spec.Kopis.Poly (2 ^ 10) where
+  toFun r := Spec.Kopis.Poly.coerce r (2 ^ 10)
   map_zero' := coerce_zero10
   map_add' := coerce_add10
 
 /-- `coerce` distributes over a finite sum. -/
-theorem coerce_sum10 {ι : Type*} (s : Finset ι) (f : ι → Spec.Kopis.Polynomial (2 ^ 16)) :
-    Spec.Kopis.Polynomial.coerce (∑ i ∈ s, f i) (2 ^ 10)
-      = ∑ i ∈ s, Spec.Kopis.Polynomial.coerce (f i) (2 ^ 10) :=
+theorem coerce_sum10 {ι : Type*} (s : Finset ι) (f : ι → Spec.Kopis.Poly (2 ^ 16)) :
+    Spec.Kopis.Poly.coerce (∑ i ∈ s, f i) (2 ^ 10)
+      = ∑ i ∈ s, Spec.Kopis.Poly.coerce (f i) (2 ^ 10) :=
   map_sum coerceHom10 f s
 
 end Kopis.Neon.Properties

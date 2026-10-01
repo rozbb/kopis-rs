@@ -10,5 +10,7 @@ import Spec.SHA3.Spec
 -- TurboSHAKE (RFC 9861)
 import Spec.TurboSHAKE.Spec
 
--- Kopis KEM (kopis-spec.md)
+-- Kopis KEM (kopis-spec.md), facts about its helpers, and proof that `R` is the negacyclic ring
 import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
+import Spec.Kopis.RingIso

@@ -14,7 +14,7 @@ set_option maxHeartbeats 1000000
 
 /-- **Spec-side `DecodeMsg` coefficient.**  Coefficient `k` of `DecodeMsg t r` is
 `(((r[k].val + h₂) mod 2¹⁰) >>> 9)` where `h₂ = 2⁸ - 2⁹⁻ᵗ + 4` (valid for `1 ≤ t ≤ 10`). -/
-theorem decodeMsg_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Polynomial (2 ^ 10))
+theorem decodeMsg_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Poly (2 ^ 10))
     (k : ℕ) (hk : k < 256) :
     (((Spec.Kopis.DecodeMsg t r)[k]'hk).val)
       = (((r[k]'hk).val + (2 ^ 8 - 2 ^ (9 - t) + 4)) % 2 ^ 10) >>> 9 := by
@@ -34,15 +34,16 @@ theorem decodeMsg_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Po
     exact h1
   have hcv : (((C : ℕ) : ZMod (2 ^ 10))).val = C := by
     rw [ZMod.val_natCast, Nat.mod_eq_of_lt hClt]
-  have hcoeff : ((r + Spec.Kopis.Polynomial.const (2 ^ 10) ((C : ℕ) : ZMod (2 ^ 10)))[k]'hk).val
+  have hcoeff : ((r + Spec.Kopis.Poly.const (2 ^ 10) ((C : ℕ) : ZMod (2 ^ 10)))[k]'hk).val
       = ((r[k]'hk).val + C) % 2 ^ 10 := by
-    show (((Spec.Kopis.Polynomial.add r (Spec.Kopis.Polynomial.const (2 ^ 10) ((C:ℕ):ZMod (2^10))))[k]'hk).val : ℕ) = _
-    simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
+    show (((Spec.Kopis.Poly.add r (Spec.Kopis.Poly.const (2 ^ 10) ((C:ℕ):ZMod (2^10))))[k]'hk).val : ℕ) = _
+    simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, hcv]
   unfold Spec.Kopis.DecodeMsg
+  simp only [Spec.Kopis.make_rn_replicate, Spec.Kopis.Poly.shiftRight_def]
   -- the spec writes the exponent as `10 - t - 1`; on `ℕ` that is `9 - t`, which is how `C` reads
   have hst : 10 - t - 1 = 9 - t := by omega
-  simp only [hst, Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight,
+  simp only [hst, Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftRight,
     Vector.getElem_map, hcoeff, ZMod.val_natCast, ← hC]
   rw [Nat.mod_eq_of_lt (lt_of_lt_of_le hlt (by norm_num : (2:ℕ)^1 ≤ 2^10)), Nat.mod_eq_of_lt hlt]
 
@@ -69,9 +70,9 @@ theorem decodeMsg_bridge (c C : ℕ) :
 `mp₂ = (mp + h₂) >>> 9` on a `u16` ring element computes the spec's
 `DecodeMsg t ((coerce to R10) mp)`. -/
 theorem decodeMsg_ring_bridge (mp mp1 mp2 : RingElem) (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10)
-    (hw : toRingElem mp1 = Spec.Kopis.Polynomial.add (toRingElem mp)
-      (Spec.Kopis.Polynomial.const (2 ^ 16) (((2 ^ 8 - 2 ^ (9 - t) + 4 : ℕ) : ZMod (2 ^ 16)))))
-    (hs : toRingElem mp2 = Spec.Kopis.Polynomial.shiftRight (toRingElem mp1) 9) :
+    (hw : toRingElem mp1 = Spec.Kopis.Poly.add (toRingElem mp)
+      (Spec.Kopis.Poly.const (2 ^ 16) (((2 ^ 8 - 2 ^ (9 - t) + 4 : ℕ) : ZMod (2 ^ 16)))))
+    (hs : toRingElem mp2 = Spec.Kopis.Poly.shiftRight (toRingElem mp1) 9) :
     toPolyN 1 mp2 = Spec.Kopis.DecodeMsg t ((toRingElem mp).coerce (2 ^ 10)) := by
   haveI : NeZero ((2:ℕ)^1) := ⟨by positivity⟩
   set C : ℕ := 2 ^ 8 - 2 ^ (9 - t) + 4 with hC
@@ -86,18 +87,18 @@ theorem decodeMsg_ring_bridge (mp mp1 mp2 : RingElem) (t : ℕ) (ht : 1 ≤ t �
   rw [decodeMsg_coeff t ht ((toRingElem mp).coerce (2 ^ 10)) k hk,
     ← getElem!_pos (toPolyN 1 mp2) k hk, toPolyN_val 1 mp2 k hk,
     ← toRingElem_coeff_val mp2 k hk, getElem!_pos _ k hk, hs]
-  simp only [Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map, ZMod.val_natCast]
+  simp only [Spec.Kopis.Poly.shiftRight, Vector.getElem_map, ZMod.val_natCast]
   have hCv : ((C : ℕ) : ZMod (2 ^ 16)).val = C := by rw [ZMod.val_natCast, Nat.mod_eq_of_lt hClt16]
   have hp1 : (((toRingElem mp1)[k]'hk).val) = (((toRingElem mp)[k]'hk).val + C) % 2 ^ 16 := by
     rw [hw]
-    show (((Spec.Kopis.Polynomial.add (toRingElem mp)
-        (Spec.Kopis.Polynomial.const (2 ^ 16) ((C:ℕ):ZMod (2^16))))[k]'hk).val : ℕ) = _
-    simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
+    show (((Spec.Kopis.Poly.add (toRingElem mp)
+        (Spec.Kopis.Poly.const (2 ^ 16) ((C:ℕ):ZMod (2^16))))[k]'hk).val : ℕ) = _
+    simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, hCv]
   rw [hp1]
   set d := ((toRingElem mp)[k]'hk).val with hd
   have hcoe : (((toRingElem mp).coerce (2 ^ 10))[k]'hk).val = d % 2 ^ 10 := by
-    simp only [Spec.Kopis.Polynomial.coerce, Vector.getElem_map, ZMod.val_natCast, hd]
+    simp only [Spec.Kopis.Poly.coerce, Vector.getElem_map, ZMod.val_natCast, hd]
   rw [hcoe, Nat.mod_mod_of_dvd _ (show (2:ℕ) ^ 1 ∣ 2 ^ 16 from by norm_num), decodeMsg_bridge d C]
 
 end Kopis.Avx2.Properties

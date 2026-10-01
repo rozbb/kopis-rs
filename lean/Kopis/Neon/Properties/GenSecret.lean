@@ -4,7 +4,7 @@
 import Kopis.Bits.Stream
 import Kopis.Neon.Properties.RingArith
 import Kopis.Neon.Properties.GenMatrix
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 import Kopis.Neon.Properties.Serialize
 open Aeneas Aeneas.Std Result RustKopisNeon
 open scoped BigOperators

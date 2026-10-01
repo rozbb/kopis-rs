@@ -13,7 +13,7 @@ set_option maxRecDepth 4000
 /-- Spec-side evaluation of `innerProduct`'s `Id.run` loop. -/
 theorem innerProduct_get {m ℓ : ℕ} (v w : Spec.Kopis.PolyVector m ℓ) :
     Spec.Kopis.innerProduct v w = ∑ i : Fin ℓ, v[i.val]'i.isLt * w[i.val]'i.isLt := by
-  set g : ℕ → Spec.Kopis.Polynomial m :=
+  set g : ℕ → Spec.Kopis.Poly m :=
     fun j => if hj : j < ℓ then v[j]'hj * w[j]'hj else 0 with hg
   have hFS : (∑ i : Fin ℓ, v[i.val]'i.isLt * w[i.val]'i.isLt) = ∑ j ∈ Finset.range ℓ, g j := by
     rw [← Fin.sum_univ_eq_sum_range g ℓ]
@@ -23,9 +23,9 @@ theorem innerProduct_get {m ℓ : ℕ} (v w : Spec.Kopis.PolyVector m ℓ) :
   simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
     Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one, bind_pure]
   refine forIn'_inv' (List.range' 0 ℓ) _ _
-    (fun s (a : Spec.Kopis.Polynomial m) => a = ∑ j ∈ Finset.range s, g j)
+    (fun s (a : Spec.Kopis.Poly m) => a = ∑ j ∈ Finset.range s, g j)
     ℓ (by simp) ?hInit ?hStep
-  case hInit => show Spec.Kopis.Polynomial.zero m = _; rw [Finset.range_zero, Finset.sum_empty]; rfl
+  case hInit => show Spec.Kopis.Poly.zero m = _; rw [Finset.range_zero, Finset.sum_empty]; rfl
   case hStep =>
     intro k hk b hb a ha ha_eq
     have ha_val : a = k := by rw [ha_eq]; simp [List.getElem_range']
@@ -40,7 +40,7 @@ theorem innerProduct_get {m ℓ : ℕ} (v w : Spec.Kopis.PolyVector m ℓ) :
 theorem toPolyN10_eq_coerce (re : RingElem) :
     toPolyN 10 re = (toRingElem re).coerce (2 ^ 10) := by
   apply Vector.ext; intro k hk
-  simp only [toPolyN, Spec.Kopis.Polynomial.coerce, toRingElem, Vector.getElem_map,
+  simp only [toPolyN, Spec.Kopis.Poly.coerce, toRingElem, Vector.getElem_map,
     Vector.getElem_ofFn, ZMod.val_natCast]
   have hlt : (re.val[k]'(by have := re.property; grind)).val < 2 ^ 16 := by
     have h := (re.val[k]'(by have := re.property; grind)).hBounds; simpa [UScalarTy.numBits] using h
@@ -56,7 +56,7 @@ theorem natCast_mod13_10 (a : ℕ) : ((a % 2 ^ 13 : ℕ) : ZMod (2 ^ 10)) = (a :
 theorem toRingElem13_coerce10 (re : RingElem) :
     (toRingElem13 re).coerce (2 ^ 10) = (toRingElem re).coerce (2 ^ 10) := by
   apply Vector.ext; intro k hk
-  simp only [Spec.Kopis.Polynomial.coerce, toRingElem13, toRingElem, Vector.getElem_map,
+  simp only [Spec.Kopis.Poly.coerce, toRingElem13, toRingElem, Vector.getElem_map,
     Vector.getElem_ofFn, ZMod.val_natCast]
   have hlt : (re.val[k]'(by have := re.property; grind)).val < 2 ^ 16 := by
     have h := (re.val[k]'(by have := re.property; grind)).hBounds; simpa [UScalarTy.numBits] using h

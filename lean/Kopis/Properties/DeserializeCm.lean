@@ -4,7 +4,7 @@
   In PKE decryption the ciphertext `cm` element is decoded with a compression width
   `t ∈ {3, 4, 6}` bits per coefficient.  This routes through the *generic* sliding-window
   bit-unpacker `ser::deserialize_generic` (the `bits_per_elem ∉ {13, 10}` else-branch of
-  `RingElem::deserialize`).  We prove that path computes the audited `Spec.Kopis.deserialize n`
+  `RingElem::deserialize`).  We prove that path computes the audited `Spec.Kopis.deserialize_elem n`
   for any `1 ≤ n ≤ 12`, so it instantiates at `n = 3, 4, 6`.
 
   The three layers mirror the width-1 proofs in `DeserializeMsg.lean`
@@ -22,7 +22,7 @@ import Kopis.Properties.SerializeTop
 open Aeneas Aeneas.Std Result
 open RustKopisSerial
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe)
+open Spec (bytesToBits)
 open scoped BigOperators
 
 namespace Kopis.Properties
@@ -42,7 +42,7 @@ private theorem deser_idx_lt' {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 private theorem streamNat_eq_sum' (bytes : Slice U8) (n j : ℕ) (h : bytes.length = 32 * n)
     (hj : j < 256) :
     streamNat bytes (n * j) n
-      = ∑ k : Fin n, ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt' hj k.isLt)).toNat
+      = ∑ k : Fin n, ((bytesToBits (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt' hj k.isLt)).toNat
           * 2 ^ k.val := by
   unfold streamNat
   rw [← Fin.sum_univ_eq_sum_range (fun b => streamBit bytes (n * j + b) * 2 ^ b) n]
@@ -204,12 +204,12 @@ decreasing_by scalar_decr_tac
 /-! ## Layer 3a — the generic decoder at width `n` -/
 
 /-- **Correctness of the generic decoder at width `n`.**  Decoding a `32·n`-byte buffer with
-`bits_per_elem = n` yields the spec ring element `deserialize n`. -/
+`bits_per_elem = n` yields the spec ring element `deserialize_elem n`. -/
 theorem deserialize_generic_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12)
     (hlen : bytes.length = 32 * n) :
     ser.deserialize_generic 256#usize n#usize bytes
       ⦃ (r : Array U16 256#usize) =>
-          toPolyN n r = Spec.Kopis.deserialize n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
+          toPolyN n r = Spec.Kopis.deserialize_elem n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
   obtain ⟨hn1, hn2⟩ := hn
   have hnv : (n#usize).val = n := by simp
   unfold ser.deserialize_generic
@@ -269,12 +269,12 @@ theorem deserialize_generic_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n 
 
 /-- **`RingElem.deserialize` correctness at a general width `n ∉ {10, 13}`.**  For the `cm`
 decode width `t ∈ {3, 4, 6}` (all `≤ 12` and `≠ 10, 13`), `RingElem::deserialize` takes the
-generic else-branch and computes the audited `Spec.Kopis.deserialize n`. -/
+generic else-branch and computes the audited `Spec.Kopis.deserialize_elem n`. -/
 theorem ringElem_deserialize_gen_spec (bytes : Slice U8) (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 12)
     (hne13 : n ≠ 13) (hne10 : n ≠ 10) (hlen : bytes.length = 32 * n) :
     arithmetic.plain_arith.RingElem.deserialize n#usize bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
-          toPolyN n r = Spec.Kopis.deserialize n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
+          toPolyN n r = Spec.Kopis.deserialize_elem n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
   obtain ⟨hn1, hn2⟩ := hn
   have hnv : (n#usize).val = n := by simp
   unfold arithmetic.plain_arith.RingElem.deserialize
@@ -318,7 +318,7 @@ theorem ringElem_deserialize_gen_spec' (bytes : Slice U8) (bits : Usize) (n : �
     (hlen : bytes.length = 32 * n) :
     arithmetic.plain_arith.RingElem.deserialize bits bytes
       ⦃ (r : arithmetic.plain_arith.RingElem) =>
-          toPolyN n r = Spec.Kopis.deserialize n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
+          toPolyN n r = Spec.Kopis.deserialize_elem n (sliceToBytes bytes (32 * n) hlen) ⦄ := by
   have hbeq : bits = n#usize := UScalar.eq_of_val_eq (by rw [hbn]; simp)
   rw [hbeq]
   exact ringElem_deserialize_gen_spec bytes n hn hne13 hne10 hlen

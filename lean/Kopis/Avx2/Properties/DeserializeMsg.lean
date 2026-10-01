@@ -7,7 +7,7 @@
   In PKE encryption the 32-byte message is decoded into a bit-per-coefficient ring
   element via the *generic* sliding-window bit-unpacker `ser::deserialize_generic`
   with `bits_per_elem = 1`.  We prove this path computes the audited
-  `Spec.Kopis.deserialize 1`.
+  `Spec.Kopis.deserialize_elem 1`.
 
   The three layers mirror the 13-bit proofs in `Serialize.lean`
   (`deserialize_refill_spec` / `deserialize_outer_spec`), with `13` replaced by `1`.
@@ -22,7 +22,7 @@ import Kopis.Avx2.Properties.SerializeTop
 open Aeneas Aeneas.Std Result
 open RustKopisAvx2
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe)
+open Spec (bytesToBits)
 open scoped BigOperators
 
 namespace Kopis.Avx2.Properties
@@ -44,7 +44,7 @@ private theorem deser_idx_lt' {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 private theorem streamNat_eq_sum' (bytes : Slice U8) (n j : ℕ) (h : bytes.length = 32 * n)
     (hj : j < 256) :
     streamNat bytes (n * j) n
-      = ∑ k : Fin n, ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt' hj k.isLt)).toNat
+      = ∑ k : Fin n, ((bytesToBits (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt' hj k.isLt)).toNat
           * 2 ^ k.val := by
   unfold streamNat
   rw [← Fin.sum_univ_eq_sum_range (fun b => streamBit bytes (n * j + b) * 2 ^ b) n]
@@ -195,12 +195,12 @@ decreasing_by scalar_decr_tac
 /-! ## Layer 3 — top-level correspondence -/
 
 /-- **Correctness of the generic decoder at 1 bit.**  Decoding a 32-byte buffer with
-`bits_per_elem = 1` yields the spec ring element `deserialize 1` (the PKE message,
+`bits_per_elem = 1` yields the spec ring element `deserialize_elem 1` (the PKE message,
 one bit per coefficient). -/
 theorem deserialize_msg_spec (bytes : Slice U8) (hlen : bytes.length = 32) :
     ser.deserialize_generic 256#usize 1#usize bytes
       ⦃ (r : Array U16 256#usize) =>
-          toPolyN 1 r = Spec.Kopis.deserialize 1 (sliceToBytes bytes (32 * 1) hlen) ⦄ := by
+          toPolyN 1 r = Spec.Kopis.deserialize_elem 1 (sliceToBytes bytes (32 * 1) hlen) ⦄ := by
   unfold ser.deserialize_generic
   -- `let _ ← BITS_PER_ELEM * N`: the overflow check whose value the body discards.  Since
   -- `BITS_PER_ELEM` is a const generic the product is then *recomputed*, twice, as a wrapping

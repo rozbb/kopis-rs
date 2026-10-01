@@ -29,7 +29,7 @@ theorem prod2_compressR10_bridge {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
     (hw : toRingElem ((prod1.val[i]!).val[0]!)
         = addC 4#u16 (toRingElem ((prod.val[i]!).val[0]!)))
     (hs : toRingElem ((prod2.val[i]!).val[0]!)
-        = Spec.Kopis.Polynomial.shiftRight (toRingElem ((prod1.val[i]!).val[0]!)) 3) :
+        = Spec.Kopis.Poly.shiftRight (toRingElem ((prod1.val[i]!).val[0]!)) 3) :
     toPolyN 10 ((prod2.val[i]!).val[0]!)
       = (Spec.Kopis.CompressToR10 L.val
           (Spec.Kopis.matVecMul (Matrix.transpose (toMatrix13 mat_a)) (toVector13 vec_s)))[i]'hi := by
@@ -41,16 +41,16 @@ theorem prod2_compressR10_bridge {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
   rw [compressR10_coeff vv i hi k hk,
     ← getElem!_pos (toPolyN 10 ((prod2.val[i]!).val[0]!)) k hk, toPolyN_val 10 _ k hk,
     ← toRingElem_coeff_val _ k hk, getElem!_pos _ k hk, hs]
-  simp only [Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map, ZMod.val_natCast]
+  simp only [Spec.Kopis.Poly.shiftRight, Vector.getElem_map, ZMod.val_natCast]
   -- prod1 coeff = prod coeff + 4 (mod 2^16)
   have h4 : (4 : ZMod (2 ^ 16)).val = 4 := by decide
   have hp1 : ((toRingElem ((prod1.val[i]!).val[0]!))[k]'hk).val
       = (((toRingElem ((prod.val[i]!).val[0]!))[k]'hk).val + 4) % 2 ^ 16 := by
     rw [hw]
-    show (((Spec.Kopis.Polynomial.add (toRingElem ((prod.val[i]!).val[0]!))
-        (Spec.Kopis.Polynomial.const (2 ^ 16) ((4#u16).val : ZMod (2 ^ 16))))[k]'hk).val : ℕ) = _
+    show (((Spec.Kopis.Poly.add (toRingElem ((prod.val[i]!).val[0]!))
+        (Spec.Kopis.Poly.const (2 ^ 16) ((4#u16).val : ZMod (2 ^ 16))))[k]'hk).val : ℕ) = _
     have hc4 : ((4#u16).val : ZMod (2 ^ 16)) = 4 := by decide
-    simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
+    simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, hc4, ZMod.val_add, h4]
   rw [hp1]
   set c := ((toRingElem ((prod.val[i]!).val[0]!))[k]'hk).val with hc

@@ -3,18 +3,18 @@
 
   Bridges the Aeneas-extracted Rust ring element (`RingElem = [u16; 256]`,
   `ExtractedRustSerial`) to the audited spec ring element
-  (`Spec.Kopis.Polynomial (2^16)`, `Spec/Kopis/Spec.lean`).
+  (`Spec.Kopis.Poly (2^16)`, `Spec/Kopis/Spec.lean`).
 
   ## Abstraction relation
 
   The Rust `RingElem` stores 256 coefficients as `u16`, and `RingElem::sub`
   subtracts them with `u16::wrapping_sub`, i.e. arithmetic modulo `2^16`.  The spec
-  `Spec.Kopis.Polynomial.sub` is generic in the coefficient modulus `m` and
+  `Spec.Kopis.Poly.sub` is generic in the coefficient modulus `m` and
   uses `ZMod m` subtraction, so the faithful correspondence is at `m = 2^16`:
   `toRingElem` maps each stored `u16` to its class in `ZMod (2^16)`.
 
   (Kopis' *logical* moduli are `2^13`/`2^10`/`2^1`; those are recovered from the
-  physical `2^16` representative by `Spec.Kopis.Polynomial.coerce`, which is a
+  physical `2^16` representative by `Spec.Kopis.Poly.coerce`, which is a
   ring hom and hence commutes with `sub`.  Proving the correspondence at the
   physical `2^16` is therefore the strongest statement about what the code
   computes.)
@@ -31,7 +31,7 @@
   (`ntt_mul_spec` / `ntt_mul_transpose_spec`).
 -/
 import ExtractedRustSerial
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 
 open Aeneas Aeneas.Std Result
 open RustKopisSerial
@@ -42,9 +42,9 @@ namespace Kopis.Properties
 abbrev RingElem := arithmetic.plain_arith.RingElem
 
 /-- Abstraction relation: interpret the stored `u16` coefficients as an element
-of the spec ring `Spec.Kopis.Polynomial (2^16) = Vector (ZMod (2^16)) 256`,
+of the spec ring `Spec.Kopis.Poly (2^16) = Vector (ZMod (2^16)) 256`,
 coefficient `i` being that of `Xⁱ`. -/
-def toRingElem (a : RingElem) : Spec.Kopis.Polynomial (2 ^ 16) :=
+def toRingElem (a : RingElem) : Spec.Kopis.Poly (2 ^ 16) :=
   Vector.ofFn fun (i : Fin 256) =>
     ((a.val[i.val]'(by have := a.property; grind)).val : ZMod (2 ^ 16))
 
@@ -186,11 +186,11 @@ theorem sub_loop_spec
 termination_by iter.«end».val - iter.start.val
 decreasing_by scalar_decr_tac
 
-/-- **Wrapper spec** for `RingElem::sub` — matches `Spec.Kopis.Polynomial.sub`. -/
+/-- **Wrapper spec** for `RingElem::sub` — matches `Spec.Kopis.Poly.sub`. -/
 theorem sub_spec (self other : RingElem) :
     SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub self other
       ⦃ (r : RingElem) =>
-          toRingElem r = Spec.Kopis.Polynomial.sub (toRingElem self) (toRingElem other) ⦄ := by
+          toRingElem r = Spec.Kopis.Poly.sub (toRingElem self) (toRingElem other) ⦄ := by
   unfold SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   have h_end : (consts.RING_DEG).val = 256 := by simp [consts.RING_DEG]
   rw [show (arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default : Result RingElem)
@@ -206,7 +206,7 @@ theorem sub_spec (self other : RingElem) :
   rw [Vector.getElem_ofFn]
   show (if (⟨j, hj⟩ : Fin 256).val < (0#usize).val then _ else _) = _
   rw [if_neg (by simp)]
-  unfold Spec.Kopis.Polynomial.sub
+  unfold Spec.Kopis.Poly.sub
   rw [Vector.getElem_zipWith]
   rfl
 
@@ -219,7 +219,7 @@ theorem sub_spec (self other : RingElem) :
   operations went with them.
 
   What stays here is the part that never mentioned Rust: the closed form `convCoeff` of a
-  coefficient of `Spec.Kopis.Polynomial.mul`, and `mul_get`, which proves the audited spec's
+  coefficient of `Spec.Kopis.Poly.mul`, and `mul_get`, which proves the audited spec's
   double `Id.run` loop computes it.  `NttBridge` and `CoerceBridge`/`CoerceBridge10` are the
   consumers. -/
 
@@ -228,95 +228,7 @@ open scoped BigOperators
 /-- Coefficient `m` of a stored `u16` list, as an element of `ZMod (2^16)`. -/
 private def zc (l : List U16) (m : ℕ) : ZMod (2 ^ 16) := ((l[m]!).val : ZMod (2 ^ 16))
 
-/-- Indexed-invariant evaluator for an `Id.run` `forIn'` loop over a `List` (replicated
-locally from the `Serialize` module). -/
-private theorem forIn'_getElem_indexed {α : Type} {β : Type} {m : Nat} :
-    ∀ (xs : List α) (init : Vector β m)
-    (body : (a : α) → a ∈ xs → Vector β m → Id (ForInStep (Vector β m)))
-    (i : Nat) (hi : i < m) (val : β)
-    (P : Nat → Vector β m → Prop)
-    (hInit : P 0 init)
-    (hFinal : ∀ dw, P xs.length dw → dw[i] = val)
-    (_hStep : ∀ (k : Nat) (hk : k < xs.length) b, P k b →
-      ∀ a (ha : a ∈ xs), a = xs[k]'hk →
-      ∃ b', body a ha b = pure (ForInStep.yield b') ∧ P (k + 1) b'),
-    (Id.run (forIn' xs init body))[i] = val := by
-  intro xs; induction xs with
-  | nil => intro init body i hi val P hInit hFinal _hStep; exact hFinal init hInit
-  | cons x xs ih =>
-    intro init body i hi val P hInit hFinal hStep
-    simp only [List.forIn'_cons, Id.run, Bind.bind]
-    obtain ⟨b', hb'_eq, hb'_P⟩ := hStep 0 (Nat.zero_lt_succ _) init hInit x (.head _) rfl
-    conv_lhs => arg 1; rw [hb'_eq]
-    exact ih b' (fun a' mm b => body a' (.tail _ mm) b) i hi val (fun k => P (k + 1))
-      hb'_P
-      (fun dw hP => hFinal dw (by rwa [List.length_cons]))
-      (fun k hk b hPk a ha heq => by
-        have hk' : k + 1 < (x :: xs).length := by simp; omega
-        exact hStep (k + 1) hk' b hPk a (.tail _ ha) (by simp [heq]))
-
-variable {m : ℕ}
-
-/-- Contribution of the term `aᵢ·bⱼ` to output coefficient `p` in the negacyclic product. -/
-def convContrib (a b : Spec.Kopis.Polynomial m) (i j p : ℕ) : ZMod m :=
-  if (i + j) % 256 = p then (if i + j < 256 then a[i]! * b[j]! else -(a[i]! * b[j]!)) else 0
-
-/-- Closed form of coefficient `p` of the negacyclic product. -/
-def convCoeff (a b : Spec.Kopis.Polynomial m) (p : ℕ) : ZMod m :=
-  ∑ i ∈ Finset.range 256, ∑ j ∈ Finset.range 256, convContrib a b i j p
-
-set_option maxRecDepth 8000 in
-theorem mul_get (a b : Spec.Kopis.Polynomial m) (p : ℕ) (hp : p < 256) :
-    (Spec.Kopis.Polynomial.mul a b)[p]'hp = convCoeff a b p := by
-  unfold Spec.Kopis.Polynomial.mul
-  simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size, Nat.sub_zero,
-    Nat.add_sub_cancel, Nat.div_one]
-  refine forIn'_getElem_indexed (List.range' 0 256) _ _ p hp _
-    (P := fun I c => c[p]'hp = ∑ i ∈ Finset.range I, ∑ j ∈ Finset.range 256, convContrib a b i j p)
-    ?hInit ?hFinal ?hStep
-  case hInit =>
-    show (Spec.Kopis.Polynomial.zero m)[p] = _
-    simp [Spec.Kopis.Polynomial.zero, Vector.getElem_replicate]
-  case hFinal =>
-    intro dw hP
-    rw [show (List.range' 0 256).length = 256 from by simp] at hP
-    exact hP
-  case hStep =>
-    intro k hk c hPc a' ha' ha'eq
-    have ha'k : a' = k := by rw [ha'eq]; simp [List.getElem_range']
-    have ha'256 : a' < 256 := by rw [ha'k]; simpa using hk
-    refine ⟨_, rfl, ?_⟩
-    -- evaluate the inner loop over `j` via a second application of the indexed evaluator
-    refine forIn'_getElem_indexed (List.range' 0 256) c _ p hp _
-      (P := fun J cc => cc[p]'hp = (∑ i ∈ Finset.range k, ∑ j ∈ Finset.range 256, convContrib a b i j p)
-        + ∑ j ∈ Finset.range J, convContrib a b a' j p)
-      ?hI ?hF ?hS
-    · rw [hPc]; simp
-    · intro dw hP
-      rw [show (List.range' 0 256).length = 256 from by simp] at hP
-      rw [hP, ha'k]; exact (Finset.sum_range_succ _ k).symm
-    · intro j hjk cc hPcc aa haa haaeq
-      have haaj : aa = j := by rw [haaeq]; simp [List.getElem_range']
-      subst haaj
-      have haa256 : aa < 256 := by simpa using hjk
-      rw [Finset.sum_range_succ]
-      by_cases hC : a' + aa < 256
-      · refine ⟨_, by rw [if_pos hC]; rfl, ?_⟩
-        rw [Vector.getElem_set]
-        by_cases hpk : (a' + aa) % 256 = p
-        · rw [if_pos hpk, ← getElem!_pos cc ((a' + aa) % 256) (by rw [hpk]; exact hp), hpk,
-            getElem!_pos cc p hp, hPcc, convContrib, if_pos hpk, if_pos hC,
-            getElem!_pos a a' ha'256, getElem!_pos b aa haa256]
-          ring
-        · rw [if_neg hpk, hPcc, convContrib, if_neg hpk, add_zero]
-      · refine ⟨_, by rw [if_neg hC]; rfl, ?_⟩
-        rw [Vector.getElem_set]
-        by_cases hpk : (a' + aa) % 256 = p
-        · rw [if_pos hpk, ← getElem!_pos cc ((a' + aa) % 256) (by rw [hpk]; exact hp), hpk,
-            getElem!_pos cc p hp, hPcc, convContrib, if_pos hpk, if_neg hC,
-            getElem!_pos a a' ha'256, getElem!_pos b aa haa256]
-          ring
-        · rw [if_neg hpk, hPcc, convContrib, if_neg hpk, add_zero]
+export Spec.Kopis (convContrib convCoeff mul_get)
 
 /-- Coefficient `i` of `toRingElem x` is the `ZMod` image `zc x.val i`. -/
 private theorem toRingElem_getElem (x : RingElem) (i : ℕ) (hi : i < 256) :
@@ -436,11 +348,11 @@ theorem shift_right_loop_spec
   decreasing_by scalar_decr_tac
 
 /-- **Correctness of `RingElem::shift_right`** (for `shift < 16`): computes the
-audited coefficient-wise right shift `Spec.Kopis.Polynomial.shiftRight`. -/
+audited coefficient-wise right shift `Spec.Kopis.Poly.shiftRight`. -/
 theorem shift_right_spec (self : RingElem) (shift : Usize) (hshift : shift.val < 16) :
     arithmetic.plain_arith.RingElem.shift_right self shift
       ⦃ (r : RingElem) =>
-          toRingElem r = Spec.Kopis.Polynomial.shiftRight (toRingElem self) shift.val ⦄ := by
+          toRingElem r = Spec.Kopis.Poly.shiftRight (toRingElem self) shift.val ⦄ := by
   unfold arithmetic.plain_arith.RingElem.shift_right
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
@@ -460,7 +372,7 @@ theorem shift_right_spec (self : RingElem) (shift : Usize) (hshift : shift.val <
   have h_val_eq : (to_back r_iter.slice).val = r_iter.slice.val := by
     rw [hto_back]; exact Std.Array.from_slice_val self r_iter.slice hri_len
   have htb_len : (to_back r_iter.slice).val.length = 256 := by rw [h_val_eq]; exact hri_len
-  unfold toRingElem Spec.Kopis.Polynomial.shiftRight
+  unfold toRingElem Spec.Kopis.Poly.shiftRight
   rw [Vector.getElem_ofFn, Vector.getElem_map, Vector.getElem_ofFn]
   -- LHS coefficient
   have hval : ((to_back r_iter.slice).val[j]'(by scalar_tac)).val
@@ -577,12 +489,12 @@ theorem shift_left_loop_spec
   decreasing_by scalar_decr_tac
 
 /-- **Correctness of `RingElem::shift_left`** (for `shift < 16`): computes the
-audited coefficient-wise left shift `Spec.Kopis.Polynomial.shiftLeft` (the cast
+audited coefficient-wise left shift `Spec.Kopis.Poly.shiftLeft` (the cast
 back into `ZMod (2¹⁶)` performs the `mod 2¹⁶` reduction the `u16` shift does). -/
 theorem shift_left_spec (self : RingElem) (shift : Usize) (hshift : shift.val < 16) :
     arithmetic.plain_arith.RingElem.shift_left self shift
       ⦃ (r : RingElem) =>
-          toRingElem r = Spec.Kopis.Polynomial.shiftLeft (toRingElem self) shift.val ⦄ := by
+          toRingElem r = Spec.Kopis.Poly.shiftLeft (toRingElem self) shift.val ⦄ := by
   unfold arithmetic.plain_arith.RingElem.shift_left
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
@@ -603,7 +515,7 @@ theorem shift_left_spec (self : RingElem) (shift : Usize) (hshift : shift.val < 
     rw [hto_back]; exact Std.Array.from_slice_val self r_iter.slice hri_len
   have htb_len : (to_back r_iter.slice).val.length = 256 := by rw [h_val_eq]; exact hri_len
   have hUsize : U16.size = 2 ^ 16 := by simp [U16.size, U16.numBits]
-  unfold toRingElem Spec.Kopis.Polynomial.shiftLeft
+  unfold toRingElem Spec.Kopis.Poly.shiftLeft
   rw [Vector.getElem_ofFn, Vector.getElem_map, Vector.getElem_ofFn]
   have hval : ((to_back r_iter.slice).val[j]'(by scalar_tac)).val
       = ((it0.slice.val[j]'(by scalar_tac)).val <<< shift.val) % U16.size := by
@@ -717,12 +629,12 @@ theorem wrapping_add_to_all_loop_spec
   decreasing_by scalar_decr_tac
 
 /-- **Correctness of `RingElem::wrapping_add_to_all`**: adds the constant `val` to
-every coefficient (mod 2¹⁶), i.e. `+ Polynomial.const val` on the abstraction. -/
+every coefficient (mod 2¹⁶), i.e. `+ Poly.const val` on the abstraction. -/
 theorem wrapping_add_to_all_spec (self : RingElem) (val : U16) :
     arithmetic.plain_arith.RingElem.wrapping_add_to_all self val
       ⦃ (r : RingElem) =>
-          toRingElem r = Spec.Kopis.Polynomial.add (toRingElem self)
-            (Spec.Kopis.Polynomial.const (2 ^ 16) ((val.val : ZMod (2 ^ 16)))) ⦄ := by
+          toRingElem r = Spec.Kopis.Poly.add (toRingElem self)
+            (Spec.Kopis.Poly.const (2 ^ 16) ((val.val : ZMod (2 ^ 16)))) ⦄ := by
   unfold arithmetic.plain_arith.RingElem.wrapping_add_to_all
   let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
   let* ⟨ it0, it_back, h_it_slice, h_it_zero, h_it_back ⟩ ← iter_mut_spec
@@ -742,7 +654,7 @@ theorem wrapping_add_to_all_spec (self : RingElem) (val : U16) :
   have h_val_eq : (to_back r_iter.slice).val = r_iter.slice.val := by
     rw [hto_back]; exact Std.Array.from_slice_val self r_iter.slice hri_len
   have htb_len : (to_back r_iter.slice).val.length = 256 := by rw [h_val_eq]; exact hri_len
-  unfold toRingElem Spec.Kopis.Polynomial.const Spec.Kopis.Polynomial.add
+  unfold toRingElem Spec.Kopis.Poly.const Spec.Kopis.Poly.add
   rw [Vector.getElem_ofFn, Vector.getElem_zipWith, Vector.getElem_ofFn, Vector.getElem_replicate]
   -- element equality
   have hval : (to_back r_iter.slice).val[j]'(by scalar_tac)

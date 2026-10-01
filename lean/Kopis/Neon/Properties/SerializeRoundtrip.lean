@@ -4,7 +4,7 @@
 /-
   # Kopis/Properties/SerializeRoundtrip.lean — the *other* encoding round-trip.
 
-  `Kopis/Properties/EncodeRoundtrip.lean` proves `deserialize ∘ serialize = id`
+  `Kopis/Properties/EncodeRoundtrip.lean` proves `deserialize_elem ∘ serialize_elem = id`
   (decoding recovers what was encoded).  This file proves the converse,
   `serialize ∘ deserialize = id`: re-encoding an arbitrary byte string that has been
   decoded gives that byte string back.  It is what ties `PkePublicKey::from_bytes`
@@ -12,7 +12,7 @@
   hashes the parsed key — be related to the *input* rather than to its own
   re-serialization.
 
-  The proof is a counting argument rather than a bit-level one.  `serialize n` is
+  The proof is a counting argument rather than a bit-level one.  `serialize_elem n` is
   injective (that is exactly `deserialize_serialize`), and its domain and codomain are
   finite of the same size — `(2ⁿ)²⁵⁶` polynomials and `(2⁸)^(32n)` byte strings are both
   `2^(256n)` — so it is a bijection and its left inverse is also a right inverse.
@@ -69,7 +69,7 @@ private theorem card_vector {α : Type*} {m : ℕ} [Fintype α] :
 2^(256n)` values; a degree-256 polynomial over `ZMod (2ⁿ)` holds `(2ⁿ)^256 = 2^(256n)`.
 This is the whole content of "the `n`-bit packing wastes no space". -/
 private theorem card_bytes_eq_card_poly (n : ℕ) :
-    Fintype.card (𝔹 (32 * n)) = Fintype.card (Spec.Kopis.Polynomial (2 ^ n)) := by
+    Fintype.card (𝔹 (32 * n)) = Fintype.card (Spec.Kopis.Poly (2 ^ n)) := by
   haveI : NeZero (2 ^ n) := ⟨by positivity⟩
   rw [card_vector, card_vector, card_bitVec, ZMod.card, ← pow_mul, ← pow_mul]
   congr 1

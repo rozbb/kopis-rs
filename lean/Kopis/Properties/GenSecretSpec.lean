@@ -2,7 +2,7 @@ import Kopis.Properties.GenSecretLoops
 open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe)
+open Spec (bytesToBits)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
 open Spec.Kopis (DOMSEP_GENSEC)
@@ -11,7 +11,7 @@ namespace Kopis.Properties
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
 
-/-- Index bound for the CBD bit stream (local copy of the spec's private `gensec_idx_lt`). -/
+/-- Index bound for the CBD bit stream. -/
 theorem gensec_idx_lt' {μ k j : Nat} (hk : k < 256) (hj : j < μ / 2) :
     μ * k + μ / 2 + j < 8 * (32 * μ) := by
   calc μ * k + μ / 2 + j < μ * k + μ := by omega
@@ -22,10 +22,10 @@ theorem gensec_idx_lt' {μ k j : Nat} (hk : k < 256) (hj : j < μ / 2) :
 /-- The spec's centered-binomial coefficient `k` for row `i`. -/
 noncomputable def gsCoeff (μ : ℕ) (seed : 𝔹 32) (k : ℕ) (hk : k < 256) (i : ℕ) : ZMod (2 ^ 13) :=
   ((∑ j : Fin (μ / 2),
-      ((bytesToBitsLe (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + j.val]'(by
+      ((bytesToBits (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + j.val]'(by
         have := gensec_idx_lt' hk j.isLt; omega)).toNat : ℕ) : ZMod (2 ^ 13))
     - ((∑ j : Fin (μ / 2),
-      ((bytesToBitsLe (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + μ / 2 + j.val]'(
+      ((bytesToBits (turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ)))[μ * k + μ / 2 + j.val]'(
         gensec_idx_lt' hk j.isLt)).toNat : ℕ) : ZMod (2 ^ 13))
 
 /-- `(v.set i x)[j] = if j = i then x else v[j]` (both bounded). -/
@@ -51,27 +51,27 @@ theorem GenSecret_get (ℓ μ : ℕ) (seed : 𝔹 32) (i₀ : Fin ℓ) (k : ℕ)
     ℓ (by simp) ?hInit ?hStep
   case hInit =>
     simp only [Nat.not_lt_zero, if_false]
-    simp [Spec.Kopis.PolyVector.zero, Spec.Kopis.Polynomial.zero]
+    simp [Spec.Kopis.PolyVector.zero, Spec.Kopis.Poly.zero]
   case hStep =>
     intro cnt hcnt b hb x hx hx_eq
     have hx_val : x = cnt := by rw [hx_eq]; simp [List.getElem_range']
     subst hx_val
     refine ⟨_, rfl, ?_⟩
     have hxℓ : x < ℓ := by simpa using hcnt
-    simp only [Spec.Kopis.PolyVector.set]
+    simp only [Spec.Kopis.PolyVector.set, Spec.Kopis.make_rn]
     by_cases hix : i₀.val = x
     · -- the row we care about is written this iteration
-      have HR : ∀ (R : Spec.Kopis.Polynomial (2 ^ 13)),
+      have HR : ∀ (R : Spec.Kopis.Poly (2 ^ 13)),
           ((Vector.set b x R)[i₀.val]'i₀.isLt)[k]'hk = R[k]'hk := fun R => by
         rw [Vector.getElem_set, if_pos hix.symm]
       rw [HR, if_pos (show i₀.val < x + 1 by omega),
         show gsCoeff μ seed k hk i₀.val
           = if k < 256 then gsCoeff μ seed k hk i₀.val else (0 : ZMod (2 ^ 13)) from (if_pos hk).symm]
       refine forIn'_inv' (List.range' 0 256) _ _
-        (fun cnt2 (r : Spec.Kopis.Polynomial (2 ^ 13)) =>
+        (fun cnt2 (r : Spec.Kopis.Poly (2 ^ 13)) =>
           r[k]'hk = if k < cnt2 then gsCoeff μ seed k hk i₀.val else (0 : ZMod (2 ^ 13)))
         256 (by simp) ?inInit ?inStep
-      case inInit => simp [Spec.Kopis.Polynomial.zero]
+      case inInit => simp
       case inStep =>
         intro c2 hc2 r hr c hc hc_eq
         have hc_val : c = c2 := by rw [hc_eq]; simp [List.getElem_range']
@@ -80,13 +80,14 @@ theorem GenSecret_get (ℓ μ : ℕ) (seed : 𝔹 32) (i₀ : Fin ℓ) (k : ℕ)
         rw [Vector.getElem_set]
         by_cases hkc : k = c
         · rw [if_pos hkc.symm, if_pos (by omega : k < c + 1)]
-          subst hkc; rw [hix]; rfl
+          subst hkc; rw [hix, Spec.Kopis.hamming_bit_slices_even _ _ _ hk,
+            Spec.Kopis.hamming_bit_slices_odd _ _ _ hk]; rfl
         · rw [if_neg (fun h => hkc h.symm), hr]
           by_cases hkc2 : k < c
           · rw [if_pos hkc2, if_pos (by omega)]
           · rw [if_neg hkc2, if_neg (by omega)]
     · -- a different row: value carried from `hb`
-      have HR : ∀ (R : Spec.Kopis.Polynomial (2 ^ 13)),
+      have HR : ∀ (R : Spec.Kopis.Poly (2 ^ 13)),
           ((Vector.set b x R)[i₀.val]'i₀.isLt)[k]'hk = (b[i₀.val]'i₀.isLt)[k]'hk := fun R => by
         rw [Vector.getElem_set, if_neg (fun h => hix h.symm)]
       rw [HR, hb]

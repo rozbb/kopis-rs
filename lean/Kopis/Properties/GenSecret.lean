@@ -1,6 +1,6 @@
 import Kopis.Properties.RingArith
 import Kopis.Properties.GenMatrix
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 import Kopis.Properties.Serialize
 open Aeneas Aeneas.Std Result RustKopisSerial
 open scoped BigOperators

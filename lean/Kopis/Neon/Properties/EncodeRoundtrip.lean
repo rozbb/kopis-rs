@@ -8,12 +8,12 @@ import Kopis.Neon.Properties.SerializeTop
 /-!
 # Kopis serialization roundtrip
 
-`deserialize n (serialize n r) = r` (per-polynomial), and the `PolyVector` lift.
+`deserialize_elem n (serialize n r) = r` (per-polynomial), and the `PolyVector` lift.
 -/
 
 open Aeneas Aeneas.Std Result
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe bitsToBytesLe slice)
+open Spec (bytesToBits bitsToBytes slice)
 open scoped BigOperators
 
 namespace Kopis.Neon.Properties
@@ -23,7 +23,7 @@ open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamB
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
 
-/-- Bit index bound (same statement as the spec's private `serialize_idx_lt`). -/
+/-- Bit index bound. -/
 private theorem rt_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
     n * i + j < 8 * (32 * n) := by
   calc n * i + j < n * i + n := by omega
@@ -31,10 +31,10 @@ private theorem rt_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
     _ ≤ n * 256 := Nat.mul_le_mul_left n (by omega)
     _ = 8 * (32 * n) := by ring
 
-/-- Bit `n·i + j` of `bytesToBitsLe (serialize n r)` is bit `j` of coefficient `i`. -/
+/-- Bit `n·i + j` of `bytesToBits (serialize_elem n r)` is bit `j` of coefficient `i`. -/
 private theorem bytesToBits_serialize_bit (n : ℕ) (hn : 0 < n)
-    (r : Spec.Kopis.Polynomial (2 ^ n)) (i j : ℕ) (hi : i < 256) (hj : j < n) :
-    ((bytesToBitsLe (Spec.Kopis.serialize n r))[n * i + j]'(rt_idx_lt hi hj))
+    (r : Spec.Kopis.Poly (2 ^ n)) (i j : ℕ) (hi : i < 256) (hj : j < n) :
+    ((bytesToBits (Spec.Kopis.serialize_elem n r))[n * i + j]'(rt_idx_lt hi hj))
       = (r[i]'hi).val.testBit j := by
   set m := n * i + j with hm
   have hm_lt : m < 8 * (32 * n) := rt_idx_lt hi hj
@@ -44,26 +44,26 @@ private theorem bytesToBits_serialize_bit (n : ℕ) (hn : 0 < n)
   have hdiv : m / n = i := by
     rw [hm, Nat.mul_add_div hn, Nat.div_eq_of_lt hj, Nat.add_zero]
   have hmod : m % n = j := by rw [hm, Nat.mul_add_mod, Nat.mod_eq_of_lt hj]
-  -- unfold bytesToBitsLe at position m
-  have hb : ((bytesToBitsLe (Spec.Kopis.serialize n r))[m]'hm_lt)
-      = ((Spec.Kopis.serialize n r)[m / 8]'hp8).toNat.testBit (m % 8) := by
-    simp only [bytesToBitsLe, Vector.getElem_ofFn]
+  -- unfold bytesToBits at position m
+  have hb : ((bytesToBits (Spec.Kopis.serialize_elem n r))[m]'hm_lt)
+      = ((Spec.Kopis.serialize_elem n r)[m / 8]'hp8).toNat.testBit (m % 8) := by
+    simp only [bytesToBits, Vector.getElem_ofFn]
   rw [hb, serialize_byte_bit n r (m / 8) (m % 8) hp8 hj8 hn]
   simp only [hrec, hdiv, hmod]
 
 /-- **Per-polynomial roundtrip:** deserialize inverts serialize. -/
 theorem deserialize_serialize (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 13)
-    (r : Spec.Kopis.Polynomial (2 ^ n)) :
-    Spec.Kopis.deserialize n (Spec.Kopis.serialize n r) = r := by
+    (r : Spec.Kopis.Poly (2 ^ n)) :
+    Spec.Kopis.deserialize_elem n (Spec.Kopis.serialize_elem n r) = r := by
   obtain ⟨hn1, _hn13⟩ := hn
   have hn0 : 0 < n := hn1
   haveI : NeZero (2 ^ n) := ⟨by positivity⟩
   apply Vector.ext
   intro i hi
-  rw [deserialize_get n (Spec.Kopis.serialize n r) i hi]
+  rw [deserialize_get n (Spec.Kopis.serialize_elem n r) i hi]
   -- rewrite each bit to a coefficient testBit
   have hbit : ∀ j : Fin n,
-      ((bytesToBitsLe (Spec.Kopis.serialize n r))[n * i + j.val]'(rt_idx_lt hi j.isLt))
+      ((bytesToBits (Spec.Kopis.serialize_elem n r))[n * i + j.val]'(rt_idx_lt hi j.isLt))
         = (r[i]'hi).val.testBit j.val :=
     fun j => bytesToBits_serialize_bit n hn0 r i j.val hi j.isLt
   -- ℕ-level digit sum
@@ -78,20 +78,20 @@ theorem deserialize_serialize (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 13)
 /-- **`PolyVector` roundtrip.** -/
 theorem polyVector_deserialize_serialize {ℓ : ℕ} (n : ℕ) (hn : 1 ≤ n ∧ n ≤ 13)
     (v : Spec.Kopis.PolyVector (2 ^ n) ℓ) :
-    Spec.Kopis.PolyVector.deserialize n ((Spec.Kopis.PolyVector.serialize n v).cast (by ring)) = v := by
+    Spec.Kopis.deserialize_vec n ((Spec.Kopis.serialize_vec n v).cast (by ring)) = v := by
   have hn0 : 0 < n := hn.1
   have hmpos : 0 < 32 * n := by omega
   apply Vector.ext
   intro i hi
-  simp only [Spec.Kopis.PolyVector.deserialize, Vector.getElem_ofFn]
-  -- the slice equals `serialize n v[i]`
-  have hslice : slice (((Spec.Kopis.PolyVector.serialize n v).cast (by ring) : 𝔹 (32 * n * ℓ)))
+  simp only [Spec.Kopis.deserialize_vec, Vector.getElem_ofFn]
+  -- the slice equals `serialize_elem n v[i]`
+  have hslice : slice (((Spec.Kopis.serialize_vec n v).cast (by ring) : 𝔹 (32 * n * ℓ)))
       (32 * n * i) (32 * n) (by
         have h : 32 * n * i + 32 * n ≤ 32 * n * ℓ := by
           calc 32 * n * i + 32 * n = 32 * n * (i + 1) := by ring
             _ ≤ 32 * n * ℓ := Nat.mul_le_mul_left _ hi
         omega)
-      = Spec.Kopis.serialize n (v[i]'hi) := by
+      = Spec.Kopis.serialize_elem n (v[i]'hi) := by
     apply Vector.ext
     intro k hk
     simp only [slice, Vector.getElem_ofFn, Vector.getElem_cast]
@@ -101,7 +101,7 @@ theorem polyVector_deserialize_serialize {ℓ : ℕ} (n : ℕ) (hn : 1 ≤ n ∧
         _ = 32 * n * (i + 1) := by ring
         _ ≤ 32 * n * ℓ := Nat.mul_le_mul_left _ hi
         _ = ℓ * (32 * n) := by ring
-    rw [show (Spec.Kopis.PolyVector.serialize n v) = (v.map (Spec.Kopis.serialize n)).flatten from rfl]
+    rw [show (Spec.Kopis.serialize_vec n v) = (v.map (Spec.Kopis.serialize_elem n)).flatten from rfl]
     rw [Vector.getElem_flatten hkbound]
     have hdiv : (32 * n * i + k) / (32 * n) = i := by
       rw [Nat.mul_add_div hmpos, Nat.div_eq_of_lt hk, Nat.add_zero]

@@ -5,7 +5,7 @@
   # Kopis/Properties/Serialize.lean — `deserialize` / `from_bytes` correspondence.
 
   Proves the Aeneas-extracted `ser::deserialize` (via `RingElem::from_bytes`)
-  computes the audited `Spec.Kopis.deserialize`.
+  computes the audited `Spec.Kopis.deserialize_elem`.
 
   `ser::deserialize` is a sliding-window bit-unpacker: it maintains a `u32`
   `window` holding `bits_in_window` pending bits (LSB-aligned), refills one byte
@@ -16,12 +16,12 @@
 import Kopis.Avx2.SerDispatch
 import ExtractedRustAvx2
 import Kopis.Bits.Stream
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 
 open Aeneas Aeneas.Std Result
 open RustKopisAvx2
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe)
+open Spec (bytesToBits)
 
 namespace Kopis.Avx2.Properties
 
@@ -45,8 +45,8 @@ theorem sliceToBytes_toList {s : Slice U8} {n : ℕ} (h : s.length = n) :
     simp only [sliceToBytes, Vector.getElem_toList, Vector.getElem_ofFn, List.getElem_map]
 
 /-- Interpret a Rust `RingElem` as a spec ring element over `ZMod (2¹³)` (the
-modulus `deserialize 13` targets; each decoded coefficient is `< 2¹³`). -/
-def toRingElem13 (a : RingElem) : Spec.Kopis.Polynomial (2 ^ 13) :=
+modulus `deserialize_elem 13` targets; each decoded coefficient is `< 2¹³`). -/
+def toRingElem13 (a : RingElem) : Spec.Kopis.Poly (2 ^ 13) :=
   Vector.ofFn fun (i : Fin 256) =>
     ((a.val[i.val]'(by have := a.property; grind)).val : ZMod (2 ^ 13))
 
@@ -216,7 +216,7 @@ private theorem forIn'_getElem_indexed {α : Type} {β : Type} {m : Nat} :
         have hk' : k + 1 < (x :: xs).length := by simp; omega
         exact hStep (k + 1) hk' b hPk a (.tail _ ha) (by simp [heq]))
 
-/-- Bit index bound (same statement as the spec's private `serialize_idx_lt`). -/
+/-- Bit index bound. -/
 private theorem deser_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
     n * i + j < 8 * (32 * n) := by
   calc n * i + j < n * i + n := by omega
@@ -226,54 +226,24 @@ private theorem deser_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 
 /-- The `i`-th coefficient of the spec `deserialize` is exactly its loop body. -/
 theorem deserialize_get (n : ℕ) (B : 𝔹 (32 * n)) (i : ℕ) (hi : i < 256) :
-    (Spec.Kopis.deserialize n B)[i]'hi
-      = ∑ j : Fin n, ((bytesToBitsLe B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat * 2 ^ j.val := by
-  unfold Spec.Kopis.deserialize
-  simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
-    Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one]
-  refine forIn'_getElem_indexed (List.range' 0 256) _ _ i hi _
-    (P := fun s (F' : Spec.Kopis.Polynomial (2 ^ n)) =>
-      (F'[i]'hi) = if s ≤ i then (0 : ZMod (2 ^ n))
-        else ((∑ j : Fin n, ((bytesToBitsLe B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat
-                * 2 ^ j.val : ℕ) : ZMod (2 ^ n)))
-    ?hInit ?hFinal ?hStep
-  case hInit =>
-    show (Spec.Kopis.Polynomial.zero (2 ^ n))[i]'hi = _
-    simp [Spec.Kopis.Polynomial.zero, Vector.getElem_replicate]
-  case hFinal =>
-    intro dw hP
-    rw [show (List.range' 0 256).length = 256 from by simp, if_neg (by omega)] at hP
-    exact hP
-  case hStep =>
-    intro k hk F' hPF' a ha ha_eq
-    have hk_lt : k < 256 := (show (List.range' 0 256).length = 256 from by simp) ▸ hk
-    have ha_val : a = k := by rw [ha_eq]; simp [List.getElem_range']
-    have ha_lt : a < 256 := ha_val ▸ hk_lt
-    refine ⟨_, rfl, ?_⟩
-    rw [Vector.getElem_set ha_lt hi]
-    by_cases h_eq : a = i
-    · rw [if_pos h_eq, if_neg (by omega : ¬ k + 1 ≤ i)]
-      simp only [h_eq]
-      push_cast
-      rfl
-    · rw [if_neg h_eq, hPF']
-      have hki : k ≠ i := by rw [← ha_val]; exact h_eq
-      by_cases hle : k ≤ i <;> [rw [if_pos hle, if_pos (by omega)]; rw [if_neg hle, if_neg (by omega)]]
+    (Spec.Kopis.deserialize_elem n B)[i]'hi
+      = ∑ j : Fin n, ((bytesToBits B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat * 2 ^ j.val := by
+  rw [Spec.Kopis.deserialize_elem_getElem]
 
-/-- The bridged spec bit stream `bytesToBitsLe (sliceToBytes …)` agrees with `streamBit`. -/
+/-- The bridged spec bit stream `bytesToBits (sliceToBytes …)` agrees with `streamBit`. -/
 theorem streamBit_eq_bit (bytes : Slice U8) (n m : ℕ) (h : bytes.length = 32 * n)
     (hm : m < 8 * (32 * n)) :
-    ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[m]'(by simpa using hm)).toNat = streamBit bytes m := by
+    ((bytesToBits (sliceToBytes bytes (32 * n) h))[m]'(by simpa using hm)).toNat = streamBit bytes m := by
   have hm8 : m / 8 < 32 * n := by omega
   unfold streamBit
-  simp only [bytesToBitsLe, sliceToBytes, Vector.getElem_ofFn]
+  simp only [bytesToBits, sliceToBytes, Vector.getElem_ofFn]
   rw [getElem!_pos bytes.val (m / 8) (by simp only [Slice.length] at h ⊢; omega)]
   rfl
 
 /-- `streamNat (n·j) n` equals the spec's per-coefficient `Fin`-sum over the bridged bits. -/
 private theorem streamNat_eq_sum (bytes : Slice U8) (n j : ℕ) (h : bytes.length = 32 * n) (hj : j < 256) :
     streamNat bytes (n * j) n
-      = ∑ k : Fin n, ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt hj k.isLt)).toNat
+      = ∑ k : Fin n, ((bytesToBits (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt hj k.isLt)).toNat
           * 2 ^ k.val := by
   unfold streamNat
   rw [← Fin.sum_univ_eq_sum_range (fun b => streamBit bytes (n * j + b) * 2 ^ b) n]
@@ -738,7 +708,7 @@ Stated separately from `from_bytes_spec` because the AVX2 unpacker is specified 
 `RingElem.deserialize`, so it needs this last step on its own. -/
 theorem toRingElem13_of_streamNat (bytes : Slice U8) (hlen : bytes.length = 32 * 13)
     (r : RingElem) (hr : ∀ j < 256, (r.val[j]!).val = streamNat bytes (13 * j) 13) :
-    toRingElem13 r = Spec.Kopis.deserialize 13 (sliceToBytes bytes (32 * 13) hlen) := by
+    toRingElem13 r = Spec.Kopis.deserialize_elem 13 (sliceToBytes bytes (32 * 13) hlen) := by
   have hrlen : (r.val : List U16).length = 256 := by have := r.property; scalar_tac
   apply Vector.ext
   intro jj hjj
@@ -748,13 +718,13 @@ theorem toRingElem13_of_streamNat (bytes : Slice U8) (hlen : bytes.length = 32 *
     streamNat_eq_sum bytes 13 jj hlen hjj]
 
 /-- **Correctness of `RingElem::deserialize` at 13 bits.**  Decoding a 416-byte
-buffer yields the spec ring element `deserialize 13`.  (The Rust method was renamed
+buffer yields the spec ring element `deserialize_elem 13`.  (The Rust method was renamed
 from `from_bytes` to `deserialize`; the 13-bit branch now routes through the
 branchless `deserialize_13` fast path.) -/
 theorem from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
     arithmetic.plain_arith.RingElem.deserialize 13#usize bytes
       ⦃ (r : RingElem) =>
-          toRingElem13 r = Spec.Kopis.deserialize 13 (sliceToBytes bytes (32 * 13) hlen) ⦄ := by
+          toRingElem13 r = Spec.Kopis.deserialize_elem 13 (sliceToBytes bytes (32 * 13) hlen) ⦄ := by
   have hlen416 : bytes.length = 416 := by omega
   -- Both guards of the AVX2 dispatch are opaque, and nothing is assumed about what they
   -- return: all three reachable paths compute the same bit stream.  See SerDispatch.lean.

@@ -14,9 +14,9 @@ These tests are of three kinds:
   parameter set. This exercises the TurboSHAKE-heavy path, which is far too slow
   to evaluate at `#guard` time under the reference spec.
 - **Known-answer tests** read directly from the crate's
-  `tests/ref_test_vectors-kopis*.jsonl` files (see the section below), also run
+  `tests/test_vectors-kopis*.jsonl` files (see the section below), also run
   by `lake exe kopisTests`. These are the very files the Rust crate's
-  `tests/ref_kat.rs` consumes, so passing both runners cross-validates the Rust
+  `tests/kat.rs` consumes, so passing both runners cross-validates the Rust
   implementation against this spec.
 -/
 
@@ -28,19 +28,19 @@ open Spec (𝔹)
 /-! ## Fast unit tests (`#guard`) — pure ring layer, no TurboSHAKE -/
 
 /-- The monomial `c · Xⁱ` in `ℤ_m[X]/(X²⁵⁶+1)`. -/
-private def mono (m i : ℕ) (c : ZMod m) (h : i < 256 := by omega) : Polynomial m :=
-  (Polynomial.zero m).set i c
+private def mono (m i : ℕ) (c : ZMod m) (h : i < 256 := by omega) : Poly m :=
+  (Poly.zero m).set i c
 
 /-- A dense sample polynomial in `R13` with coefficient `i` at index `i`. -/
-private def sample13 : Polynomial (2 ^ 13) := Vector.ofFn fun i => (i.val : ZMod (2 ^ 13))
+private def sample13 : Poly (2 ^ 13) := Vector.ofFn fun i => (i.val : ZMod (2 ^ 13))
 
 /-! ### Serialization round-trips -/
 
 -- Coefficients are canonical (`< 2¹³`), so packing 13 bits each is lossless.
-#guard deserialize 13 (serialize 13 sample13) = sample13
+#guard deserialize_elem 13 (serialize_elem 13 sample13) = sample13
 
 -- n = 1: a bit-packed message round-trips.
-#guard deserialize 1 (serialize 1 (mono (2 ^ 1) 0 1)) = mono (2 ^ 1) 0 1
+#guard deserialize_elem 1 (serialize_elem 1 (mono (2 ^ 1) 0 1)) = mono (2 ^ 1) 0 1
 
 /-! ### Negacyclic multiplication (`X²⁵⁶ = -1`) -/
 
@@ -67,8 +67,8 @@ private def sample13 : Polynomial (2 ^ 13) := Vector.ofFn fun i => (i.val : ZMod
 /-! ### Rounding -/
 
 -- `CompressToRt` on the all-zero element is zero (adding 4 then `>> (10-t)` clears).
-#guard CompressToRt 3 (Polynomial.zero (2 ^ 10)) = Polynomial.zero (2 ^ 3)
-#guard DecodeMsg 3 (Polynomial.zero (2 ^ 10)) = Polynomial.zero (2 ^ 1)
+#guard CompressToRt 3 (Poly.zero (2 ^ 10)) = Poly.zero (2 ^ 3)
+#guard DecodeMsg 3 (Poly.zero (2 ^ 10)) = Poly.zero (2 ^ 1)
 
 -- Parameter constants match the spec table.
 #guard (ℓ .Kopis_512, t .Kopis_512, μ .Kopis_512) = (2, 3, 10)
@@ -109,8 +109,8 @@ def runKopisTests : IO Unit := do
 
 /-! ## Known-answer tests from external `.jsonl` vectors
 
-Reads the crate's `tests/ref_test_vectors-kopis*.jsonl` files at runtime (one
-JSON object per line) — the *same* files the Rust `tests/ref_kat.rs` consumes,
+Reads the crate's `tests/test_vectors-kopis*.jsonl` files at runtime (one
+JSON object per line) — the *same* files the Rust `tests/kat.rs` consumes,
 so there is exactly one copy of the vectors and both implementations are held to
 it. Paths are relative to the package root, i.e. run from `lean/`:
 `lake exe kopisTests`. -/
@@ -179,9 +179,9 @@ private def runKAT (p : ParameterSet) (path : System.FilePath) : IO Unit := do
 
 def runKopisKAT : IO Unit := do
   IO.println "=== Kopis known-answer tests (external vectors) ==="
-  runKAT .Kopis_512  "../tests/ref_test_vectors-kopis512.jsonl"
-  runKAT .Kopis_768  "../tests/ref_test_vectors-kopis768.jsonl"
-  runKAT .Kopis_1024 "../tests/ref_test_vectors-kopis1024.jsonl"
+  runKAT .Kopis_512  "../tests/test_vectors-kopis512.jsonl"
+  runKAT .Kopis_768  "../tests/test_vectors-kopis768.jsonl"
+  runKAT .Kopis_1024 "../tests/test_vectors-kopis1024.jsonl"
   IO.println "ALL KAT OK"
 
 end Spec.Kopis.Test

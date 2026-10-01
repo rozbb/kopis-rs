@@ -633,7 +633,7 @@ theorem shift_right_uniformBounded {L : Usize}
       = (((self.val[i]!).val[j]!).val[c]!).val >>> sh.val := by
     rw [← ntt_toRingElem_coeff_val ((r.val[i]!).val[j]!) c hc,
       getElem!_pos (toRingElem ((r.val[i]!).val[j]!)) c hc, he]
-    simp only [Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map, ZMod.val_natCast]
+    simp only [Spec.Kopis.Poly.shiftRight, Vector.getElem_map, ZMod.val_natCast]
     rw [← getElem!_pos (toRingElem ((self.val[i]!).val[j]!)) c hc,
       ntt_toRingElem_coeff_val ((self.val[i]!).val[j]!) c hc]
     have : (((self.val[i]!).val[j]!).val[c]!).val >>> sh.val < 2 ^ 16 := by

@@ -4,7 +4,7 @@
 import Kopis.Bits.Stream
 import Kopis.Avx2.Properties.RingArith
 import Kopis.Avx2.Properties.GenMatrix
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 import Kopis.Avx2.Properties.Serialize
 open Aeneas Aeneas.Std Result RustKopisAvx2
 open scoped BigOperators

@@ -45,10 +45,10 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     (V : Mat L 1#usize) (Amat : Mat L L)
     (hpkvecfwd : pk.vec_ntt = nttFwdU V) (hpkmatfwd : pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
-      = hℓ ▸ Spec.Kopis.PolyVector.deserialize 10 (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.deserialize_vec 10 (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
-      = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p) (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p) (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
     (hpkmatbnd : UniformBounded Amat) :
     pke.encrypt_deterministic MU T pk msg coins out_buf
       ⦃ (r : Slice U8) => ∃ h : r.length = Spec.Kopis.ctSize p,
@@ -154,7 +154,7 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
     rw [hvp1_pos]; exact hvprime 0 (by norm_num) 0 (by norm_num)
   -- cm's pre-rounding value equals the spec's `vprime - m·2⁹` (at R10)
   have hcv : (toRingElem c).coerce (2 ^ 10)
-      = Spec.Kopis.Polynomial.sub
+      = Spec.Kopis.Poly.sub
           (Spec.Kopis.innerProduct (toVecN 10 V) ((toVector13 vec_sprime).coerce (2 ^ 10)))
           (((toPolyN 1 a1).coerce (2 ^ 10)).shiftLeft 9) := by
     rw [hc, coerce_sub10, innerProduct_coerce_bridge V vec_sprime vprime1 hip]
@@ -177,35 +177,35 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   have hbprime : toVecN 10 prod2 = hℓ ▸ Spec.Kopis.CompressToR10 (Spec.Kopis.ℓ p)
       (Spec.Kopis.matVecMul
         (Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.Kopis.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
         (Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins))) := by
     rw [hbcorr, compressR10_mvm_cast, hpkmat, genSecret_cast, hvecs, ← hμ]
   have hvsc : toVector13 vec_sprime
       = hℓ ▸ Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins) := by
     rw [hvecs, genSecret_cast, hμ]
   have hcmfinal : toPolyN T.val c2 = Spec.Kopis.CompressToRt T.val
-      (Spec.Kopis.Polynomial.sub
+      (Spec.Kopis.Poly.sub
         (Spec.Kopis.innerProduct
-          (Spec.Kopis.PolyVector.deserialize 10
-            (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+          (Spec.Kopis.deserialize_vec 10
+            (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
           ((Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins)).coerce (2 ^ 10)))
-        (((Spec.Kopis.deserialize 1 ((arrayToBytes msg).cast rfl)).coerce (2 ^ 10)).shiftLeft 9)) := by
+        (((Spec.Kopis.deserialize_elem 1 ((arrayToBytes msg).cast rfl)).coerce (2 ^ 10)).shiftLeft 9)) := by
     have hA : Spec.Kopis.innerProduct (toVecN 10 V) ((toVector13 vec_sprime).coerce (2 ^ 10))
         = Spec.Kopis.innerProduct
-            (Spec.Kopis.PolyVector.deserialize 10
-              (Spec.Kopis.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+            (Spec.Kopis.deserialize_vec 10
+              (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
             ((Spec.Kopis.GenSecret (Spec.Kopis.ℓ p) (Spec.Kopis.μ p) (arrayToBytes coins)).coerce (2 ^ 10)) := by
       rw [hpkvec, hvsc, coerceVec_cast, innerProduct_cast]
-    have hmeq : toPolyN 1 a1 = Spec.Kopis.deserialize 1 ((arrayToBytes msg).cast rfl) := by
+    have hmeq : toPolyN 1 a1 = Spec.Kopis.deserialize_elem 1 ((arrayToBytes msg).cast rfl) := by
       rw [ha1]
-      refine congrArg (Spec.Kopis.deserialize 1) ?_
+      refine congrArg (Spec.Kopis.deserialize_elem 1) ?_
       apply Vector.toList_inj.mp
       refine Eq.trans ?_ (Vector.toList_cast ..).symm
       refine Eq.trans ?_ (arrayToBytes_toList msg).symm
       rw [sliceToBytes_toList]
       simp [Array.to_slice]
     have hB : ((toPolyN 1 a1).coerce (2 ^ 10)).shiftLeft 9
-        = ((Spec.Kopis.deserialize 1 ((arrayToBytes msg).cast rfl)).coerce (2 ^ 10)).shiftLeft 9 := by
+        = ((Spec.Kopis.deserialize_elem 1 ((arrayToBytes msg).cast rfl)).coerce (2 ^ 10)).shiftLeft 9 := by
       rw [hmeq]
     rw [hccorr, hcv, hA, hB]
   -- reconstruct the ciphertext bytes
@@ -215,9 +215,9 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   obtain ⟨hrval, hrlen⟩ := hbackfn bprime_buf1 c_buf1 hcond1 hcond2
   refine ⟨hrlen.trans hlenout, ?_⟩
   have hb1t : bprime_buf1.val.map (·.bv)
-      = (Spec.Kopis.PolyVector.serialize 10 (toVecN 10 prod2)).toList := by
+      = (Spec.Kopis.serialize_vec 10 (toVecN 10 prod2)).toList := by
     rw [← sliceToBytes_toList hbp1len, hbp1eq]
-  have hc1t : c_buf1.val.map (·.bv) = (Spec.Kopis.serialize T.val (toPolyN T.val c2)).toList := by
+  have hc1t : c_buf1.val.map (·.bv) = (Spec.Kopis.serialize_elem T.val (toPolyN T.val c2)).toList := by
     rw [← sliceToBytes_toList hcb1len, hcb1eq]
   apply Vector.toList_inj.mp
   rw [sliceToBytes_toList, hrval, List.map_append, hb1t, hc1t, hbprime, serialize_eqRec_toList,

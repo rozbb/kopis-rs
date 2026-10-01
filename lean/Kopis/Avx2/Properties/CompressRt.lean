@@ -14,7 +14,7 @@ set_option maxHeartbeats 1000000
 
 /-- **Spec-side `CompressToRt` coefficient.**  Coefficient `k` of `CompressToRt t r` is
 `(((r[k].val + 4) mod 2¹⁰) >>> (10 - t))` (valid for `t ≤ 10`). -/
-theorem compressRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Polynomial (2 ^ 10))
+theorem compressRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Poly (2 ^ 10))
     (k : ℕ) (hk : k < 256) :
     (((Spec.Kopis.CompressToRt t r)[k]'hk).val)
       = (((r[k]'hk).val + 4) % 2 ^ 10) >>> (10 - t) := by
@@ -25,13 +25,14 @@ theorem compressRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Polynomial (2
       show 2 ^ t * 2 ^ (10 - t) = 2 ^ 10 from by rw [← pow_add]; congr 1; omega]
     exact h1
   have h4 : (4 : ZMod (2 ^ 10)).val = 4 := by decide
-  have hcoeff : ((r + Spec.Kopis.Polynomial.const (2 ^ 10) 4)[k]'hk).val
+  have hcoeff : ((r + Spec.Kopis.Poly.const (2 ^ 10) 4)[k]'hk).val
       = ((r[k]'hk).val + 4) % 2 ^ 10 := by
-    show (((Spec.Kopis.Polynomial.add r (Spec.Kopis.Polynomial.const (2 ^ 10) 4))[k]'hk).val : ℕ) = _
-    simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
+    show (((Spec.Kopis.Poly.add r (Spec.Kopis.Poly.const (2 ^ 10) 4))[k]'hk).val : ℕ) = _
+    simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, h4]
   unfold Spec.Kopis.CompressToRt
-  simp only [Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map,
+  simp only [Spec.Kopis.make_rn_replicate, Spec.Kopis.Poly.shiftRight_def]
+  simp only [Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftRight, Vector.getElem_map,
     hcoeff, ZMod.val_natCast]
   rw [Nat.mod_eq_of_lt (lt_of_lt_of_le hlt (Nat.pow_le_pow_right (by norm_num) ht)),
     Nat.mod_eq_of_lt hlt]
@@ -63,8 +64,8 @@ theorem compressRt_bridge (c t : ℕ) (ht : t ≤ 10) :
 `CompressToRt t ((coerce to R10) c)`. -/
 theorem compressRt_ring_bridge (c c1 c2 : RingElem) (t : ℕ) (ht : t ≤ 10)
     (hw : toRingElem c1
-      = Spec.Kopis.Polynomial.add (toRingElem c) (Spec.Kopis.Polynomial.const (2 ^ 16) 4))
-    (hs : toRingElem c2 = Spec.Kopis.Polynomial.shiftRight (toRingElem c1) (10 - t)) :
+      = Spec.Kopis.Poly.add (toRingElem c) (Spec.Kopis.Poly.const (2 ^ 16) 4))
+    (hs : toRingElem c2 = Spec.Kopis.Poly.shiftRight (toRingElem c1) (10 - t)) :
     toPolyN t c2 = Spec.Kopis.CompressToRt t ((toRingElem c).coerce (2 ^ 10)) := by
   haveI : NeZero ((2:ℕ)^t) := ⟨by positivity⟩
   apply Vector.ext
@@ -73,20 +74,20 @@ theorem compressRt_ring_bridge (c c1 c2 : RingElem) (t : ℕ) (ht : t ≤ 10)
   rw [compressRt_coeff t ht ((toRingElem c).coerce (2 ^ 10)) k hk,
     ← getElem!_pos (toPolyN t c2) k hk, toPolyN_val t c2 k hk,
     ← toRingElem_coeff_val c2 k hk, getElem!_pos _ k hk, hs]
-  simp only [Spec.Kopis.Polynomial.shiftRight, Vector.getElem_map, ZMod.val_natCast]
+  simp only [Spec.Kopis.Poly.shiftRight, Vector.getElem_map, ZMod.val_natCast]
   -- c1 coeff = c coeff + 4 (mod 2^16)
   have h4 : (4 : ZMod (2 ^ 16)).val = 4 := by decide
   have hp1 : (((toRingElem c1)[k]'hk).val) = (((toRingElem c)[k]'hk).val + 4) % 2 ^ 16 := by
     rw [hw]
-    show (((Spec.Kopis.Polynomial.add (toRingElem c)
-        (Spec.Kopis.Polynomial.const (2 ^ 16) 4))[k]'hk).val : ℕ) = _
-    simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
+    show (((Spec.Kopis.Poly.add (toRingElem c)
+        (Spec.Kopis.Poly.const (2 ^ 16) 4))[k]'hk).val : ℕ) = _
+    simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, h4]
   rw [hp1]
   set d := ((toRingElem c)[k]'hk).val with hd
   -- RHS coerce coeff: (coerce c 2^10)[k].val = d % 2^10
   have hcoe : (((toRingElem c).coerce (2 ^ 10))[k]'hk).val = d % 2 ^ 10 := by
-    simp only [Spec.Kopis.Polynomial.coerce, Vector.getElem_map, ZMod.val_natCast, hd]
+    simp only [Spec.Kopis.Poly.coerce, Vector.getElem_map, ZMod.val_natCast, hd]
   rw [hcoe]
   -- LHS: ((((d+4)%2^16) >>> (10-t)) % 2^16) % 2^t ; the inner %2^16 is absorbable
   rw [Nat.mod_mod_of_dvd _ (show (2:ℕ) ^ t ∣ 2 ^ 16 from by

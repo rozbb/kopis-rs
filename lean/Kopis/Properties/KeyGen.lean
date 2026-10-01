@@ -27,7 +27,7 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
               UniformBounded Amat) ∧
           (∃ V : Mat L 1#usize, ksk.kem_pk.pke_pk.vec_ntt = nttFwdU V ∧
               UniformBounded V ∧
-              vecBytesFlat ksk.kem_pk.pke_pk = Spec.Kopis.PolyVector.serialize 10 (toVecN 10 V)) ⦄ := by
+              vecBytesFlat ksk.kem_pk.pke_pk = Spec.Kopis.serialize_vec 10 (toVecN 10 V)) ⦄ := by
   unfold kem.KemSecretKey.expand_from_seed
   -- `let*` splits each bundled existential into its witness followed by its conjuncts, so the
   -- pattern names 4 tuple components + 15 postcondition parts; regroup them to rebuild the

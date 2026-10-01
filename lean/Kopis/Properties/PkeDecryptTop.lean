@@ -15,29 +15,29 @@ namespace Kopis.Properties
 set_option maxHeartbeats 10000000
 set_option maxRecDepth 8000
 
-/-- Prefix slice: `sliceToBytes` of the `take k` prefix equals `Spec.Kopis.slice` at offset 0. -/
+/-- Prefix slice: `sliceToBytes` of the `take k` prefix equals `Spec.slice` at offset 0. -/
 theorem sliceToBytes_take_eq_slice (s t : Slice U8) (N k : ℕ) (hN : s.length = N)
     (hk : k ≤ N) (hval : t.val = s.val.take k) (ht : t.length = k) :
-    sliceToBytes t k ht = Spec.Kopis.slice (sliceToBytes s N hN) 0 k (by omega) := by
+    sliceToBytes t k ht = Spec.slice (sliceToBytes s N hN) 0 k (by omega) := by
   apply Vector.ext; intro i hi
   rw [slice_getElem]
   simp only [sliceToBytes, Vector.getElem_ofFn, Nat.zero_add, hval, List.getElem_take]
 
-/-- Suffix slice: `sliceToBytes` of the `drop k` suffix equals `Spec.Kopis.slice` at offset `k`. -/
+/-- Suffix slice: `sliceToBytes` of the `drop k` suffix equals `Spec.slice` at offset `k`. -/
 theorem sliceToBytes_drop_eq_slice (s t : Slice U8) (N k len : ℕ) (hN : s.length = N)
     (hkl : k + len = N) (hval : t.val = s.val.drop k) (ht : t.length = len) :
-    sliceToBytes t len ht = Spec.Kopis.slice (sliceToBytes s N hN) k len (by omega) := by
+    sliceToBytes t len ht = Spec.slice (sliceToBytes s N hN) k len (by omega) := by
   apply Vector.ext; intro i hi
   rw [slice_getElem]
   simp only [sliceToBytes, Vector.getElem_ofFn, hval, List.getElem_drop]
 
-/-- `PolyVector.deserialize` transports across a length cast when the two byte inputs
+/-- `deserialize_vec` transports across a length cast when the two byte inputs
 have equal underlying lists. -/
 theorem deserialize_vec_toList_cast {ℓ ℓ' n : ℕ} (h : ℓ = ℓ')
     (a : 𝔹 (32 * n * ℓ)) (b : 𝔹 (32 * n * ℓ')) (hab : a.toList = b.toList) :
-    h ▸ Spec.Kopis.PolyVector.deserialize (ℓ := ℓ) n a
-      = Spec.Kopis.PolyVector.deserialize (ℓ := ℓ') n b := by
-  cases h; exact congrArg (Spec.Kopis.PolyVector.deserialize n) (Vector.toList_inj.mp hab)
+    h ▸ Spec.Kopis.deserialize_vec (ℓ := ℓ) n a
+      = Spec.Kopis.deserialize_vec (ℓ := ℓ') n b := by
+  cases h; exact congrArg (Spec.Kopis.deserialize_vec n) (Vector.toList_inj.mp hab)
 
 /-- The coerced `deserialize` of a `cm` slice is invariant under swapping the bit-width
 `t p` for the definitionally-equal `Usize` value `↑T` (the `coerce` erases the type index,
@@ -46,8 +46,8 @@ theorem deserialize_slice_coerce_cast {p : Spec.Kopis.ParameterSet} (T : Usize)
     (ht : Spec.Kopis.t p = T.val) (C : 𝔹 (Spec.Kopis.ctSize p)) (off m : ℕ)
     (hA : off + 32 * T.val ≤ Spec.Kopis.ctSize p)
     (hB : off + 32 * Spec.Kopis.t p ≤ Spec.Kopis.ctSize p) :
-    (Spec.Kopis.deserialize (Spec.Kopis.t p) (Spec.Kopis.slice C off (32 * Spec.Kopis.t p) hB)).coerce m
-      = (Spec.Kopis.deserialize T.val (Spec.Kopis.slice C off (32 * T.val) hA)).coerce m := by
+    (Spec.Kopis.deserialize_elem (Spec.Kopis.t p) (Spec.slice C off (32 * Spec.Kopis.t p) hB)).coerce m
+      = (Spec.Kopis.deserialize_elem T.val (Spec.slice C off (32 * T.val) hA)).coerce m := by
   generalize hk : Spec.Kopis.t p = k at ht hB ⊢
   cases ht
   rfl
@@ -176,7 +176,7 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
       = ((toPolyN T.val cm).coerce (2 ^ 10)).shiftLeft (10 - T.val) := by
     rw [hc1, hi3v]; exact shiftLeft_coerce_bridge cm T.val (by omega)
   have hmcoerce : (toRingElem mprime).coerce (2 ^ 10)
-      = Spec.Kopis.Polynomial.sub
+      = Spec.Kopis.Poly.sub
           (Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 S).coerce (2 ^ 10)))
           (((toPolyN T.val cm).coerce (2 ^ 10)).shiftLeft (10 - T.val)) := by
     rw [hmprime, coerce_sub10, hvcoerce, hc1coerce]
@@ -192,8 +192,8 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
   have hbb_len' : bprime_bytes.length = 32 * 10 * Spec.Kopis.ℓ p := by rw [hbb_len, hk_eq]
   have hcb_val' : c_bytes.val = ciphertext.val.drop (32 * 10 * Spec.Kopis.ℓ p) := by
     rw [hcb_val, hk_eq]
-  have hbprime_spec : hℓ ▸ Spec.Kopis.PolyVector.deserialize (ℓ := Spec.Kopis.ℓ p) 10
-        (Spec.Kopis.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) 0
+  have hbprime_spec : hℓ ▸ Spec.Kopis.deserialize_vec (ℓ := Spec.Kopis.ℓ p) 10
+        (Spec.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) 0
           (32 * 10 * Spec.Kopis.ℓ p) (by rw [hct, hℓ]; omega))
       = toVecN 10 bprime := by
     rw [hbprime]
@@ -201,8 +201,8 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     rw [← sliceToBytes_take_eq_slice ciphertext bprime_bytes (Spec.Kopis.ctSize p)
           (32 * 10 * Spec.Kopis.ℓ p) hlenct (by rw [hct, hℓ]; omega) hbb_val' hbb_len',
         sliceToBytes_toList, Vector.toList_cast, sliceToBytes_toList]
-  have hcm_spec : toPolyN T.val cm = Spec.Kopis.deserialize T.val
-      (Spec.Kopis.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct)
+  have hcm_spec : toPolyN T.val cm = Spec.Kopis.deserialize_elem T.val
+      (Spec.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct)
         (32 * 10 * Spec.Kopis.ℓ p) (32 * T.val) (by rw [hct, hℓ]; omega)) := by
     rw [hcm, sliceToBytes_drop_eq_slice ciphertext c_bytes (Spec.Kopis.ctSize p)
         (32 * 10 * Spec.Kopis.ℓ p) (32 * T.val) hlenct (by rw [hct, hℓ]; ring) hcb_val' hlen_cb]
@@ -211,8 +211,8 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     rw [hsk, coerceVec_cast]
   have hv_spec : Spec.Kopis.innerProduct (toVecN 10 bprime) ((toVector13 S).coerce (2 ^ 10))
       = Spec.Kopis.innerProduct
-          (Spec.Kopis.PolyVector.deserialize (ℓ := Spec.Kopis.ℓ p) 10
-            (Spec.Kopis.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) 0
+          (Spec.Kopis.deserialize_vec (ℓ := Spec.Kopis.ℓ p) 10
+            (Spec.slice (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) 0
               (32 * 10 * Spec.Kopis.ℓ p) (by rw [hct, hℓ]; omega)))
           (((Spec.Kopis.ExpandSecretKey p sk_seed).1).coerce (2 ^ 10)) := by
     rw [← hbprime_spec, hvecs_coerce, innerProduct_cast]

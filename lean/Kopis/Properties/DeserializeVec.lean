@@ -3,7 +3,7 @@
 
   Proves the Aeneas-extracted 10-bit branchless decoder (`ser::deserialize_10`,
   `RingElem::deserialize … 10`, `Matrix::deserialize_10`) computes the audited
-  `Spec.Kopis.deserialize 10` / `PolyVector.deserialize 10`.  This is the
+  `Spec.Kopis.deserialize_elem 10` / `deserialize_vec 10`.  This is the
   ciphertext-vector deserialization used in PKE decryption.
 
   The 10-bit fast path unpacks each aligned 5-byte group into 4 coefficients with
@@ -12,12 +12,12 @@
   mirrors `MatrixSerialize.lean` in reverse.
 -/
 import Kopis.Properties.MatrixSerialize
-import Spec.Kopis.Spec
+import Spec.Kopis.Lemmas
 
 open Aeneas Aeneas.Std Result
 open RustKopisSerial
 open Spec (𝔹)
-open Spec.Kopis (bytesToBitsLe slice)
+open Spec (bytesToBits slice)
 open scoped BigOperators
 
 namespace Kopis.Properties
@@ -40,7 +40,7 @@ private theorem deser_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 /-- `streamNat (n·j) n` equals the spec's per-coefficient `Fin`-sum over the bridged bits. -/
 private theorem streamNat_eq_sum (bytes : Slice U8) (n j : ℕ) (h : bytes.length = 32 * n) (hj : j < 256) :
     streamNat bytes (n * j) n
-      = ∑ k : Fin n, ((bytesToBitsLe (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt hj k.isLt)).toNat
+      = ∑ k : Fin n, ((bytesToBits (sliceToBytes bytes (32 * n) h))[n * j + k.val]'(deser_idx_lt hj k.isLt)).toNat
           * 2 ^ k.val := by
   unfold streamNat
   rw [← Fin.sum_univ_eq_sum_range (fun b => streamBit bytes (n * j + b) * 2 ^ b) n]
@@ -290,10 +290,10 @@ theorem deserialize_10_spec (bytes : Slice U8) (arr : Array U8 320#usize)
   rwa [if_neg (by simp)] at h
 
 /-- **Correctness of `RingElem::deserialize` at 10 bits.**  Decoding a 320-byte
-buffer yields the spec ring element `deserialize 10`. -/
+buffer yields the spec ring element `deserialize_elem 10`. -/
 theorem ringElem_deserialize_10_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 10) :
     arithmetic.plain_arith.RingElem.deserialize 10#usize bytes
-      ⦃ (r : RingElem) => toPolyN 10 r = Spec.Kopis.deserialize 10 (sliceToBytes bytes (32 * 10) hlen) ⦄ := by
+      ⦃ (r : RingElem) => toPolyN 10 r = Spec.Kopis.deserialize_elem 10 (sliceToBytes bytes (32 * 10) hlen) ⦄ := by
   unfold arithmetic.plain_arith.RingElem.deserialize
   simp only [consts.RING_DEG]
   have hlen320 : bytes.length = 320 := by omega
@@ -368,7 +368,7 @@ theorem matrix_deserialize_10_inner_spec {L : Usize}
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
           ∀ a (_ha : a < L.val),
             toPolyN 10 ((r.val[a]!).val[0]!)
-              = if a = i.val then Spec.Kopis.deserialize 10 (chunkBytes bytes i.val)
+              = if a = i.val then Spec.Kopis.deserialize_elem 10 (chunkBytes bytes i.val)
                 else toPolyN 10 ((result.val[a]!).val[0]!) ⦄ := by
   unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
   have hm : 0 < 32 * 10 := by norm_num
@@ -449,7 +449,7 @@ theorem matrix_deserialize_10_outer_spec {L : Usize}
           ∀ a (_ha : a < L.val),
             toPolyN 10 ((r.val[a]!).val[0]!)
               = if iter.start.val ≤ a
-                then Spec.Kopis.deserialize 10 (chunkBytes bytes a)
+                then Spec.Kopis.deserialize_elem 10 (chunkBytes bytes a)
                 else toPolyN 10 ((result.val[a]!).val[0]!) ⦄ := by
   unfold arithmetic.plain_arith.Matrix.deserialize_10_loop0
   by_cases hlt : iter.start.val < iter.«end».val
@@ -480,13 +480,13 @@ theorem matrix_deserialize_10_outer_spec {L : Usize}
   termination_by iter.«end».val - iter.start.val
   decreasing_by scalar_decr_tac
 
-/-- Spec-side: the `a`-th block of `PolyVector.deserialize 10` equals the physical
+/-- Spec-side: the `a`-th block of `deserialize_vec 10` equals the physical
 `chunkBytes` deserialization. -/
 private theorem polyDeser_getElem {L : Usize} (bytes : Slice U8)
     (hlen : bytes.length = L.val * (32 * 10)) (a : ℕ) (ha : a < L.val) :
-    (Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
+    (Spec.Kopis.deserialize_vec (ℓ := L.val) 10
         ((sliceToBytes bytes (L.val * (32 * 10)) hlen).cast (by ring)))[a]'ha
-      = Spec.Kopis.deserialize 10 (chunkBytes bytes a) := by
+      = Spec.Kopis.deserialize_elem 10 (chunkBytes bytes a) := by
   have hXY : ∀ (h : 32 * 10 * a + 32 * 10 ≤ 32 * 10 * L.val),
       slice ((sliceToBytes bytes (L.val * (32 * 10)) hlen).cast (by ring)) (32 * 10 * a) (32 * 10) h
         = chunkBytes bytes a := by
@@ -499,16 +499,16 @@ private theorem polyDeser_getElem {L : Usize} (bytes : Slice U8)
         calc 32 * 10 * a + 32 * 10 = 32 * 10 * (a + 1) := by ring
           _ ≤ 32 * 10 * L.val := Nat.mul_le_mul_left _ (by omega)
       omega)]
-  simp only [Spec.Kopis.PolyVector.deserialize, Vector.getElem_ofFn, hXY]
+  simp only [Spec.Kopis.deserialize_vec, Vector.getElem_ofFn, hXY]
 
 /-- **Correctness of `Matrix::deserialize_10` for `Y = 1` (ciphertext-vector case).**
 Deserializing an `L × 1` matrix of `10`-bit coefficients from a
-`L·(32·10)`-byte buffer yields `PolyVector.deserialize 10`. -/
+`L·(32·10)`-byte buffer yields `deserialize_vec 10`. -/
 theorem matrix_deserialize_10_spec {L : Usize} (bytes : Slice U8)
     (hlen : bytes.length = L.val * (32 * 10)) (hfit : L.val * 10 * 256 ≤ Usize.max) :
     arithmetic.plain_arith.Matrix.deserialize_10 L 1#usize bytes
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVecN 10 r = Spec.Kopis.PolyVector.deserialize (ℓ := L.val) 10
+          toVecN 10 r = Spec.Kopis.deserialize_vec (ℓ := L.val) 10
             ((sliceToBytes bytes (L.val * (32 * 10)) hlen).cast (by ring)) ⦄ := by
   unfold arithmetic.plain_arith.Matrix.deserialize_10
   simp only [consts.RING_DEG]

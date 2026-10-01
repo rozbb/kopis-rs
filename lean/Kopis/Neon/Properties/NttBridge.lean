@@ -476,18 +476,18 @@ The three nested loops on top of it are ordinary bookkeeping. -/
 
 /-! ### Coefficientwise reading of the spec's polynomials -/
 
-private theorem poly_add_get {m : ℕ} (f g : Spec.Kopis.Polynomial m) (n : ℕ) (hn : n < 256) :
+private theorem poly_add_get {m : ℕ} (f g : Spec.Kopis.Poly m) (n : ℕ) (hn : n < 256) :
     (f + g)[n]'hn = f[n]'hn + g[n]'hn := by
-  show (Spec.Kopis.Polynomial.add f g)[n]'hn = _
-  simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith]
+  show (Spec.Kopis.Poly.add f g)[n]'hn = _
+  simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith]
 
 private theorem poly_zero_get {m : ℕ} (n : ℕ) (hn : n < 256) :
-    (0 : Spec.Kopis.Polynomial m)[n]'hn = 0 := by
-  show (Spec.Kopis.Polynomial.zero m)[n]'hn = 0
-  simp only [Spec.Kopis.Polynomial.zero, Vector.getElem_replicate]
+    (0 : Spec.Kopis.Poly m)[n]'hn = 0 := by
+  show (Spec.Kopis.Poly.zero m)[n]'hn = 0
+  simp only [Spec.Kopis.Poly.zero, Vector.getElem_replicate]
 
 /-- Coefficient `n` of a finite sum of ring elements is the sum of the coefficients. -/
-theorem poly_sum_get {m : ℕ} (S : Finset ℕ) (F : ℕ → Spec.Kopis.Polynomial m)
+theorem poly_sum_get {m : ℕ} (S : Finset ℕ) (F : ℕ → Spec.Kopis.Poly m)
     (n : ℕ) (hn : n < 256) : (∑ j ∈ S, F j)[n]'hn = ∑ j ∈ S, (F j)[n]'hn := by
   classical
   induction S using Finset.induction with
@@ -511,7 +511,7 @@ theorem toRingElem_get! (re : arithmetic.plain_arith.RingElem) (n : ℕ) (hn : n
   exact toRingElem_get re n hn
 
 /-- The audited negacyclic product coefficient is the single-sum convolution. -/
-theorem convCoeff_eq_nconvR {m : ℕ} (a b : Spec.Kopis.Polynomial m) (n : ℕ) (hn : n < 256) :
+theorem convCoeff_eq_nconvR {m : ℕ} (a b : Spec.Kopis.Poly m) (n : ℕ) (hn : n < 256) :
     convCoeff a b n = Kopis.CrtConv.nconvR (fun i => a[i]!) (fun j => b[j]!) n := by
   unfold convCoeff Kopis.CrtConv.nconvR
   refine Finset.sum_congr rfl (fun i hi => ?_)

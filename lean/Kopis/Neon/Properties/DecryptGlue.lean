@@ -16,10 +16,10 @@ set_option maxHeartbeats 1000000
 reduced to `R10`, equals the spec's `(c.coerce R10).shiftLeft (10-n)` (the low `n` bits of
 `c` land in the top; used for `cm₁₀` in decryption).  Generalises `msg_shift_bridge`. -/
 theorem shiftLeft_coerce_bridge (c : RingElem) (n : ℕ) (hn : n ≤ 10) :
-    (Spec.Kopis.Polynomial.shiftLeft (toRingElem c) (10 - n)).coerce (2 ^ 10)
+    (Spec.Kopis.Poly.shiftLeft (toRingElem c) (10 - n)).coerce (2 ^ 10)
       = ((toPolyN n c).coerce (2 ^ 10)).shiftLeft (10 - n) := by
   apply Vector.ext; intro k hk
-  simp only [Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftLeft, toPolyN, toRingElem,
+  simp only [Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftLeft, toPolyN, toRingElem,
     Vector.getElem_map, Vector.getElem_ofFn, ZMod.val_natCast]
   have hlt : (c.val[k]'(by have := c.property; grind)).val < 2 ^ 16 := by
     have h := (c.val[k]'(by have := c.property; grind)).hBounds; simpa [UScalarTy.numBits] using h

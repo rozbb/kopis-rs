@@ -30,21 +30,22 @@ theorem compressR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) 
     rw [Nat.shiftRight_eq_div_pow]; omega
   -- coefficient `k` of the pointwise-add `vv[i] + const 4`
   have h4 : (4 : ZMod (2 ^ 13)).val = 4 := by decide
-  have hcoeff : ((vv[i]'hi + Spec.Kopis.Polynomial.const (2 ^ 13) 4)[k]'hk).val
+  have hcoeff : ((vv[i]'hi + Spec.Kopis.Poly.const (2 ^ 13) 4)[k]'hk).val
       = (((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13 := by
-    show (((Spec.Kopis.Polynomial.add (vv[i]'hi) (Spec.Kopis.Polynomial.const (2 ^ 13) 4))[k]'hk).val
+    show (((Spec.Kopis.Poly.add (vv[i]'hi) (Spec.Kopis.Poly.const (2 ^ 13) 4))[k]'hk).val
         : ℕ) = (((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13
-    simp only [Spec.Kopis.Polynomial.add, Vector.getElem_zipWith, Spec.Kopis.Polynomial.const,
+    simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, h4]
   -- coefficient `i` of the pointwise vector-add
-  have hveci : ((vv + Vector.replicate ℓ (Spec.Kopis.Polynomial.const (2 ^ 13) 4))[i]'hi)
-      = vv[i]'hi + Spec.Kopis.Polynomial.const (2 ^ 13) 4 := by
-    show (Vector.ofFn fun j => vv[j] + (Vector.replicate ℓ (Spec.Kopis.Polynomial.const (2 ^ 13) 4))[j])[i]'hi
-        = vv[i]'hi + Spec.Kopis.Polynomial.const (2 ^ 13) 4
+  have hveci : ((vv + Vector.replicate ℓ (Spec.Kopis.Poly.const (2 ^ 13) 4))[i]'hi)
+      = vv[i]'hi + Spec.Kopis.Poly.const (2 ^ 13) 4 := by
+    show (Vector.ofFn fun j => vv[j] + (Vector.replicate ℓ (Spec.Kopis.Poly.const (2 ^ 13) 4))[j])[i]'hi
+        = vv[i]'hi + Spec.Kopis.Poly.const (2 ^ 13) 4
     simp [Vector.getElem_ofFn, Vector.getElem_replicate]
   unfold Spec.Kopis.CompressToR10
+  simp only [Spec.Kopis.make_rn_replicate, Spec.Kopis.PolyVector.shiftRight_def]
   simp only [Spec.Kopis.PolyVector.coerce, Spec.Kopis.PolyVector.shiftRight, Vector.getElem_map,
-    Spec.Kopis.Polynomial.coerce, Spec.Kopis.Polynomial.shiftRight, hveci,
+    Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftRight, hveci,
     ZMod.val_natCast, hcoeff]
   rw [Nat.mod_eq_of_lt (lt_trans hlt (by norm_num : (2 : ℕ) ^ 10 < 2 ^ 13)), Nat.mod_eq_of_lt hlt]
 

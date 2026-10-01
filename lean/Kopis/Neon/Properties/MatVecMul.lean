@@ -16,7 +16,7 @@ theorem matVecMul_get {m ℓ : ℕ} (A : Spec.Kopis.PolyMatrix m ℓ) (v : Spec.
     (i₀ : ℕ) (hi₀ : i₀ < ℓ) :
     (Spec.Kopis.matVecMul A v)[i₀]'hi₀
       = ∑ j : Fin ℓ, A ⟨i₀, hi₀⟩ j * v[j.val]'j.isLt := by
-  set g : ℕ → Spec.Kopis.Polynomial m :=
+  set g : ℕ → Spec.Kopis.Poly m :=
     fun j => if hj : j < ℓ then A ⟨i₀, hi₀⟩ ⟨j, hj⟩ * v[j]'hj else 0 with hg
   have hFS : (∑ j : Fin ℓ, A ⟨i₀, hi₀⟩ j * v[j.val]'j.isLt) = ∑ j ∈ Finset.range ℓ, g j := by
     rw [← Fin.sum_univ_eq_sum_range g ℓ]
@@ -26,11 +26,11 @@ theorem matVecMul_get {m ℓ : ℕ} (A : Spec.Kopis.PolyMatrix m ℓ) (v : Spec.
   simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
     Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one, bind_pure]
   rw [show (∑ j ∈ Finset.range ℓ, g j)
-      = if i₀ < ℓ then (∑ j ∈ Finset.range ℓ, g j) else (0 : Spec.Kopis.Polynomial m)
+      = if i₀ < ℓ then (∑ j ∈ Finset.range ℓ, g j) else (0 : Spec.Kopis.Poly m)
       from (if_pos hi₀).symm]
   refine forIn'_inv' (List.range' 0 ℓ) _ _
     (fun s (w : Spec.Kopis.PolyVector m ℓ) => w[i₀]'hi₀
-      = if i₀ < s then (∑ j ∈ Finset.range ℓ, g j) else (0 : Spec.Kopis.Polynomial m))
+      = if i₀ < s then (∑ j ∈ Finset.range ℓ, g j) else (0 : Spec.Kopis.Poly m))
     ℓ (by simp) ?hInit ?hStep
   case hInit =>
     show (Spec.Kopis.PolyVector.zero m ℓ)[i₀]'hi₀ = _
@@ -42,7 +42,7 @@ theorem matVecMul_get {m ℓ : ℕ} (A : Spec.Kopis.PolyMatrix m ℓ) (v : Spec.
     subst ha_val
     have ha_lt : a < ℓ := by simpa using hk
     refine ⟨_, rfl, ?_⟩
-    have bridge : (if i₀ < a + 1 then (∑ j ∈ Finset.range ℓ, g j) else (0 : Spec.Kopis.Polynomial m))
+    have bridge : (if i₀ < a + 1 then (∑ j ∈ Finset.range ℓ, g j) else (0 : Spec.Kopis.Poly m))
         = if a = i₀ then (b[i₀]'hi₀ + ∑ j ∈ Finset.range ℓ, g j) else b[i₀]'hi₀ := by
       rw [hb]
       by_cases hai2 : a = i₀
