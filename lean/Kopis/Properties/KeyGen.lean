@@ -41,7 +41,7 @@ theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
 
 /-- **`expand_from_seed` stores the seed it was handed.**  `KemSecretKey`'s wire form
 is the 32-byte seed it stores, so this is what makes a generated key persistable: reloading those
-bytes with `from_seed` rebuilds the same key.  Nothing else in the development reads that field,
+bytes (`as_bytes`) with `From<&[u8; 32]>` rebuilds the same key.  Nothing else in the development reads that field,
 so nothing else pins it.
 
 The binder names are deliberately unlike `expand_from_seed_spec`'s: `scripts/gen_*_twins.py`
@@ -60,7 +60,7 @@ theorem expand_from_seed_seed (L MU : Usize) (sd : Array U8 32#usize)
   rintro _ -
   rfl
 
-/-- **… and `seed()` hands it back.**  The accessor is `ok self.seed`, so this is the previous
+/-- **… and `as_bytes()` hands it back.**  The accessor is `ok self.seed`, so this is the previous
 lemma read through the public entry point. -/
 theorem expand_from_seed_then_seed (L MU : Usize) (sd : Array U8 32#usize)
     (p : Spec.Kopis.ParameterSet)
@@ -69,7 +69,7 @@ theorem expand_from_seed_then_seed (L MU : Usize) (sd : Array U8 32#usize)
     (hb : L.val * 320 + 32 ≤ 1312) (hf : L.val * 10 * 256 ≤ Usize.max)
     (hlt : L.val < 256) (hl0 : 0 < L.val) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed L MU sd
-        kem.KemSecretKey.impl.seed ksk)
+        kem.KemSecretKey.as_bytes ksk)
       ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes sd ⦄ := by
   apply WP.spec_bind (expand_from_seed_seed L MU sd p hl hm hmu hb hf hlt hl0)
   rintro ksk h

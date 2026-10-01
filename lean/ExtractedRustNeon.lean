@@ -6379,47 +6379,71 @@ def impls.kopis1024.KemSecretKey4.generate_from_rng
   := do
   kem.KemSecretKey.generate_inner 4#usize 6#usize rand_coreCryptoRngInst rng
 
-/-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::from_seed]:
-    Source: 'src/impls.rs', lines 56:16-58:17
-    Visibility: public -/
-def impls.kopis512.KemSecretKey2.from_seed
-  (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 2#usize) := do
-  kem.KemSecretKey.expand_from_seed 2#usize 10#usize bytes
-
-/-- [kopis::impls::kopis768::{kopis::kem::KemSecretKey<3usize>}::from_seed]:
-    Source: 'src/impls.rs', lines 56:16-58:17
-    Visibility: public -/
-def impls.kopis768.KemSecretKey3.from_seed
-  (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 3#usize) := do
-  kem.KemSecretKey.expand_from_seed 3#usize 8#usize bytes
-
-/-- [kopis::impls::kopis1024::{kopis::kem::KemSecretKey<4usize>}::from_seed]:
-    Source: 'src/impls.rs', lines 56:16-58:17
-    Visibility: public -/
-def impls.kopis1024.KemSecretKey4.from_seed
-  (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 4#usize) := do
-  kem.KemSecretKey.expand_from_seed 4#usize 6#usize bytes
-
 /-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::public_key]:
-    Source: 'src/impls.rs', lines 61:16-63:17
+    Source: 'src/impls.rs', lines 56:16-58:17
     Visibility: public -/
 def impls.kopis512.KemSecretKey2.public_key
   (self : kem.KemSecretKey 2#usize) : Result (kem.KemPublicKey 2#usize) := do
   ok self.kem_pk
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemSecretKey<3usize>}::public_key]:
-    Source: 'src/impls.rs', lines 61:16-63:17
+    Source: 'src/impls.rs', lines 56:16-58:17
     Visibility: public -/
 def impls.kopis768.KemSecretKey3.public_key
   (self : kem.KemSecretKey 3#usize) : Result (kem.KemPublicKey 3#usize) := do
   ok self.kem_pk
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemSecretKey<4usize>}::public_key]:
-    Source: 'src/impls.rs', lines 61:16-63:17
+    Source: 'src/impls.rs', lines 56:16-58:17
     Visibility: public -/
 def impls.kopis1024.KemSecretKey4.public_key
   (self : kem.KemSecretKey 4#usize) : Result (kem.KemPublicKey 4#usize) := do
   ok self.kem_pk
+
+/-- [kopis::impls::kopis512::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<2usize>}::from]:
+    Source: 'src/impls.rs', lines 62:16-64:17
+    Visibility: public -/
+def kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832.from
+  (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 2#usize) := do
+  kem.KemSecretKey.expand_from_seed 2#usize 10#usize bytes
+
+/-- Trait implementation: [kopis::impls::kopis512::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<2usize>}]
+    Source: 'src/impls.rs', lines 61:12-65:13 -/
+@[reducible]
+def kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
+  (kem.KemSecretKey 2#usize) (Array Std.U8 32#usize) := {
+  «from» := kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832.from
+}
+
+/-- [kopis::impls::kopis768::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<3usize>}::from]:
+    Source: 'src/impls.rs', lines 62:16-64:17
+    Visibility: public -/
+def kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832.from
+  (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 3#usize) := do
+  kem.KemSecretKey.expand_from_seed 3#usize 8#usize bytes
+
+/-- Trait implementation: [kopis::impls::kopis768::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<3usize>}]
+    Source: 'src/impls.rs', lines 61:12-65:13 -/
+@[reducible]
+def kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
+  (kem.KemSecretKey 3#usize) (Array Std.U8 32#usize) := {
+  «from» := kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832.from
+}
+
+/-- [kopis::impls::kopis1024::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<4usize>}::from]:
+    Source: 'src/impls.rs', lines 62:16-64:17
+    Visibility: public -/
+def kem.KemSecretKey4.Insts.CoreConvertFromShared0ArrayU832.from
+  (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 4#usize) := do
+  kem.KemSecretKey.expand_from_seed 4#usize 6#usize bytes
+
+/-- Trait implementation: [kopis::impls::kopis1024::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<4usize>}]
+    Source: 'src/impls.rs', lines 61:12-65:13 -/
+@[reducible]
+def kem.KemSecretKey4.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
+  (kem.KemSecretKey 4#usize) (Array Std.U8 32#usize) := {
+  «from» := kem.KemSecretKey4.Insts.CoreConvertFromShared0ArrayU832.from
+}
 
 /-- [kopis::pke::PK_VEC_ELEM_BYTES]
     Source: 'src/pke.rs', lines 18:0-18:51 -/
@@ -6486,7 +6510,7 @@ def kem.KemPublicKey.serialize
   pke.PkePublicKey.serialize self.pke_pk out_buf
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::to_bytes]:
-    Source: 'src/impls.rs', lines 68:16-72:17
+    Source: 'src/impls.rs', lines 69:16-73:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.to_bytes
   (self : kem.KemPublicKey 2#usize) : Result (Array Std.U8 672#usize) := do
@@ -6496,7 +6520,7 @@ def impls.kopis512.KemPublicKey2.to_bytes
   ok (to_slice_mut_back s1)
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::to_bytes]:
-    Source: 'src/impls.rs', lines 68:16-72:17
+    Source: 'src/impls.rs', lines 69:16-73:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.to_bytes
   (self : kem.KemPublicKey 3#usize) : Result (Array Std.U8 992#usize) := do
@@ -6506,7 +6530,7 @@ def impls.kopis768.KemPublicKey3.to_bytes
   ok (to_slice_mut_back s1)
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::to_bytes]:
-    Source: 'src/impls.rs', lines 68:16-72:17
+    Source: 'src/impls.rs', lines 69:16-73:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.to_bytes
   (self : kem.KemPublicKey 4#usize) : Result (Array Std.U8 1312#usize) := do
@@ -6575,7 +6599,7 @@ def kem.KemPublicKey.from_bytes_inner
   ok { pke_pk, hash_pke_pk }
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::from_bytes]:
-    Source: 'src/impls.rs', lines 76:16-78:17
+    Source: 'src/impls.rs', lines 77:16-79:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.from_bytes
   (bytes : Array Std.U8 672#usize) : Result (kem.KemPublicKey 2#usize) := do
@@ -6583,7 +6607,7 @@ def impls.kopis512.KemPublicKey2.from_bytes
   kem.KemPublicKey.from_bytes_inner 2#usize s
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::from_bytes]:
-    Source: 'src/impls.rs', lines 76:16-78:17
+    Source: 'src/impls.rs', lines 77:16-79:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.from_bytes
   (bytes : Array Std.U8 992#usize) : Result (kem.KemPublicKey 3#usize) := do
@@ -6591,7 +6615,7 @@ def impls.kopis768.KemPublicKey3.from_bytes
   kem.KemPublicKey.from_bytes_inner 3#usize s
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::from_bytes]:
-    Source: 'src/impls.rs', lines 76:16-78:17
+    Source: 'src/impls.rs', lines 77:16-79:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.from_bytes
   (bytes : Array Std.U8 1312#usize) : Result (kem.KemPublicKey 4#usize) := do
@@ -6648,7 +6672,7 @@ def pke.encrypt_deterministic
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
 /-- [kopis::kem::encap_deterministic]:
-    Source: 'src/kem.rs', lines 115:0-142:1 -/
+    Source: 'src/kem.rs', lines 114:0-141:1 -/
 def kem.encap_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize)
   (randomness : Array Std.U8 32#usize) (kem_pk : kem.KemPublicKey L)
@@ -6690,7 +6714,7 @@ def kem.SharedSecret.Insts.CoreOpsDropDrop.drop
   ok __zeroize_field_0
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 96:16-108:17
+    Source: 'src/impls.rs', lines 97:16-109:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.encapsulate_deterministic
   (self : kem.KemPublicKey 2#usize) (randomness : Array Std.U8 32#usize) :
@@ -6703,7 +6727,7 @@ def impls.kopis512.KemPublicKey2.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::encapsulate_with_rng]:
-    Source: 'src/impls.rs', lines 81:16-91:17
+    Source: 'src/impls.rs', lines 82:16-92:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.encapsulate_with_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -6722,7 +6746,7 @@ def impls.kopis512.KemPublicKey2.encapsulate_with_rng
   ok (out, rng1)
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 96:16-108:17
+    Source: 'src/impls.rs', lines 97:16-109:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.encapsulate_deterministic
   (self : kem.KemPublicKey 3#usize) (randomness : Array Std.U8 32#usize) :
@@ -6735,7 +6759,7 @@ def impls.kopis768.KemPublicKey3.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::encapsulate_with_rng]:
-    Source: 'src/impls.rs', lines 81:16-91:17
+    Source: 'src/impls.rs', lines 82:16-92:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.encapsulate_with_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -6754,7 +6778,7 @@ def impls.kopis768.KemPublicKey3.encapsulate_with_rng
   ok (out, rng1)
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 96:16-108:17
+    Source: 'src/impls.rs', lines 97:16-109:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.encapsulate_deterministic
   (self : kem.KemPublicKey 4#usize) (randomness : Array Std.U8 32#usize) :
@@ -6767,7 +6791,7 @@ def impls.kopis1024.KemPublicKey4.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::encapsulate_with_rng]:
-    Source: 'src/impls.rs', lines 81:16-91:17
+    Source: 'src/impls.rs', lines 82:16-92:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.encapsulate_with_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -6849,7 +6873,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
-    Source: 'src/kem.rs', lines 147:0-186:1
+    Source: 'src/kem.rs', lines 146:0-185:1
     Visibility: public -/
 def kem.decap
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (sk : kem.KemSecretKey L)
@@ -6899,7 +6923,7 @@ def kem.decap
   ok ss
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::decapsulate]:
-    Source: 'src/impls.rs', lines 115:16-120:17
+    Source: 'src/impls.rs', lines 116:16-121:17
     Visibility: public -/
 def impls.kopis512.KemSecretKey2.decapsulate
   (self : kem.KemSecretKey 2#usize) (encapsulated_key : Array Std.U8 736#usize)
@@ -6910,7 +6934,7 @@ def impls.kopis512.KemSecretKey2.decapsulate
   kem.decap 10#usize 3#usize self s
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemSecretKey<3usize>}::decapsulate]:
-    Source: 'src/impls.rs', lines 115:16-120:17
+    Source: 'src/impls.rs', lines 116:16-121:17
     Visibility: public -/
 def impls.kopis768.KemSecretKey3.decapsulate
   (self : kem.KemSecretKey 3#usize)
@@ -6921,7 +6945,7 @@ def impls.kopis768.KemSecretKey3.decapsulate
   kem.decap 8#usize 4#usize self s
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemSecretKey<4usize>}::decapsulate]:
-    Source: 'src/impls.rs', lines 115:16-120:17
+    Source: 'src/impls.rs', lines 116:16-121:17
     Visibility: public -/
 def impls.kopis1024.KemSecretKey4.decapsulate
   (self : kem.KemSecretKey 4#usize)
@@ -7023,10 +7047,10 @@ def kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
   zeroize.ZeroizeOnDrop (kem.KemSecretKey L) := {
 }
 
-/-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::seed]:
-    Source: 'src/kem.rs', lines 108:4-110:5
+/-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::as_bytes]:
+    Source: 'src/kem.rs', lines 107:4-109:5
     Visibility: public -/
-def kem.KemSecretKey.impl.seed
+def kem.KemSecretKey.as_bytes
   {L : Std.Usize} (self : kem.KemSecretKey L) :
   Result (Array Std.U8 32#usize)
   := do

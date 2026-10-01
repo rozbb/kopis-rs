@@ -137,7 +137,7 @@ theorem pk_from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
 reference to the spec because the spec only ever represents sk as a 32B bytestring. -/
 theorem sk_from_bytes_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
     (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
-        RustKopisAvx2.kem.KemSecretKey.impl.seed ksk)
+        RustKopisAvx2.kem.KemSecretKey.as_bytes ksk)
       ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes seed ⦄
   | .k512, seed => Kopis.Avx2.Properties.kopis512_expand_seed_spec seed
   | .k768, seed => Kopis.Avx2.Properties.kopis768_expand_seed_spec seed
