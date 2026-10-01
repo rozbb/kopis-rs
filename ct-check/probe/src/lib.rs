@@ -13,10 +13,10 @@
 macro_rules! probe {
     ($f:ident, $m:ident, $sk:ident, $ct_len:ident) => {
         #[unsafe(no_mangle)]
-        pub extern "C" fn $f(seed: &[u8; 32], randomness: &[u8; 32], out: &mut [u8; 32]) {
+        pub extern "C" fn $f(sk_bytes: &[u8; 32], randomness: &[u8; 32], out: &mut [u8; 32]) {
             use kopis::$m::{$ct_len, $sk};
 
-            let sk = $sk::from_seed(seed);
+            let sk = $sk::from(sk_bytes);
             let (ct, _): ([u8; $ct_len], _) = sk.public_key().encapsulate_deterministic(randomness);
             let ss = sk.decapsulate(&ct);
             out.copy_from_slice(ss.as_bytes());

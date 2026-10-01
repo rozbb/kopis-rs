@@ -11,7 +11,7 @@ use ct_check::{classify, declassify, under_valgrind};
 
 use std::{hint::black_box, process::ExitCode};
 
-/// Deterministic filler for seeds and randomness. Values are public; only the *tagging* decides
+/// Deterministic filler for sk and randomness. Values are public; only the *tagging* decides
 /// what the harness treats as secret.
 fn fill(byte: u8) -> [u8; 32] {
     let mut out = [0u8; 32];
@@ -31,18 +31,18 @@ macro_rules! variant_checks {
             use super::{black_box, classify, declassify, fill};
             use kopis::$modname::{$ct_len, $pk, $pk_len, $sk};
 
-            /// Key generation from a **secret** 32-byte seed. Checks constant-timeness wrt `seed`
+            /// Key generation from a **secret** 32-byte sk. Checks constant-timeness wrt `sk_bytes`
             pub fn keygen() -> Vec<u8> {
                 let mut out = Vec::new();
                 for v in [0x11u8, 0xa7, 0xfe] {
-                    let mut seed = fill(v);
-                    classify(&mut seed);
+                    let mut sk_bytes = fill(v);
+                    classify(&mut sk_bytes);
 
-                    let sk = $sk::from_seed(&seed);
+                    let sk = $sk::from(&sk_bytes);
 
                     declassify(&sk);
-                    declassify(&seed);
-                    out.extend_from_slice(sk.seed());
+                    declassify(&sk_bytes);
+                    out.extend_from_slice(sk.as_bytes());
                     out.extend_from_slice(&sk.public_key().to_bytes());
                 }
                 out
@@ -53,7 +53,7 @@ macro_rules! variant_checks {
             pub fn encap() -> Vec<u8> {
                 let mut out = Vec::new();
                 for (ks, rs) in [(0x11u8, 0x22u8), (0x00, 0xff), (0x5c, 0x01)] {
-                    let sk = $sk::from_seed(&fill(ks));
+                    let sk = $sk::from(&fill(ks));
                     let pk = sk.public_key();
 
                     let mut randomness = fill(rs);
@@ -110,7 +110,7 @@ macro_rules! variant_checks {
                     // Test wrt a correct ciphertext, a bit-flipped ciphertext, and a random
                     // ciphertext
 
-                    let mut sk = $sk::from_seed(&fill(ks));
+                    let mut sk = $sk::from(&fill(ks));
                     let (valid_ct, expected) = sk.public_key().encapsulate_deterministic(&fill(rs));
 
                     let mut one_bit_off = valid_ct;
