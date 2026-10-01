@@ -1,24 +1,4 @@
-//! This module contains code for running known-answer tests (KATs) against the reference
-//! implementation.
-//!
-//! These tests read test vectors from `test_vectors-kopis<LEVEL>.jsonl` (where `<LEVEL>` is 512,
-//! 768, or 1024) and verify that our implementation reproduces the recorded values.
-//!
-//! Each line of a `.jsonl` file is a JSON object of the following form (all byte strings are
-//! encoded as lowercase hex):
-//!
-//! * `description`:      A text string describing what this test vector is testing.
-//! * `sk`:               The KEM secret key.
-//! * `pk`:               The serialized KEM public key corresponding to `sk`.
-//! * `encap_randomness`: The randomness used to encapsulate to `pk`.
-//! * `encapper_ct`:      The serialized KEM ciphertext produced from the encapsulation.
-//! * `decapper_ct`:      A KEM ciphertext. This may or may not be equal to `encapper_ct`.
-//! * `encapper_ss`:      The KEM shared secret corresponding to the encapsulation that produced
-//!                       `encapper_ct`.
-//! * `decapper_ss`:      The KEM shared secret from decapsulating `decapper_ct` with `sk`.
-//! * `malformed`:        Whether a value above is malformed, making this test vector invalid.
-//!
-//! A vector with `malformed == true` is skipped, since it does not represent a valid computation.
+//! Tests the main crate against the test vectors provided in `tests/`
 
 use std::{
     fs::File,
@@ -91,7 +71,7 @@ macro_rules! kat_test {
     ) => {
         #[test]
         fn $test_name() {
-            let path_str = format!("tests/ref_test_vectors-kopis{}.jsonl", $level);
+            let path_str = format!("tests/test_vectors-kopis{}.jsonl", $level);
             let path = Path::new(&path_str);
             let vectors = read_vectors(path);
             for vector in vectors {
