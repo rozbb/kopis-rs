@@ -12,8 +12,8 @@ use serde::Deserialize;
 /// A single known-answer test vector. All byte strings are stored as lowercase hex.
 #[derive(Debug, Clone, Deserialize)]
 struct KatVector {
-    /// A text description of what this test vector exercises.
-    description: String,
+    /// A unique identifier of this test vector
+    number: usize,
     /// The KEM secret key (32-byte seed).
     #[serde(with = "hex::serde")]
     sk: Vec<u8>,
@@ -80,13 +80,13 @@ macro_rules! kat_test {
             }
 
             fn test_vector(vector: &KatVector) -> Result<(), ()> {
-                let ctx = || format!("Kopis-{} vector failed: {}", $level, vector.description);
+                let ctx = format!("Kopis-{} vector #{} failed", $level, vector.number);
 
-                // Expand the secret key from its 32-byte seed and check the derived public key
-                // matches the recorded one.
-                let seed: [u8; 32] = vector.sk.as_slice().try_into().map_err(|_| ())?;
-                let sk = <$sk_ty>::from_seed(&seed);
+                // Read everything from the vector, erroring if anything is not the right length
+                let sk_bytes: [u8; 32] = vector.sk.as_slice().try_into().map_err(|_| ())?;
                 let pk = <$pk_ty>::from_bytes(vector.pk.as_slice().try_into().map_err(|_| ())?);
+                let decapper_ct: &[u8; $ct_len] =
+                    vector.decapper_ct.as_slice().try_into().map_err(|_| ())?;
 
                 // Re-run the (deterministic) encapsulation and check the ciphertext and shared
                 // secret match the recorded encapper values.
@@ -99,34 +99,31 @@ macro_rules! kat_test {
                 assert_eq!(
                     encapper_ct.as_slice(),
                     vector.encapper_ct.as_slice(),
-                    "{}: recomputed encapper_ct does not match recorded value",
-                    ctx()
+                    "{ctx}: recomputed encapper_ct does not match recorded value",
                 );
                 assert_eq!(
                     encapper_ss.as_bytes().as_slice(),
                     vector.encapper_ss.as_slice(),
-                    "{}: recomputed encapper_ss does not match recorded value",
-                    ctx()
+                    "{ctx}: recomputed encapper_ss does not match recorded value",
                 );
 
+                // Expand the secret key from its 32-byte sk and check the derived public key
+                // matches the recorded one.
+                let sk = <$sk_ty>::from_seed(&sk_bytes);
                 let computed_pk = sk.public_key();
                 let computed_pk_bytes = computed_pk.to_bytes();
                 assert_eq!(
                     computed_pk_bytes.as_slice(),
                     vector.pk.as_slice(),
-                    "{}: derived public key does not match recorded pk",
-                    ctx()
+                    "{ctx}: derived public key does not match recorded pk",
                 );
 
                 // Decapsulate the recorded decapper ciphertext and check the shared secret matches.
-                let decapper_ct: &[u8; $ct_len] =
-                    vector.decapper_ct.as_slice().try_into().map_err(|_| ())?;
                 let decapper_ss = sk.decapsulate(decapper_ct);
                 assert_eq!(
                     decapper_ss.as_bytes().as_slice(),
                     vector.decapper_ss.as_slice(),
-                    "{}: recomputed decapper_ss does not match recorded value",
-                    ctx()
+                    "{ctx}: recomputed decapper_ss does not match recorded value",
                 );
 
                 Ok(())
