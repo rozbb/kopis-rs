@@ -98,7 +98,9 @@ private def encapDecap (label : String) (p : ParameterSet) (skSeed rSeed : Byte)
   let t1 ← IO.monoMsNow
   if k != k' then
     throw (IO.userError s!"{label}: shared-secret mismatch\n  encap: {k}\n  decap: {k'}")
-  IO.println s!"  {label} round-trip: {t1 - t0} ms  ss: OK"
+  -- Right-align the time so the columns line up
+  let ms := toString (t1 - t0)
+  IO.println s!"  {label} round-trip: {"".pushn ' ' (5 - ms.length)}{ms} ms  ss: OK"
 
 def runKopisTests : IO Unit := do
   IO.println "=== Kopis KEM encap-decap round-trip tests ==="
