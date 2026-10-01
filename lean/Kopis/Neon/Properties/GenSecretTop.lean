@@ -73,7 +73,7 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
           ∀ (a : ℕ) (_ : a < L.val),
             toRingElem13 ((result.val[a]!).val[0]!)
               = if iter.start.val ≤ a
-                then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
+                then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]!
                 else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
   unfold sample.gen_secret_from_seed_loop
   by_cases hlt : iter.start.val < iter.«end».val
@@ -103,7 +103,7 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
       simp only [cast_u8_bv, domsep_gensec_bv]
     let* ⟨ re1, hre1 ⟩ ← cbd_spec MU buf1 re hMU hbuf1_len
     have hrow_eq : toRingElem13 re1
-        = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
+        = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
       cbd_row_eq_genSecret L MU.val (arrayToBytes seed) buf1 re1 iter.start.val hi_lt
         hbuf1_len hbridge hre1
     have h_start_new : iter1.start.val ≤ L.val := by rw [hstart']; scalar_tac
@@ -141,20 +141,20 @@ theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+          toVector13 r = Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   obtain ⟨bAvx, hbAvx⟩ : ∃ b, backend.neon.cpu.available = ok b := ⟨true, rfl⟩
   rw [hbAvx, bind_tc_ok]
   have havx : backend.neon.sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+          toVector13 r = Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono
       (Kopis.Neon.Properties.neon_gen_secret_from_seed_spec L MU seed hMU (by scalar_tac))
     intro r hr
     apply Vector.ext
     intro a ha
     rw [toVector13, Vector.getElem_ofFn, hr a ha,
-      getElem!_pos (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed)) a (by simpa using ha)]
+      getElem!_pos (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed)) a (by simpa using ha)]
   cases bAvx
   case true => simpa only [reduceIte] using havx
   all_goals simp only [Bool.false_eq_true, reduceIte]

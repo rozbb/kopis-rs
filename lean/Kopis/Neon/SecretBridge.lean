@@ -128,7 +128,7 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if first.val + iter.start.val ≤ a ∧ a < first.val + 2
-              then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
+              then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]!
               else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
   unfold backend.neon.sample.secret_loop0_loop1
   by_cases hlt : iter.start.val < iter.«end».val
@@ -185,13 +185,13 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       have hcomb : ∀ (m : arithmetic.plain_arith.Matrix L 1#usize),
           (∀ a < L.val, toRingElem13 ((m.val[a]!).val[0]!)
             = if a = i.val
-              then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[i.val]'hi_lt
+              then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[i.val]'hi_lt
               else toRingElem13 ((secret.val[a]!).val[0]!)) →
           backend.neon.sample.secret_loop0_loop1 MU iter1 m first bufs
             ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
                 toRingElem13 ((r.val[a]!).val[0]!)
                   = if first.val + iter.start.val ≤ a ∧ a < first.val + 2
-                    then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
+                    then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]!
                     else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
         intro m hm
         apply WP.spec_mono
@@ -313,7 +313,7 @@ theorem secret_loop0_spec {L : Std.Usize} (MU N : Std.Usize) (seed : Std.Array S
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if first.val ≤ a
-              then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
+              then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]!
               else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
   unfold backend.neon.sample.secret_loop0
   simp only [show backend.neon.keccak.WAYS = 2#usize from by decide]
@@ -373,7 +373,7 @@ theorem neon_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     backend.neon.sample.secret L MU N seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
-            = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
+            = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   unfold backend.neon.sample.secret
   simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
@@ -388,7 +388,7 @@ theorem neon_gen_secret_from_seed_spec (L MU : Std.Usize) (seed : Std.Array Std.
     backend.neon.sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
-            = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
+            = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   have harm : ∀ (n : Std.Usize), MU.val = 6 ∧ n = 192#usize ∨ MU.val = 8 ∧ n = 256#usize
       ∨ MU.val = 10 ∧ n = 320#usize →
       backend.neon.sample.gen_secret_from_seed L MU seed

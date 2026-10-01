@@ -67,16 +67,13 @@ private def sample13 : Poly (2 ^ 13) := Vector.ofFn fun i => (i.val : ZMod (2 ^ 
 /-! ### Rounding -/
 
 -- `CompressToRt` on the all-zero element is zero (adding 4 then `>> (10-t)` clears).
-#guard CompressToRt 3 (Poly.zero (2 ^ 10)) = Poly.zero (2 ^ 3)
-#guard DecodeMsg 3 (Poly.zero (2 ^ 10)) = Poly.zero (2 ^ 1)
+#guard CompressToRt .Kopis_512 (Poly.zero (2 ^ 10)) = Poly.zero (2 ^ 3)
+#guard DecodeMsg .Kopis_512 (Poly.zero (2 ^ 10)) = Poly.zero (2 ^ 1)
 
 -- Parameter constants match the spec table.
-#guard (ℓ .Kopis_512, t .Kopis_512, μ .Kopis_512) = (2, 3, 10)
-#guard (ℓ .Kopis_768, t .Kopis_768, μ .Kopis_768) = (3, 4, 8)
-#guard (ℓ .Kopis_1024, t .Kopis_1024, μ .Kopis_1024) = (4, 6, 6)
-#guard (pkSize .Kopis_512, ctSize .Kopis_512) = (672, 736)
-#guard (pkSize .Kopis_768, ctSize .Kopis_768) = (992, 1088)
-#guard (pkSize .Kopis_1024, ctSize .Kopis_1024) = (1312, 1472)
+#guard (ParameterSet.Kopis_512.PK_SIZE, ParameterSet.Kopis_512.CT_SIZE) = (672, 736)
+#guard (ParameterSet.Kopis_768.PK_SIZE, ParameterSet.Kopis_768.CT_SIZE) = (992, 1088)
+#guard (ParameterSet.Kopis_1024.PK_SIZE, ParameterSet.Kopis_1024.CT_SIZE) = (1312, 1472)
 
 /-! ## Native round-trip runner (`lake exe kopisTests`)
 
@@ -152,18 +149,18 @@ private def runKAT (p : ParameterSet) (path : System.FilePath) : IO Unit := do
       -- interface types reject it, modeled here by a failed sized hex decode.
       let accepted :=
         (Hex.toVector? v.sk 32).isSome &&
-        (Hex.toVector? v.pk (pkSize p)).isSome &&
+        (Hex.toVector? v.pk p.PK_SIZE).isSome &&
         (Hex.toVector? v.encap_randomness 32).isSome &&
-        (Hex.toVector? v.decapper_ct (ctSize p)).isSome
+        (Hex.toVector? v.decapper_ct p.CT_SIZE).isSome
       if accepted then
         throw (IO.userError s!"{v.description}: malformed vector accepted at valid sizes")
       rejected := rejected + 1
     else
       let sk  ← need s!"{v.description}: sk"  (Hex.toVector? v.sk 32)
-      let pk  ← need s!"{v.description}: pk"  (Hex.toVector? v.pk (pkSize p))
+      let pk  ← need s!"{v.description}: pk"  (Hex.toVector? v.pk p.PK_SIZE)
       let er  ← need s!"{v.description}: encap_randomness" (Hex.toVector? v.encap_randomness 32)
-      let ect ← need s!"{v.description}: encapper_ct" (Hex.toVector? v.encapper_ct (ctSize p))
-      let dct ← need s!"{v.description}: decapper_ct" (Hex.toVector? v.decapper_ct (ctSize p))
+      let ect ← need s!"{v.description}: encapper_ct" (Hex.toVector? v.encapper_ct p.CT_SIZE)
+      let dct ← need s!"{v.description}: decapper_ct" (Hex.toVector? v.decapper_ct p.CT_SIZE)
       let ess ← need s!"{v.description}: encapper_ss" (Hex.toVector? v.encapper_ss 32)
       let dss ← need s!"{v.description}: decapper_ss" (Hex.toVector? v.decapper_ss 32)
       -- Public-key derivation.

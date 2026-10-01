@@ -5,7 +5,7 @@
   # Kopis/Properties/Serialize.lean — `deserialize` / `from_bytes` correspondence.
 
   Proves the Aeneas-extracted `ser::deserialize` (via `RingElem::from_bytes`)
-  computes the audited `Spec.Kopis.deserialize_elem`.
+  computes the audited `Spec.Kopis.Explicit.deserialize_elem`.
 
   `ser::deserialize` is a sliding-window bit-unpacker: it maintains a `u32`
   `window` holding `bits_in_window` pending bits (LSB-aligned), refills one byte
@@ -226,9 +226,9 @@ private theorem deser_idx_lt {n i j : ℕ} (hi : i < 256) (hj : j < n) :
 
 /-- The `i`-th coefficient of the spec `deserialize` is exactly its loop body. -/
 theorem deserialize_get (n : ℕ) (B : 𝔹 (32 * n)) (i : ℕ) (hi : i < 256) :
-    (Spec.Kopis.deserialize_elem n B)[i]'hi
+    (Spec.Kopis.Explicit.deserialize_elem n B)[i]'hi
       = ∑ j : Fin n, ((bytesToBits B)[n * i + j.val]'(deser_idx_lt hi j.isLt)).toNat * 2 ^ j.val := by
-  rw [Spec.Kopis.deserialize_elem_getElem]
+  rw [Spec.Kopis.Explicit.deserialize_elem_getElem]
 
 /-- The bridged spec bit stream `bytesToBits (sliceToBytes …)` agrees with `streamBit`. -/
 theorem streamBit_eq_bit (bytes : Slice U8) (n m : ℕ) (h : bytes.length = 32 * n)
@@ -708,7 +708,7 @@ Stated separately from `from_bytes_spec` because the AVX2 unpacker is specified 
 `RingElem.deserialize`, so it needs this last step on its own. -/
 theorem toRingElem13_of_streamNat (bytes : Slice U8) (hlen : bytes.length = 32 * 13)
     (r : RingElem) (hr : ∀ j < 256, (r.val[j]!).val = streamNat bytes (13 * j) 13) :
-    toRingElem13 r = Spec.Kopis.deserialize_elem 13 (sliceToBytes bytes (32 * 13) hlen) := by
+    toRingElem13 r = Spec.Kopis.Explicit.deserialize_elem 13 (sliceToBytes bytes (32 * 13) hlen) := by
   have hrlen : (r.val : List U16).length = 256 := by have := r.property; scalar_tac
   apply Vector.ext
   intro jj hjj
@@ -724,7 +724,7 @@ branchless `deserialize_13` fast path.) -/
 theorem from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 32 * 13) :
     arithmetic.plain_arith.RingElem.deserialize 13#usize bytes
       ⦃ (r : RingElem) =>
-          toRingElem13 r = Spec.Kopis.deserialize_elem 13 (sliceToBytes bytes (32 * 13) hlen) ⦄ := by
+          toRingElem13 r = Spec.Kopis.Explicit.deserialize_elem 13 (sliceToBytes bytes (32 * 13) hlen) ⦄ := by
   have hlen416 : bytes.length = 416 := by omega
   -- Both guards of the NEON dispatch are opaque, and nothing is assumed about what they
   -- return: all three reachable paths compute the same bit stream.  See SerDispatch.lean.

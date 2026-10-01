@@ -16,20 +16,20 @@ set_option maxRecDepth 4000
 `(8p+j) mod n` of coefficient `(8p+j)/n`. -/
 theorem serialize_byte_bit (n : ℕ) (r : Spec.Kopis.Poly (2 ^ n)) (p j : ℕ)
     (hp : p < 32 * n) (hj : j < 8) (hn : 0 < n) :
-    ((Spec.Kopis.serialize_elem n r)[p]'hp).toNat.testBit j
+    ((Spec.Kopis.Explicit.serialize_elem n r)[p]'hp).toNat.testBit j
       = (r[(8 * p + j) / n]'(by rw [Nat.div_lt_iff_lt_mul hn]; omega)).val.testBit
           ((8 * p + j) % n) :=
-  Spec.Kopis.serialize_elem_testBit n r p j hp hj hn
+  Spec.Kopis.Explicit.serialize_elem_testBit n r p j hp hj hn
 
 /-- Spec-side byte value: byte `p` of `serialize_elem n r` is byte `p` of the packed bit-stream
 `∑ᵢ r[i].val · 2^(n·i)`. -/
 theorem serialize_byteVal (n : ℕ) (r : Spec.Kopis.Poly (2 ^ n)) (p : ℕ)
     (hp : p < 32 * n) (hn : 0 < n) :
-    ((Spec.Kopis.serialize_elem n r)[p]'hp).toNat
+    ((Spec.Kopis.Explicit.serialize_elem n r)[p]'hp).toNat
       = (∑ i ∈ Finset.range 256, (r[i]!).val * 2 ^ (n * i)) / 256 ^ p % 256 := by
   haveI : NeZero (2 ^ n) := ⟨by positivity⟩
   apply byte_eq
-  · exact ((Spec.Kopis.serialize_elem n r)[p]'hp).isLt
+  · exact ((Spec.Kopis.Explicit.serialize_elem n r)[p]'hp).isLt
   · exact Nat.mod_lt _ (by norm_num)
   · intro j hj
     rw [serialize_byte_bit n r p j hp hj hn, byte_testBit _ p j hj]

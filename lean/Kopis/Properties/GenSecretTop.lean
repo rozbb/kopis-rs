@@ -66,7 +66,7 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
           ∀ (a : ℕ) (_ : a < L.val),
             toRingElem13 ((result.val[a]!).val[0]!)
               = if iter.start.val ≤ a
-                then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
+                then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]!
                 else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
   unfold sample.gen_secret_from_seed_loop
   by_cases hlt : iter.start.val < iter.«end».val
@@ -96,7 +96,7 @@ theorem gen_secret_from_seed_loop_spec {L : Usize} (MU : Usize)
       simp only [cast_u8_bv, domsep_gensec_bv]
     let* ⟨ re1, hre1 ⟩ ← cbd_spec MU buf1 re hMU hbuf1_len
     have hrow_eq : toRingElem13 re1
-        = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
+        = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt :=
       cbd_row_eq_genSecret L MU.val (arrayToBytes seed) buf1 re1 iter.start.val hi_lt
         hbuf1_len hbridge hre1
     have h_start_new : iter1.start.val ≤ L.val := by rw [hstart']; scalar_tac
@@ -134,7 +134,7 @@ theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+          toVector13 r = Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]

@@ -10,7 +10,7 @@ set_option maxHeartbeats 1000000
 `(((r[k].val + 4) mod 2¹⁰) >>> (10 - t))` (valid for `t ≤ 10`). -/
 theorem compressRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Poly (2 ^ 10))
     (k : ℕ) (hk : k < 256) :
-    (((Spec.Kopis.CompressToRt t r)[k]'hk).val)
+    (((Spec.Kopis.Explicit.CompressToRt t r)[k]'hk).val)
       = (((r[k]'hk).val + 4) % 2 ^ 10) >>> (10 - t) := by
   haveI : NeZero ((2:ℕ)^t) := ⟨by positivity⟩
   have hlt : (((r[k]'hk).val + 4) % 2 ^ 10) >>> (10 - t) < 2 ^ t := by
@@ -24,8 +24,8 @@ theorem compressRt_coeff (t : ℕ) (ht : t ≤ 10) (r : Spec.Kopis.Poly (2 ^ 10)
     show (((Spec.Kopis.Poly.add r (Spec.Kopis.Poly.const (2 ^ 10) 4))[k]'hk).val : ℕ) = _
     simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, h4]
-  unfold Spec.Kopis.CompressToRt
-  simp only [Spec.Kopis.make_rn_replicate, Spec.Kopis.Poly.shiftRight_def]
+  unfold Spec.Kopis.Explicit.CompressToRt
+  simp only [Spec.Kopis.Explicit.make_rn_replicate, Spec.Kopis.Poly.shiftRight_def]
   simp only [Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftRight, Vector.getElem_map,
     hcoeff, ZMod.val_natCast]
   rw [Nat.mod_eq_of_lt (lt_of_lt_of_le hlt (Nat.pow_le_pow_right (by norm_num) ht)),
@@ -60,7 +60,7 @@ theorem compressRt_ring_bridge (c c1 c2 : RingElem) (t : ℕ) (ht : t ≤ 10)
     (hw : toRingElem c1
       = Spec.Kopis.Poly.add (toRingElem c) (Spec.Kopis.Poly.const (2 ^ 16) 4))
     (hs : toRingElem c2 = Spec.Kopis.Poly.shiftRight (toRingElem c1) (10 - t)) :
-    toPolyN t c2 = Spec.Kopis.CompressToRt t ((toRingElem c).coerce (2 ^ 10)) := by
+    toPolyN t c2 = Spec.Kopis.Explicit.CompressToRt t ((toRingElem c).coerce (2 ^ 10)) := by
   haveI : NeZero ((2:ℕ)^t) := ⟨by positivity⟩
   apply Vector.ext
   intro k hk

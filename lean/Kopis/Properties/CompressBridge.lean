@@ -23,7 +23,7 @@ theorem compress10_bridge (c : ℕ) :
 is `(((vv[i][k].val + 4) mod 2¹³) >>> 3)`. -/
 theorem compressR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) (i : ℕ) (hi : i < ℓ)
     (k : ℕ) (hk : k < 256) :
-    (((Spec.Kopis.CompressToR10 ℓ vv)[i]'hi)[k]'hk).val
+    (((Spec.Kopis.Explicit.CompressToR10 ℓ vv)[i]'hi)[k]'hk).val
       = ((((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13) >>> 3 := by
   have hlt : ((((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13) >>> 3 < 2 ^ 10 := by
     have h1 : (((vv[i]'hi)[k]'hk).val + 4) % 2 ^ 13 < 2 ^ 13 := Nat.mod_lt _ (by positivity)
@@ -42,8 +42,8 @@ theorem compressR10_coeff {ℓ : ℕ} (vv : Spec.Kopis.PolyVector (2 ^ 13) ℓ) 
     show (Vector.ofFn fun j => vv[j] + (Vector.replicate ℓ (Spec.Kopis.Poly.const (2 ^ 13) 4))[j])[i]'hi
         = vv[i]'hi + Spec.Kopis.Poly.const (2 ^ 13) 4
     simp [Vector.getElem_ofFn, Vector.getElem_replicate]
-  unfold Spec.Kopis.CompressToR10
-  simp only [Spec.Kopis.make_rn_replicate, Spec.Kopis.PolyVector.shiftRight_def]
+  unfold Spec.Kopis.Explicit.CompressToR10
+  simp only [Spec.Kopis.Explicit.make_rn_replicate, Spec.Kopis.PolyVector.shiftRight_def]
   simp only [Spec.Kopis.PolyVector.coerce, Spec.Kopis.PolyVector.shiftRight, Vector.getElem_map,
     Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftRight, hveci,
     ZMod.val_natCast, hcoeff]

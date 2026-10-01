@@ -15,25 +15,25 @@ runs `expand_secret_key` and packs the four outputs into a `KemSecretKey`; each 
 exactly the corresponding `ExpandSecretKey` component (the secret vector, the reject seed
 `z`, the serialized public key, and its hash). -/
 theorem expand_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
-    (p : Spec.Kopis.ParameterSet)
-    (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val)
+    (p : Spec.Kopis.Explicit.ParameterSet)
+    (hℓ : Spec.Kopis.Explicit.ℓ p = L.val) (hμ : Spec.Kopis.Explicit.μ p = MU.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hbuf : L.val * 320 + 32 ≤ 1312) (hfit : L.val * 10 * 256 ≤ Usize.max)
     (hL : L.val < 256) (_hL0 : 0 < L.val) :
     kem.KemSecretKey.expand_from_seed L MU seed
       ⦃ (ksk : kem.KemSecretKey L) =>
           (∃ S : Mat L 1#usize, ksk.pke_sk = nttFwdS S ∧
-              toVector13 S = hℓ ▸ (Spec.Kopis.ExpandSecretKey p (skBytes seed)).1 ∧
+              toVector13 S = hℓ ▸ (Spec.Kopis.Explicit.ExpandSecretKey p (skBytes seed)).1 ∧
               SecretBounded S ((MU.val / 2 : ℕ) : ℤ)) ∧
-          arrayToBytes ksk.z = (Spec.Kopis.ExpandSecretKey p (skBytes seed)).2.1 ∧
-          pkStructBytes ksk.kem_pk.pke_pk p hℓ = (Spec.Kopis.ExpandSecretKey p (skBytes seed)).2.2.1 ∧
-          arrayToBytes ksk.kem_pk.hash_pke_pk = (Spec.Kopis.ExpandSecretKey p (skBytes seed)).2.2.2 ∧
+          arrayToBytes ksk.z = (Spec.Kopis.Explicit.ExpandSecretKey p (skBytes seed)).2.1 ∧
+          pkStructBytes ksk.kem_pk.pke_pk p hℓ = (Spec.Kopis.Explicit.ExpandSecretKey p (skBytes seed)).2.2.1 ∧
+          arrayToBytes ksk.kem_pk.hash_pke_pk = (Spec.Kopis.Explicit.ExpandSecretKey p (skBytes seed)).2.2.2 ∧
           (∃ Amat : Mat L L, ksk.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
-              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes ksk.kem_pk.pke_pk.matrix_seed) ∧
+              toMatrix13 Amat = Spec.Kopis.Explicit.GenMat L.val (arrayToBytes ksk.kem_pk.pke_pk.matrix_seed) ∧
               UniformBounded Amat) ∧
           (∃ V : Mat L 1#usize, ksk.kem_pk.pke_pk.vec_ntt = nttFwdU V ∧
               UniformBounded V ∧
-              vecBytesFlat ksk.kem_pk.pke_pk = Spec.Kopis.serialize_vec 10 (toVecN 10 V)) ⦄ := by
+              vecBytesFlat ksk.kem_pk.pke_pk = Spec.Kopis.Explicit.serialize_vec 10 (toVecN 10 V)) ⦄ := by
   unfold kem.KemSecretKey.expand_from_seed
   -- `let*` splits each bundled existential into its witness followed by its conjuncts, so the
   -- pattern names 4 tuple components + 15 postcondition parts; regroup them to rebuild the
@@ -54,8 +54,8 @@ The binder names are deliberately unlike `expand_from_seed_spec`'s: `scripts/gen
 patches the call below to pass the extra `0 < L` the twins' `expand_secret_key_spec` wants, and
 the patch anchors on this line's exact text. -/
 theorem expand_from_seed_seed (L MU : Usize) (sd : Array U8 32#usize)
-    (p : Spec.Kopis.ParameterSet)
-    (hl : Spec.Kopis.ℓ p = L.val) (hm : Spec.Kopis.μ p = MU.val)
+    (p : Spec.Kopis.Explicit.ParameterSet)
+    (hl : Spec.Kopis.Explicit.ℓ p = L.val) (hm : Spec.Kopis.Explicit.μ p = MU.val)
     (hmu : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hb : L.val * 320 + 32 ≤ 1312) (hf : L.val * 10 * 256 ≤ Usize.max)
     (hlt : L.val < 256) (_hl0 : 0 < L.val) :
@@ -69,8 +69,8 @@ theorem expand_from_seed_seed (L MU : Usize) (sd : Array U8 32#usize)
 /-- **… and `as_bytes()` hands it back.**  The accessor is `ok self.seed`, so this is the previous
 lemma read through the public entry point. -/
 theorem expand_from_seed_then_seed (L MU : Usize) (sd : Array U8 32#usize)
-    (p : Spec.Kopis.ParameterSet)
-    (hl : Spec.Kopis.ℓ p = L.val) (hm : Spec.Kopis.μ p = MU.val)
+    (p : Spec.Kopis.Explicit.ParameterSet)
+    (hl : Spec.Kopis.Explicit.ℓ p = L.val) (hm : Spec.Kopis.Explicit.μ p = MU.val)
     (hmu : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hb : L.val * 320 + 32 ≤ 1312) (hf : L.val * 10 * 256 ≤ Usize.max)
     (hlt : L.val < 256) (hl0 : 0 < L.val) :

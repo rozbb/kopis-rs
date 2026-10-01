@@ -5,7 +5,7 @@
   # Kopis/Properties/GenMatrix.lean — Correspondence proof for `gen_matrix_from_seed`.
 
   Relates the Aeneas-extracted `RustKopisAvx2.sample.gen_matrix_from_seed` to the audited
-  spec `Spec.Kopis.GenMat`.  The procedure decomposes into three layers:
+  spec `Spec.Kopis.Explicit.GenMat`.  The procedure decomposes into three layers:
 
   * **(A) TurboSHAKE — trust boundary.**  The `turboshake` crate is an external
     crates.io dependency, so Aeneas axiomatizes its entire stateful API
@@ -199,8 +199,8 @@ def toMatrix13 {L : Usize} (mat : arithmetic.plain_arith.Matrix L L) :
 /-- Entry formula for `PolyMatrix.update`. -/
 theorem polyMatrix_update_entry {m ℓ : ℕ} (M : Spec.Kopis.PolyMatrix m ℓ) (i j : ℕ)
     (val : Spec.Kopis.Poly m) (hi : i < ℓ) (hj : j < ℓ) (i₀ j₀ : Fin ℓ) :
-    (M.update i j val hi hj) i₀ j₀ = if i₀.val = i ∧ j₀.val = j then val else M i₀ j₀ := by
-  unfold Spec.Kopis.PolyMatrix.update
+    (Spec.Kopis.Explicit.PolyMatrix.update M i j val hi hj) i₀ j₀ = if i₀.val = i ∧ j₀.val = j then val else M i₀ j₀ := by
+  unfold Spec.Kopis.Explicit.PolyMatrix.update
   rw [Matrix.updateRow_apply]
   by_cases h1 : i₀ = ⟨i, hi⟩
   · subst h1; simp
@@ -243,41 +243,41 @@ theorem turboSHAKE_u8concat (seed : Array U8 32#usize) (ci cj : U8) (outLen : �
 
 /-- Spec-side: evaluate `GenMat`'s nested `Id.run` loop at entry `(i₀, j₀)`. -/
 theorem GenMat_get (ℓ : ℕ) (seed : 𝔹 32) (i₀ j₀ : Fin ℓ) :
-    Spec.Kopis.GenMat ℓ seed i₀ j₀
-      = Spec.Kopis.deserialize_elem 13
+    Spec.Kopis.Explicit.GenMat ℓ seed i₀ j₀
+      = Spec.Kopis.Explicit.deserialize_elem 13
           (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
             Spec.Kopis.DOMSEP_GENMAT (32 * 13)) := by
-  unfold Spec.Kopis.GenMat
+  unfold Spec.Kopis.Explicit.GenMat
   simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
     Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one, bind_pure]
-  rw [show Spec.Kopis.deserialize_elem 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
+  rw [show Spec.Kopis.Explicit.deserialize_elem 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
         Spec.Kopis.DOMSEP_GENMAT (32 * 13))
-      = (if i₀.val < ℓ then Spec.Kopis.deserialize_elem 13
+      = (if i₀.val < ℓ then Spec.Kopis.Explicit.deserialize_elem 13
           (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
             Spec.Kopis.DOMSEP_GENMAT (32 * 13))
         else Spec.Kopis.Poly.zero (2 ^ 13)) from (if_pos i₀.isLt).symm]
   refine forIn'_inv' (List.range' 0 ℓ) _ _
     (fun s (A : Spec.Kopis.PolyMatrix (2 ^ 13) ℓ) => A i₀ j₀
-      = if i₀.val < s then Spec.Kopis.deserialize_elem 13
+      = if i₀.val < s then Spec.Kopis.Explicit.deserialize_elem 13
           (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
             Spec.Kopis.DOMSEP_GENMAT (32 * 13))
         else Spec.Kopis.Poly.zero (2 ^ 13)) ℓ (by simp) ?hInit ?hStep
-  case hInit => simp [Spec.Kopis.PolyMatrix.zero]
+  case hInit => simp [Spec.Kopis.Explicit.PolyMatrix.zero]
   case hStep =>
     intro k hk b hb a ha ha_eq
     have ha_val : a = k := by rw [ha_eq]; simp [List.getElem_range']
     subst ha_val
     refine ⟨_, rfl, ?_⟩
-    rw [show (if i₀.val < a + 1 then Spec.Kopis.deserialize_elem 13
+    rw [show (if i₀.val < a + 1 then Spec.Kopis.Explicit.deserialize_elem 13
             (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
               Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else Spec.Kopis.Poly.zero (2 ^ 13))
-          = (if a = i₀.val ∧ j₀.val < ℓ then Spec.Kopis.deserialize_elem 13
+          = (if a = i₀.val ∧ j₀.val < ℓ then Spec.Kopis.Explicit.deserialize_elem 13
               (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
                 Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else b i₀ j₀) from ?_]
     · -- inner loop
       refine forIn'_inv' (List.range' 0 ℓ) b _
         (fun s (A : Spec.Kopis.PolyMatrix (2 ^ 13) ℓ) => A i₀ j₀
-          = if a = i₀.val ∧ j₀.val < s then Spec.Kopis.deserialize_elem 13
+          = if a = i₀.val ∧ j₀.val < s then Spec.Kopis.Explicit.deserialize_elem 13
               (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
                 Spec.Kopis.DOMSEP_GENMAT (32 * 13)) else b i₀ j₀) ℓ (by simp) ?hInitIn ?hStepIn
       case hInitIn => simp
@@ -300,7 +300,7 @@ theorem GenMat_get (ℓ : ℕ) (seed : 𝔹 32) (i₀ j₀ : Fin ℓ) :
     · -- the if-shape equality
       rw [hb]
       simp only [j₀.isLt, and_true]
-      generalize Spec.Kopis.deserialize_elem 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
+      generalize Spec.Kopis.Explicit.deserialize_elem 13 (turboSHAKE128 (seed ‖ #v[(i₀.val : Byte)] ‖ #v[(j₀.val : Byte)])
         Spec.Kopis.DOMSEP_GENMAT (32 * 13)) = E
       split_ifs <;> first | rfl | omega
 
@@ -315,7 +315,7 @@ theorem domsep_genmat_bv : (2#u8).bv = Spec.Kopis.DOMSEP_GENMAT := by decide
 
 /-- The deserialized hash entry for row `a`, column `b`. -/
 private def HDEntry (seed : Array U8 32#usize) (a b : ℕ) : Spec.Kopis.Poly (2 ^ 13) :=
-  Spec.Kopis.deserialize_elem 13 (turboSHAKE128
+  Spec.Kopis.Explicit.deserialize_elem 13 (turboSHAKE128
     (arrayToBytes seed ‖ #v[((a : ℕ) : Byte)] ‖ #v[((b : ℕ) : Byte)])
     Spec.Kopis.DOMSEP_GENMAT (32 * 13))
 
@@ -444,13 +444,13 @@ theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize)
     (hLmax : L.val * L.val + 4 ≤ Usize.max) :
     sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
-          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+          toMatrix13 r = Spec.Kopis.Explicit.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
   unfold sample.gen_matrix_from_seed
   obtain ⟨b1, hb1⟩ := Kopis.Avx2.available_ok
   rw [hb1, bind_tc_ok]
   have havx : backend.avx2.sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
-          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+          toMatrix13 r = Spec.Kopis.Explicit.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono (Kopis.Avx2.Properties.avx2_gen_matrix_from_seed_spec L seed hLmax)
     intro r hr
     apply Matrix.ext

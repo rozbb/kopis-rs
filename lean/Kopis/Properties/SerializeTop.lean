@@ -39,7 +39,7 @@ theorem serialize_conclusion (re : RingElem) (n : ℕ) (hrng : 1 ≤ n ∧ n ≤
     (hrlen : r.val.length = 32 * n)
     (hbv : byteVal r (32 * n) = packedVal (Array.to_slice re) n 256) :
     ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h
-      = Spec.Kopis.serialize_elem n (toPolyN n re) := by
+      = Spec.Kopis.Explicit.serialize_elem n (toPolyN n re) := by
   have hrlen' : r.length = 32 * n := by rw [Slice.length]; exact hrlen
   refine ⟨hrlen', ?_⟩
   apply Vector.ext
@@ -58,7 +58,7 @@ coefficients produces the spec `serialize_elem n (toPolyN n re)`. -/
 theorem ring_serialize_spec (re : RingElem) (out : Slice U8) (bits : Usize) (n : ℕ)
     (hn : bits.val = n) (hrng : 1 ≤ n ∧ n ≤ 13) (hlen : out.val.length = 32 * n) :
     RingElem.serialize bits re out
-      ⦃ (r : Slice U8) => ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h = Spec.Kopis.serialize_elem n (toPolyN n re) ⦄ := by
+      ⦃ (r : Slice U8) => ∃ h : r.length = 32 * n, sliceToBytes r (32 * n) h = Spec.Kopis.Explicit.serialize_elem n (toPolyN n re) ⦄ := by
   unfold RingElem.serialize
   simp only [consts.RING_DEG]
   -- the width guard `debug_assert!((1..=13).contains(&BITS_PER_ELEM))`, now a `massert`

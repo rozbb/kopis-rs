@@ -45,31 +45,31 @@ theorem turboSHAKE256_two_array_concat (A B : Array U8 32#usize) (D : Byte) (N :
 /-- **Rust `kem.encap_deterministic` matches the spec `KemEncap`.** -/
 theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     (randomness : Array U8 32#usize) (kem_pk : kem.KemPublicKey L) (out_buf : Slice U8)
-    (p : Spec.Kopis.ParameterSet) (pk_bytes : 𝔹 (Spec.Kopis.pkSize p))
-    (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val) (ht : Spec.Kopis.t p = T.val)
+    (p : Spec.Kopis.Explicit.ParameterSet) (pk_bytes : 𝔹 (Spec.Kopis.Explicit.pkSize p))
+    (hℓ : Spec.Kopis.Explicit.ℓ p = L.val) (hμ : Spec.Kopis.Explicit.μ p = MU.val) (ht : Spec.Kopis.Explicit.t p = T.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 1 ≤ T.val ∧ T.val ≤ 10)
     (hfit : L.val * 10 * 256 ≤ Usize.max)
-    (hlenout : out_buf.length = Spec.Kopis.ctSize p)
+    (hlenout : out_buf.length = Spec.Kopis.Explicit.ctSize p)
     -- the coefficient matrices the stored NTT-domain public key denotes
     (V : Mat L 1#usize) (Amat : Mat L L)
     (hpkvecfwd : kem_pk.pke_pk.vec_ntt = nttFwdU V)
     (hpkmatfwd : kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
     (hpkvec : toVecN 10 V
-      = hℓ ▸ Spec.Kopis.deserialize_vec 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.Explicit.deserialize_vec 10
+          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.Explicit.ℓ p) (by simp [Spec.Kopis.Explicit.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
-      = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.Explicit.GenMat (Spec.Kopis.Explicit.ℓ p)
+          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.Explicit.ℓ p) 32 (by simp [Spec.Kopis.Explicit.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.encap_deterministic MU T randomness kem_pk out_buf
       ⦃ (r : Array U8 32#usize × Slice U8) =>
           arrayToBytes r.1
-            = (Spec.Kopis.KemEncap p ((arrayToBytes randomness).cast rfl) pk_bytes).1
-          ∧ ∃ h : r.2.length = Spec.Kopis.ctSize p,
-              sliceToBytes r.2 (Spec.Kopis.ctSize p) h
-                = (Spec.Kopis.KemEncap p ((arrayToBytes randomness).cast rfl) pk_bytes).2 ⦄ := by
+            = (Spec.Kopis.Explicit.KemEncap p ((arrayToBytes randomness).cast rfl) pk_bytes).1
+          ∧ ∃ h : r.2.length = Spec.Kopis.Explicit.ctSize p,
+              sliceToBytes r.2 (Spec.Kopis.Explicit.ctSize p) h
+                = (Spec.Kopis.Explicit.KemEncap p ((arrayToBytes randomness).cast rfl) pk_bytes).2 ⦄ := by
   unfold kem.encap_deterministic
   step*
   -- absorbed message = randomness ++ hash_pke_pk
@@ -125,7 +125,7 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     rw [bappend_toList, bappend_toList, Vector.toList_cast]
     exact congrArg (Vector.toList (arrayToBytes randomness) ++ ·) (congrArg Vector.toList hpkh)
   -- assemble the KemEncap postcondition
-  simp only [Spec.Kopis.KemEncap]
+  simp only [Spec.Kopis.Explicit.KemEncap]
   refine ⟨?_, hlen1, ?_⟩
   · rw [hk1bytes, hbspec]; rfl
   · rw [hct1, hr1bytes, hbspec]; rfl

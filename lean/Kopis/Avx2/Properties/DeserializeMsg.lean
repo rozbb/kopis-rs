@@ -7,7 +7,7 @@
   In PKE encryption the 32-byte message is decoded into a bit-per-coefficient ring
   element via the *generic* sliding-window bit-unpacker `ser::deserialize_generic`
   with `bits_per_elem = 1`.  We prove this path computes the audited
-  `Spec.Kopis.deserialize_elem 1`.
+  `Spec.Kopis.Explicit.deserialize_elem 1`.
 
   The three layers mirror the 13-bit proofs in `Serialize.lean`
   (`deserialize_refill_spec` / `deserialize_outer_spec`), with `13` replaced by `1`.
@@ -200,7 +200,7 @@ one bit per coefficient). -/
 theorem deserialize_msg_spec (bytes : Slice U8) (hlen : bytes.length = 32) :
     ser.deserialize_generic 256#usize 1#usize bytes
       ⦃ (r : Array U16 256#usize) =>
-          toPolyN 1 r = Spec.Kopis.deserialize_elem 1 (sliceToBytes bytes (32 * 1) hlen) ⦄ := by
+          toPolyN 1 r = Spec.Kopis.Explicit.deserialize_elem 1 (sliceToBytes bytes (32 * 1) hlen) ⦄ := by
   unfold ser.deserialize_generic
   -- `let _ ← BITS_PER_ELEM * N`: the overflow check whose value the body discards.  Since
   -- `BITS_PER_ELEM` is a const generic the product is then *recomputed*, twice, as a wrapping

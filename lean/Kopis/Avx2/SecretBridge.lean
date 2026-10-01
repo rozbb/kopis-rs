@@ -119,7 +119,7 @@ theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if iter.start.val ≤ a
-              then (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]!
+              then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]!
               else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
   unfold backend.avx2.sample.secret_loop1
   by_cases hlt : iter.start.val < iter.«end».val
@@ -152,7 +152,7 @@ theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     rw [Kopis.Avx2.avx2_cbd_eq sl MU (Std.Array.repeat 256#usize 0#u16) hMU hsllen]
     let* ⟨ re, hre ⟩ ← cbd_spec MU sl (Std.Array.repeat 256#usize 0#u16) hMU hsllen
     have hrow : toRingElem13 re
-        = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt := by
+        = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[iter.start.val]'hi_lt := by
       refine cbd_row_eq_genSecret L MU.val (arrayToBytes seed) sl re iter.start.val hi_lt
         hsllen' ?_ hre
       refine Eq.trans ?_ (hbridge iter.start.val hi_lt (by
@@ -237,7 +237,7 @@ theorem avx2_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     backend.avx2.sample.secret L MU N seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
-            = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
+            = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   unfold backend.avx2.sample.secret
   rw [show massert (L ≤ 4#usize) = ok () from by
       simp only [massert, if_pos (show L ≤ 4#usize by scalar_tac)], bind_tc_ok]
@@ -275,7 +275,7 @@ theorem avx2_gen_secret_from_seed_spec (L MU : Std.Usize) (seed : Std.Array Std.
     backend.avx2.sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
-            = (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
+            = (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[a]! ⦄ := by
   have harm : ∀ (n : Std.Usize), MU.val = 6 ∧ n = 192#usize ∨ MU.val = 8 ∧ n = 256#usize
       ∨ MU.val = 10 ∧ n = 320#usize →
       backend.avx2.sample.gen_secret_from_seed L MU seed

@@ -1,10 +1,10 @@
-import Spec.Kopis.Spec
+import Spec.Kopis.Explicit
 
 /-! # Facts about the Kopis spec's helpers
 
-`Spec.lean` defines `serialize_elem`, `deserialize_elem`, `bit_slices` and `hamming` in the
-markdown's terms. The lemmas here restate them in terms of `bytesToBits` and single bits, which
-is the form the correspondence proofs use. -/
+Lemmas about the ring arithmetic of `Spec.lean`, and about `Explicit.lean`'s `serialize_elem`,
+`deserialize_elem`, `bit_slices` and `hamming` in terms of `bytesToBits` and single bits, which is
+the form the correspondence proofs use. -/
 
 namespace Spec.Kopis
 
@@ -13,8 +13,11 @@ open scoped BigOperators
 /-- The constant polynomial `c`, i.e. `make_rn([c; 256])`, but at any modulus. -/
 def Poly.const (m : ℕ) (c : ZMod m) : Poly m := Vector.replicate 256 c
 
-theorem make_rn_replicate (n : ℕ) (c : ZMod (2 ^ n)) :
-    make_rn n (Vector.replicate 256 c) = Poly.const (2 ^ n) c := rfl
+theorem Poly.add_def {m} (f g : Poly m) : f + g = Poly.add f g := rfl
+theorem Poly.shiftRight_def {m} (r : Poly m) (N : ℕ) : r >>> N = r.shiftRight N := rfl
+theorem Poly.shiftLeft_def {m} (r : Poly m) (N : ℕ) : r <<< N = r.shiftLeft N := rfl
+theorem PolyVector.shiftRight_def {m ℓ} (v : PolyVector m ℓ) (N : ℕ) :
+    v >>> N = v.shiftRight N := rfl
 
 /-- Bit `j` of `∑ᵢ bᵢ·2ⁱ` is `bⱼ`. -/
 theorem testBit_bitSum : ∀ (k : ℕ) (b : Fin k → Bool) (j : ℕ) (hj : j < k),
@@ -47,58 +50,11 @@ theorem flatten_to_bits_le {k : ℕ} (B : 𝔹 k) :
   apply Vector.ext; intro p hp
   simp [to_bits_le, bytesToBits]
 
-/-- Bit `j` of byte `p` of `serialize_elem n r` is bit `(8p+j) mod n` of coefficient
-`(8p+j)/n`. -/
-theorem serialize_elem_testBit (n : ℕ) (r : R n) (p j : ℕ)
-    (hp : p < 32 * n) (hj : j < 8) (hn : 0 < n) :
-    ((serialize_elem n r)[p]'hp).toNat.testBit j
-      = (r[(8 * p + j) / n]'(by rw [Nat.div_lt_iff_lt_mul hn]; omega)).val.testBit
-          ((8 * p + j) % n) := by
-  simp only [serialize_elem, Vector.getElem_ofFn]
-  rw [BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat, Nat.testBit_mod_two_pow, decide_eq_true hj, Bool.true_and,
-    testBit_from_bits_le _ _ j hj]
-  simp [slice, canonical_coeffs, to_bits_le]
-
-/-- Coefficient `i` of `deserialize_elem n B` is bits `n·i .. n·i+n` of `B`. -/
-theorem deserialize_elem_getElem (n : ℕ) (B : 𝔹 (32 * n)) (i : ℕ) (hi : i < 256) :
-    (deserialize_elem n B)[i]
-      = ((∑ j : Fin n, ((bytesToBits B)[n * i + j.val]'(by
-          have := chunk_bound (n := n) hi; have := j.isLt; omega)).toNat * 2 ^ j.val : ℕ)
-          : ZMod (2 ^ n)) := by
-  simp [deserialize_elem, make_rn, from_bits_le, slice, to_bits_le, bytesToBits]
-
-theorem bit_slices_getElem (μ : ℕ) (B : 𝔹 (32 * μ)) (i : ℕ) (hi : i < 512) (j : ℕ)
-    (hj : j < μ / 2) :
-    (bit_slices μ B)[i][j] = (bytesToBits B)[i * μ / 2 + j]'(by
-      have := Nat.mul_le_mul_right μ (Nat.succ_le_of_lt hi); rw [Nat.succ_mul] at this; omega) := by
-  simp only [bit_slices, Vector.getElem_ofFn, slice, flatten_to_bits_le, Vector.getElem_cast]
-
-/-- `hamming(vals[2*k])` in `GenSecret` counts bits `μ·k .. μ·k + μ/2`. -/
-theorem hamming_bit_slices_even (μ : ℕ) (B : 𝔹 (32 * μ)) (k : ℕ) (hk : k < 256) :
-    hamming (bit_slices μ B)[2 * k] = ∑ j : Fin (μ / 2), ((bytesToBits B)[μ * k + j.val]'(by
-      have := chunk_bound (n := μ) hk; have := j.isLt; omega)).toNat := by
-  have h : 2 * k * μ / 2 = μ * k := by
-    rw [Nat.mul_assoc, Nat.mul_div_cancel_left _ (by decide), Nat.mul_comm]
-  refine Finset.sum_congr rfl fun j _ => ?_
-  rw [Fin.getElem_fin, bit_slices_getElem _ _ _ (by omega) _ j.isLt]
-  simp only [h]
-
-/-- `hamming(vals[2*k+1])` in `GenSecret` counts bits `μ·k + μ/2 .. μ·k + 2·(μ/2)`. -/
-theorem hamming_bit_slices_odd (μ : ℕ) (B : 𝔹 (32 * μ)) (k : ℕ) (hk : k < 256) :
-    hamming (bit_slices μ B)[2 * k + 1] = ∑ j : Fin (μ / 2),
-      ((bytesToBits B)[μ * k + μ / 2 + j.val]'(by
-        have := chunk_bound (n := μ) hk; have := j.isLt; omega)).toNat := by
-  have h : (2 * k + 1) * μ / 2 = μ * k + μ / 2 := by
-    rw [show (2 * k + 1) * μ = 2 * (μ * k) + μ by ring]; omega
-  refine Finset.sum_congr rfl fun j _ => ?_
-  rw [Fin.getElem_fin, bit_slices_getElem _ _ _ (by omega) _ j.isLt]
-  simp only [h]
-
 /-! ## Coefficients of `Poly.mul` -/
 
 /-- Indexed-invariant evaluator for an `Id.run` `forIn'` loop over a `List` (replicated
 locally from the `Serialize` module). -/
-private theorem forIn'_getElem_indexed {α : Type} {β : Type} {m : Nat} :
+theorem forIn'_getElem_indexed {α : Type} {β : Type} {m : Nat} :
     ∀ (xs : List α) (init : Vector β m)
     (body : (a : α) → a ∈ xs → Vector β m → Id (ForInStep (Vector β m)))
     (i : Nat) (hi : i < m) (val : β)
@@ -187,3 +143,59 @@ theorem mul_get (a b : Poly m) (p : ℕ) (hp : p < 256) :
         · rw [if_neg hpk, hPcc, convContrib, if_neg hpk, add_zero]
 
 end Spec.Kopis
+
+namespace Spec.Kopis.Explicit
+
+open scoped BigOperators
+
+theorem make_rn_replicate (n : ℕ) (c : ZMod (2 ^ n)) :
+    make_rn n (Vector.replicate 256 c) = Poly.const (2 ^ n) c := rfl
+
+/-- Bit `j` of byte `p` of `serialize_elem n r` is bit `(8p+j) mod n` of coefficient
+`(8p+j)/n`. -/
+theorem serialize_elem_testBit (n : ℕ) (r : R n) (p j : ℕ)
+    (hp : p < 32 * n) (hj : j < 8) (hn : 0 < n) :
+    ((serialize_elem n r)[p]'hp).toNat.testBit j
+      = (r[(8 * p + j) / n]'(by rw [Nat.div_lt_iff_lt_mul hn]; omega)).val.testBit
+          ((8 * p + j) % n) := by
+  simp only [serialize_elem, Vector.getElem_ofFn]
+  rw [BitVec.natCast_eq_ofNat, BitVec.toNat_ofNat, Nat.testBit_mod_two_pow, decide_eq_true hj, Bool.true_and,
+    testBit_from_bits_le _ _ j hj]
+  simp [Spec.slice, canonical_coeffs, to_bits_le]
+
+/-- Coefficient `i` of `deserialize_elem n B` is bits `n·i .. n·i+n` of `B`. -/
+theorem deserialize_elem_getElem (n : ℕ) (B : 𝔹 (32 * n)) (i : ℕ) (hi : i < 256) :
+    (deserialize_elem n B)[i]
+      = ((∑ j : Fin n, ((bytesToBits B)[n * i + j.val]'(by
+          have := chunk_bound (n := n) hi; have := j.isLt; omega)).toNat * 2 ^ j.val : ℕ)
+          : ZMod (2 ^ n)) := by
+  simp [deserialize_elem, make_rn, from_bits_le, Spec.slice, to_bits_le, bytesToBits]
+
+theorem bit_slices_getElem (μ : ℕ) (B : 𝔹 (32 * μ)) (i : ℕ) (hi : i < 512) (j : ℕ)
+    (hj : j < μ / 2) :
+    (bit_slices μ B)[i][j] = (bytesToBits B)[i * μ / 2 + j]'(by
+      have := Nat.mul_le_mul_right μ (Nat.succ_le_of_lt hi); rw [Nat.succ_mul] at this; omega) := by
+  simp only [bit_slices, Vector.getElem_ofFn, Spec.slice, flatten_to_bits_le, Vector.getElem_cast]
+
+/-- `hamming(vals[2*k])` in `GenSecret` counts bits `μ·k .. μ·k + μ/2`. -/
+theorem hamming_bit_slices_even (μ : ℕ) (B : 𝔹 (32 * μ)) (k : ℕ) (hk : k < 256) :
+    hamming (bit_slices μ B)[2 * k] = ∑ j : Fin (μ / 2), ((bytesToBits B)[μ * k + j.val]'(by
+      have := chunk_bound (n := μ) hk; have := j.isLt; omega)).toNat := by
+  have h : 2 * k * μ / 2 = μ * k := by
+    rw [Nat.mul_assoc, Nat.mul_div_cancel_left _ (by decide), Nat.mul_comm]
+  refine Finset.sum_congr rfl fun j _ => ?_
+  rw [Fin.getElem_fin, bit_slices_getElem _ _ _ (by omega) _ j.isLt]
+  simp only [h]
+
+/-- `hamming(vals[2*k+1])` in `GenSecret` counts bits `μ·k + μ/2 .. μ·k + 2·(μ/2)`. -/
+theorem hamming_bit_slices_odd (μ : ℕ) (B : 𝔹 (32 * μ)) (k : ℕ) (hk : k < 256) :
+    hamming (bit_slices μ B)[2 * k + 1] = ∑ j : Fin (μ / 2),
+      ((bytesToBits B)[μ * k + μ / 2 + j.val]'(by
+        have := chunk_bound (n := μ) hk; have := j.isLt; omega)).toNat := by
+  have h : (2 * k + 1) * μ / 2 = μ * k + μ / 2 := by
+    rw [show (2 * k + 1) * μ = 2 * (μ * k) + μ by ring]; omega
+  refine Finset.sum_congr rfl fun j _ => ?_
+  rw [Fin.getElem_fin, bit_slices_getElem _ _ _ (by omega) _ j.isLt]
+  simp only [h]
+
+end Spec.Kopis.Explicit

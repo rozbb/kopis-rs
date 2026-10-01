@@ -10,7 +10,7 @@ set_option maxHeartbeats 1000000
 `(((r[k].val + h₂) mod 2¹⁰) >>> 9)` where `h₂ = 2⁸ - 2⁹⁻ᵗ + 4` (valid for `1 ≤ t ≤ 10`). -/
 theorem decodeMsg_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Poly (2 ^ 10))
     (k : ℕ) (hk : k < 256) :
-    (((Spec.Kopis.DecodeMsg t r)[k]'hk).val)
+    (((Spec.Kopis.Explicit.DecodeMsg t r)[k]'hk).val)
       = (((r[k]'hk).val + (2 ^ 8 - 2 ^ (9 - t) + 4)) % 2 ^ 10) >>> 9 := by
   haveI : NeZero ((2:ℕ)^1) := ⟨by positivity⟩
   set C : ℕ := 2 ^ 8 - 2 ^ (9 - t) + 4 with hC
@@ -33,8 +33,8 @@ theorem decodeMsg_coeff (t : ℕ) (ht : 1 ≤ t ∧ t ≤ 10) (r : Spec.Kopis.Po
     show (((Spec.Kopis.Poly.add r (Spec.Kopis.Poly.const (2 ^ 10) ((C:ℕ):ZMod (2^10))))[k]'hk).val : ℕ) = _
     simp only [Spec.Kopis.Poly.add, Vector.getElem_zipWith, Spec.Kopis.Poly.const,
       Vector.getElem_replicate, ZMod.val_add, hcv]
-  unfold Spec.Kopis.DecodeMsg
-  simp only [Spec.Kopis.make_rn_replicate, Spec.Kopis.Poly.shiftRight_def]
+  unfold Spec.Kopis.Explicit.DecodeMsg
+  simp only [Spec.Kopis.Explicit.make_rn_replicate, Spec.Kopis.Poly.shiftRight_def]
   -- the spec writes the exponent as `10 - t - 1`; on `ℕ` that is `9 - t`, which is how `C` reads
   have hst : 10 - t - 1 = 9 - t := by omega
   simp only [hst, Spec.Kopis.Poly.coerce, Spec.Kopis.Poly.shiftRight,
@@ -67,7 +67,7 @@ theorem decodeMsg_ring_bridge (mp mp1 mp2 : RingElem) (t : ℕ) (ht : 1 ≤ t �
     (hw : toRingElem mp1 = Spec.Kopis.Poly.add (toRingElem mp)
       (Spec.Kopis.Poly.const (2 ^ 16) (((2 ^ 8 - 2 ^ (9 - t) + 4 : ℕ) : ZMod (2 ^ 16)))))
     (hs : toRingElem mp2 = Spec.Kopis.Poly.shiftRight (toRingElem mp1) 9) :
-    toPolyN 1 mp2 = Spec.Kopis.DecodeMsg t ((toRingElem mp).coerce (2 ^ 10)) := by
+    toPolyN 1 mp2 = Spec.Kopis.Explicit.DecodeMsg t ((toRingElem mp).coerce (2 ^ 10)) := by
   haveI : NeZero ((2:ℕ)^1) := ⟨by positivity⟩
   set C : ℕ := 2 ^ 8 - 2 ^ (9 - t) + 4 with hC
   have hClt16 : C < 2 ^ 16 := by

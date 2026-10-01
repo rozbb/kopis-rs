@@ -31,13 +31,13 @@ theorem prod2_compressR10_bridge {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
     (hs : toRingElem ((prod2.val[i]!).val[0]!)
         = Spec.Kopis.Poly.shiftRight (toRingElem ((prod1.val[i]!).val[0]!)) 3) :
     toPolyN 10 ((prod2.val[i]!).val[0]!)
-      = (Spec.Kopis.CompressToR10 L.val
-          (Spec.Kopis.matVecMul (Matrix.transpose (toMatrix13 mat_a)) (toVector13 vec_s)))[i]'hi := by
+      = (Spec.Kopis.Explicit.CompressToR10 L.val
+          (((Matrix.transpose (toMatrix13 mat_a)) * (toVector13 vec_s))))[i]'hi := by
   haveI : NeZero ((2 : ℕ) ^ 10) := ⟨by positivity⟩
   apply Vector.ext
   intro k hk
   apply ZMod.val_injective
-  set vv := Spec.Kopis.matVecMul (Matrix.transpose (toMatrix13 mat_a)) (toVector13 vec_s) with hvv
+  set vv := ((Matrix.transpose (toMatrix13 mat_a)) * (toVector13 vec_s)) with hvv
   rw [compressR10_coeff vv i hi k hk,
     ← getElem!_pos (toPolyN 10 ((prod2.val[i]!).val[0]!)) k hk, toPolyN_val 10 _ k hk,
     ← toRingElem_coeff_val _ k hk, getElem!_pos _ k hk, hs]

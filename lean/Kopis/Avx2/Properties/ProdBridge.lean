@@ -24,7 +24,7 @@ theorem prod_matVecMul_bridge {L : Usize} (mat_a : Matrix L L) (vec_s : Matrix L
         = ∑ ii ∈ Finset.range L.val,
             toRingElem ((mat_a.val[ii]!).val[i₀]!) * toRingElem ((vec_s.val[ii]!).val[0]!)) :
     Spec.Kopis.Poly.coerce (toRingElem ((prod.val[i]!).val[0]!)) (2 ^ 13)
-      = (Spec.Kopis.matVecMul (Matrix.transpose (toMatrix13 mat_a)) (toVector13 vec_s))[i]'hi := by
+      = (((Matrix.transpose (toMatrix13 mat_a)) * (toVector13 vec_s)))[i]'hi := by
   rw [matVecMul_get, hp i hi, coerce_sum,
     ← Fin.sum_univ_eq_sum_range
       (fun ii => Spec.Kopis.Poly.coerce (toRingElem ((mat_a.val[ii]!).val[i]!)

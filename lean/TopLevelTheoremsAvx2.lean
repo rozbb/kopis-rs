@@ -76,8 +76,8 @@ noncomputable def decap : (s : Size) →
   | .k1024 => RustKopisAvx2.impls.kopis1024.KemSecretKey4.decapsulate
 
 -- The spec's sizes are the Rust ones
-theorem pkSize (s : Size) : Spec.Kopis.pkSize s.ps = s.pkLen.val := by cases s <;> rfl
-theorem ctSize (s : Size) : Spec.Kopis.ctSize s.ps = s.ctLen.val := by cases s <;> rfl
+theorem pkSize (s : Size) : s.ps.PK_SIZE = s.pkLen.val := by cases s <;> rfl
+theorem ctSize (s : Size) : s.ps.CT_SIZE = s.ctLen.val := by cases s <;> rfl
 
 end Size
 

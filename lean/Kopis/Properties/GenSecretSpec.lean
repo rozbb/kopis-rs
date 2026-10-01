@@ -36,9 +36,9 @@ theorem vget_set {n : ℕ} {α : Type*} (v : Vector α n) (i : ℕ) (x : α) (hi
 
 /-- Evaluation of the spec `GenSecret` at row `i₀`, coefficient `k`. -/
 theorem GenSecret_get (ℓ μ : ℕ) (seed : 𝔹 32) (i₀ : Fin ℓ) (k : ℕ) (hk : k < 256) :
-    ((Spec.Kopis.GenSecret ℓ μ seed)[i₀.val]'(i₀.isLt))[k]'(hk)
+    ((Spec.Kopis.Explicit.GenSecret ℓ μ seed)[i₀.val]'(i₀.isLt))[k]'(hk)
       = gsCoeff μ seed k hk i₀.val := by
-  unfold Spec.Kopis.GenSecret
+  unfold Spec.Kopis.Explicit.GenSecret
   simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
     Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one, bind_pure]
   rw [show gsCoeff μ seed k hk i₀.val
@@ -51,14 +51,14 @@ theorem GenSecret_get (ℓ μ : ℕ) (seed : 𝔹 32) (i₀ : Fin ℓ) (k : ℕ)
     ℓ (by simp) ?hInit ?hStep
   case hInit =>
     simp only [Nat.not_lt_zero, if_false]
-    simp [Spec.Kopis.PolyVector.zero, Spec.Kopis.Poly.zero]
+    simp [Spec.Kopis.Explicit.PolyVector.zero, Spec.Kopis.Poly.zero]
   case hStep =>
     intro cnt hcnt b hb x hx hx_eq
     have hx_val : x = cnt := by rw [hx_eq]; simp [List.getElem_range']
     subst hx_val
     refine ⟨_, rfl, ?_⟩
     have hxℓ : x < ℓ := by simpa using hcnt
-    simp only [Spec.Kopis.PolyVector.set, Spec.Kopis.make_rn]
+    simp only [Spec.Kopis.Explicit.PolyVector.set, Spec.Kopis.Explicit.make_rn]
     by_cases hix : i₀.val = x
     · -- the row we care about is written this iteration
       have HR : ∀ (R : Spec.Kopis.Poly (2 ^ 13)),
@@ -80,8 +80,8 @@ theorem GenSecret_get (ℓ μ : ℕ) (seed : 𝔹 32) (i₀ : Fin ℓ) (k : ℕ)
         rw [Vector.getElem_set]
         by_cases hkc : k = c
         · rw [if_pos hkc.symm, if_pos (by omega : k < c + 1)]
-          subst hkc; rw [hix, Spec.Kopis.hamming_bit_slices_even _ _ _ hk,
-            Spec.Kopis.hamming_bit_slices_odd _ _ _ hk]; rfl
+          subst hkc; rw [hix, Spec.Kopis.Explicit.hamming_bit_slices_even _ _ _ hk,
+            Spec.Kopis.Explicit.hamming_bit_slices_odd _ _ _ hk]; rfl
         · rw [if_neg (fun h => hkc h.symm), hr]
           by_cases hkc2 : k < c
           · rw [if_pos hkc2, if_pos (by omega)]
@@ -103,7 +103,7 @@ theorem cbd_row_eq_genSecret (L : Usize) (μ : ℕ) (seed : 𝔹 32) (buf1 : Sli
     (hbridge : sliceToBytes buf1 (32 * μ) hbuf
         = turboSHAKE256 (seed ‖ #v[(i : Byte)]) DOMSEP_GENSEC (32 * μ))
     (hcbd : ∀ k, k < 256 → ((re1.val[k]!).val : ZMod (2 ^ 13)) = cbdVal buf1 μ (μ / 2) k) :
-    toRingElem13 re1 = (Spec.Kopis.GenSecret L.val μ seed)[i]'hi := by
+    toRingElem13 re1 = (Spec.Kopis.Explicit.GenSecret L.val μ seed)[i]'hi := by
   apply Vector.ext
   intro k hk
   have hbuf' : buf1.val.length = 32 * μ := by rw [← Slice.length]; exact hbuf

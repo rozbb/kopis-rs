@@ -156,7 +156,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
       ⦃ (pk : pke.PkePublicKey L) =>
           (∃ V : Mat L 1#usize, pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
-                = Spec.Kopis.deserialize_vec (ℓ := L.val) 10
+                = Spec.Kopis.Explicit.deserialize_vec (ℓ := L.val) 10
                     (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0
                       (32 * 10 * L.val) (by omega)) ∧
               UniformBounded V) ∧
@@ -164,7 +164,7 @@ theorem pke_from_bytes_spec {L : Usize} (bytes : Slice U8)
             = Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen)
                 (32 * 10 * L.val) 32 (by omega) ∧
           (∃ Amat : Mat L L, pk.mat_a_ntt = nttFwdU Amat ∧
-              toMatrix13 Amat = Spec.Kopis.GenMat L.val (arrayToBytes pk.matrix_seed) ∧
+              toMatrix13 Amat = Spec.Kopis.Explicit.GenMat L.val (arrayToBytes pk.matrix_seed) ∧
               UniformBounded Amat) ∧
           vecBytesFlat pk
             = (Spec.slice (sliceToBytes bytes (320 * L.val + 32) hlen) 0

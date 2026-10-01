@@ -26,37 +26,37 @@ theorem turboSHAKE256_array_slice_concat (A : Array U8 32#usize) (b : Slice U8)
 
 /-- **Rust `kem.decap` matches the spec `KemDecap`.** -/
 theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
-    (ciphertext : Slice U8) (p : Spec.Kopis.ParameterSet) (sk_seed : 𝔹 32)
-    (pk_bytes : 𝔹 (Spec.Kopis.pkSize p))
-    (hℓ : Spec.Kopis.ℓ p = L.val) (hμ : Spec.Kopis.μ p = MU.val) (ht : Spec.Kopis.t p = T.val)
+    (ciphertext : Slice U8) (p : Spec.Kopis.Explicit.ParameterSet) (sk_seed : 𝔹 32)
+    (pk_bytes : 𝔹 (Spec.Kopis.Explicit.pkSize p))
+    (hℓ : Spec.Kopis.Explicit.ℓ p = L.val) (hμ : Spec.Kopis.Explicit.μ p = MU.val) (ht : Spec.Kopis.Explicit.t p = T.val)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 3 ≤ T.val ∧ T.val ≤ 6)
-    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.ctSize p ≤ 1472)
-    (hlenct : ciphertext.length = Spec.Kopis.ctSize p)
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.Explicit.ctSize p ≤ 1472)
+    (hlenct : ciphertext.length = Spec.Kopis.Explicit.ctSize p)
     -- the coefficient data the stored NTT-domain key material denotes
     (S : Mat L 1#usize) (V : Mat L 1#usize) (Amat : Mat L L)
     (hskfwd : sk.pke_sk = nttFwdS S)
     (hpkvecfwd : sk.kem_pk.pke_pk.vec_ntt = nttFwdU V)
     (hpkmatfwd : sk.kem_pk.pke_pk.mat_a_ntt = nttFwdU Amat)
-    (hsk : toVector13 S = hℓ ▸ (Spec.Kopis.ExpandSecretKey p sk_seed).1)
+    (hsk : toVector13 S = hℓ ▸ (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).1)
     (hskbnd : SecretBounded S ((MU.val / 2 : ℕ) : ℤ))
-    (hz : arrayToBytes sk.z = (Spec.Kopis.ExpandSecretKey p sk_seed).2.1)
-    (hpk : pk_bytes = (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.1)
+    (hz : arrayToBytes sk.z = (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).2.1)
+    (hpk : pk_bytes = (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).2.2.1)
     (hpkvec : toVecN 10 V
-      = hℓ ▸ Spec.Kopis.deserialize_vec 10
-          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.ℓ p) (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.Explicit.deserialize_vec 10
+          (Spec.slice pk_bytes 0 (32 * 10 * Spec.Kopis.Explicit.ℓ p) (by simp [Spec.Kopis.Explicit.pkSize])))
     (hpkvecbnd : UniformBounded V)
     (hpkmat : toMatrix13 Amat
-      = hℓ ▸ Spec.Kopis.GenMat (Spec.Kopis.ℓ p)
-          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.ℓ p) 32 (by simp [Spec.Kopis.pkSize])))
+      = hℓ ▸ Spec.Kopis.Explicit.GenMat (Spec.Kopis.Explicit.ℓ p)
+          (Spec.slice pk_bytes (32 * 10 * Spec.Kopis.Explicit.ℓ p) 32 (by simp [Spec.Kopis.Explicit.pkSize])))
     (hpkmatbnd : UniformBounded Amat)
     (hpkh : arrayToBytes sk.kem_pk.hash_pke_pk = turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) :
     kem.decap MU T sk ciphertext
       ⦃ (r : Array U8 32#usize) =>
           arrayToBytes r
-            = Spec.Kopis.KemDecap p sk_seed (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct) ⦄ := by
+            = Spec.Kopis.Explicit.KemDecap p sk_seed (sliceToBytes ciphertext (Spec.Kopis.Explicit.ctSize p) hlenct) ⦄ := by
   unfold kem.decap
-  have hct : Spec.Kopis.ctSize p = L.val * 320 + T.val * 32 := by
-    simp only [Spec.Kopis.ctSize, hℓ, ht]; ring
+  have hct : Spec.Kopis.Explicit.ctSize p = L.val * 320 + T.val * 32 := by
+    simp only [Spec.Kopis.Explicit.ctSize, hℓ, ht]; ring
   simp only [pke.ciphertext_len, consts.RING_DEG]
   let* ⟨n0, hn0⟩ ← Std.Usize.mul_spec (x := L) (y := 10#usize) (by scalar_tac)
   let* ⟨n1, hn1⟩ ← Std.Usize.mul_spec (x := n0) (y := 256#usize) (by rw [hn0]; scalar_tac)
@@ -65,7 +65,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   let* ⟨n4, hn4⟩ ← Std.Usize.div_spec
   let* ⟨right_val, hrv⟩ ← Std.Usize.add_spec (x := n2) (y := n4)
     (by rw [hn2, hn1, hn0, hn4, hn3]; rw [hct] at hlenct; scalar_tac)
-  have hrvv : right_val.val = Spec.Kopis.ctSize p := by
+  have hrvv : right_val.val = Spec.Kopis.Explicit.ctSize p := by
     rw [hrv, hn2, hn1, hn0, hn4, hn3, hct]; omega
   rw [show massert (ciphertext.len = right_val) = ok () from by
     have hlv : ciphertext.len = right_val :=
@@ -113,7 +113,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   have hr1bytes : arrayToBytes (to_slice_mut_back1 s5) = Spec.slice b 32 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hr1val]; exact hrbytes
   -- reconstructed ciphertext buffer (handled by step*)
-  have hrclen : reconstructed_ct.length = Spec.Kopis.ctSize p := by
+  have hrclen : reconstructed_ct.length = Spec.Kopis.Explicit.ctSize p := by
     rw [reconstructed_ct_post2, hrvv]
   -- re-encrypt with (msg = randomness, coins = rprime)
   let* ⟨reconstructed_ct1, hrc1len, hrc1eq⟩ ← encrypt_deterministic_spec MU T sk.kem_pk.pke_pk randomness
@@ -128,40 +128,40 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   let* ⟨out, hout⟩ ← conditional_select_array_u8_spec reject_val (to_slice_mut_back s3) matched
   -- === final assembly ===
   -- structural fact: `pkh` component is the hash of the `pk` component
-  have hpkh_rel : (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2
-      = turboSHAKE256 (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.1 DOMSEP_PKHASH 32 := by
-    simp only [Spec.Kopis.ExpandSecretKey]
-  have hpkh2 : (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2 = arrayToBytes sk.kem_pk.hash_pke_pk := by
+  have hpkh_rel : (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).2.2.2
+      = turboSHAKE256 (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).2.2.1 DOMSEP_PKHASH 32 := by
+    simp only [Spec.Kopis.Explicit.ExpandSecretKey]
+  have hpkh2 : (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).2.2.2 = arrayToBytes sk.kem_pk.hash_pke_pk := by
     rw [hpkh_rel, ← hpk, ← hpkh]
   -- `b` matches the spec's `turboSHAKE256 (randomness ‖ pkh)` (bridged at the list level to
   -- avoid the `𝔹 32` vs `𝔹 ↑32#usize` size-index mismatch)
   have hbspec : b = turboSHAKE256
-      (Spec.Kopis.PkeDecrypt p sk_seed (sliceToBytes ciphertext (Spec.Kopis.ctSize p) hlenct)
-        ‖ (Spec.Kopis.ExpandSecretKey p sk_seed).2.2.2) DOMSEP_FO 64 := by
+      (Spec.Kopis.Explicit.PkeDecrypt p sk_seed (sliceToBytes ciphertext (Spec.Kopis.Explicit.ctSize p) hlenct)
+        ‖ (Spec.Kopis.Explicit.ExpandSecretKey p sk_seed).2.2.2) DOMSEP_FO 64 := by
     rw [hb]
     refine turboSHAKE256_congr _ _ _ _ ?_
     rw [bappend_toList, bappend_toList, congrArg Vector.toList hrand]
     exact congrArg (Vector.toList _ ++ ·) (congrArg Vector.toList hpkh2.symm)
   -- `cprime = sliceToBytes reconstructed_ct1`
-  have hcprime : Spec.Kopis.PkeEncrypt p (Spec.slice b 32 32 (by omega)) pk_bytes
+  have hcprime : Spec.Kopis.Explicit.PkeEncrypt p (Spec.slice b 32 32 (by omega)) pk_bytes
         (arrayToBytes randomness)
-      = sliceToBytes reconstructed_ct1 (Spec.Kopis.ctSize p) hrc1len := by
+      = sliceToBytes reconstructed_ct1 (Spec.Kopis.Explicit.ctSize p) hrc1len := by
     rw [← hr1bytes]; exact hrc1eq.symm
   -- transform the Rust result into an `ite` over a `Prop`
   rw [hout, hmatched, apply_ite (f := fun a => arrayToBytes a), hk1bytes, hreject]
   simp only [decide_eq_true_eq]
   -- reduce the spec side, then match branch-by-branch
-  simp only [Spec.Kopis.KemDecap]
+  simp only [Spec.Kopis.Explicit.KemDecap]
   refine if_congr ?_ ?_ ?_
   · -- condition
     rw [← hbspec, ← hpk, ← hrand, hcprime,
-      sliceToBytes_inj ciphertext reconstructed_ct1 (Spec.Kopis.ctSize p) hlenct hrc1len]
+      sliceToBytes_inj ciphertext reconstructed_ct1 (Spec.Kopis.Explicit.ctSize p) hlenct hrc1len]
     exact eq_comm
   · -- accept branch:  slice b 0 32
     rw [← hbspec]
   · -- reject branch
     rw [Array.val_to_slice,
-      turboSHAKE256_array_slice_concat sk.z ciphertext (6#u8).bv 32 (Spec.Kopis.ctSize p) hlenct,
+      turboSHAKE256_array_slice_concat sk.z ciphertext (6#u8).bv 32 (Spec.Kopis.Explicit.ctSize p) hlenct,
       domsep_noreject_bv, hz]
     rfl
 

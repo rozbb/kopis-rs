@@ -11,7 +11,7 @@ set_option maxRecDepth 4000
 /-! # `Matrix.serialize` correctness (Y = 1 / column case).
 
 Proves the Aeneas-extracted `arithmetic.plain_arith.Matrix.serialize` matches
-the spec `Spec.Kopis.serialize_vec` for the `Y = 1` matrices used by the
+the spec `Spec.Kopis.Explicit.serialize_vec` for the `Y = 1` matrices used by the
 public key. -/
 
 /-- Abstraction of a `Matrix L 1` as a spec `PolyVector` of length `L`. -/
@@ -55,7 +55,7 @@ theorem serialize_col_inner_spec {L : Usize}
             ∀ q, q < L.val * (32 * n) →
               (p.2.val[q]!).bv
                 = if iter.start.val = 0 ∧ i.val * (32 * n) ≤ q ∧ q < (i.val + 1) * (32 * n)
-                  then (Spec.Kopis.serialize_elem n (toPolyN n ((self.val[i.val]!).val[0]!)))[q - i.val * (32 * n)]!
+                  then (Spec.Kopis.Explicit.serialize_elem n (toPolyN n ((self.val[i.val]!).val[0]!)))[q - i.val * (32 * n)]!
                   else (out_buf.val[q]!).bv ⦄ := by
   unfold arithmetic.plain_arith.Matrix.serialize_loop0_loop0
   have hm : 0 < 32 * n := by omega
@@ -116,9 +116,9 @@ theorem serialize_col_inner_spec {L : Usize}
     have hoc_len' : out_chunk1.val.length = 32 * n := hoc_len
     -- per-byte value of the freshly serialized chunk
     have hserbyte : ∀ k, k < 32 * n → (out_chunk1.val[k]!).bv
-        = (Spec.Kopis.serialize_elem n (toPolyN n re))[k]! := by
+        = (Spec.Kopis.Explicit.serialize_elem n (toPolyN n re))[k]! := by
       intro k hk
-      rw [getElem!_pos (Spec.Kopis.serialize_elem n (toPolyN n re)) k hk,
+      rw [getElem!_pos (Spec.Kopis.Explicit.serialize_elem n (toPolyN n re)) k hk,
         ← hoc_eq, sliceToBytes_getElem! out_chunk1 (32 * n) hoc_len k hk]
     have hlen1 : (index_mut_back out_chunk1).length = L.val * (32 * n) := by
       have hb := hback out_chunk1
@@ -163,7 +163,7 @@ theorem serialize_col_outer_spec {L : Usize}
           ∀ q, q < L.val * (32 * n) →
             (r.val[q]!).bv
               = if iter.start.val ≤ q / (32 * n)
-                then (Spec.Kopis.serialize_elem n (toPolyN n ((self.val[q / (32 * n)]!).val[0]!)))[q % (32 * n)]!
+                then (Spec.Kopis.Explicit.serialize_elem n (toPolyN n ((self.val[q / (32 * n)]!).val[0]!)))[q % (32 * n)]!
                 else (out_buf.val[q]!).bv ⦄ := by
   unfold arithmetic.plain_arith.Matrix.serialize_loop0
   have hm : 0 < 32 * n := by omega
@@ -224,7 +224,7 @@ theorem matrix_serialize_col_spec {L : Usize}
     (hfit : L.val * n * 256 ≤ Usize.max) :
     arithmetic.plain_arith.Matrix.serialize bits self out
       ⦃ (r : Slice U8) => ∃ h : r.length = L.val * (32 * n),
-          sliceToBytes r (L.val * (32 * n)) h = Spec.Kopis.serialize_vec n (toVecN n self) ⦄ := by
+          sliceToBytes r (L.val * (32 * n)) h = Spec.Kopis.Explicit.serialize_vec n (toVecN n self) ⦄ := by
   unfold arithmetic.plain_arith.Matrix.serialize
   simp only [consts.RING_DEG]
   have hm : 0 < 32 * n := by omega
@@ -284,9 +284,9 @@ theorem matrix_serialize_col_spec {L : Usize}
     Nat.zero_le _
   have hmod2 : q % (32 * n) < 32 * n := Nat.mod_lt q hm
   rw [sliceToBytes_getElem! r (L.val * (32 * n)) hrlen q hq, hrbytes q hq,
-    if_pos hcond, getElem!_pos (Spec.Kopis.serialize_elem n (toPolyN n ((self.val[q / (32 * n)]!).val[0]!)))
+    if_pos hcond, getElem!_pos (Spec.Kopis.Explicit.serialize_elem n (toPolyN n ((self.val[q / (32 * n)]!).val[0]!)))
       (q % (32 * n)) hmod2]
-  simp only [Spec.Kopis.serialize_vec]
+  simp only [Spec.Kopis.Explicit.serialize_vec]
   rw [Vector.getElem_flatten hq, Vector.getElem_map]
   simp only [toVecN, Vector.getElem_ofFn]
 

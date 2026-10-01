@@ -16,6 +16,7 @@
 -/
 import Kopis.Bits.Stream
 import Kopis.Avx2.Properties.PkeFromBytes
+import Spec.Kopis.Equiv
 import Kopis.Avx2.Properties.SerializeRoundtrip
 import Kopis.Avx2.Properties.Impls
 open Aeneas Aeneas.Std Result RustKopisAvx2
@@ -36,15 +37,15 @@ struct's vector is the decoding of the input's prefix and its seed is the input'
 suffix, the struct's abstract serialization `pkStructBytes` *is* the input.  This is
 where the `serialize ∘ deserialize = id` round-trip is used. -/
 theorem pkStructBytes_eq_of_parts {L : Usize} (pk : pke.PkePublicKey L)
-    (p : Spec.Kopis.ParameterSet) (hℓ : Spec.Kopis.ℓ p = L.val)
-    (pkB : 𝔹 (Spec.Kopis.pkSize p))
-    (h1 : 0 + 32 * 10 * L.val ≤ Spec.Kopis.pkSize p)
-    (h2 : 32 * 10 * L.val + 32 ≤ Spec.Kopis.pkSize p)
+    (p : Spec.Kopis.Explicit.ParameterSet) (hℓ : Spec.Kopis.Explicit.ℓ p = L.val)
+    (pkB : 𝔹 (Spec.Kopis.Explicit.pkSize p))
+    (h1 : 0 + 32 * 10 * L.val ≤ Spec.Kopis.Explicit.pkSize p)
+    (h2 : 32 * 10 * L.val + 32 ≤ Spec.Kopis.Explicit.pkSize p)
     (hvecbytes : vecBytesFlat pk = (Spec.slice pkB 0 (32 * 10 * L.val) h1).cast (by ring))
     (hseed : matSeedBytes pk = Spec.slice pkB (32 * 10 * L.val) 32 h2) :
     pkStructBytes pk p hℓ = pkB := by
-  have hpk : Spec.Kopis.pkSize p = 320 * L.val + 32 := by
-    simp only [Spec.Kopis.pkSize, hℓ]
+  have hpk : Spec.Kopis.Explicit.pkSize p = 320 * L.val + 32 := by
+    simp only [Spec.Kopis.Explicit.pkSize, hℓ]
   have hlenB : pkB.toList.length = 320 * L.val + 32 := by rw [Vector.toList_length, hpk]
   have hdrop : (pkB.toList.drop (32 * 10 * L.val)).take 32
       = pkB.toList.drop (32 * 10 * L.val) :=
@@ -64,15 +65,15 @@ theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 6
       ⦃ (kpk : kem.KemPublicKey 2#usize) =>
           (∃ V : Mat 2#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
-                = Spec.Kopis.deserialize_vec 10
+                = Spec.Kopis.Explicit.deserialize_vec 10
                     (Spec.slice (sliceToBytes bytes 672 hlen) 0
-                      (32 * 10 * Spec.Kopis.ℓ .Kopis_512) (by decide)) ∧
+                      (32 * 10 * Spec.Kopis.Explicit.ℓ .Kopis_512) (by decide)) ∧
               UniformBounded V) ∧
           (∃ Amat : Mat 2#usize 2#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat
-                = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_512)
+                = Spec.Kopis.Explicit.GenMat (Spec.Kopis.Explicit.ℓ .Kopis_512)
                     (Spec.slice (sliceToBytes bytes 672 hlen)
-                      (32 * 10 * Spec.Kopis.ℓ .Kopis_512) 32 (by decide)) ∧
+                      (32 * 10 * Spec.Kopis.Explicit.ℓ .Kopis_512) 32 (by decide)) ∧
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 672 hlen) DOMSEP_PKHASH 32 ⦄ := by
@@ -86,7 +87,7 @@ theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 6
     pkStructBytes_eq_of_parts pke_pk .Kopis_512 rfl (sliceToBytes bytes 672 hlen)
       (by decide) (by decide) hvecbytes hseed
   refine ⟨⟨V, hvfwd, hvec, hvecbnd⟩, ⟨Am, hmfwd, ?_, hmatbnd⟩, ?_⟩
-  · exact hmat.trans (congrArg (Spec.Kopis.GenMat 2) hseed)
+  · exact hmat.trans (congrArg (Spec.Kopis.Explicit.GenMat 2) hseed)
   · rw [hh]
     refine turboSHAKE256_congr _ _ _ _ ?_
     rw [← hpk, pkStructBytes_toList, bappend_toList]
@@ -95,14 +96,14 @@ theorem kopis512_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 6
 user of the crate actually does with bytes off the wire, and the result is exactly the
 spec's `KemEncap` applied to those bytes.  Nothing constrains the input, so a malformed
 or adversarially chosen public key is covered too — the composite still cannot panic. -/
-theorem kopis512_from_bytes_encap_spec (pk_bytes : Array U8 672#usize)
+theorem kopis512_from_bytes_encap_spec_explicit (pk_bytes : Array U8 672#usize)
     (randomness : Array U8 32#usize) :
     (do let kpk ← impls.kopis512.KemPublicKey2.from_bytes pk_bytes
         impls.kopis512.KemPublicKey2.encapsulate_deterministic kpk randomness)
       ⦃ (r : Array U8 736#usize × kem.SharedSecret) =>
-          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
+          arrayToBytes r.1 = (Spec.Kopis.Explicit.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).2
-          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
+          ∧ arrayToBytes r.2 = (Spec.Kopis.Explicit.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
   unfold impls.kopis512.KemPublicKey2.from_bytes
   rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
@@ -122,6 +123,19 @@ theorem kopis512_from_bytes_encap_spec (pk_bytes : Array U8 672#usize)
   rw [hsb] at hres
   exact hres
 
+
+/-- `kopis512_from_bytes_encap_spec_explicit`, stated against `Spec.lean`. -/
+theorem kopis512_from_bytes_encap_spec (pk_bytes : Array U8 672#usize)
+    (randomness : Array U8 32#usize) :
+    (do let kpk ← impls.kopis512.KemPublicKey2.from_bytes pk_bytes
+        impls.kopis512.KemPublicKey2.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 736#usize × kem.SharedSecret) =>
+          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).2
+          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_512 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
+  simp only [Spec.Kopis.Equiv.KemEncap_eq_512]
+  exact kopis512_from_bytes_encap_spec_explicit pk_bytes randomness
 /-! ## Kopis-768 -/
 
 /-- **Kopis-768 `KemPublicKey::from_bytes` matches the spec.**  Every field of the
@@ -132,15 +146,15 @@ theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 9
       ⦃ (kpk : kem.KemPublicKey 3#usize) =>
           (∃ V : Mat 3#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
-                = Spec.Kopis.deserialize_vec 10
+                = Spec.Kopis.Explicit.deserialize_vec 10
                     (Spec.slice (sliceToBytes bytes 992 hlen) 0
-                      (32 * 10 * Spec.Kopis.ℓ .Kopis_768) (by decide)) ∧
+                      (32 * 10 * Spec.Kopis.Explicit.ℓ .Kopis_768) (by decide)) ∧
               UniformBounded V) ∧
           (∃ Amat : Mat 3#usize 3#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat
-                = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_768)
+                = Spec.Kopis.Explicit.GenMat (Spec.Kopis.Explicit.ℓ .Kopis_768)
                     (Spec.slice (sliceToBytes bytes 992 hlen)
-                      (32 * 10 * Spec.Kopis.ℓ .Kopis_768) 32 (by decide)) ∧
+                      (32 * 10 * Spec.Kopis.Explicit.ℓ .Kopis_768) 32 (by decide)) ∧
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 992 hlen) DOMSEP_PKHASH 32 ⦄ := by
@@ -154,7 +168,7 @@ theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 9
     pkStructBytes_eq_of_parts pke_pk .Kopis_768 rfl (sliceToBytes bytes 992 hlen)
       (by decide) (by decide) hvecbytes hseed
   refine ⟨⟨V, hvfwd, hvec, hvecbnd⟩, ⟨Am, hmfwd, ?_, hmatbnd⟩, ?_⟩
-  · exact hmat.trans (congrArg (Spec.Kopis.GenMat 3) hseed)
+  · exact hmat.trans (congrArg (Spec.Kopis.Explicit.GenMat 3) hseed)
   · rw [hh]
     refine turboSHAKE256_congr _ _ _ _ ?_
     rw [← hpk, pkStructBytes_toList, bappend_toList]
@@ -163,14 +177,14 @@ theorem kopis768_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 9
 user of the crate actually does with bytes off the wire, and the result is exactly the
 spec's `KemEncap` applied to those bytes.  Nothing constrains the input, so a malformed
 or adversarially chosen public key is covered too — the composite still cannot panic. -/
-theorem kopis768_from_bytes_encap_spec (pk_bytes : Array U8 992#usize)
+theorem kopis768_from_bytes_encap_spec_explicit (pk_bytes : Array U8 992#usize)
     (randomness : Array U8 32#usize) :
     (do let kpk ← impls.kopis768.KemPublicKey3.from_bytes pk_bytes
         impls.kopis768.KemPublicKey3.encapsulate_deterministic kpk randomness)
       ⦃ (r : Array U8 1088#usize × kem.SharedSecret) =>
-          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
+          arrayToBytes r.1 = (Spec.Kopis.Explicit.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).2
-          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
+          ∧ arrayToBytes r.2 = (Spec.Kopis.Explicit.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
   unfold impls.kopis768.KemPublicKey3.from_bytes
   rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
@@ -190,6 +204,19 @@ theorem kopis768_from_bytes_encap_spec (pk_bytes : Array U8 992#usize)
   rw [hsb] at hres
   exact hres
 
+
+/-- `kopis768_from_bytes_encap_spec_explicit`, stated against `Spec.lean`. -/
+theorem kopis768_from_bytes_encap_spec (pk_bytes : Array U8 992#usize)
+    (randomness : Array U8 32#usize) :
+    (do let kpk ← impls.kopis768.KemPublicKey3.from_bytes pk_bytes
+        impls.kopis768.KemPublicKey3.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1088#usize × kem.SharedSecret) =>
+          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).2
+          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_768 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
+  simp only [Spec.Kopis.Equiv.KemEncap_eq_768]
+  exact kopis768_from_bytes_encap_spec_explicit pk_bytes randomness
 /-! ## Kopis-1024 -/
 
 /-- **Kopis-1024 `KemPublicKey::from_bytes` matches the spec.**  Every field of the
@@ -200,15 +227,15 @@ theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 
       ⦃ (kpk : kem.KemPublicKey 4#usize) =>
           (∃ V : Mat 4#usize 1#usize, kpk.pke_pk.vec_ntt = nttFwdU V ∧
               toVecN 10 V
-                = Spec.Kopis.deserialize_vec 10
+                = Spec.Kopis.Explicit.deserialize_vec 10
                     (Spec.slice (sliceToBytes bytes 1312 hlen) 0
-                      (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) (by decide)) ∧
+                      (32 * 10 * Spec.Kopis.Explicit.ℓ .Kopis_1024) (by decide)) ∧
               UniformBounded V) ∧
           (∃ Amat : Mat 4#usize 4#usize, kpk.pke_pk.mat_a_ntt = nttFwdU Amat ∧
               toMatrix13 Amat
-                = Spec.Kopis.GenMat (Spec.Kopis.ℓ .Kopis_1024)
+                = Spec.Kopis.Explicit.GenMat (Spec.Kopis.Explicit.ℓ .Kopis_1024)
                     (Spec.slice (sliceToBytes bytes 1312 hlen)
-                      (32 * 10 * Spec.Kopis.ℓ .Kopis_1024) 32 (by decide)) ∧
+                      (32 * 10 * Spec.Kopis.Explicit.ℓ .Kopis_1024) 32 (by decide)) ∧
               UniformBounded Amat) ∧
           arrayToBytes kpk.hash_pke_pk
             = turboSHAKE256 (sliceToBytes bytes 1312 hlen) DOMSEP_PKHASH 32 ⦄ := by
@@ -222,7 +249,7 @@ theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 
     pkStructBytes_eq_of_parts pke_pk .Kopis_1024 rfl (sliceToBytes bytes 1312 hlen)
       (by decide) (by decide) hvecbytes hseed
   refine ⟨⟨V, hvfwd, hvec, hvecbnd⟩, ⟨Am, hmfwd, ?_, hmatbnd⟩, ?_⟩
-  · exact hmat.trans (congrArg (Spec.Kopis.GenMat 4) hseed)
+  · exact hmat.trans (congrArg (Spec.Kopis.Explicit.GenMat 4) hseed)
   · rw [hh]
     refine turboSHAKE256_congr _ _ _ _ ?_
     rw [← hpk, pkStructBytes_toList, bappend_toList]
@@ -231,14 +258,14 @@ theorem kopis1024_kem_from_bytes_spec (bytes : Slice U8) (hlen : bytes.length = 
 user of the crate actually does with bytes off the wire, and the result is exactly the
 spec's `KemEncap` applied to those bytes.  Nothing constrains the input, so a malformed
 or adversarially chosen public key is covered too — the composite still cannot panic. -/
-theorem kopis1024_from_bytes_encap_spec (pk_bytes : Array U8 1312#usize)
+theorem kopis1024_from_bytes_encap_spec_explicit (pk_bytes : Array U8 1312#usize)
     (randomness : Array U8 32#usize) :
     (do let kpk ← impls.kopis1024.KemPublicKey4.from_bytes pk_bytes
         impls.kopis1024.KemPublicKey4.encapsulate_deterministic kpk randomness)
       ⦃ (r : Array U8 1472#usize × kem.SharedSecret) =>
-          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
+          arrayToBytes r.1 = (Spec.Kopis.Explicit.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).2
-          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
+          ∧ arrayToBytes r.2 = (Spec.Kopis.Explicit.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
               ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
   unfold impls.kopis1024.KemPublicKey4.from_bytes
   rw [show (lift pk_bytes.to_slice : Result (Slice U8)) = ok (Array.to_slice pk_bytes) from rfl,
@@ -258,4 +285,17 @@ theorem kopis1024_from_bytes_encap_spec (pk_bytes : Array U8 1312#usize)
   rw [hsb] at hres
   exact hres
 
+
+/-- `kopis1024_from_bytes_encap_spec_explicit`, stated against `Spec.lean`. -/
+theorem kopis1024_from_bytes_encap_spec (pk_bytes : Array U8 1312#usize)
+    (randomness : Array U8 32#usize) :
+    (do let kpk ← impls.kopis1024.KemPublicKey4.from_bytes pk_bytes
+        impls.kopis1024.KemPublicKey4.encapsulate_deterministic kpk randomness)
+      ⦃ (r : Array U8 1472#usize × kem.SharedSecret) =>
+          arrayToBytes r.1 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).2
+          ∧ arrayToBytes r.2 = (Spec.Kopis.KemEncap .Kopis_1024 ((arrayToBytes randomness).cast rfl)
+              ((arrayToBytes pk_bytes).cast rfl)).1 ⦄ := by
+  simp only [Spec.Kopis.Equiv.KemEncap_eq_1024]
+  exact kopis1024_from_bytes_encap_spec_explicit pk_bytes randomness
 end Kopis.Avx2.Properties

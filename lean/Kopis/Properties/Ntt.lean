@@ -40,7 +40,7 @@
   `< 2^13` as a `u16`, that a `gen_secret_from_seed` coefficient really denotes something in
   `[-μ/2, μ/2]` when read as an `i16`, and that a rounded vector's coefficients are `< 2^10`.
   The rest of the development abstracts to residues almost immediately —
-  `gen_matrix_from_seed_spec` concludes `toMatrix13 r = Spec.Kopis.GenMat …` in `ZMod (2^13)`,
+  `gen_matrix_from_seed_spec` concludes `toMatrix13 r = Spec.Kopis.Explicit.GenMat …` in `ZMod (2^13)`,
   and the `GenSecret*` files work in `ZMod (2^13)` throughout — and a residue says nothing about
   magnitude.  The schoolbook multiplication never needed magnitudes (it is `u16` wrapping
   arithmetic, exact mod `2^16` whatever the inputs), so nothing upstream was ever asked to
@@ -100,8 +100,8 @@ theorem fitsExactly_kopis1024 : fitsExactly 4 3 := by
 /-- Every shipped parameter set satisfies the joint exactness constraint with `sBound = μ/2`.
 This is what lets the downstream key-generation / encryption / decryption proofs discharge the
 `fitsExactly` precondition of the NTT multiplication bridge from the parameter set alone. -/
-theorem fitsExactly_paramSet (p : Spec.Kopis.ParameterSet) :
-    fitsExactly (Spec.Kopis.ℓ p) ((Spec.Kopis.μ p / 2 : ℕ) : ℤ) := by
+theorem fitsExactly_paramSet (p : Spec.Kopis.Explicit.ParameterSet) :
+    fitsExactly (Spec.Kopis.Explicit.ℓ p) ((Spec.Kopis.Explicit.μ p / 2 : ℕ) : ℤ) := by
   cases p
   · exact fitsExactly_kopis512
   · exact fitsExactly_kopis768

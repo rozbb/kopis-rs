@@ -27,7 +27,7 @@ theorem prod_matVecMul_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Matri
         = ∑ ii ∈ Finset.range L.val,
             toRingElem ((mat_a.val[i₀]!).val[ii]!) * toRingElem ((vec_s.val[ii]!).val[0]!)) :
     Spec.Kopis.Poly.coerce (toRingElem ((prod.val[i]!).val[0]!)) (2 ^ 13)
-      = (Spec.Kopis.matVecMul (toMatrix13 mat_a) (toVector13 vec_s))[i]'hi := by
+      = (((toMatrix13 mat_a) * (toVector13 vec_s)))[i]'hi := by
   rw [matVecMul_get, hp i hi, coerce_sum,
     ← Fin.sum_univ_eq_sum_range
       (fun ii => Spec.Kopis.Poly.coerce (toRingElem ((mat_a.val[i]!).val[ii]!)
@@ -47,13 +47,13 @@ theorem prod2_compressR10_bridge_nt {L : Usize} (mat_a : Matrix L L) (vec_s : Ma
     (hs : toRingElem ((prod2.val[i]!).val[0]!)
         = Spec.Kopis.Poly.shiftRight (toRingElem ((prod1.val[i]!).val[0]!)) 3) :
     toPolyN 10 ((prod2.val[i]!).val[0]!)
-      = (Spec.Kopis.CompressToR10 L.val
-          (Spec.Kopis.matVecMul (toMatrix13 mat_a) (toVector13 vec_s)))[i]'hi := by
+      = (Spec.Kopis.Explicit.CompressToR10 L.val
+          (((toMatrix13 mat_a) * (toVector13 vec_s))))[i]'hi := by
   haveI : NeZero ((2 : ℕ) ^ 10) := ⟨by positivity⟩
   apply Vector.ext
   intro k hk
   apply ZMod.val_injective
-  set vv := Spec.Kopis.matVecMul (toMatrix13 mat_a) (toVector13 vec_s) with hvv
+  set vv := ((toMatrix13 mat_a) * (toVector13 vec_s)) with hvv
   rw [compressR10_coeff vv i hi k hk,
     ← getElem!_pos (toPolyN 10 ((prod2.val[i]!).val[0]!)) k hk, toPolyN_val 10 _ k hk,
     ← toRingElem_coeff_val _ k hk, getElem!_pos _ k hk, hs]

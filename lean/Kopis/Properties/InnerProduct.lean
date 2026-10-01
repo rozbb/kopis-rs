@@ -10,31 +10,10 @@ open arithmetic.plain_arith (RingElem)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 4000
 
-/-- Spec-side evaluation of `innerProduct`'s `Id.run` loop. -/
+/-- `transpose(v) * w` as a sum. -/
 theorem innerProduct_get {m ℓ : ℕ} (v w : Spec.Kopis.PolyVector m ℓ) :
-    Spec.Kopis.innerProduct v w = ∑ i : Fin ℓ, v[i.val]'i.isLt * w[i.val]'i.isLt := by
-  set g : ℕ → Spec.Kopis.Poly m :=
-    fun j => if hj : j < ℓ then v[j]'hj * w[j]'hj else 0 with hg
-  have hFS : (∑ i : Fin ℓ, v[i.val]'i.isLt * w[i.val]'i.isLt) = ∑ j ∈ Finset.range ℓ, g j := by
-    rw [← Fin.sum_univ_eq_sum_range g ℓ]
-    exact Finset.sum_congr rfl fun j _ => by simp only [hg, j.isLt, dif_pos]
-  rw [hFS]
-  unfold Spec.Kopis.innerProduct
-  simp only [Aeneas.SRRange.forIn'_eq_forIn'_range', Aeneas.SRRange.size,
-    Nat.sub_zero, Nat.add_sub_cancel, Nat.div_one, bind_pure]
-  refine forIn'_inv' (List.range' 0 ℓ) _ _
-    (fun s (a : Spec.Kopis.Poly m) => a = ∑ j ∈ Finset.range s, g j)
-    ℓ (by simp) ?hInit ?hStep
-  case hInit => show Spec.Kopis.Poly.zero m = _; rw [Finset.range_zero, Finset.sum_empty]; rfl
-  case hStep =>
-    intro k hk b hb a ha ha_eq
-    have ha_val : a = k := by rw [ha_eq]; simp [List.getElem_range']
-    subst ha_val
-    have ha_lt : a < ℓ := by simpa using hk
-    have hterm : v[a]'ha_lt * w[a]'ha_lt = g a := by simp only [hg, ha_lt, dif_pos]
-    refine ⟨_, rfl, ?_⟩
-    rw [Finset.sum_range_succ, ← hb]
-    exact congrArg (b + ·) hterm
+    (Spec.Kopis.PolyVector.transpose v * w) = ∑ i : Fin ℓ, v[i.val]'i.isLt * w[i.val]'i.isLt := by
+  rfl
 
 /-- `toPolyN 10 re` is exactly the physical polynomial reduced mod `2¹⁰`. -/
 theorem toPolyN10_eq_coerce (re : RingElem) :
@@ -69,7 +48,7 @@ theorem innerProduct_coerce_bridge {L : Usize}
     (hip : toRingElem vprime1 = ∑ ii ∈ Finset.range L.val,
         toRingElem ((pkvec.val[ii]!).val[0]!) * toRingElem ((vecs.val[ii]!).val[0]!)) :
     (toRingElem vprime1).coerce (2 ^ 10)
-      = Spec.Kopis.innerProduct (toVecN 10 pkvec) ((toVector13 vecs).coerce (2 ^ 10)) := by
+      = (Spec.Kopis.PolyVector.transpose (toVecN 10 pkvec) * ((toVector13 vecs).coerce (2 ^ 10))) := by
   rw [hip, coerce_sum10, innerProduct_get, ← Fin.sum_univ_eq_sum_range]
   apply Finset.sum_congr rfl
   intro i _
@@ -84,7 +63,7 @@ theorem innerProduct_coerce_bridge {L : Usize}
 
 /-- `innerProduct` is stable under a length cast on both arguments. -/
 theorem innerProduct_cast {m ℓ ℓ' : ℕ} (h : ℓ = ℓ') (v w : Spec.Kopis.PolyVector m ℓ) :
-    Spec.Kopis.innerProduct (h ▸ v) (h ▸ w) = Spec.Kopis.innerProduct v w := by cases h; rfl
+    (Spec.Kopis.PolyVector.transpose (h ▸ v) * (h ▸ w)) = (Spec.Kopis.PolyVector.transpose v * w) := by cases h; rfl
 
 /-- `PolyVector.coerce` commutes with a length cast. -/
 theorem coerceVec_cast {m ℓ ℓ' : ℕ} (h : ℓ = ℓ') (v : Spec.Kopis.PolyVector m ℓ) (m' : ℕ) :

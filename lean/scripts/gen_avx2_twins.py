@@ -365,20 +365,20 @@ import Kopis.Avx2.SampleBridge"""),
      """theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize) :
     sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
-          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+          toMatrix13 r = Spec.Kopis.Explicit.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
   unfold sample.gen_matrix_from_seed
   simp only [""",
      """theorem gen_matrix_from_seed_spec (L : Usize) (seed : Array U8 32#usize)
     (hLmax : L.val * L.val + 4 ≤ Usize.max) :
     sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
-          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+          toMatrix13 r = Spec.Kopis.Explicit.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
   unfold sample.gen_matrix_from_seed
   obtain ⟨b1, hb1⟩ := Kopis.Avx2.available_ok
   rw [hb1, bind_tc_ok]
   have havx : backend.avx2.sample.gen_matrix_from_seed L seed
       ⦃ (r : arithmetic.plain_arith.Matrix L L) =>
-          toMatrix13 r = Spec.Kopis.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
+          toMatrix13 r = Spec.Kopis.Explicit.GenMat (L : ℕ) (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono (Kopis.Avx2.Properties.avx2_gen_matrix_from_seed_spec L seed hLmax)
     intro r hr
     apply Matrix.ext
@@ -404,27 +404,27 @@ import Kopis.Avx2.SecretBridge"""),
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) :
     sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+          toVector13 r = Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   simp only [""",
      """theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hL : 0 < L.val) (hL4 : L.val ≤ 4) :
     sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+          toVector13 r = Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
   unfold sample.gen_secret_from_seed
   obtain ⟨bAvx, hbAvx⟩ := Kopis.Avx2.available_ok
   rw [hbAvx, bind_tc_ok]
   have havx : backend.avx2.sample.gen_secret_from_seed L MU seed
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) =>
-          toVector13 r = Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
+          toVector13 r = Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed) ⦄ := by
     apply WP.spec_mono
       (Kopis.Avx2.Properties.avx2_gen_secret_from_seed_spec L MU seed hMU hL hL4)
     intro r hr
     apply Vector.ext
     intro a ha
     rw [toVector13, Vector.getElem_ofFn, hr a ha,
-      getElem!_pos (Spec.Kopis.GenSecret L.val MU.val (arrayToBytes seed)) a (by simpa using ha)]
+      getElem!_pos (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed)) a (by simpa using ha)]
   cases bAvx
   case true => simpa only [reduceIte] using havx
   all_goals simp only [Bool.false_eq_true, reduceIte]
@@ -556,10 +556,10 @@ import Kopis.Avx2.SampleBridge"""),
      """    (to_slice_mut_back1 s5) out_buf p hℓ hμ ht hMU hT hL0 hL4 hfit hlenout pk_bytes V Amat"""),
     ("KemDecap.lean",
      """    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 3 ≤ T.val ∧ T.val ≤ 6)
-    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.ctSize p ≤ 1472)""",
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.Explicit.ctSize p ≤ 1472)""",
      """    (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10) (hT : 3 ≤ T.val ∧ T.val ≤ 6)
     (hL0 : 0 < L.val) (hL4 : L.val ≤ 4)
-    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.ctSize p ≤ 1472)"""),
+    (hfit : L.val * 10 * 256 ≤ Usize.max) (hbuf : Spec.Kopis.Explicit.ctSize p ≤ 1472)"""),
     ("KemDecap.lean",
      """    (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hfit hrclen""",
      """    (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hL0 hL4 hfit
