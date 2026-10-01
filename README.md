@@ -4,8 +4,6 @@ This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation 
 
 # Example code
 
-The following code can be found in [`examples/simple.rs`](examples/simple.rs).
-
 ```rust
 use kopis::{
     SharedSecret,
@@ -24,7 +22,7 @@ fn main() {
     let pk = sk.public_key();
 
     // Alice serializes the secret key, and saves to disk
-    let sk_seed = sk.seed();
+    let sk_bytes = sk.as_bytes();
 
     // Alice serializes her pubkey and sends to bob
     let _pk_bytes = pk.to_bytes();
@@ -39,8 +37,8 @@ fn main() {
     let (_ct, ss1): (Kopis768Ciphertext, SharedSecret) = pk.encapsulate_with_rng(&mut rng);
     let ct = _ct.as_slice();
 
-    // Alice receives the ciphertext. She reconstructs her decap key from her saved seed
-    let sk = Kopis768SecretKey::from_seed(sk_seed);
+    // Alice receives the ciphertext. She reconstructs her decap key from her saved sk
+    let sk = Kopis768SecretKey::from(sk_bytes);
     let ct_arr: &[u8; KOPIS768_CIPHERTEXT_LEN] = ct.try_into().unwrap();
     let ss2 = sk.decapsulate(ct_arr);
 

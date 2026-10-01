@@ -52,14 +52,15 @@ macro_rules! variant_impl {
                     KemSecretKey::generate_inner::<$variant_mu>(rng)
                 }
 
-                /// Deserializes a secret key from a 32-byte seed
-                pub fn from_seed(bytes: &[u8; 32]) -> Self {
-                    KemSecretKey::expand_from_seed::<$variant_mu>(bytes)
-                }
-
                 /// Returns the public key corresponding to this secret key
                 pub fn public_key(&self) -> &$pubkey_name {
                     &self.kem_pk
+                }
+            }
+
+            impl From<&[u8; 32]> for $privkey_name {
+                fn from(bytes: &[u8; 32]) -> Self {
+                    KemSecretKey::expand_from_seed::<$variant_mu>(bytes)
                 }
             }
 
@@ -130,8 +131,8 @@ macro_rules! variant_impl {
                 let pk = sk.public_key();
 
                 // Serialize and deserialize the keys
-                let sk_seed = sk.seed();
-                let sk = $privkey_name::from_seed(&sk_seed);
+                let sk_bytes = sk.as_bytes();
+                let sk = $privkey_name::from(sk_bytes);
 
                 let pk_bytes = pk.to_bytes();
                 let pk = $pubkey_name::from_bytes(&pk_bytes);

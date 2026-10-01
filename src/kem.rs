@@ -104,8 +104,7 @@ impl<const L: usize> KemSecretKey<L> {
         out
     }
 
-    /// Returns the seed that produced this expanded secret key
-    pub fn seed(&self) -> &[u8; 32] {
+    pub fn as_bytes(&self) -> &[u8; 32] {
         &self.seed
     }
 }

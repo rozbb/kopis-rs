@@ -109,7 +109,7 @@ macro_rules! kat_test {
 
                 // Expand the secret key from its 32-byte sk and check the derived public key
                 // matches the recorded one.
-                let sk = <$sk_ty>::from_seed(&sk_bytes);
+                let sk = <$sk_ty>::from(&sk_bytes);
                 let computed_pk = sk.public_key();
                 let computed_pk_bytes = computed_pk.to_bytes();
                 assert_eq!(
