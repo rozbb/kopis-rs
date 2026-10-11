@@ -287,10 +287,12 @@ theorem ct_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
   unfold arithmetic.ntt_crt.ct_level_loop0
   by_cases hlt : start < consts.RING_DEG
   · have hltv : start.val < 256 := by rw [← hRD]; scalar_tac
-    have hb0lt : b0 < nb := by nlinarith
-    have hnb128 : nb ≤ 128 := by nlinarith
+    -- Block arithmetic by monotonicity of `· * (2 * lenv)`; `nlinarith` took seconds per goal.
+    have hb0lt : b0 < nb := Nat.lt_of_mul_lt_mul_right (a := 2 * lenv) (by omega)
+    have hnb128 : nb ≤ 128 := by
+      have := Nat.mul_le_mul_left nb (show 2 ≤ 2 * lenv by omega); omega
     have hkb : nb + b0 < 256 := by omega
-    have hlenb : lenv ≤ 128 := by nlinarith
+    have hlenb : lenv ≤ 128 := by have := Nat.mul_le_mul_right (2 * lenv) hnb1; omega
     rw [if_pos hlt]
     let* ⟨ k1, hk1 ⟩ ← Std.Usize.add_spec (show k.val + (1#usize).val ≤ Usize.max from by
       scalar_tac)
@@ -304,7 +306,9 @@ theorem ct_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
         = start.val := rfl
     have hiE : ({ start := start, «end» := i } : core.ops.range.Range Usize).«end».val
         = i.val := rfl
-    have hblkv : start.val + 2 * lenv ≤ 256 := by nlinarith
+    have hblkv : start.val + 2 * lenv ≤ 256 := by
+      have := Nat.mul_le_mul_right (2 * lenv) (Nat.succ_le_of_lt hb0lt)
+      rw [Nat.succ_mul] at this; omega
     rw [hk1v] at hziZ
     apply WP.spec_bind (ct_inner_spec (st := start.val) (lenv := lenv)
       { start := start, «end» := i } b LEN qv zi zqi Q Zb B Bt Rinv (ζ (nb + b0))
@@ -341,13 +345,17 @@ theorem ct_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
         rw [hx1, hx2]
         exact hA
       · have h := hR1 bb (by omega) hbb2 r' hr'
-        rw [bR_congr (hU3 (bb * (2 * lenv) + r') (by nlinarith)),
-          bR_congr (hU3 (bb * (2 * lenv) + lenv + r') (by nlinarith))] at h
+        have hbb := Nat.mul_le_mul_right (2 * lenv) (Nat.succ_le_of_lt hbgt)
+        rw [Nat.succ_mul] at hbb
+        rw [bR_congr (hU3 (bb * (2 * lenv) + r') (by omega)),
+          bR_congr (hU3 (bb * (2 * lenv) + lenv + r') (by omega))] at h
         exact h
     · intro c hc
       rw [hR2 c (by omega), hU1 c (by omega)]
   · have hgev : 256 ≤ start.val := by rw [← hRD]; scalar_tac
-    have hb0eq : b0 = nb := by nlinarith
+    have hb0eq : b0 = nb := by
+      have := Nat.le_of_mul_le_mul_right (a := nb) (b := b0) (by omega) (show 0 < 2 * lenv by omega)
+      omega
     rw [if_neg hlt]
     simp only [WP.spec_ok]
     refine ⟨?_, ?_, hBg, by omega⟩
@@ -672,9 +680,11 @@ theorem gs_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
   unfold arithmetic.ntt_crt.gs_level_loop0
   by_cases hlt : start < consts.RING_DEG
   · have hltv : start.val < 256 := by rw [← hRD]; scalar_tac
-    have hb0lt : b0 < nb := by nlinarith
-    have hnb128 : nb ≤ 128 := by nlinarith
-    have hlenb : lenv ≤ 128 := by nlinarith
+    -- Block arithmetic by monotonicity of `· * (2 * lenv)`; `nlinarith` took seconds per goal.
+    have hb0lt : b0 < nb := Nat.lt_of_mul_lt_mul_right (a := 2 * lenv) (by omega)
+    have hnb128 : nb ≤ 128 := by
+      have := Nat.mul_le_mul_left nb (show 2 ≤ 2 * lenv by omega); omega
+    have hlenb : lenv ≤ 128 := by have := Nat.mul_le_mul_right (2 * lenv) hnb1; omega
     rw [if_pos hlt]
     have hkge : 1 ≤ k.val := by omega
     let* ⟨ k1, hk1 ⟩ ← Std.Usize.sub_spec (show (1#usize).val ≤ k.val from by simpa using hkge)
@@ -710,7 +720,9 @@ theorem gs_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
         = start.val := rfl
     have hiE : ({ start := start, «end» := i1 } : core.ops.range.Range Usize).«end».val
         = i1.val := rfl
-    have hblkv : start.val + 2 * lenv ≤ 256 := by nlinarith
+    have hblkv : start.val + 2 * lenv ≤ 256 := by
+      have := Nat.mul_le_mul_right (2 * lenv) (Nat.succ_le_of_lt hb0lt)
+      rw [Nat.succ_mul] at this; omega
     apply WP.spec_bind (gs_inner_spec (st := start.val) (lenv := lenv)
       { start := start, «end» := i1 } b LEN qv z zq Q Zb B Bt B2 Rinv
       (-(ζ (2 * nb - 1 - b0)))
@@ -747,13 +759,17 @@ theorem gs_mid_spec {q : ℕ} {nb lenv b0 : ℕ}
         rw [hx1, hx2]
         exact hA
       · have h := hR1 bb (by omega) hbb2 r' hr'
-        rw [bR_congr (hU3 (bb * (2 * lenv) + r') (by nlinarith)),
-          bR_congr (hU3 (bb * (2 * lenv) + lenv + r') (by nlinarith))] at h
+        have hbb := Nat.mul_le_mul_right (2 * lenv) (Nat.succ_le_of_lt hbgt)
+        rw [Nat.succ_mul] at hbb
+        rw [bR_congr (hU3 (bb * (2 * lenv) + r') (by omega)),
+          bR_congr (hU3 (bb * (2 * lenv) + lenv + r') (by omega))] at h
         exact h
     · intro c hc
       rw [hR2 c (by omega), hU1 c (by omega)]
   · have hgev : 256 ≤ start.val := by rw [← hRD]; scalar_tac
-    have hb0eq : b0 = nb := by nlinarith
+    have hb0eq : b0 = nb := by
+      have := Nat.le_of_mul_le_mul_right (a := nb) (b := b0) (by omega) (show 0 < 2 * lenv by omega)
+      omega
     rw [if_neg hlt]
     simp only [WP.spec_ok]
     refine ⟨?_, ?_, hBg, by omega⟩

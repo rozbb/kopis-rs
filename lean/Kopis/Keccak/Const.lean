@@ -22,7 +22,8 @@
   `ι.RC` and `rc` are both `Id.run do` with `for` loops, which the ordinary whnf-based
   `Decidable` evaluator does not reduce — plain `decide` gets stuck.  Kernel reduction handles
   them, and unlike `native_decide` it introduces no axiom: each theorem below has the standard
-  `propext`/`Classical.choice`/`Quot.sound` footprint.  It costs about 2.5 s per constant.
+  `propext`/`Classical.choice`/`Quot.sound` footprint.  Checked one by one it costs about 2.5 s
+  per constant; checked together, about 4 s for all twelve (see below).
 -/
 import Kopis.Keccak.Round
 
@@ -39,21 +40,30 @@ def rustRC : Vector (BitVec 64) 12 :=
 
 /-! ## Each constant, one theorem each
 
-Stated singly rather than as one `∀ r < 12` so that a failure names the round it is in, and so
-that the twelve kernel reductions are twelve independent elaboration steps rather than one. -/
+The twelve are checked by one kernel reduction: the kernel's caches are per declaration, and
+most of the cost is unfolding the spec's loops, so one check of all twelve costs about what one
+constant does alone (~4 s against ~20 s for twelve separate checks).  They are then stated singly
+so that each round has its own name; if the check fails, prove them singly to find the round. -/
 
-theorem rcWord_12 : rcWord 12 = rustRC[0] := by decide +kernel
-theorem rcWord_13 : rcWord 13 = rustRC[1] := by decide +kernel
-theorem rcWord_14 : rcWord 14 = rustRC[2] := by decide +kernel
-theorem rcWord_15 : rcWord 15 = rustRC[3] := by decide +kernel
-theorem rcWord_16 : rcWord 16 = rustRC[4] := by decide +kernel
-theorem rcWord_17 : rcWord 17 = rustRC[5] := by decide +kernel
-theorem rcWord_18 : rcWord 18 = rustRC[6] := by decide +kernel
-theorem rcWord_19 : rcWord 19 = rustRC[7] := by decide +kernel
-theorem rcWord_20 : rcWord 20 = rustRC[8] := by decide +kernel
-theorem rcWord_21 : rcWord 21 = rustRC[9] := by decide +kernel
-theorem rcWord_22 : rcWord 22 = rustRC[10] := by decide +kernel
-theorem rcWord_23 : rcWord 23 = rustRC[11] := by decide +kernel
+theorem rcWord_all :
+    rcWord 12 = rustRC[0] ∧ rcWord 13 = rustRC[1] ∧ rcWord 14 = rustRC[2] ∧
+    rcWord 15 = rustRC[3] ∧ rcWord 16 = rustRC[4] ∧ rcWord 17 = rustRC[5] ∧
+    rcWord 18 = rustRC[6] ∧ rcWord 19 = rustRC[7] ∧ rcWord 20 = rustRC[8] ∧
+    rcWord 21 = rustRC[9] ∧ rcWord 22 = rustRC[10] ∧ rcWord 23 = rustRC[11] := by
+  decide +kernel
+
+theorem rcWord_12 : rcWord 12 = rustRC[0] := rcWord_all.1
+theorem rcWord_13 : rcWord 13 = rustRC[1] := rcWord_all.2.1
+theorem rcWord_14 : rcWord 14 = rustRC[2] := rcWord_all.2.2.1
+theorem rcWord_15 : rcWord 15 = rustRC[3] := rcWord_all.2.2.2.1
+theorem rcWord_16 : rcWord 16 = rustRC[4] := rcWord_all.2.2.2.2.1
+theorem rcWord_17 : rcWord 17 = rustRC[5] := rcWord_all.2.2.2.2.2.1
+theorem rcWord_18 : rcWord 18 = rustRC[6] := rcWord_all.2.2.2.2.2.2.1
+theorem rcWord_19 : rcWord 19 = rustRC[7] := rcWord_all.2.2.2.2.2.2.2.1
+theorem rcWord_20 : rcWord 20 = rustRC[8] := rcWord_all.2.2.2.2.2.2.2.2.1
+theorem rcWord_21 : rcWord 21 = rustRC[9] := rcWord_all.2.2.2.2.2.2.2.2.2.1
+theorem rcWord_22 : rcWord 22 = rustRC[10] := rcWord_all.2.2.2.2.2.2.2.2.2.2.1
+theorem rcWord_23 : rcWord 23 = rustRC[11] := rcWord_all.2.2.2.2.2.2.2.2.2.2.2
 
 /-- **The hard-coded table is the derived one.**  For each of the twelve rounds Keccak-p[1600,12]
 runs, the constant `keccak::round_const` broadcasts is the one FIPS 202's LFSR produces. -/

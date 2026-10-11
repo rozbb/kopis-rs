@@ -1548,37 +1548,45 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hg4 : iter.start.val < 4 := by omega
     set g := iter.start with hg_def
     -- 1. the eight vectors of the group, in coefficient order
+    -- `scalar_tac` side goals here cost up to 80 s each as the context grows; omega is instant.
     let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 8#usize) (y := g) (by scalar_tac)
     have hiv : i.val = 8 * g.val := by scalar_tac
     let* ⟨ j0, hj0 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
     obtain ⟨w0, hw0, hw0l⟩ := load_i16_gen b j0 (by omega)
     rw [hw0, bind_tc_ok]
     let* ⟨ e1, he1 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := e1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := e1) (y := 1#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w1, hw1, hw1l⟩ := load_i16_gen b j1 (by omega)
     rw [hw1, bind_tc_ok]
     let* ⟨ e2, he2 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := e2) (y := 2#usize) (by scalar_tac)
+    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := e2) (y := 2#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w2, hw2, hw2l⟩ := load_i16_gen b j2 (by omega)
     rw [hw2, bind_tc_ok]
     let* ⟨ e3, he3 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := e3) (y := 3#usize) (by scalar_tac)
+    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := e3) (y := 3#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w3, hw3, hw3l⟩ := load_i16_gen b j3 (by omega)
     rw [hw3, bind_tc_ok]
     let* ⟨ e4, he4 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := e4) (y := 4#usize) (by scalar_tac)
+    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := e4) (y := 4#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w4, hw4, hw4l⟩ := load_i16_gen b j4 (by omega)
     rw [hw4, bind_tc_ok]
     let* ⟨ e5, he5 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := e5) (y := 5#usize) (by scalar_tac)
+    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := e5) (y := 5#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w5, hw5, hw5l⟩ := load_i16_gen b j5 (by omega)
     rw [hw5, bind_tc_ok]
     let* ⟨ e6, he6 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := e6) (y := 6#usize) (by scalar_tac)
+    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := e6) (y := 6#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w6, hw6, hw6l⟩ := load_i16_gen b j6 (by omega)
     rw [hw6, bind_tc_ok]
     let* ⟨ e7, he7 ⟩ ← Std.Usize.add_spec (x := base) (y := i) (by omega)
-    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := e7) (y := 7#usize) (by scalar_tac)
+    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := e7) (y := 7#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     obtain ⟨w7, hw7, hw7l⟩ := load_i16_gen b j7 (by omega)
     rw [hw7, bind_tc_ok]
     set v : Array Vec128 8#usize := Array.make 8#usize [w0, w1, w2, w3, w4, w5, w6, w7] with hvdef
@@ -1614,9 +1622,10 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     clear_value v
     clear hvlane hvdef
     -- 2. level 2
-    let* ⟨ k2, hk2 ⟩ ← Std.Usize.add_spec (x := 4#usize) (y := g) (by scalar_tac)
-    have hk2v : k2.val = 4 + g.val := by scalar_tac
-    obtain ⟨zi, zqi, hzi, hzqi, hzib, hzqib, hzpsi⟩ := hzeta k2 (by scalar_tac)
+    let* ⟨ k2, hk2 ⟩ ← Std.Usize.add_spec (x := 4#usize) (y := g)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
+    have hk2v : k2.val = 4 + g.val := by simpa only [UScalar.ofNatCore_val_eq] using hk2
+    obtain ⟨zi, zqi, hzi, hzqi, hzib, hzqib, hzpsi⟩ := hzeta k2 (by omega)
     rw [hzi, bind_tc_ok]
     obtain ⟨z2, hz2, hz2l⟩ := dup_n_s16_spec zi
     rw [hz2, bind_tc_ok, hzqi, bind_tc_ok]
@@ -1642,7 +1651,7 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hv1b : ∀ j (hj : j < 8), VecBnd (vAt v1 j hj) A3 := by
       intro j hj
       have := hv1 j hj
-      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      rw [if_pos (by unfold pend4; idx_tac)] at this
       exact this.mono (by omega)
     have hv1Z : ∀ j (hj : j < 8), ∀ m < 8,
         laneZ q (vAt v1 j hj) m = ctLvl q ψ 4 32 a0 (64 * g.val + 8 * j + m) := by
@@ -1651,14 +1660,14 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
       rw [ctLvl_lvl2 q ψ a0 g.val j m hj hm]
       by_cases hj4 : j < 4
       · rw [if_pos (show ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-              ∧ j < 4 from ⟨by scalar_tac, hj4⟩)] at h
+              ∧ j < 4 from ⟨by idx_tac, hj4⟩)] at h
         rw [h, if_pos hj4, hvZ (j % 4) (by omega) m hm, hvZ (j % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * (j % 4) + m = 64 * g.val + 8 * j + m from by omega,
           show 64 * g.val + 8 * (j % 4 + 4) + m = 64 * g.val + 8 * j + m + 32 from by omega]
       · rw [if_neg (show ¬ (((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-                ∧ j < 4) from by scalar_tac),
+                ∧ j < 4) from by idx_tac),
           if_pos (show 4 + ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-              ∧ j < 8 from ⟨by scalar_tac, hj⟩)] at h
+              ∧ j < 8 from ⟨by idx_tac, hj⟩)] at h
         rw [h, if_neg hj4, hvZ (j % 4) (by omega) m hm, hvZ (j % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * (j % 4) + m = 64 * g.val + 8 * j + m - 32 from by omega,
           show 64 * g.val + 8 * (j % 4 + 4) + m = 64 * g.val + 8 * j + m from by omega]
@@ -1676,14 +1685,14 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hv2b : ∀ j (hj : j < 8), VecBnd (vAt v2 j hj) A4 := by
       intro j hj
       have := hv2 j hj
-      rw [if_pos (by scalar_tac)] at this
+      rw [if_pos (by idx_tac)] at this
       exact this.mono (by omega)
     have hv2Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt v2 j hj) m
         = ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0) (64 * g.val + 8 * j + m) := by
       intro j hj m hm
       have h := hv2v j hj m hm
       rw [if_pos (show 4 * ((⟨0#usize, 2#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [ctLvl_lvl3 q ψ (ctLvl q ψ 4 32 a0) g.val j m hj hm]
       by_cases hj2 : j % 4 < 2
       · rw [if_pos hj2] at h
@@ -1792,14 +1801,14 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hv3b : ∀ j (hj : j < 8), VecBnd (vAt v3 j hj) B1 := by
       intro j hj
       have := hv3 j hj
-      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      rw [if_pos (by unfold pend1; idx_tac)] at this
       exact this.mono (by omega)
     have hv3Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt v3 j hj) m
         = ctLvl q ψ 16 8 (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0)) (64 * g.val + 8 * j + m) := by
       intro j hj m hm
       have h := hv3v j hj m hm
       rw [if_pos (show 2 * ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [ctLvl_lvl4 q ψ (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0)) g.val j m hj hm]
       by_cases hpar : j % 2 = 0
       · rw [if_pos hpar] at h
@@ -1837,7 +1846,7 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hv5b : ∀ j (hj : j < 8), VecBnd (vAt v5 j hj) B2 := by
       intro j hj
       have := hv5 j hj
-      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      rw [if_pos (by unfold pend4; idx_tac)] at this
       exact this.mono (by omega)
     have hv5Z : ∀ k (hk : k < 8), ∀ m < 8,
         laneZ q (vAt v5 k hk) m = ctLvl q ψ 32 4 (ctLvl q ψ 16 8 (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0))) (64 * g.val + 8 * m + k) := by
@@ -1846,14 +1855,14 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
       rw [ctLvl_group4 q ψ (ctLvl q ψ 16 8 (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0))) g.val m k hm hk]
       by_cases hk4 : k < 4
       · rw [if_pos (show ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-              ∧ k < 4 from ⟨by scalar_tac, hk4⟩)] at h
+              ∧ k < 4 from ⟨by idx_tac, hk4⟩)] at h
         rw [h, if_pos hk4, hv4Z (k % 4) (by omega) m hm, hv4Z (k % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * m + k % 4 = 64 * g.val + 8 * m + k from by omega,
           show 64 * g.val + 8 * m + (k % 4 + 4) = 64 * g.val + 8 * m + k + 4 from by omega]
       · rw [if_neg (show ¬ (((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-                ∧ k < 4) from by scalar_tac),
+                ∧ k < 4) from by idx_tac),
           if_pos (show 4 + ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-              ∧ k < 8 from ⟨by scalar_tac, hk⟩)] at h
+              ∧ k < 8 from ⟨by idx_tac, hk⟩)] at h
         rw [h, if_neg hk4, hv4Z (k % 4) (by omega) m hm, hv4Z (k % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * m + k % 4 = 64 * g.val + 8 * m + k - 4 from by omega,
           show 64 * g.val + 8 * m + (k % 4 + 4) = 64 * g.val + 8 * m + k from by omega]
@@ -1874,14 +1883,14 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hv6b : ∀ j (hj : j < 8), VecBnd (vAt v6 j hj) B3 := by
       intro j hj
       have := hv6 j hj
-      rw [if_pos (by scalar_tac)] at this
+      rw [if_pos (by idx_tac)] at this
       exact this.mono (by omega)
     have hv6Z : ∀ k (hk : k < 8), ∀ m < 8, laneZ q (vAt v6 k hk) m
         = ctLvl q ψ 64 2 (ctLvl q ψ 32 4 (ctLvl q ψ 16 8 (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0)))) (64 * g.val + 8 * m + k) := by
       intro k hk m hm
       have h := hv6v k hk m hm
       rw [if_pos (show 4 * ((⟨0#usize, 2#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [ctLvl_group2 q ψ (ctLvl q ψ 32 4 (ctLvl q ψ 16 8 (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0)))) g.val m k hm hk]
       have hpsi : ψ (64 + (16 * ((2 * g.val + k / 4) / 2) + 2 * m + (2 * g.val + k / 4) % 2))
           = ψ (64 + (16 * g.val + 2 * m + k / 4)) := by
@@ -1918,14 +1927,14 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     have hv7b : ∀ j (hj : j < 8), VecBnd (vAt v7 j hj) B4 := by
       intro j hj
       have := hv7 j hj
-      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      rw [if_pos (by unfold pend1; idx_tac)] at this
       exact this.mono (by omega)
     have hv7Z : ∀ k (hk : k < 8), ∀ m < 8,
         laneZ q (vAt v7 k hk) m = fwdG q ψ a0 (64 * g.val + 8 * m + k) := by
       intro k hk m hm
       have h := hv7v k hk m hm
       rw [if_pos (show 2 * ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       unfold fwdG
       rw [ctLvl_group1 q ψ (ctLvl q ψ 64 2 (ctLvl q ψ 32 4 (ctLvl q ψ 16 8 (ctLvl q ψ 8 16 (ctLvl q ψ 4 32 a0))))) g.val m k hm hk]
       have hpsi : ψ (128 + (32 * ((4 * g.val + k / 2) / 4) + 4 * m + (4 * g.val + k / 2) % 4))
@@ -2036,6 +2045,8 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
       hAin hA3 hAr hB1 hB2 hB3 hreset hs2 hs3 hs4 hs5 hs6 hs7 iter1 (by rw [hend']; exact hend)
       (by
         intro p hp hge
+        -- The `omega` calls here and below take seconds each over the full context.
+        clear * - hp hge hb1 hb hstart' hg4
         have := hb1 p hp
         rw [if_neg (by unfold fromVec at hge; omega)] at this
         rw [this]
@@ -2048,6 +2059,7 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
         · rw [if_neg hbelow, if_neg (by omega)]))
     rintro r ⟨hr1, hr2⟩
     refine ⟨fun p hp => ?_, hr2⟩
+    clear * - hp hr1 hb1 hv9b hstart' hg4
     have hrp := hr1 p hp
     by_cases hge : fromVec base.val (8 * g.val) p
     · rw [if_pos hge]
@@ -2073,7 +2085,7 @@ theorem ntt_group_val (SECOND : Bool) {N : Usize} (b : Array I16 N) (base : Usiz
     · rw [if_neg (by unfold fromVec; omega)]
     · rw [hva c hc, if_pos (by omega)]
 termination_by 4 - iter.start.val
-decreasing_by scalar_decr_tac
+decreasing_by omega
 
 /-! ## The forward transform
 

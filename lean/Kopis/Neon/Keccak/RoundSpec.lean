@@ -82,6 +82,8 @@ never fires), then close each of the 25 per-lane goals with `parity_of`, `dTerm_
 `chiRow_of` from `State.lean`, ending at `RndW_fused`.  Fold the register side *into* the spec's
 vocabulary, never the other way round. -/
 
+private theorem usize_max_ge_25 : 25 ≤ Usize.max := by scalar_tac
+
 set_option maxRecDepth 1000000 in
 theorem round_spec (src dst : Std.Array Vec128 25#usize) (rc : Vec128) (iᵣ : ℕ)
     (l : ℕ) (hl : l < 2) (hrc : lane64 rc l = rcWord iᵣ) :
@@ -90,7 +92,9 @@ theorem round_spec (src dst : Std.Array Vec128 25#usize) (rc : Vec128) (iᵣ : �
           stateWords r l x y = RndW (stateWords src l) iᵣ x y ⦄ := by
   unfold backend.neon.keccak.round
   step*
-  all_goals try scalar_tac
+  -- The `hmax` index bounds `step*` leaves; `scalar_tac` here would preprocess the whole
+  -- context per goal, and fail slowly on the main goal (last).
+  all_goals try (simp only [UScalar.ofNatCore_val_eq]; have := usize_max_ge_25; omega)
   rename_i x y
   -- θ: the five column parities
   have hc0 : ∀ i, lane64 c0 i = parity (stateWords src i) 0 :=

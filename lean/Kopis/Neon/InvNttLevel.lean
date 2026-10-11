@@ -1066,6 +1066,8 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
           if 64 * iter.start.val ≤ p then |(r.val[p]!).val| ≤ (Q - 1) / 2
           else (r.val[p]!).val = (b.val[p]!).val ⦄ := by
   have hQ0 : (0 : ℤ) ≤ (Q - 1) / 2 := by omega
+  -- Lets the index side goals below be `omega`; `scalar_tac` costs seconds apiece there.
+  have hbig : 256 ≤ Usize.max := by scalar_tac
   unfold backend.neon.ntt.invntt_block_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -1089,7 +1091,7 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv0b : ∀ j (hj : j < 8), VecBnd (vAt v0 j hj) C0 := by
       intro j hj
       have := hv0 j hj
-      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      rw [if_pos (by unfold pend1; idx_tac)] at this
       exact this
     -- 3. level 1, `len = 2`
     apply WP.spec_bind (invntt_len2_outer_bnd SECOND qv Q Zb C0 T1 C1 hQ hQpos (by omega) hZb
@@ -1101,7 +1103,7 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv1b : ∀ j (hj : j < 8), VecBnd (vAt v1 j hj) C1 := by
       intro j hj
       have := hv1 j hj
-      rw [if_pos (by scalar_tac)] at this
+      rw [if_pos (by idx_tac)] at this
       exact this
     -- 4. the first re-centring pass
     let* ⟨ s, to_back, hs_val, hto_back ⟩ ← Array.to_slice_mut_spec
@@ -1140,7 +1142,7 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv3b : ∀ j (hj : j < 8), VecBnd (vAt v3 j hj) C2 := by
       intro j hj
       have := hv3 j hj
-      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      rw [if_pos (by unfold pend4; idx_tac)] at this
       exact this
     -- 6. back to coefficient order
     apply WP.spec_bind (transpose8_bnd v3 C2 hv3b)
@@ -1153,7 +1155,7 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv5b : ∀ j (hj : j < 8), VecBnd (vAt v5 j hj) C3 := by
       intro j hj
       have := hv5 j hj
-      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      rw [if_pos (by unfold pend1; idx_tac)] at this
       exact this
     -- 8. the second re-centring pass
     let* ⟨ s2, to_back2, hs2_val, hto_back2 ⟩ ← Array.to_slice_mut_spec
@@ -1189,11 +1191,12 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv6b : ∀ j (hj : j < 8), VecBnd (vAt v6 j hj) C4 := by
       intro j hj
       have := hv6 j hj
-      rw [if_pos (by scalar_tac)] at this
+      rw [if_pos (by idx_tac)] at this
       exact this
     -- 10. level 5
-    let* ⟨ i7, hi7 ⟩ ← Std.Usize.sub_spec (x := 7#usize) (y := iter.start) (by scalar_tac)
-    obtain ⟨zi7, hzie7, hzib7⟩ := hzeta i7 (by scalar_tac)
+    let* ⟨ i7, hi7 ⟩ ← Std.Usize.sub_spec (x := 7#usize) (y := iter.start)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
+    obtain ⟨zi7, hzie7, hzib7⟩ := hzeta i7 (by omega)
     obtain ⟨z5, zq5, hnz5, -, hz5b, hzq5b⟩ :=
       neg_zeta_spec SECOND Q Zb i7 zi7 hzie7 hzib7 hZb qic hqinv hqinvu
     rw [hnz5, bind_tc_ok, invntt_loop0_loop7_eq]
@@ -1204,7 +1207,7 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv7b : ∀ j (hj : j < 8), VecBnd (vAt v7 j hj) C5 := by
       intro j hj
       have := hv7 j hj
-      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      rw [if_pos (by unfold pend4; idx_tac)] at this
       exact this
     -- 11. the third re-centring pass, which leaves the group centred
     let* ⟨ s3, to_back3, hs3_val, hto_back3 ⟩ ← Array.to_slice_mut_spec
@@ -1220,8 +1223,9 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     rintro ⟨im3, bk3⟩ ⟨him3_len, hbk3⟩
     obtain ⟨hbk3_len, hbk3_bnd⟩ := hbk3 im3 him3_len
     -- 12. the eight stores
-    let* ⟨ i8, hi8 ⟩ ← Std.Usize.mul_spec (x := 8#usize) (y := iter.start) (by scalar_tac)
-    have hi8v : i8.val = 8 * iter.start.val := by scalar_tac
+    let* ⟨ i8, hi8 ⟩ ← Std.Usize.mul_spec (x := 8#usize) (y := iter.start)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
+    have hi8v : i8.val = 8 * iter.start.val := by simpa only [UScalar.ofNatCore_val_eq] using hi8
     set a3 := to_back3 (imb4 (bk3 im3)) with ha3_def
     have ha3_val : a3.val = (bk3 im3).slice.val := by
       rw [ha3_def, hi4_back, hto_back3]
@@ -1252,35 +1256,50 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       rw [hw.2]
       rfl
     rw [hv0e 0#usize (by decide), bind_tc_ok]
-    obtain ⟨b1, hb1e, hb1v⟩ := hstore 0#usize (by decide) b i8 (by scalar_tac)
+    obtain ⟨b1, hb1e, hb1v⟩ := hstore 0#usize (by decide) b i8
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb1e, bind_tc_ok]
-    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := i8) (y := 1#usize) (by scalar_tac)
+    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := i8) (y := 1#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 1#usize (by decide), bind_tc_ok]
-    obtain ⟨b2, hb2e, hb2v⟩ := hstore 1#usize (by decide) b1 j1 (by scalar_tac)
+    obtain ⟨b2, hb2e, hb2v⟩ := hstore 1#usize (by decide) b1 j1
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb2e, bind_tc_ok]
-    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := i8) (y := 2#usize) (by scalar_tac)
+    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := i8) (y := 2#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 2#usize (by decide), bind_tc_ok]
-    obtain ⟨b3, hb3e, hb3v⟩ := hstore 2#usize (by decide) b2 j2 (by scalar_tac)
+    obtain ⟨b3, hb3e, hb3v⟩ := hstore 2#usize (by decide) b2 j2
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb3e, bind_tc_ok]
-    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := i8) (y := 3#usize) (by scalar_tac)
+    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := i8) (y := 3#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 3#usize (by decide), bind_tc_ok]
-    obtain ⟨b4, hb4e, hb4v⟩ := hstore 3#usize (by decide) b3 j3 (by scalar_tac)
+    obtain ⟨b4, hb4e, hb4v⟩ := hstore 3#usize (by decide) b3 j3
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb4e, bind_tc_ok]
-    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := i8) (y := 4#usize) (by scalar_tac)
+    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := i8) (y := 4#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 4#usize (by decide), bind_tc_ok]
-    obtain ⟨b5, hb5e, hb5v⟩ := hstore 4#usize (by decide) b4 j4 (by scalar_tac)
+    obtain ⟨b5, hb5e, hb5v⟩ := hstore 4#usize (by decide) b4 j4
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb5e, bind_tc_ok]
-    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := i8) (y := 5#usize) (by scalar_tac)
+    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := i8) (y := 5#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 5#usize (by decide), bind_tc_ok]
-    obtain ⟨b6, hb6e, hb6v⟩ := hstore 5#usize (by decide) b5 j5 (by scalar_tac)
+    obtain ⟨b6, hb6e, hb6v⟩ := hstore 5#usize (by decide) b5 j5
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb6e, bind_tc_ok]
-    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := i8) (y := 6#usize) (by scalar_tac)
+    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := i8) (y := 6#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 6#usize (by decide), bind_tc_ok]
-    obtain ⟨b7, hb7e, hb7v⟩ := hstore 6#usize (by decide) b6 j6 (by scalar_tac)
+    obtain ⟨b7, hb7e, hb7v⟩ := hstore 6#usize (by decide) b6 j6
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb7e, bind_tc_ok]
-    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := i8) (y := 7#usize) (by scalar_tac)
+    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := i8) (y := 7#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 7#usize (by decide), bind_tc_ok]
-    obtain ⟨b8, hb8e, hb8v⟩ := hstore 7#usize (by decide) b7 j7 (by scalar_tac)
+    obtain ⟨b8, hb8e, hb8v⟩ := hstore 7#usize (by decide) b7 j7
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb8e, bind_tc_ok]
     -- what the eight stores leave behind
     have hb8all : ∀ p < 256,
@@ -1288,14 +1307,9 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
           |(b8.val[p]!).val| ≤ (Q - 1) / 2
         else (b8.val[p]!).val = (b.val[p]!).val := by
       intro p hp
-      have e8 := hb8v p hp
-      have e7 := hb7v p hp
-      have e6 := hb6v p hp
-      have e5 := hb5v p hp
-      have e4 := hb4v p hp
-      have e3 := hb3v p hp
-      have e2 := hb2v p hp
-      have e1 := hb1v p hp
+      -- The `omega` calls below are slow over the full context, so prune it and rewrite with
+      -- `hb*v` inline rather than adding eight `if`-valued equations.
+      clear * - hp hi8v hj1 hj2 hj3 hj4 hj5 hj6 hj7 hb1v hb2v hb3v hb4v hb5v hb6v hb7v hb8v ha3b
       by_cases hin : 64 * iter.start.val ≤ p ∧ p < 64 * iter.start.val + 64
       · rw [if_pos hin]
         set d := p - 64 * iter.start.val with hd
@@ -1303,32 +1317,35 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
         rcases show d / 8 = 0 ∨ d / 8 = 1 ∨ d / 8 = 2 ∨ d / 8 = 3 ∨ d / 8 = 4 ∨ d / 8 = 5
             ∨ d / 8 = 6 ∨ d / 8 = 7 from by omega with
           h | h | h | h | h | h | h | h
-        · rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-            e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
-            e2, if_neg (by omega), e1, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+            if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+            hb3v p hp, if_neg (by omega), hb2v p hp, if_neg (by omega), hb1v p hp,
+            if_pos (by omega)]
           exact ha3b 0 (by decide) _ (by omega)
-        · rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-            e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
-            e2, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+            if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+            hb3v p hp, if_neg (by omega), hb2v p hp, if_pos (by omega)]
           exact ha3b 1 (by decide) _ (by omega)
-        · rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-            e5, if_neg (by omega), e4, if_neg (by omega), e3, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+            if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+            hb3v p hp, if_pos (by omega)]
           exact ha3b 2 (by decide) _ (by omega)
-        · rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-            e5, if_neg (by omega), e4, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+            if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_pos (by omega)]
           exact ha3b 3 (by decide) _ (by omega)
-        · rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-            e5, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+            if_neg (by omega), hb5v p hp, if_pos (by omega)]
           exact ha3b 4 (by decide) _ (by omega)
-        · rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+            if_pos (by omega)]
           exact ha3b 5 (by decide) _ (by omega)
-        · rw [e8, if_neg (by omega), e7, if_pos (by omega)]
+        · rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_pos (by omega)]
           exact ha3b 6 (by decide) _ (by omega)
-        · rw [e8, if_pos (by omega)]
+        · rw [hb8v p hp, if_pos (by omega)]
           exact ha3b 7 (by decide) _ (by omega)
-      · rw [if_neg hin, e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
-          e2, if_neg (by omega), e1, if_neg (by omega)]
+      · rw [if_neg hin, hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega), hb3v p hp,
+          if_neg (by omega), hb2v p hp, if_neg (by omega), hb1v p hp, if_neg (by omega)]
     -- 13. and the remaining groups
     apply WP.spec_mono (invntt_group_bnd SECOND b8 qv bm round Q Zb M Ain T0 C0 T1 C1 Ar T2 C2
       T3 C3 T4 C4 T5 C5 hQ hQpos hQ14 hQodd hZb hM hMpos hMlt hD hRnd hzeta qic hqinv hqinvu
@@ -1360,7 +1377,7 @@ theorem invntt_group_bnd (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     refine (WP.spec_ok _).mpr (fun p hp => ?_)
     rw [if_neg (by scalar_tac)]
 termination_by 4 - iter.start.val
-decreasing_by scalar_decr_tac
+decreasing_by omega
 
 /-! ## The final scaling
 

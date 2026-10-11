@@ -126,6 +126,10 @@ theorem lane_tbl_inner_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I1
                 tblZq (tblZ zetas neg (tblIdx (base.val + g_hi.val * q_stride.val
                   + g_lo.val * h_stride.val) m_stride.val (j - 8 * g.val))) qinv.val
               else (zq.val[j]!).val) ⦄ := by
+  -- Width facts up front, so the side goals below are `omega` rather than `scalar_tac` (which
+  -- costs seconds apiece in this context), and products are bounded via `abs_mul`, not `nlinarith`.
+  have hIs : Isize.min ≤ -2 ^ 16 ∧ 2 ^ 16 ≤ Isize.max := by scalar_tac
+  have hUs : 8 ≤ Usize.max := by scalar_tac
   unfold backend.neon.ntt.lane_tbl_loop0_loop0
   by_cases hlt : m < 8#usize
   · rw [if_pos hlt]
@@ -140,25 +144,22 @@ theorem lane_tbl_inner_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I1
     have hqs' := abs_le.mp hqs
     have hhs' := abs_le.mp hhs
     have hms' := abs_le.mp hms
-    have hp1 : -512 ≤ g_hi.val * q_stride.val ∧ g_hi.val * q_stride.val ≤ 512 := by
-      constructor <;> nlinarith [hgh'.1, hgh'.2, hqs'.1, hqs'.2]
-    have hp2 : -512 ≤ g_lo.val * h_stride.val ∧ g_lo.val * h_stride.val ≤ 512 := by
-      constructor <;> nlinarith [hgl'.1, hgl'.2, hhs'.1, hhs'.2]
-    let* ⟨ i, hi ⟩ ← Std.Isize.mul_spec (x := g_hi) (y := q_stride) (by scalar_tac)
-      (by scalar_tac)
-    let* ⟨ i1, hi1 ⟩ ← Std.Isize.add_spec (x := base) (y := i) (by scalar_tac) (by scalar_tac)
-    let* ⟨ i2, hi2 ⟩ ← Std.Isize.mul_spec (x := g_lo) (y := h_stride) (by scalar_tac)
-      (by scalar_tac)
-    let* ⟨ i3, hi3 ⟩ ← Std.Isize.add_spec (x := i1) (y := i2) (by scalar_tac) (by scalar_tac)
+    have hp1 : -512 ≤ g_hi.val * q_stride.val ∧ g_hi.val * q_stride.val ≤ 512 := abs_le.mp (by
+      rw [abs_mul]; exact le_trans (mul_le_mul hgh hqs (abs_nonneg _) (by norm_num)) (by norm_num))
+    have hp2 : -512 ≤ g_lo.val * h_stride.val ∧ g_lo.val * h_stride.val ≤ 512 := abs_le.mp (by
+      rw [abs_mul]; exact le_trans (mul_le_mul hgl hhs (abs_nonneg _) (by norm_num)) (by norm_num))
+    let* ⟨ i, hi ⟩ ← Std.Isize.mul_spec (x := g_hi) (y := q_stride) (by omega) (by omega)
+    let* ⟨ i1, hi1 ⟩ ← Std.Isize.add_spec (x := base) (y := i) (by omega) (by omega)
+    let* ⟨ i2, hi2 ⟩ ← Std.Isize.mul_spec (x := g_lo) (y := h_stride) (by omega) (by omega)
+    let* ⟨ i3, hi3 ⟩ ← Std.Isize.add_spec (x := i1) (y := i2) (by omega) (by omega)
     let* ⟨ i4, hi4 ⟩ ← UScalar.hcast_inBounds_spec .Isize m (by scalar_tac)
     have hi4eq : i4.val = (m.val : ℤ) := by scalar_tac
     have hp3 : -256 ≤ i4.val * m_stride.val ∧ i4.val * m_stride.val ≤ 256 := by
-      have h0 : 0 ≤ i4.val := by scalar_tac
-      have h8 : i4.val ≤ 8 := by scalar_tac
-      constructor <;> nlinarith [hms'.1, hms'.2, h0, h8]
-    let* ⟨ i5, hi5 ⟩ ← Std.Isize.mul_spec (x := i4) (y := m_stride) (by scalar_tac)
-      (by scalar_tac)
-    let* ⟨ idx, hidxv ⟩ ← Std.Isize.add_spec (x := i3) (y := i5) (by scalar_tac) (by scalar_tac)
+      have h8 : |i4.val| ≤ 8 := abs_le.mpr ⟨by omega, by omega⟩
+      exact abs_le.mp (by
+        rw [abs_mul]; exact le_trans (mul_le_mul h8 hms (abs_nonneg _) (by norm_num)) (by norm_num))
+    let* ⟨ i5, hi5 ⟩ ← Std.Isize.mul_spec (x := i4) (y := m_stride) (by omega) (by omega)
+    let* ⟨ idx, hidxv ⟩ ← Std.Isize.add_spec (x := i3) (y := i5) (by omega) (by omega)
     have hidxval : idx.val = base.val + g_hi.val * q_stride.val + g_lo.val * h_stride.val
         + (m.val : ℤ) * m_stride.val := by
       rw [hidxv, hi5, hi4eq, hi3, hi1, hi, hi2]
@@ -184,7 +185,7 @@ theorem lane_tbl_inner_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I1
     rw [hvalue1, bind_tc_ok]
     let* ⟨ i7, hi7 ⟩ ← Std.Usize.mul_spec
     let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec
-    have hi8v : i8.val = 8 * g.val + m.val := by scalar_tac
+    have hi8v : i8.val = 8 * g.val + m.val := by omega
     let* ⟨ a, ha ⟩ ← Array.update_spec
     have hi9 : (core.num.I16.wrapping_mul value1 qinv).val
         = tblZq (tblZ zetas neg idx.val) qinv.val := by
@@ -193,9 +194,10 @@ theorem lane_tbl_inner_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I1
       rfl
     simp only [lift, bind_tc_ok]
     let* ⟨ i10, hi10 ⟩ ← Std.Usize.add_spec
-    have hi10v : i10.val = 8 * g.val + m.val := by scalar_tac
+    have hi10v : i10.val = 8 * g.val + m.val := by omega
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
-    let* ⟨ m1, hm1 ⟩ ← Std.Usize.add_spec
+    let* ⟨ m1, hm1 ⟩ ← Std.Usize.add_spec (x := m) (y := 1#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     apply WP.spec_mono (lane_tbl_inner_spec zetas qinv base q_stride h_stride m_stride neg
       a a1 g g_hi g_lo m1 hgN hb hgh hgl hqs hhs hms hzne hidx)
     rintro ⟨r1, r2⟩ hr j hj
@@ -219,22 +221,22 @@ theorem lane_tbl_inner_spec {N : Usize} (zetas : Array I16 256#usize) (qinv : I1
     constructor
     · rw [hr1, hset1]
       by_cases hin : 8 * g.val + m1.val ≤ j ∧ j < 8 * g.val + 8
-      · rw [if_pos hin, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by scalar_tac)]
+      · rw [if_pos hin, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by omega)]
       · rw [if_neg hin]
         by_cases heq : j = 8 * g.val + m.val
-        · rw [if_pos heq, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by scalar_tac),
+        · rw [if_pos heq, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by omega),
             hidxeq, heq, show 8 * g.val + m.val - 8 * g.val = m.val from by omega]
         · rw [if_neg heq,
-            if_neg (show ¬(8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8) by scalar_tac)]
+            if_neg (show ¬(8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8) by omega)]
     · rw [hr2, hset2]
       by_cases hin : 8 * g.val + m1.val ≤ j ∧ j < 8 * g.val + 8
-      · rw [if_pos hin, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by scalar_tac)]
+      · rw [if_pos hin, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by omega)]
       · rw [if_neg hin]
         by_cases heq : j = 8 * g.val + m.val
-        · rw [if_pos heq, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by scalar_tac),
+        · rw [if_pos heq, if_pos (show 8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8 by omega),
             hidxeq, heq, show 8 * g.val + m.val - 8 * g.val = m.val from by omega]
         · rw [if_neg heq,
-            if_neg (show ¬(8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8) by scalar_tac)]
+            if_neg (show ¬(8 * g.val + m.val ≤ j ∧ j < 8 * g.val + 8) by omega)]
   · rw [if_neg hlt]
     simp only [WP.spec_ok]
     intro j hj

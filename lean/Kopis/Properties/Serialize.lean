@@ -657,7 +657,10 @@ private theorem deserialize_13_loop_spec (bytes : Slice U8) (arr : Array U8 416#
       rw [if_pos hjA, ihj, if_pos (by omega : j < 8 * (iter.start.val + 1))]
       simp only [ha, hout7, hout6, hout5, hout4, hout3, hout2, hout1, Array.set_val_eq,
         ho1, hi14, hi20, hi29, hi38, hi44, hi53, hi58]
-      simp_lists
+      -- Plain `simp only`: `simp_lists` discharges via `scalar_tac` over this huge context.
+      have hne : ∀ k, 8 * iter.start.val + k ≠ j :=
+        fun k => (Nat.lt_of_lt_of_le hjA (Nat.le_add_right _ k)).ne'
+      simp only [List.getElem_set, hne, Nat.ne_of_gt hjA, ↓reduceIte]
     · by_cases hjC : j < 8 * (iter.start.val + 1)
       · -- slot written by this group: `j = 8·g + t`
         rw [if_neg hjA, ihj, if_pos hjC]
@@ -668,7 +671,8 @@ private theorem deserialize_13_loop_spec (bytes : Slice U8) (arr : Array U8 416#
         all_goals
           (simp only [ha, hout7, hout6, hout5, hout4, hout3, hout2, hout1, Array.set_val_eq,
             ho1, hi14, hi20, hi29, hi38, hi44, hi53, hi58]
-           simp_lists
+           simp only [List.getElem_set, Nat.add_left_cancel_iff, Nat.add_zero, Nat.add_eq_left,
+             Nat.reduceEqDiff, OfNat.ofNat_ne_zero, ↓reduceIte]
            first
            | exact hc0 | exact hc1 | exact hc2 | exact hc3
            | exact hc4 | exact hc5 | exact hc6 | exact hc7)
@@ -678,6 +682,9 @@ private theorem deserialize_13_loop_spec (bytes : Slice U8) (arr : Array U8 416#
     rw [hnone]; simp only [WP.spec_ok]
     intro j hj
     rw [if_pos (by scalar_tac)]
+-- Explicit: the guessed measure runs `subst_vars` over the whole context.
+termination_by 32 - iter.start.val
+decreasing_by omega
 
 /-- Decoding-correctness of `deserialize_13`: every coefficient equals the 13-bit
 little-endian stream window the generic decoder would produce. -/

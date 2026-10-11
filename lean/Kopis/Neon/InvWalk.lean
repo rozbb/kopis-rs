@@ -1478,6 +1478,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
               |(r.val[p]!).val| ≤ ((q : ℤ) - 1) / 2
             else (r.val[p]!).val = (b.val[p]!).val) ∧
           (∀ c < 256, posZ q r c = invT q ζ a0 c) ⦄ := by
+  have hbig : 256 ≤ Usize.max := by scalar_tac
   unfold backend.neon.ntt.invntt_block_loop0
   by_cases hlt : iter.start.val < iter.«end».val
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
@@ -1516,14 +1517,14 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv0b : ∀ j (hj : j < 8), VecBnd (vAt v0 j hj) C0 := by
       intro j hj
       have := hv0 j hj
-      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      rw [if_pos (by unfold pend1; idx_tac)] at this
       exact this
     have hv0Z : ∀ k (hk : k < 8), ∀ m < 8,
         laneZ q (vAt v0 k hk) m = gsLvl q ζ 128 1 a0 (64 * g.val + 8 * m + k) := by
       intro k hk m hm
       have h := hv0v k hk m hm
       rw [if_pos (show 2 * ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [gsLvl_group1 q ζ a0 g.val m k hm hk]
       have hpsi : -(ζ (255 - (32 * ((4 * g.val + k / 2) / 4) + 4 * m + (4 * g.val + k / 2) % 4)))
           = -(ζ (255 - (32 * g.val + 4 * m + k / 2))) := by
@@ -1558,14 +1559,14 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv1b : ∀ j (hj : j < 8), VecBnd (vAt v1 j hj) C1 := by
       intro j hj
       have := hv1 j hj
-      rw [if_pos (by scalar_tac)] at this
+      rw [if_pos (by idx_tac)] at this
       exact this
     have hv1Z : ∀ k (hk : k < 8), ∀ m < 8, laneZ q (vAt v1 k hk) m
         = gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0) (64 * g.val + 8 * m + k) := by
       intro k hk m hm
       have h := hv1v k hk m hm
       rw [if_pos (show 4 * ((⟨0#usize, 2#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [gsLvl_group2 q ζ (gsLvl q ζ 128 1 a0) g.val m k hm hk]
       have hpsi : -(ζ (127 - (16 * ((2 * g.val + k / 4) / 2) + 2 * m + (2 * g.val + k / 4) % 2)))
           = -(ζ (127 - (16 * g.val + 2 * m + k / 4))) := by
@@ -1651,7 +1652,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv3b : ∀ j (hj : j < 8), VecBnd (vAt v3 j hj) C2 := by
       intro j hj
       have := hv3 j hj
-      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      rw [if_pos (by unfold pend4; idx_tac)] at this
       exact this
     have hv3Z : ∀ k (hk : k < 8), ∀ m < 8, laneZ q (vAt v3 k hk) m
         = gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)) (64 * g.val + 8 * m + k) := by
@@ -1660,14 +1661,14 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       rw [gsLvl_group4 q ζ (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)) g.val m k hm hk]
       by_cases hk4 : k < 4
       · rw [if_pos (show ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-              ∧ k < 4 from ⟨by scalar_tac, hk4⟩)] at h
+              ∧ k < 4 from ⟨by idx_tac, hk4⟩)] at h
         rw [h, if_pos hk4, haZ (k % 4) (by omega) m hm, haZ (k % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * m + k % 4 = 64 * g.val + 8 * m + k from by omega,
           show 64 * g.val + 8 * m + (k % 4 + 4) = 64 * g.val + 8 * m + k + 4 from by omega]
       · rw [if_neg (show ¬ (((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-              ∧ k < 4) from by scalar_tac),
+              ∧ k < 4) from by idx_tac),
           if_pos (show 4 + ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ k
-              ∧ k < 8 from ⟨by scalar_tac, hk⟩)] at h
+              ∧ k < 8 from ⟨by idx_tac, hk⟩)] at h
         rw [h, if_neg hk4, haZ (k % 4) (by omega) m hm, haZ (k % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * m + k % 4 = 64 * g.val + 8 * m + k - 4 from by omega,
           show 64 * g.val + 8 * m + (k % 4 + 4) = 64 * g.val + 8 * m + k from by omega]
@@ -1690,7 +1691,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv5b : ∀ j (hj : j < 8), VecBnd (vAt v5 j hj) C3 := by
       intro j hj
       have := hv5 j hj
-      rw [if_pos (by unfold pend1; scalar_tac)] at this
+      rw [if_pos (by unfold pend1; idx_tac)] at this
       exact this
     have hv5Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt v5 j hj) m
         = gsLvl q ζ 16 8 (gsLvl q ζ 32 4 (gsLvl q ζ 64 2 (gsLvl q ζ 128 1 a0)))
@@ -1698,7 +1699,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       intro j hj m hm
       have h := hv5v j hj m hm
       rw [if_pos (show 2 * ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [gsLvl_lvl3 q ζ _ g.val j m hj hm]
       by_cases hpar : j % 2 = 0
       · rw [if_pos hpar] at h
@@ -1781,7 +1782,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv6b : ∀ j (hj : j < 8), VecBnd (vAt v6 j hj) C4 := by
       intro j hj
       have := hv6 j hj
-      rw [if_pos (by scalar_tac)] at this
+      rw [if_pos (by idx_tac)] at this
       exact this
     have hv6Z : ∀ j (hj : j < 8), ∀ m < 8, laneZ q (vAt v6 j hj) m
         = gsLvl q ζ 8 16 (gsLvl q ζ 16 8 (gsLvl q ζ 32 4
@@ -1789,7 +1790,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       intro j hj m hm
       have h := hv6v j hj m hm
       rw [if_pos (show 4 * ((⟨0#usize, 2#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-        from by scalar_tac)] at h
+        from by idx_tac)] at h
       rw [gsLvl_lvl4 q ζ _ g.val j m hj hm]
       by_cases hj2 : j % 4 < 2
       · rw [if_pos hj2] at h
@@ -1807,8 +1808,9 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
           show 64 * g.val + 8 * (4 * (j / 4) + j % 2 + 2) + m
             = 64 * g.val + 8 * j + m from by omega]
     -- level 5
-    let* ⟨ i7, hi7 ⟩ ← Std.Usize.sub_spec (x := 7#usize) (y := g) (by scalar_tac)
-    obtain ⟨zi7, hzie7, hzib7, hzv7⟩ := hzeta i7 (by scalar_tac)
+    let* ⟨ i7, hi7 ⟩ ← Std.Usize.sub_spec (x := 7#usize) (y := g)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
+    obtain ⟨zi7, hzie7, hzib7, hzv7⟩ := hzeta i7 (by omega)
     obtain ⟨z5, zq5, hnz5, hz5b, hzq5b, hz5v⟩ :=
       neg_zeta_val SECOND q Zb Rinv ζ i7 zi7 hzie7 hzib7 hzv7 hZb qic hqinv hqinvu
     rw [hnz5, bind_tc_ok, invntt_loop0_loop7_eq]
@@ -1822,7 +1824,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     have hv7b : ∀ j (hj : j < 8), VecBnd (vAt v7 j hj) C5 := by
       intro j hj
       have := hv7 j hj
-      rw [if_pos (by unfold pend4; scalar_tac)] at this
+      rw [if_pos (by unfold pend4; idx_tac)] at this
       exact this
     have hv7Z : ∀ j (hj : j < 8), ∀ m < 8,
         laneZ q (vAt v7 j hj) m = invT q ζ a0 (64 * g.val + 8 * j + m) := by
@@ -1833,15 +1835,15 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
         show 7 - g.val = i7.val from by scalar_tac]
       by_cases hj4 : j < 4
       · rw [if_pos (show ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-              ∧ j < 4 from ⟨by scalar_tac, hj4⟩)] at h
+              ∧ j < 4 from ⟨by idx_tac, hj4⟩)] at h
         rw [h, if_pos hj4, hv6Z (j % 4) (by omega) m hm, hv6Z (j % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * (j % 4) + m = 64 * g.val + 8 * j + m from by omega,
           show 64 * g.val + 8 * (j % 4 + 4) + m
             = 64 * g.val + 8 * j + m + 32 from by omega]
       · rw [if_neg (show ¬ (((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-              ∧ j < 4) from by scalar_tac),
+              ∧ j < 4) from by idx_tac),
           if_pos (show 4 + ((⟨0#usize, 4#usize⟩ : core.ops.range.Range Usize)).start.val ≤ j
-              ∧ j < 8 from ⟨by scalar_tac, hj⟩)] at h
+              ∧ j < 8 from ⟨by idx_tac, hj⟩)] at h
         rw [h, if_neg hj4, hv6Z (j % 4) (by omega) m hm, hv6Z (j % 4 + 4) (by omega) m hm,
           show 64 * g.val + 8 * (j % 4) + m = 64 * g.val + 8 * j + m - 32 from by omega,
           show 64 * g.val + 8 * (j % 4 + 4) + m = 64 * g.val + 8 * j + m from by omega]
@@ -1875,8 +1877,9 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     rintro ⟨im3, bk3⟩ ⟨⟨him3_len, hbk3⟩, hbk3v⟩
     obtain ⟨hbk3_len, hbk3_bnd⟩ := hbk3 im3 him3_len
     -- the eight stores
-    let* ⟨ i8, hi8 ⟩ ← Std.Usize.mul_spec (x := 8#usize) (y := g) (by scalar_tac)
-    have hi8v : i8.val = 8 * g.val := by scalar_tac
+    let* ⟨ i8, hi8 ⟩ ← Std.Usize.mul_spec (x := 8#usize) (y := g)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
+    have hi8v : i8.val = 8 * g.val := by simpa only [UScalar.ofNatCore_val_eq] using hi8
     set a3 := to_back3 (imb4 (bk3 im3)) with ha3_def
     have ha3_val : a3.val = (bk3 im3).slice.val := by
       rw [ha3_def, hi4_back, hto_back3]
@@ -1915,77 +1918,89 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
       rw [hw.2]
       rfl
     rw [hv0e 0#usize (by decide), bind_tc_ok]
-    obtain ⟨b1, hb1e, hb1v⟩ := hstore 0#usize (by decide) b i8 (by scalar_tac)
+    obtain ⟨b1, hb1e, hb1v⟩ := hstore 0#usize (by decide) b i8
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb1e, bind_tc_ok]
-    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := i8) (y := 1#usize) (by scalar_tac)
+    let* ⟨ j1, hj1 ⟩ ← Std.Usize.add_spec (x := i8) (y := 1#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 1#usize (by decide), bind_tc_ok]
-    obtain ⟨b2, hb2e, hb2v⟩ := hstore 1#usize (by decide) b1 j1 (by scalar_tac)
+    obtain ⟨b2, hb2e, hb2v⟩ := hstore 1#usize (by decide) b1 j1
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb2e, bind_tc_ok]
-    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := i8) (y := 2#usize) (by scalar_tac)
+    let* ⟨ j2, hj2 ⟩ ← Std.Usize.add_spec (x := i8) (y := 2#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 2#usize (by decide), bind_tc_ok]
-    obtain ⟨b3, hb3e, hb3v⟩ := hstore 2#usize (by decide) b2 j2 (by scalar_tac)
+    obtain ⟨b3, hb3e, hb3v⟩ := hstore 2#usize (by decide) b2 j2
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb3e, bind_tc_ok]
-    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := i8) (y := 3#usize) (by scalar_tac)
+    let* ⟨ j3, hj3 ⟩ ← Std.Usize.add_spec (x := i8) (y := 3#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 3#usize (by decide), bind_tc_ok]
-    obtain ⟨b4, hb4e, hb4v⟩ := hstore 3#usize (by decide) b3 j3 (by scalar_tac)
+    obtain ⟨b4, hb4e, hb4v⟩ := hstore 3#usize (by decide) b3 j3
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb4e, bind_tc_ok]
-    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := i8) (y := 4#usize) (by scalar_tac)
+    let* ⟨ j4, hj4 ⟩ ← Std.Usize.add_spec (x := i8) (y := 4#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 4#usize (by decide), bind_tc_ok]
-    obtain ⟨b5, hb5e, hb5v⟩ := hstore 4#usize (by decide) b4 j4 (by scalar_tac)
+    obtain ⟨b5, hb5e, hb5v⟩ := hstore 4#usize (by decide) b4 j4
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb5e, bind_tc_ok]
-    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := i8) (y := 5#usize) (by scalar_tac)
+    let* ⟨ j5, hj5 ⟩ ← Std.Usize.add_spec (x := i8) (y := 5#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 5#usize (by decide), bind_tc_ok]
-    obtain ⟨b6, hb6e, hb6v⟩ := hstore 5#usize (by decide) b5 j5 (by scalar_tac)
+    obtain ⟨b6, hb6e, hb6v⟩ := hstore 5#usize (by decide) b5 j5
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb6e, bind_tc_ok]
-    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := i8) (y := 6#usize) (by scalar_tac)
+    let* ⟨ j6, hj6 ⟩ ← Std.Usize.add_spec (x := i8) (y := 6#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 6#usize (by decide), bind_tc_ok]
-    obtain ⟨b7, hb7e, hb7v⟩ := hstore 6#usize (by decide) b6 j6 (by scalar_tac)
+    obtain ⟨b7, hb7e, hb7v⟩ := hstore 6#usize (by decide) b6 j6
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb7e, bind_tc_ok]
-    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := i8) (y := 7#usize) (by scalar_tac)
+    let* ⟨ j7, hj7 ⟩ ← Std.Usize.add_spec (x := i8) (y := 7#usize)
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hv0e 7#usize (by decide), bind_tc_ok]
-    obtain ⟨b8, hb8e, hb8v⟩ := hstore 7#usize (by decide) b7 j7 (by scalar_tac)
+    obtain ⟨b8, hb8e, hb8v⟩ := hstore 7#usize (by decide) b7 j7
+      (by simp only [UScalar.ofNatCore_val_eq]; omega)
     rw [hb8e, bind_tc_ok]
     have hb8lane : ∀ p < 256, ∀ (hd : (p - 64 * g.val) / 8 < 8),
         64 * g.val ≤ p → p < 64 * g.val + 64 →
         (b8.val[p]!).val
           = (lane16 (vAt a3 ((p - 64 * g.val) / 8) hd) ((p - 64 * g.val) % 8)).toInt := by
       intro p hp hd hlo hhi
-      have e8 := hb8v p hp
-      have e7 := hb7v p hp
-      have e6 := hb6v p hp
-      have e5 := hb5v p hp
-      have e4 := hb4v p hp
-      have e3 := hb3v p hp
-      have e2 := hb2v p hp
-      have e1 := hb1v p hp
+      -- The `omega` calls below are slow over the full context, so prune it and rewrite with
+      -- `hb*v` inline rather than adding eight `if`-valued equations.
+      clear * - hp hd hlo hhi hi8v hj1 hj2 hj3 hj4 hj5 hj6 hj7
+        hb1v hb2v hb3v hb4v hb5v hb6v hb7v hb8v
       rcases show (p - 64 * g.val) / 8 = 0 ∨ (p - 64 * g.val) / 8 = 1 ∨ (p - 64 * g.val) / 8 = 2
           ∨ (p - 64 * g.val) / 8 = 3 ∨ (p - 64 * g.val) / 8 = 4 ∨ (p - 64 * g.val) / 8 = 5
           ∨ (p - 64 * g.val) / 8 = 6 ∨ (p - 64 * g.val) / 8 = 7 from by omega with
         h | h | h | h | h | h | h | h <;>
       simp only [h] <;>
-      [ (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
-          e2, if_neg (by omega), e1, if_pos (by omega)]);
-        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_neg (by omega),
-          e2, if_pos (by omega)]);
-        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-          e5, if_neg (by omega), e4, if_neg (by omega), e3, if_pos (by omega)]);
-        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-          e5, if_neg (by omega), e4, if_pos (by omega)]);
-        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_neg (by omega),
-          e5, if_pos (by omega)]);
-        (rw [e8, if_neg (by omega), e7, if_neg (by omega), e6, if_pos (by omega)]);
-        (rw [e8, if_neg (by omega), e7, if_pos (by omega)]);
-        (rw [e8, if_pos (by omega)]) ] <;>
+      [ (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+          hb3v p hp, if_neg (by omega), hb2v p hp, if_neg (by omega), hb1v p hp, if_pos (by omega)]);
+        (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+          hb3v p hp, if_neg (by omega), hb2v p hp, if_pos (by omega)]);
+        (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
+          hb3v p hp, if_pos (by omega)]);
+        (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_pos (by omega)]);
+        (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_neg (by omega), hb5v p hp, if_pos (by omega)]);
+        (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
+          if_pos (by omega)]);
+        (rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_pos (by omega)]);
+        (rw [hb8v p hp, if_pos (by omega)]) ] <;>
       congr 2 <;> omega
     have hb8rest : ∀ p < 256, ¬ (64 * g.val ≤ p ∧ p < 64 * g.val + 64) →
         (b8.val[p]!).val = (b.val[p]!).val := by
       intro p hp hout
-      rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp,
-        if_neg (by omega), hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega),
-        hb3v p hp, if_neg (by omega), hb2v p hp, if_neg (by omega), hb1v p hp,
-        if_neg (by omega)]
+      rw [hb8v p hp, if_neg (by omega), hb7v p hp, if_neg (by omega), hb6v p hp, if_neg (by omega),
+        hb5v p hp, if_neg (by omega), hb4v p hp, if_neg (by omega), hb3v p hp, if_neg (by omega),
+        hb2v p hp, if_neg (by omega), hb1v p hp, if_neg (by omega)]
     have hb8Z : ∀ c < 256, posZ q b8 c =
         if c < 64 * g.val + 64 then invT q ζ a0 c else a0 c := by
       intro c hc
@@ -2019,6 +2034,8 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
         · rw [if_neg hbelow, if_neg (by omega)]))
     rintro r ⟨hr1, hr2⟩
     refine ⟨fun p hp => ?_, hr2⟩
+    -- The `omega` calls below take seconds each over the full context.
+    clear * - hp hr1 hb8lane hb8rest ha3b hstart' hgi
     have hrp := hr1 p hp
     by_cases hge : 64 * g.val ≤ p
     · rw [if_pos hge]
@@ -2038,7 +2055,7 @@ theorem invntt_group_val (SECOND : Bool) (b : Array I16 256#usize) (qv bm round 
     · rw [if_neg (by omega)]
     · rw [hva c hc, if_pos (by omega)]
 termination_by 4 - iter.start.val
-decreasing_by scalar_decr_tac
+decreasing_by omega
 
 /-! ## The final scaling
 

@@ -265,7 +265,10 @@ private theorem deserialize_10_loop_spec (bytes : Slice U8) (arr : Array U8 320#
     by_cases hjA : j < 4 * iter.start.val
     · rw [if_pos hjA, ihj, if_pos (by omega : j < 4 * (iter.start.val + 1))]
       simp only [ha, hout3, hout2, hout1, Array.set_val_eq, ho1, hi11, hi17, hi22]
-      simp_lists
+      -- Plain `simp only`: `simp_lists` discharges via `scalar_tac` over this huge context.
+      have hne : ∀ k, 4 * iter.start.val + k ≠ j :=
+        fun k => (Nat.lt_of_lt_of_le hjA (Nat.le_add_right _ k)).ne'
+      simp only [List.getElem_set, hne, Nat.ne_of_gt hjA, ↓reduceIte]
     · by_cases hjC : j < 4 * (iter.start.val + 1)
       · rw [if_neg hjA, ihj, if_pos hjC]
         obtain ⟨t, htlt, rfl⟩ : ∃ t, t < 4 ∧ j = 4 * iter.start.val + t :=
@@ -273,13 +276,17 @@ private theorem deserialize_10_loop_spec (bytes : Slice U8) (arr : Array U8 320#
         rcases (show t = 0 ∨ t = 1 ∨ t = 2 ∨ t = 3 by omega) with rfl | rfl | rfl | rfl
         all_goals
           (simp only [ha, hout3, hout2, hout1, Array.set_val_eq, ho1, hi11, hi17, hi22]
-           simp_lists
+           simp only [List.getElem_set, Nat.add_left_cancel_iff, Nat.add_zero, Nat.add_eq_left,
+             Nat.reduceEqDiff, OfNat.ofNat_ne_zero, ↓reduceIte]
            first | exact hc0 | exact hc1 | exact hc2 | exact hc3)
       · rw [if_neg hjA, ihj, if_neg hjC]
   · let* ⟨ o, iter1, hnone, _ ⟩ ← core.iter.range.IteratorRange.next_Usize_none_spec
     rw [hnone]; simp only [WP.spec_ok]
     intro j hj
     rw [if_pos (by scalar_tac)]
+-- Explicit: the guessed measure runs `subst_vars` over the whole context.
+termination_by 64 - iter.start.val
+decreasing_by omega
 
 /-- Decoding-correctness of `deserialize_10`: every coefficient equals the 10-bit
 little-endian stream window. -/

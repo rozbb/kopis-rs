@@ -63,6 +63,10 @@ def fromVec (base start p : ℕ) : Prop := 8 * base + 8 * start ≤ p ∧ p < 8 
 instance (base start p : ℕ) : Decidable (fromVec base start p) := by
   unfold fromVec; infer_instance
 
+/-- The small index side goals of the group proofs (`Kopis/Neon/NttWalk.lean` and its inverse
+twins).  `scalar_tac` costs seconds apiece there, as it preprocesses the whole (large) context. -/
+scoped macro "idx_tac" : tactic => `(tactic| ((try simp only [UScalar.ofNatCore_val_eq]); omega))
+
 /-- **One whole-vector level's butterfly pass, as a bound.**  Coefficients the pass reaches end
 bounded by `B + Bt`; everything else, inside the window or out of it, is untouched. -/
 theorem ntt_inner_bnd {N : Usize} (b : Array I16 N) (base : Usize) (qv z zq : Vec128)

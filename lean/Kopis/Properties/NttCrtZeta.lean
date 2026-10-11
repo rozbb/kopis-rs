@@ -211,23 +211,23 @@ theorem zeta_table_ok_q2 : ∀ kk : Usize, kk.val < 256 → ∃ zi zqi : I16,
 
 /-! ## The finite checks, on this extraction's tables -/
 
+-- One `decide` per table: the three checks share its unfolding (~4 s less than six `decide`s).
 unseal arithmetic.ntt_crt.ZETAS_Q1 in
-theorem rootOK_q1 : rootOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
-
-unseal arithmetic.ntt_crt.ZETAS_Q1 in
-theorem treeOK_q1 : treeOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
+theorem tblOK_q1 : rootOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true ∧
+    treeOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true ∧
+    pairOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
 
 unseal arithmetic.ntt_crt.ZETAS_Q2 in
-theorem rootOK_q2 : rootOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
+theorem tblOK_q2 : rootOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true ∧
+    treeOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true ∧
+    pairOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
 
-unseal arithmetic.ntt_crt.ZETAS_Q2 in
-theorem treeOK_q2 : treeOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
-
-unseal arithmetic.ntt_crt.ZETAS_Q1 in
-theorem pairOK_q1 : pairOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := by decide
-
-unseal arithmetic.ntt_crt.ZETAS_Q2 in
-theorem pairOK_q2 : pairOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := by decide
+theorem rootOK_q1 : rootOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := tblOK_q1.1
+theorem treeOK_q1 : treeOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := tblOK_q1.2.1
+theorem pairOK_q1 : pairOKq arithmetic.ntt_crt.ZETAS_Q1 7681 4088 = true := tblOK_q1.2.2
+theorem rootOK_q2 : rootOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := tblOK_q2.1
+theorem treeOK_q2 : treeOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := tblOK_q2.2.1
+theorem pairOK_q2 : pairOKq arithmetic.ntt_crt.ZETAS_Q2 10753 1018 = true := tblOK_q2.2.2
 
 /-! ## …instantiated at the two primes -/
 

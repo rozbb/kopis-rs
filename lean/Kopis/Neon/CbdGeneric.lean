@@ -30,6 +30,10 @@ open arithmetic.plain_arith (RingElem)
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 4000
 
+/-- For the index side goals below, which are `omega` once literals are normalised;
+`scalar_tac` there preprocesses the whole (large) context, at a second or more apiece. -/
+private theorem usize_max_ge_1024 : 1024 ≤ Usize.max := by scalar_tac
+
 /-! ## Prerequisites from the serial stack
 
 Three things `GenSecretLoops.lean` inherits from its imports, reproduced here for the NEON
@@ -685,16 +689,19 @@ theorem cbd_loop2_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
     rw [ho]; simp only
     have hg : iter.start.val < 64 := by omega
     -- the three bytes of the group
-    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 3#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 3#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hiv : i.val = 3 * iter.start.val := by rw [hi]
     have hb0lt : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
     let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
-    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hb1lt : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
     let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
-    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hb2lt : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
     let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
@@ -705,7 +712,8 @@ theorem cbd_loop2_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       rw [hb1, hi3, ← getElem!_pos buf.val i2.val hb1lt, hi2, hiv]
     have hb2v : b2.val = (buf.val[3 * iter.start.val + 2]!).val := by
       rw [hb2, hi5, ← getElem!_pos buf.val i4.val hb2lt, hi4, hiv]
-    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
     -- `half_mu = (MU / 2) as u32`, computed once per group
     let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
@@ -749,7 +757,8 @@ theorem cbd_loop2_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       exact h i hi
     let* ⟨ i10, hi10 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 1) i9 half_mu
       rfl hhmvv (by omega) hbits1
-    let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
     -- coefficient 4g+2 : pair (3g+1, 3g+2) shifted by 4
     let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
@@ -773,7 +782,8 @@ theorem cbd_loop2_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       exact h i hi
     let* ⟨ i15, hi15 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 2) i14 half_mu
       rfl hhmvv (by omega) hbits2
-    let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
     -- coefficient 4g+3 : byte 3g+2 shifted by 2
     let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U16.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
@@ -787,7 +797,8 @@ theorem cbd_loop2_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       exact h i hi
     let* ⟨ i18, hi18 ⟩ ← cbd_diff_coeff_spec buf 6 3 (4 * iter.start.val + 3) i17 half_mu
       rfl hhmvv (by omega) hbits3
-    let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
+    let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     -- the four writes, as a list update
     have hav : a.val = out.val.set (4 * iter.start.val) i6 := by rw [ha, Array.set_val_eq, ho1v]
@@ -853,20 +864,24 @@ theorem cbd_loop2_bd (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Sli
   · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hg : iter.start.val < 64 := by omega
-    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 3#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 3#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hiv : i.val = 3 * iter.start.val := by rw [hi]
     have hb0lt : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
     let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
-    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hb1lt : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
     let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
-    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hb2lt : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
     let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
-    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
     -- `half_mu = (MU / 2) as u32`, computed once per group
     let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
@@ -879,18 +894,21 @@ theorem cbd_loop2_bd (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Sli
     rw [show lift (b0 ||| i7) = ok (b0 ||| i7) from rfl, bind_tc_ok]
     let* ⟨ i9, hi9, hi9bv ⟩ ← Std.U16.ShiftRight_IScalar_spec (b0 ||| i7) 6#i32 (by decide) (by decide)
     let* ⟨ i10, hi10 ⟩ ← cbd_diff_bd i9 half_mu 3 hhmvv (by omega)
-    let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i11, hi11 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
     let* ⟨ i12, hi12, hi12bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b2 8#i32 (by decide) (by decide)
     rw [show lift (b1 ||| i12) = ok (b1 ||| i12) from rfl, bind_tc_ok]
     let* ⟨ i14, hi14, hi14bv ⟩ ←
       Std.U16.ShiftRight_IScalar_spec (b1 ||| i12) 4#i32 (by decide) (by decide)
     let* ⟨ i15, hi15 ⟩ ← cbd_diff_bd i14 half_mu 3 hhmvv (by omega)
-    let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i16, hi16 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
     let* ⟨ i17, hi17, hi17bv ⟩ ← Std.U16.ShiftRight_IScalar_spec b2 2#i32 (by decide) (by decide)
     let* ⟨ i18, hi18 ⟩ ← cbd_diff_bd i17 half_mu 3 hhmvv (by omega)
-    let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
+    let* ⟨ i19, hi19 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     have hav : a.val = out.val.set (4 * iter.start.val) i6 := by rw [ha, Array.set_val_eq, ho1v]
     have ha1v : a1.val = a.val.set (4 * iter.start.val + 1) i10 := by
@@ -960,24 +978,29 @@ theorem cbd_loop1_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
     have hg : iter.start.val < 64 := by omega
     have hsz : U16.size = 2 ^ 16 := by simp [Std.U16.size, Std.U16.numBits]
     -- the five bytes of the group
-    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 5#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 5#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hiv : i.val = 5 * iter.start.val := by rw [hi]
     have hlt0 : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
     let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
-    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt1 : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
     let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
-    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt2 : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
     let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
-    let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize) (by scalar_tac)
+    let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt3 : i6.val < buf.val.length := by rw [hi6, hiv, hlen]; omega
     let* ⟨ i7, hi7 ⟩ ← Slice.index_usize_spec
     let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U16 i7 (by scalar_tac)
-    let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize) (by scalar_tac)
+    let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt4 : i8.val < buf.val.length := by rw [hi8, hiv, hlen]; omega
     let* ⟨ i9, hi9 ⟩ ← Slice.index_usize_spec
     let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U16 i9 (by scalar_tac)
@@ -1002,7 +1025,8 @@ theorem cbd_loop1_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       rw [hb3v]; have := (buf.val[5 * iter.start.val + 3]!).hBounds; omega
     have hb4lt : b4.val < 2 ^ 8 := by
       rw [hb4v]; have := (buf.val[5 * iter.start.val + 4]!).hBounds; omega
-    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
     -- `half_mu = (MU / 2) as u32`, computed once per group
     let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
@@ -1052,7 +1076,8 @@ theorem cbd_loop1_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       exact h i' hi'
     let* ⟨ i16, hi16 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val + 1) i15
       half_mu rfl hhmvv (by omega) hbits1
-    let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
     -- coefficient 4g+2 : pair (5g+2, 5g+3) shifted by 4
     let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
@@ -1077,7 +1102,8 @@ theorem cbd_loop1_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       exact h i' hi'
     let* ⟨ i21, hi21 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val + 2) i20
       half_mu rfl hhmvv (by omega) hbits2
-    let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
     -- coefficient 4g+3 : pair (5g+3, 5g+4) shifted by 6
     let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
@@ -1102,7 +1128,8 @@ theorem cbd_loop1_spec (MU : Usize) (iter : core.ops.range.Range Usize) (buf : S
       exact h i' hi'
     let* ⟨ i26, hi26 ⟩ ← cbd_diff_coeff_spec buf 10 5 (4 * iter.start.val + 3) i25
       half_mu rfl hhmvv (by omega) hbits3
-    let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
+    let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     have hav : a.val = out.val.set (4 * iter.start.val) i12 := by rw [ha, Array.set_val_eq, ho1v]
     have ha1v : a1.val = a.val.set (4 * iter.start.val + 1) i16 := by
@@ -1163,28 +1190,34 @@ theorem cbd_loop1_bd (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Sli
   · let* ⟨ g, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hg : iter.start.val < 64 := by omega
-    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 5#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (x := 5#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hiv : i.val = 5 * iter.start.val := by rw [hi]
     have hlt0 : i.val < buf.val.length := by rw [hiv, hlen]; omega
     let* ⟨ i1, hi1 ⟩ ← Slice.index_usize_spec
     let* ⟨ b0, hb0 ⟩ ← UScalar.cast_inBounds_spec .U16 i1 (by scalar_tac)
-    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i2, hi2 ⟩ ← Std.Usize.add_spec (x := i) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt1 : i2.val < buf.val.length := by rw [hi2, hiv, hlen]; omega
     let* ⟨ i3, hi3 ⟩ ← Slice.index_usize_spec
     let* ⟨ b1, hb1 ⟩ ← UScalar.cast_inBounds_spec .U16 i3 (by scalar_tac)
-    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i4, hi4 ⟩ ← Std.Usize.add_spec (x := i) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt2 : i4.val < buf.val.length := by rw [hi4, hiv, hlen]; omega
     let* ⟨ i5, hi5 ⟩ ← Slice.index_usize_spec
     let* ⟨ b2, hb2 ⟩ ← UScalar.cast_inBounds_spec .U16 i5 (by scalar_tac)
-    let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize) (by scalar_tac)
+    let* ⟨ i6, hi6 ⟩ ← Std.Usize.add_spec (x := i) (y := 3#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt3 : i6.val < buf.val.length := by rw [hi6, hiv, hlen]; omega
     let* ⟨ i7, hi7 ⟩ ← Slice.index_usize_spec
     let* ⟨ b3, hb3 ⟩ ← UScalar.cast_inBounds_spec .U16 i7 (by scalar_tac)
-    let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize) (by scalar_tac)
+    let* ⟨ i8, hi8 ⟩ ← Std.Usize.add_spec (x := i) (y := 4#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have hlt4 : i8.val < buf.val.length := by rw [hi8, hiv, hlen]; omega
     let* ⟨ i9, hi9 ⟩ ← Slice.index_usize_spec
     let* ⟨ b4, hb4 ⟩ ← UScalar.cast_inBounds_spec .U16 i9 (by scalar_tac)
-    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start) (by scalar_tac)
+    let* ⟨ o1, ho1 ⟩ ← Std.Usize.mul_spec (x := 4#usize) (y := iter.start)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     have ho1v : o1.val = 4 * iter.start.val := by rw [ho1]
     -- `half_mu = (MU / 2) as u32`, computed once per group
     let* ⟨ hm0, hhm0 ⟩ ← Std.Usize.div_spec
@@ -1200,21 +1233,24 @@ theorem cbd_loop1_bd (MU : Usize) (iter : core.ops.range.Range Usize) (buf : Sli
     let* ⟨ i15, hi15, hi15bv ⟩ ←
       Std.U16.ShiftRight_IScalar_spec (b1 ||| i13) 2#i32 (by decide) (by decide)
     let* ⟨ i16, hi16 ⟩ ← cbd_diff_bd i15 half_mu 5 hhmvv (by omega)
-    let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize) (by scalar_tac)
+    let* ⟨ i17, hi17 ⟩ ← Std.Usize.add_spec (x := o1) (y := 1#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a1, ha1 ⟩ ← Array.update_spec
     let* ⟨ i18, hi18, hi18bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b3 8#i32 (by decide) (by decide)
     rw [show lift (b2 ||| i18) = ok (b2 ||| i18) from rfl, bind_tc_ok]
     let* ⟨ i20, hi20, hi20bv ⟩ ←
       Std.U16.ShiftRight_IScalar_spec (b2 ||| i18) 4#i32 (by decide) (by decide)
     let* ⟨ i21, hi21 ⟩ ← cbd_diff_bd i20 half_mu 5 hhmvv (by omega)
-    let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize) (by scalar_tac)
+    let* ⟨ i22, hi22 ⟩ ← Std.Usize.add_spec (x := o1) (y := 2#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a2, ha2 ⟩ ← Array.update_spec
     let* ⟨ i23, hi23, hi23bv ⟩ ← Std.U16.ShiftLeft_IScalar_spec b4 8#i32 (by decide) (by decide)
     rw [show lift (b3 ||| i23) = ok (b3 ||| i23) from rfl, bind_tc_ok]
     let* ⟨ i25, hi25, hi25bv ⟩ ←
       Std.U16.ShiftRight_IScalar_spec (b3 ||| i23) 6#i32 (by decide) (by decide)
     let* ⟨ i26, hi26 ⟩ ← cbd_diff_bd i25 half_mu 5 hhmvv (by omega)
-    let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize) (by scalar_tac)
+    let* ⟨ i27, hi27 ⟩ ← Std.Usize.add_spec (x := o1) (y := 3#usize)
+      (by have := usize_max_ge_1024; simp only [UScalar.ofNatCore_val_eq]; omega)
     let* ⟨ a3, ha3 ⟩ ← Array.update_spec
     have hav : a.val = out.val.set (4 * iter.start.val) i12 := by rw [ha, Array.set_val_eq, ho1v]
     have ha1v : a1.val = a.val.set (4 * iter.start.val + 1) i16 := by
