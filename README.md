@@ -67,8 +67,8 @@ If you want to **force a specific backend** to be used, you can do so via CFG fl
 # portable only: no unsafe, no runtime dispatch
 RUSTFLAGS='--cfg kopis_backend="serial"' cargo build
 
-# AVX2 unconditionally, with no runtime check and no fallback
-RUSTFLAGS='--cfg kopis_backend="avx2"' cargo build
+# AVX2 unconditionally, with no runtime check and no fallback; needs +avx2
+RUSTFLAGS='--cfg kopis_backend="avx2" -C target-feature=+avx2' cargo build
 
 # likewise NEON; needs +sha3, which aarch64-apple-darwin has by default
 RUSTFLAGS='--cfg kopis_backend="neon"' cargo build

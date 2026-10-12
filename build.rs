@@ -5,13 +5,10 @@
 //!
 //! # Selection
 //!
-//! By default the choice is automatic. On x86/x86-64 the AVX2 backend is compiled in alongside
-//! the serial one and selected at runtime via `cpufeatures`. On AArch64 targets that carry the
-//! `neon` and `sha3` target features with a hardfloat ABI, the NEON backend is compiled in and
-//! always selected, since the features are confirmed at build time. Either way the resulting
-//! binary runs everywhere for its architecture. Every other target gets the serial backend alone
-//! — including AArch64 without the ARMv8.2 SHA3 extension, and softfloat AArch64 targets such as
-//! `aarch64-unknown-none-softfloat`, where enabling NEON is ABI-unsound.
+//! By default the choice is automatic:
+//! * If the target CPU is x86/x86-64, the AVX2 backend is unconditionally compiled in alongside the serial one and selected at runtime via `cpufeatures`
+//! * If the target CPU is AArch64 with the `neon` and `sha3` target features with a hardfloat ABI, then the NEON backend is compiled in and always used at runtime
+//! * For any other architectures or AArch64 without SHA3 or with softfloat, the serial backend is used.
 //!
 //! The choice can be overridden with the `kopis_backend` cfg:
 //!
@@ -22,9 +19,12 @@
 //! ```
 //!
 //! * `serial` compiles only the portable backend
-//! * `avx2` and `neon` assert at build time that the instruction set really is available for the
-//!   target, then compile that backend *unconditionally*, with no runtime check and no fallback.
-//!   If it is not available the build fails with a panic from this script.
+//! * `avx2` and `neon` assert at build time that the target is compatible with the selected backend
+//! (panicking if false), then compile that backend unconditionally with no runtime check and no
+//! fallback.
+//!
+//! Finally, the build panics if any internal-only cfgs are passed in (`kopis_avx2`, `kopis_neon`,
+//! and their `_assume` forms).
 
 use std::env;
 
@@ -66,12 +66,11 @@ fn main() {
                     arch
                 );
             }
-            if !avx2_is_available() {
+            if !avx2_is_available_on_target() {
                 panic!(
-                    "kopis: --cfg kopis_backend=\"avx2\" was requested but AVX2 could not be \
-                     confirmed for this target. Either build with `-C target-feature=+avx2` \
-                     (or `-C target-cpu=native`) on a machine whose CPU supports AVX2, or drop \
-                     the override to get automatic runtime detection."
+                    "kopis: --cfg kopis_backend=\"avx2\" requires `avx2` in the target \
+                     features. Build with `-C target-feature=+avx2` (or a `-C target-cpu` that \
+                     implies it), or drop the override to get automatic runtime detection."
                 );
             }
             println!("cargo::rustc-cfg=kopis_avx2");
@@ -81,7 +80,7 @@ fn main() {
         // Forced NEON: verify it is actually available, then compile it in with no runtime
         // check. A failed verification is a hard build error, as requested.
         Some(Override::Neon) => {
-            if !neon_is_available(is_aarch64) {
+            if !neon_is_available_on_target(is_aarch64) {
                 panic!(
                     "kopis: --cfg kopis_backend=\"neon\" requires an AArch64 target with the \
                      `neon` and `sha3` target features and a non-softfloat ABI, but the target \
@@ -99,12 +98,12 @@ fn main() {
 
         // Autodetect: compile in the accelerated backend for the target's architecture and pick
         // at runtime. On x86 that is AVX2 behind a CPUID check; on AArch64 it is NEON whenever
-        // the target's feature set and ABI actually permit it (see `neon_is_available`), in
-        // which case the runtime check is a constant `true`.
+        // the target's feature set and ABI actually permit it (see `neon_is_available_on_target`),
+        // in which case the runtime check is a constant `true`.
         None => {
             if is_x86 {
                 println!("cargo::rustc-cfg=kopis_avx2");
-            } else if neon_is_available(is_aarch64) {
+            } else if neon_is_available_on_target(is_aarch64) {
                 println!("cargo::rustc-cfg=kopis_neon");
             }
         }
@@ -127,7 +126,7 @@ fn main() {
 /// `aarch64-apple-darwin` enables `sha3` by default, so a plain `cargo build` picks the backend up.
 /// Generic targets such as `aarch64-unknown-linux-gnu` do not, and stay serial unless the caller
 /// opts in with `-C target-feature=+sha3` or `-C target-cpu=native`.
-fn neon_is_available(is_aarch64: bool) -> bool {
+fn neon_is_available_on_target(is_aarch64: bool) -> bool {
     if !is_aarch64 {
         return false;
     }
@@ -139,7 +138,16 @@ fn neon_is_available(is_aarch64: bool) -> bool {
     has_neon && has_sha3 && !softfloat
 }
 
-/// Parses `--cfg kopis_backend="..."` out of the flags cargo is passing to rustc.
+/// The cfgs this script emits. Passing them in directly would bypass its checks.
+const INTERNAL_CFGS: [&str; 4] = [
+    "kopis_avx2",
+    "kopis_avx2_assume",
+    "kopis_neon",
+    "kopis_neon_assume",
+];
+
+/// Parses `--cfg kopis_backend="..."` out of the flags cargo is passing to rustc, rejecting any
+/// of [`INTERNAL_CFGS`].
 ///
 /// We read the flags rather than testing `cfg!(kopis_backend = ...)` directly because cargo
 /// does not reliably apply `RUSTFLAGS` to build scripts themselves (it does not when
@@ -172,6 +180,14 @@ fn backend_override() -> Option<Override> {
             continue;
         };
 
+        if INTERNAL_CFGS.contains(&spec) {
+            panic!(
+                "kopis: --cfg {} is internal to the build script. Use --cfg kopis_backend=... \
+                 instead.",
+                spec
+            );
+        }
+
         let Some(value) = spec.strip_prefix("kopis_backend=") else {
             continue;
         };
@@ -194,31 +210,9 @@ fn backend_override() -> Option<Override> {
     requested
 }
 
-/// Whether AVX2 can be assumed present for the target being built.
-///
-/// Two ways to know: it is in the target feature set the crate is compiled with, or the build
-/// is not a cross-compile and the host CPU has it.
-fn avx2_is_available() -> bool {
+/// Whether AVX2 can be assumed present for the target being built, i.e., it is in the target
+/// feature set the crate is compiled with
+fn avx2_is_available_on_target() -> bool {
     let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
-    if features.split(',').any(|feature| feature == "avx2") {
-        return true;
-    }
-
-    let host = env::var("HOST").unwrap_or_default();
-    let target = env::var("TARGET").unwrap_or_default();
-    if host.is_empty() || host != target {
-        return false;
-    }
-
-    host_has_avx2()
-}
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-fn host_has_avx2() -> bool {
-    std::arch::is_x86_feature_detected!("avx2")
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-fn host_has_avx2() -> bool {
-    false
+    features.split(',').any(|feature| feature == "avx2")
 }
