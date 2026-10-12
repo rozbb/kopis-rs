@@ -7,15 +7,13 @@ use criterion::{Criterion, criterion_group, criterion_main};
 // Only the graviola benchmark needs batched iteration.
 use criterion::BatchSize;
 
-// We use `iter_with_large_drop` everywhere because some of these backends do zeroization
-// and some do not. We even the playing field by not including `drop()` time in our
-// benchmarks.
+// We use `iter_with_large_drop` so that we do not count zeroization time
 
 macro_rules! bench_kopis_variant {
     ($bench_name:ident, $privkey_name:ident) => {
         fn $bench_name(c: &mut Criterion) {
             let seed = [0u8; 32];
-            let sk = $privkey_name::from_seed(&seed);
+            let sk = $privkey_name::from(&seed);
             let pk = sk.public_key().clone();
             let (ct, _) = pk.encapsulate_deterministic(&seed);
 
@@ -23,7 +21,7 @@ macro_rules! bench_kopis_variant {
             let mut group = c.benchmark_group(stringify!($bench_name));
 
             group.bench_with_input("gen-keypair-derand", &input, |b, (seed, ..)| {
-                b.iter_with_large_drop(|| $privkey_name::from_seed(seed))
+                b.iter_with_large_drop(|| $privkey_name::from(seed))
             });
 
             group.bench_with_input("encap-derand", &input, |b, (seed, _, pk, _)| {
@@ -39,225 +37,9 @@ macro_rules! bench_kopis_variant {
     };
 }
 
-macro_rules! bench_libcrux_variant {
-    ($bench_name:ident, $backend:ident, $mod_name:path) => {
-        fn $bench_name(c: &mut Criterion) {
-            use $mod_name as base_mod;
-
-            use base_mod::$backend::unpacked::*;
-
-            let kg_randomness = [0u8; 64];
-            let encap_randomness = [0u8; 32];
-
-            let kp = generate_key_pair(kg_randomness);
-            let (ct, _) = encapsulate(kp.public_key(), encap_randomness);
-
-            let input = (kg_randomness, encap_randomness, kp, ct);
-            let mut group = c.benchmark_group(stringify!($bench_name));
-
-            group.bench_with_input("gen-keypair-derand", &input, |b, (kg_randomness, ..)| {
-                b.iter_with_large_drop(|| generate_key_pair(*kg_randomness))
-            });
-
-            group.bench_with_input("encap-derand", &input, |b, (_, encap_randomness, kp, _)| {
-                // Borrowing the unpacked public key out of the keypair is not part of encap.
-                let pk = kp.public_key();
-                b.iter_with_large_drop(|| encapsulate(pk, *encap_randomness))
-            });
-
-            group.bench_with_input("decap", &input, |b, (_, _, kp, ct)| {
-                b.iter_with_large_drop(|| decapsulate(kp, ct))
-            });
-
-            group.finish();
-        }
-    };
-}
-
-macro_rules! bench_awslc_variant {
-    ($bench_name:ident, $level:ident) => {
-        fn $bench_name(c: &mut Criterion) {
-            use aws_lc_rs::kem;
-
-            let kg_randomness = [0u8; 64];
-            let encap_randomness = [0u8; 32];
-
-            let sk = kem::DecapsulationKey::generate(&kem::$level).unwrap();
-            let pk = sk.encapsulation_key().unwrap();
-            let (ct, _) = pk.encapsulate().unwrap();
-
-            let input = (sk, pk, ct);
-            let mut group = c.benchmark_group(stringify!($bench_name));
-
-            group.bench_function("keygen-derand", |b| {
-                b.iter_with_large_drop(|| {
-                    kem::DecapsulationKey::generate_deterministic(&kem::$level, &kg_randomness)
-                        .unwrap()
-                });
-            });
-
-            group.bench_with_input("encap-derand", &input, |b, (_, pk, _)| {
-                b.iter_with_large_drop(|| pk.encapsulate_deterministic(&encap_randomness).unwrap());
-            });
-
-            group.bench_with_input("decap", &input, |b, (sk, _, ct)| {
-                b.iter_with_large_drop(|| {
-                    let ct_shallow_copy = kem::Ciphertext::from(ct.as_ref());
-                    sk.decapsulate(ct_shallow_copy)
-                });
-            });
-        }
-    };
-}
-
-macro_rules! bench_selkie_variant {
-    ($bench_name:ident, $level:ident) => {
-        fn $bench_name(c: &mut Criterion) {
-            use mlkem_selkie::$level as base_mod;
-
-            let kg_randomness = [0u8; 64];
-            let encap_randomness = [0u8; 32];
-
-            // Generate an ML-KEM-768 decapsulation key from OS entropy (`getrandom`).
-            let sk = base_mod::DecapsulationKey::generate_derand(&kg_randomness);
-            let pk = sk.encapsulation_key().clone();
-            let (_, ct) = pk.encapsulate_derand(&encap_randomness);
-
-            let input = (sk, pk, ct);
-            let mut group = c.benchmark_group(stringify!($bench_name));
-
-            group.bench_function("keygen-derand", |b| {
-                b.iter_with_large_drop(|| {
-                    base_mod::DecapsulationKey::generate_derand(&kg_randomness)
-                });
-            });
-
-            group.bench_with_input("encap-derand", &input, |b, (_, pk, _)| {
-                b.iter_with_large_drop(|| pk.encapsulate_derand(&encap_randomness));
-            });
-
-            group.bench_with_input("decap", &input, |b, (sk, _, ct)| {
-                b.iter_with_large_drop(|| sk.decapsulate(ct));
-            });
-        }
-    };
-}
-
 bench_kopis_variant!(kopis512, Kopis512SecretKey);
 bench_kopis_variant!(kopis768, Kopis768SecretKey);
 bench_kopis_variant!(kopis1024, Kopis1024SecretKey);
 
-bench_libcrux_variant!(libcrux_serial_mlkem512, portable, libcrux_ml_kem::mlkem512);
-bench_libcrux_variant!(libcrux_serial_mlkem768, portable, libcrux_ml_kem::mlkem768);
-bench_libcrux_variant!(
-    libcrux_serial_mlkem1024,
-    portable,
-    libcrux_ml_kem::mlkem1024
-);
-
-// libcrux exposes its AVX2 backend only on x86, so these are absent on AArch64 — where they would
-// not merely be filtered out at run time but fail to compile.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-bench_libcrux_variant!(libcrux_avx2_mlkem512, avx2, libcrux_ml_kem::mlkem512);
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-bench_libcrux_variant!(libcrux_avx2_mlkem768, avx2, libcrux_ml_kem::mlkem768);
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-bench_libcrux_variant!(libcrux_avx2_mlkem1024, avx2, libcrux_ml_kem::mlkem1024);
-
-bench_awslc_variant!(awslc_mlkem512, ML_KEM_512);
-bench_awslc_variant!(awslc_mlkem768, ML_KEM_768);
-bench_awslc_variant!(awslc_mlkem1024, ML_KEM_1024);
-
-bench_selkie_variant!(selkie_mlkem512, mlkem512);
-bench_selkie_variant!(selkie_mlkem768, mlkem768);
-bench_selkie_variant!(selkie_mlkem1024, mlkem1024);
-
-// graviola has hand-written ML-KEM assembly for both x86_64 (AVX2) and AArch64 (NEON), behind one
-// portable API, so this benchmark builds and runs on either.
-fn graviola_mlkem768(c: &mut Criterion) {
-    use graviola::key_agreement::mlkem768::*;
-
-    let kg_randomness = [0u8; 64];
-    let encap_randomness = [0u8; 32];
-
-    // Derandomized throughout, to match the other two implementations' fixtures.
-    let sk = DecapKey::keygen_internal(&kg_randomness);
-    let pk = sk.encapsulation_key();
-    let (_, ct) = pk.clone().encaps_internal(Message(encap_randomness));
-
-    let input = (kg_randomness, encap_randomness, sk, pk, ct);
-    let mut group = c.benchmark_group("graviolamlkem768");
-
-    group.bench_with_input("gen-keypair-derand", &input, |b, (kg_randomness, ..)| {
-        b.iter_with_large_drop(|| DecapKey::keygen_internal(kg_randomness))
-    });
-
-    // We have to use iter_batched because we need to clone pk (around 6kB) on every
-    // iteration, since encaps_internal consumes. We'd like to measure the encap without
-    // the clone, hence iter_batched.
-    group.bench_with_input(
-        "encap-derand",
-        &input,
-        |b, (_, encap_randomness, _, pk, _)| {
-            b.iter_batched(
-                || pk.clone(),
-                |pk| pk.encaps_internal(Message(*encap_randomness)),
-                BatchSize::SmallInput,
-            )
-        },
-    );
-
-    group.bench_with_input("decap", &input, |b, (_, _, sk, _, ct)| {
-        b.iter_with_large_drop(|| sk.decaps_internal(ct))
-    });
-
-    group.finish();
-}
-
 criterion_group!(kopis_benches, kopis512, kopis768, kopis1024);
-criterion_group!(
-    awslc_benches,
-    awslc_mlkem512,
-    awslc_mlkem768,
-    awslc_mlkem1024
-);
-criterion_group!(
-    libcrux_serial_benches,
-    libcrux_serial_mlkem512,
-    libcrux_serial_mlkem768,
-    libcrux_serial_mlkem1024
-);
-criterion_group!(
-    selkie_benches,
-    selkie_mlkem512,
-    selkie_mlkem768,
-    selkie_mlkem1024
-);
-
-criterion_group!(graviola_benches, graviola_mlkem768);
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-criterion_group!(
-    libcrux_avx2_benches,
-    libcrux_avx2_mlkem512,
-    libcrux_avx2_mlkem768,
-    libcrux_avx2_mlkem1024
-);
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-criterion_main!(
-    kopis_benches,
-    libcrux_serial_benches,
-    libcrux_avx2_benches,
-    graviola_benches,
-    awslc_benches,
-    selkie_benches
-);
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-criterion_main!(
-    kopis_benches,
-    libcrux_serial_benches,
-    graviola_benches,
-    awslc_benches,
-    selkie_benches
-);
+criterion_main!(kopis_benches);
