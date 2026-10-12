@@ -20,11 +20,11 @@ use super::intrinsics::{
 use super::ser;
 
 use super::keccak::{WAYS, xof2};
-use zeroize::Zeroizing;
 use crate::{
     arithmetic::Matrix,
     consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU},
 };
+use zeroize::Zeroizing;
 
 /// TurboSHAKE128's rate, used for matrix expansion
 const RATE_128: usize = 168;
