@@ -515,6 +515,8 @@ import Kopis.Avx2.SampleBridge"""),
     ("ExpandSecretKey.lean",
      """  let* ⟨mat_a, hmata, hmatbnd⟩ ← spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3))
     (gen_matrix_uniformBounded (to_slice_mut_back s3))
+  let* ⟨ a3, ha3 ⟩ ← zeroizing_deref_spec
+  rw [a1_post2] at ha3; subst a3
   let* ⟨vec_s, hvecs, hvecbnd⟩ ← spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU)
     (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU)""",
      """  have hLsq : L.val * L.val + 4 ≤ Usize.max := by
@@ -524,6 +526,8 @@ import Kopis.Avx2.SampleBridge"""),
   let* ⟨mat_a, hmata, hmatbnd⟩ ←
     spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3) hLsq)
     (gen_matrix_uniformBounded (to_slice_mut_back s3) hLsq)
+  let* ⟨ a3, ha3 ⟩ ← zeroizing_deref_spec
+  rw [a1_post2] at ha3; subst a3
   let* ⟨vec_s, hvecs, hvecbnd⟩ ←
     spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU hL0 hL4)
     (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU hL0 hL4)"""),

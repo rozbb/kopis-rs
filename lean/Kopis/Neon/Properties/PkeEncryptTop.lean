@@ -83,7 +83,13 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   have hsb : ((MU.val / 2 : ℕ) : ℤ) ≤ 3840 := by
     rcases hMU with h | h | h <;> rw [h] <;> norm_num
   have hsm : SecretSmall vec_sprime := secretSmall_of_bounded hspbnd hsb
+  let* ⟨ vec_sprime_z, hvec_sprime_z ⟩ ← zeroizing_new_spec
+  let* ⟨ m1, hm1 ⟩ ← zeroizing_deref_spec
+  rw [hvec_sprime_z] at hm1; subst m1
   let* ⟨sprime_ntt, hspntt⟩ ← from_secret_matrix_spec vec_sprime hsm
+  let* ⟨ sprime_ntt_z, hsprime_ntt_z ⟩ ← zeroizing_new_spec
+  let* ⟨ nm1, hnm1 ⟩ ← zeroizing_deref_spec
+  rw [hsprime_ntt_z] at hnm1; subst nm1
   have hfitex : fitsExactly L.val ((MU.val / 2 : ℕ) : ℤ) := by
     have h := fitsExactly_paramSet p; rw [hℓ, hμ] at h; exact h
   -- rewrite the *spec* to be about the stored matrices, never the goal (rewriting the goal
@@ -120,11 +126,16 @@ theorem encrypt_deterministic_spec {L : Usize} (MU T : Usize)
   rw [show (lift msg.to_slice : Result (Slice U8)) = ok msg.to_slice from rfl, bind_tc_ok]
   have hmsgslen : msg.to_slice.length = 32 := by simp [Array.to_slice, Slice.length]
   let* ⟨a1, ha1⟩ ← deserialize_msg_spec msg.to_slice hmsgslen
+  let* ⟨ msg_z, hmsg_z ⟩ ← zeroizing_new_spec
+  let* ⟨ re, back, hre, hback ⟩ ← zeroizing_deref_mut_spec
+  rw [hmsg_z] at hre; subst re
   -- msg_polyn = a1 << 9
   let* ⟨e3, he3, _⟩ ← Std.Usize.sub_spec (x := 10#usize) (y := 1#usize) (by scalar_tac)
   have he3v : e3.val = 9 := by scalar_tac
   let* ⟨msg_polyn, hmp⟩ ← shift_left_spec a1 e3 (by scalar_tac)
   -- c = vprime1 - msg_polyn
+  let* ⟨ re2, hre2 ⟩ ← zeroizing_deref_spec
+  rw [hback] at hre2; subst re2
   let* ⟨c, hc⟩ ← sub_spec vprime1 msg_polyn
   -- c1 = c + 4
   let* ⟨c1, hc1⟩ ← wrapping_add_to_all_spec c 4#u16

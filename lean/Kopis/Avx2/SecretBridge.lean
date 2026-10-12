@@ -11,6 +11,7 @@
 import Kopis.Avx2.SampleBridge
 import Kopis.Avx2.CbdEq
 import Kopis.Avx2.Properties.GenSecretSpec
+import Kopis.Avx2.Properties.ZeroizeModel
 
 open Aeneas Aeneas.Std Result
 open RustKopisAvx2
@@ -18,6 +19,8 @@ open Kopis.Avx2
 open Kopis.Avx2.Keccak (min_usize_eq getElem!_list_set bytesOf msgOf getElem!_bytesOf
   getElem!_msgOf xof4_turboSHAKE)
 open Kopis.Properties (streamNat)
+open Kopis.Avx2.Properties (zeroizingVal zeroizing_new_spec zeroizing_deref_spec
+  zeroizing_deref_mut_spec)
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
@@ -106,6 +109,7 @@ serial `cbd_spec` and `cbd_row_eq_genSecret` carry the rest. -/
 theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 4#usize)
+    (w : zeroize.Zeroizing (Std.Array (Std.Array Std.U8 N) 4#usize)) (hw : zeroizingVal w = bufs)
     (secret : arithmetic.plain_arith.Matrix L 1#usize) (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hL4 : L.val ≤ 4) (hend : iter.«end».val = L.val) (hstart : iter.start.val ≤ L.val)
@@ -115,7 +119,7 @@ theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       sliceToBytes (Std.Array.to_slice (bufs.val[i]!)) (32 * MU.val) hs
         = turboSHAKE256 (arrayToBytes seed ‖ #v[(i : Byte)])
             Spec.Kopis.DOMSEP_GENSEC (32 * MU.val)) :
-    backend.avx2.sample.secret_loop1 MU iter bufs secret
+    backend.avx2.sample.secret_loop1 MU iter w secret
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if iter.start.val ≤ a
@@ -126,6 +130,8 @@ theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hi_lt : iter.start.val < L.val := by scalar_tac
+    let* ⟨ a, ha ⟩ ← zeroizing_deref_spec
+    rw [hw] at ha; subst a
     let* ⟨ buf, hbuf ⟩ ← Array.index_usize_spec bufs iter.start (by scalar_tac)
     have hbufv : buf = bufs.val[iter.start.val]! :=
       hbuf.trans (getElem!_pos bufs.val iter.start.val (by scalar_tac)).symm
@@ -169,7 +175,7 @@ theorem secret_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     let* ⟨ row, back, hrow2, hback ⟩ ← Array.index_mut_usize_spec secret iter.start (by scalar_tac)
     let* ⟨ row1, hrow1 ⟩ ← Array.update_spec
     apply WP.spec_mono
-      (secret_loop1_spec MU iter1 bufs (back row1) seed hMU hL4
+      (secret_loop1_spec MU iter1 bufs w hw (back row1) seed hMU hL4
         (by rw [hend']; exact hend) (by rw [hstart']; scalar_tac) hN hbridge)
     intro r hr a ha
     rw [hr a ha, hstart']
@@ -248,6 +254,9 @@ theorem avx2_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (xof4_turboSHAKE 136#usize 3#u8 seed indices1
       (Std.Array.repeat 4#usize (Std.Array.repeat N 0#u8)) 0 (by omega)
       (Or.inr rfl) (by decide) (by decide) (by decide) (by scalar_tac))
+  let* ⟨ bufs_z, hbufs_z ⟩ ← zeroizing_new_spec
+  let* ⟨ a3, zback, ha3, hzback ⟩ ← zeroizing_deref_mut_spec
+  rw [hbufs_z] at ha3; subst a3
   rw [hb1, bind_tc_ok]
   have hlane : ∀ l, l < 4 → ∀ j < N.val,
       ((bufs1.val[l]!).val[j]!).bv
@@ -262,7 +271,7 @@ theorem avx2_secret_spec (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
   simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
-    (secret_loop1_spec MU { start := 0#usize, «end» := L } bufs1 _ seed hMU hL4 rfl (by simp) hN
+    (secret_loop1_spec MU { start := 0#usize, «end» := L } bufs1 (zback bufs1) (hzback bufs1) _ seed hMU hL4 rfl (by simp) hN
       (fun i hi hs => bufBytes_eq1 seed (indices1.val[i]!) (bufs1.val[i]!) i MU.val
         (by rw [hidx i (by omega)]; congr 1; omega) hN (hlane i (by omega)) hs))
   intro r hr a ha
@@ -299,13 +308,14 @@ reasoning stripped, using `cbd_bd`. -/
 theorem secret_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 4#usize)
+    (w : zeroize.Zeroizing (Std.Array (Std.Array Std.U8 N) 4#usize)) (hw : zeroizingVal w = bufs)
     (secret : arithmetic.plain_arith.Matrix L 1#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hL4 : L.val ≤ 4) (hend : iter.«end».val = L.val) (hstart : iter.start.val ≤ L.val)
     (hN : N.val = 32 * MU.val)
     (hpre : ∀ a, a < L.val → a < iter.start.val → ∀ c, c < 256 →
       smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
-    backend.avx2.sample.secret_loop1 MU iter bufs secret
+    backend.avx2.sample.secret_loop1 MU iter w secret
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → ∀ c, c < 256 →
           smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.avx2.sample.secret_loop1
@@ -313,6 +323,8 @@ theorem secret_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
   · let* ⟨ o, iter1, ho, hstart', hend' ⟩ ← core.iter.range.IteratorRange.next_Usize_some_spec
     rw [ho]; simp only
     have hi_lt : iter.start.val < L.val := by scalar_tac
+    let* ⟨ a, ha ⟩ ← zeroizing_deref_spec
+    rw [hw] at ha; subst a
     let* ⟨ buf, hbuf ⟩ ← Array.index_usize_spec bufs iter.start (by scalar_tac)
     have hblen : (buf.val : List Std.U8).length = N.val := buf.property
     simp only [consts.RING_DEG]
@@ -344,7 +356,7 @@ theorem secret_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     let* ⟨ row, back, hrow2, hback ⟩ ← Array.index_mut_usize_spec secret iter.start (by scalar_tac)
     let* ⟨ row1, hrow1 ⟩ ← Array.update_spec
     apply WP.spec_mono
-      (secret_loop1_bd MU iter1 bufs (back row1) hMU hL4
+      (secret_loop1_bd MU iter1 bufs w hw (back row1) hMU hL4
         (by rw [hend']; exact hend) (by rw [hstart']; scalar_tac) hN ?_)
     · intro r hr
       exact hr
@@ -379,11 +391,14 @@ theorem avx2_secret_bd (L MU N : Std.Usize) (seed : Std.Array Std.U8 32#usize)
     (Kopis.Avx2.Keccak.xof4_turboSHAKE 136#usize 3#u8 seed indices1
       (Std.Array.repeat 4#usize (Std.Array.repeat N 0#u8)) 0 (by omega)
       (Or.inr rfl) (by decide) (by decide) (by decide) (by scalar_tac))
+  let* ⟨ bufs_z, hbufs_z ⟩ ← zeroizing_new_spec
+  let* ⟨ a3, zback, ha3, hzback ⟩ ← zeroizing_deref_mut_spec
+  rw [hbufs_z] at ha3; subst a3
   rw [hb1, bind_tc_ok]
   simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok]
   apply WP.spec_mono
-    (secret_loop1_bd MU { start := 0#usize, «end» := L } bufs1 _ hMU hL4 rfl (by simp) hN
+    (secret_loop1_bd MU { start := 0#usize, «end» := L } bufs1 (zback bufs1) (hzback bufs1) _ hMU hL4 rfl (by simp) hN
       (by intro a ha ha2 c hc; simp at ha2))
   intro r hr
   exact hr

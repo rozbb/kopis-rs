@@ -4,6 +4,7 @@
 import Kopis.Bits.Stream
 import Kopis.Avx2.Properties.GenSecretSpec
 import Kopis.Avx2.SecretBridge
+import Kopis.Avx2.Properties.ZeroizeModel
 open Aeneas Aeneas.Std Result RustKopisAvx2
 open scoped BigOperators
 open Spec (𝔹)
@@ -161,6 +162,9 @@ theorem gen_secret_from_seed_spec (L MU : Usize) (seed : Array U8 32#usize)
   simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
   have hMUle : MU.val ≤ 10 := by omega
+  let* ⟨ w, hw ⟩ ← zeroizing_new_spec
+  let* ⟨ a1, _, ha1, _ ⟩ ← zeroizing_deref_mut_spec
+  rw [hw] at ha1; subst ha1
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show (256#usize).val * MU.val ≤ Usize.max by
     rw [show (256#usize).val = 256 from rfl]
     calc 256 * MU.val ≤ 256 * 10 := by omega
@@ -266,6 +270,9 @@ theorem gen_secret_from_seed_bd (L MU : Usize) (seed : Array U8 32#usize)
   simp only [arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default,
     arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default, bind_tc_ok, consts.RING_DEG]
   have hMUle : MU.val ≤ 10 := by omega
+  let* ⟨ w, hw ⟩ ← zeroizing_new_spec
+  let* ⟨ a1, _, ha1, _ ⟩ ← zeroizing_deref_mut_spec
+  rw [hw] at ha1; subst ha1
   let* ⟨ i, hi ⟩ ← Std.Usize.mul_spec (show (256#usize).val * MU.val ≤ Usize.max by
     rw [show (256#usize).val = 256 from rfl]
     calc 256 * MU.val ≤ 256 * 10 := by omega

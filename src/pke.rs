@@ -9,7 +9,7 @@ use crate::{
 
 use turboshake::CTurboShake256;
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 const H1_VAL: u16 = 1 << (13 - 10 - 1);
 
@@ -136,7 +136,7 @@ pub(crate) fn expand_secret_key<const L: usize, const MU: usize>(
 ) -> (PkeSecretKey<L>, [u8; 32], PkePublicKey<L>, [u8; 32]) {
     // mat_seed || secret_seed || r = TurboSHAKE256(sk || ℓ, 96, DOMSEP_KGEXPAND)
     let mut mat_seed = [0u8; 32];
-    let mut secret_seed = [0u8; 32];
+    let mut secret_seed = Zeroizing::new([0u8; 32]);
     let mut z = [0u8; 32];
 
     let mut xof = {
@@ -146,11 +146,11 @@ pub(crate) fn expand_secret_key<const L: usize, const MU: usize>(
         hasher.finalize_xof()
     };
     xof.read(&mut mat_seed);
-    xof.read(&mut secret_seed);
+    xof.read(&mut *secret_seed);
     xof.read(&mut z);
 
     let mat_a = gen_matrix_from_seed::<L>(&mat_seed);
-    let vec_s = gen_secret_from_seed::<L, MU>(&secret_seed);
+    let vec_s = Zeroizing::new(gen_secret_from_seed::<L, MU>(&secret_seed));
     let mat_a_ntt = NttMatrix::from_uniform_matrix(&mat_a);
     let vec_s_ntt = NttMatrix::from_secret_matrix(&vec_s);
 
@@ -198,11 +198,11 @@ pub(crate) fn decrypt<const L: usize, const T: usize>(
     let mut c = RingElem::deserialize::<T>(c_bytes);
     c.shift_left(10 - T);
 
-    let v = bprime_ntt.mul_transpose(&sk.0);
-    let v = v.0[0][0];
+    let v = Zeroizing::new(bprime_ntt.mul_transpose(&sk.0));
+    let v = Zeroizing::new(v.0[0][0]);
 
     // Compute v - c + h₂
-    let mut mprime = &v - &c;
+    let mut mprime = Zeroizing::new(&*v - &c);
     let h2_val = (1 << (10 - 2)) - (1 << (10 - T - 1)) + (1 << (13 - 10 - 1));
     mprime.wrapping_add_to_all(h2_val);
     mprime.shift_right(10 - 1);
@@ -222,8 +222,8 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
 ) {
     assert_eq!(out_buf.len(), ciphertext_len::<L, T>());
 
-    let vec_sprime = gen_secret_from_seed::<L, MU>(randomness);
-    let sprime_ntt = NttMatrix::from_secret_matrix(&vec_sprime);
+    let vec_sprime = Zeroizing::new(gen_secret_from_seed::<L, MU>(randomness));
+    let sprime_ntt = Zeroizing::new(NttMatrix::from_secret_matrix(&vec_sprime));
 
     let bprime = {
         let mut prod = pk.mat_a_ntt.mul(&sprime_ntt);
@@ -235,11 +235,11 @@ pub(crate) fn encrypt_deterministic<const L: usize, const MU: usize, const T: us
     let vprime: Matrix<1, 1> = pk.vec_ntt.mul_transpose(&sprime_ntt);
     let vprime = vprime.0[0][0];
 
-    let mut msg_polyn = RingElem(deserialize_generic::<RING_DEG, 1>(msg));
+    let mut msg_polyn = Zeroizing::new(RingElem(deserialize_generic::<RING_DEG, 1>(msg)));
     msg_polyn.shift_left(10 - 1);
 
     // Compute v' - mp + h₁
-    let mut c = &vprime - &msg_polyn;
+    let mut c = &vprime - &*msg_polyn;
     c.wrapping_add_to_all(H1_VAL);
     c.shift_right(10 - T);
 

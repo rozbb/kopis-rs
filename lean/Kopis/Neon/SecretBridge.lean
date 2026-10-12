@@ -17,6 +17,7 @@
 import Kopis.Neon.SampleBridge
 import Kopis.Neon.CbdDispatch
 import Kopis.Neon.Properties.GenSecretSpec
+import Kopis.Neon.Properties.ZeroizeModel
 
 open Aeneas Aeneas.Std Result
 open RustKopisNeon
@@ -24,6 +25,8 @@ open Kopis.Neon
 open Kopis.Neon.Keccak (min_usize_eq xof2_turboSHAKE)
 open Kopis.Keccak (getElem!_list_set bytesOf msgOf getElem!_bytesOf getElem!_msgOf)
 open Kopis.Properties (streamNat)
+open Kopis.Neon.Properties (zeroizingVal zeroizing_new_spec zeroizing_deref_spec
+  zeroizing_deref_mut_spec)
 open Spec (𝔹)
 open scoped Spec.Notations
 open Spec.TurboSHAKE (turboSHAKE256)
@@ -115,7 +118,9 @@ and `cbd_row_eq_genSecret` carry the rest. -/
 theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
     (secret : arithmetic.plain_arith.Matrix L 1#usize) (first : Std.Usize)
-    (bufs : Std.Array (Std.Array Std.U8 N) 2#usize) (seed : Std.Array Std.U8 32#usize)
+    (bufs : Std.Array (Std.Array Std.U8 N) 2#usize)
+    (w : zeroize.Zeroizing (Std.Array (Std.Array Std.U8 N) 2#usize)) (hw : zeroizingVal w = bufs)
+    (seed : Std.Array Std.U8 32#usize)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hend : iter.«end».val = 2) (hstart : iter.start.val ≤ 2)
     (hN : N.val = 32 * MU.val) (hmax : first.val + 2 ≤ Std.Usize.max)
@@ -124,7 +129,7 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       sliceToBytes (Std.Array.to_slice (bufs.val[lane]!)) (32 * MU.val) hs
         = turboSHAKE256 (arrayToBytes seed ‖ #v[((first.val + lane : ℕ) : Byte)])
             Spec.Kopis.DOMSEP_GENSEC (32 * MU.val)) :
-    backend.neon.sample.secret_loop0_loop1 MU iter secret first bufs
+    backend.neon.sample.secret_loop0_loop1 MU iter secret first w
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
           toRingElem13 ((r.val[a]!).val[0]!)
             = if first.val + iter.start.val ≤ a ∧ a < first.val + 2
@@ -140,6 +145,8 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     by_cases hin : i < L
     · rw [if_pos hin]
       have hi_lt : i.val < L.val := by scalar_tac
+      let* ⟨ a, ha ⟩ ← zeroizing_deref_spec
+      rw [hw] at ha; subst a
       let* ⟨ buf, hbuf ⟩ ← Array.index_usize_spec bufs iter.start (by scalar_tac)
       have hbufv : buf = bufs.val[iter.start.val]! :=
         hbuf.trans (getElem!_pos bufs.val iter.start.val (by scalar_tac)).symm
@@ -187,7 +194,7 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
             = if a = i.val
               then (Spec.Kopis.Explicit.GenSecret L.val MU.val (arrayToBytes seed))[i.val]'hi_lt
               else toRingElem13 ((secret.val[a]!).val[0]!)) →
-          backend.neon.sample.secret_loop0_loop1 MU iter1 m first bufs
+          backend.neon.sample.secret_loop0_loop1 MU iter1 m first w
             ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a < L.val,
                 toRingElem13 ((r.val[a]!).val[0]!)
                   = if first.val + iter.start.val ≤ a ∧ a < first.val + 2
@@ -195,7 +202,7 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
                     else toRingElem13 ((secret.val[a]!).val[0]!) ⦄ := by
         intro m hm
         apply WP.spec_mono
-          (secret_loop0_loop1_spec MU iter1 m first bufs seed hMU
+          (secret_loop0_loop1_spec MU iter1 m first bufs w hw seed hMU
             (by rw [hend']; exact hend) (by rw [hstart']; omega) hN hmax hbridge)
         intro r hr a ha
         rw [hr a ha, hstart']
@@ -248,7 +255,7 @@ theorem secret_loop0_loop1_spec {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     · rw [if_neg hin]
       have hge : L.val ≤ first.val + iter.start.val := by scalar_tac
       apply WP.spec_mono
-        (secret_loop0_loop1_spec MU iter1 secret first bufs seed hMU
+        (secret_loop0_loop1_spec MU iter1 secret first bufs w hw seed hMU
           (by rw [hend']; exact hend) (by rw [hstart']; omega) hN hmax hbridge)
       intro r hr a ha
       rw [hr a ha, hstart', if_neg (by omega), if_neg (by omega)]
@@ -328,6 +335,9 @@ theorem secret_loop0_spec {L : Std.Usize} (MU N : Std.Usize) (seed : Std.Array S
       (xof2_turboSHAKE 136#usize 3#u8 seed indices1
         (Std.Array.repeat 2#usize (Std.Array.repeat N 0#u8)) 0 (by omega)
         (Or.inr rfl) (by decide) (by decide) (by decide) (by scalar_tac))
+    let* ⟨ bufs_z, hbufs_z ⟩ ← zeroizing_new_spec
+    let* ⟨ a3, zback, ha3, hzback ⟩ ← zeroizing_deref_mut_spec
+    rw [hbufs_z] at ha3; subst a3
     rw [hb1, bind_tc_ok]
     have hbufl : ∀ l, l < 2 → ∀ j < N.val,
         ((bufs1.val[l]!).val[j]!).bv
@@ -340,7 +350,7 @@ theorem secret_loop0_spec {L : Std.Usize} (MU N : Std.Usize) (seed : Std.Array S
       simp only [WP.spec_ok] at h
       exact h
     let* ⟨ secret1, hs1 ⟩ ← secret_loop0_loop1_spec MU { start := 0#usize, «end» := 2#usize }
-      secret first bufs1 seed hMU (by decide) (by simp) hN (by omega)
+      secret first bufs1 (zback bufs1) (hzback bufs1) seed hMU (by decide) (by simp) hN (by omega)
       (fun lane hln hrow hs => bufBytes_eq1 seed (indices1.val[lane]!) (bufs1.val[lane]!)
         (first.val + lane) MU.val
         (by rw [hidx lane hln]; congr 1; simp only [batchRow]; omega) hN
@@ -413,12 +423,13 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     (iter : core.ops.range.Range Std.Usize)
     (secret : arithmetic.plain_arith.Matrix L 1#usize) (first : Std.Usize)
     (bufs : Std.Array (Std.Array Std.U8 N) 2#usize)
+    (w : zeroize.Zeroizing (Std.Array (Std.Array Std.U8 N) 2#usize)) (hw : zeroizingVal w = bufs)
     (hMU : MU.val = 6 ∨ MU.val = 8 ∨ MU.val = 10)
     (hend : iter.«end».val = 2) (hstart : iter.start.val ≤ 2)
     (hN : N.val = 32 * MU.val) (hmax : first.val + 2 ≤ Std.Usize.max)
     (hpre : ∀ a, a < L.val → a < first.val + iter.start.val →
       ∀ c, c < 256 → smallSignedU16 (((secret.val[a]!).val[0]!).val[c]!) (MU.val / 2)) :
-    backend.neon.sample.secret_loop0_loop1 MU iter secret first bufs
+    backend.neon.sample.secret_loop0_loop1 MU iter secret first w
       ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val → a < first.val + 2 →
           ∀ c, c < 256 → smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
   unfold backend.neon.sample.secret_loop0_loop1
@@ -431,6 +442,8 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     by_cases hin : i < L
     · rw [if_pos hin]
       have hi_lt : i.val < L.val := by scalar_tac
+      let* ⟨ a, ha ⟩ ← zeroizing_deref_spec
+      rw [hw] at ha; subst a
       let* ⟨ buf, hbuf ⟩ ← Array.index_usize_spec bufs iter.start (by scalar_tac)
       have hblen : (buf.val : List Std.U8).length = N.val := buf.property
       simp only [consts.RING_DEG]
@@ -458,13 +471,13 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
       have hcomb : ∀ (m : arithmetic.plain_arith.Matrix L 1#usize),
           (∀ a, a < L.val → a < first.val + (iter.start.val + 1) →
             ∀ c, c < 256 → smallSignedU16 (((m.val[a]!).val[0]!).val[c]!) (MU.val / 2)) →
-          backend.neon.sample.secret_loop0_loop1 MU iter1 m first bufs
+          backend.neon.sample.secret_loop0_loop1 MU iter1 m first w
             ⦃ (r : arithmetic.plain_arith.Matrix L 1#usize) => ∀ a, a < L.val →
                 a < first.val + 2 → ∀ c, c < 256 →
                 smallSignedU16 (((r.val[a]!).val[0]!).val[c]!) (MU.val / 2) ⦄ := by
         intro m hm
         apply WP.spec_mono
-          (secret_loop0_loop1_bd MU iter1 m first bufs hMU
+          (secret_loop0_loop1_bd MU iter1 m first bufs w hw hMU
             (by rw [hend']; exact hend) (by rw [hstart']; omega) hN hmax
             (fun a ha hout c hc => hm a ha (by rw [hstart'] at hout; exact hout) c hc))
         intro r hr
@@ -509,7 +522,7 @@ theorem secret_loop0_loop1_bd {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
     · rw [if_neg hin]
       have hge : L.val ≤ first.val + iter.start.val := by scalar_tac
       apply WP.spec_mono
-        (secret_loop0_loop1_bd MU iter1 secret first bufs hMU
+        (secret_loop0_loop1_bd MU iter1 secret first bufs w hw hMU
           (by rw [hend']; exact hend) (by rw [hstart']; omega) hN hmax
           (fun a ha ha2 c hc => hpre a ha (by rw [hstart'] at ha2; omega) c hc))
       intro r hr
@@ -545,9 +558,12 @@ theorem secret_loop0_bd {L : Std.Usize} (MU N : Std.Usize) (seed : Std.Array Std
       (xof2_turboSHAKE 136#usize 3#u8 seed indices1
         (Std.Array.repeat 2#usize (Std.Array.repeat N 0#u8)) 0 (by omega)
         (Or.inr rfl) (by decide) (by decide) (by decide) (by scalar_tac))
+    let* ⟨ bufs_z, hbufs_z ⟩ ← zeroizing_new_spec
+    let* ⟨ a3, zback, ha3, hzback ⟩ ← zeroizing_deref_mut_spec
+    rw [hbufs_z] at ha3; subst a3
     rw [hb1, bind_tc_ok]
     let* ⟨ secret1, hs1 ⟩ ← secret_loop0_loop1_bd MU { start := 0#usize, «end» := 2#usize }
-      secret first bufs1 hMU (by decide) (by simp) hN (by omega)
+      secret first bufs1 (zback bufs1) (hzback bufs1) hMU (by decide) (by simp) hN (by omega)
       (fun a ha ha2 c hc => hpre a ha (by simpa using ha2) c hc)
     let* ⟨ first1, hf1 ⟩ ← Std.Usize.add_spec (x := first) (y := 2#usize) (by scalar_tac)
     apply WP.spec_mono

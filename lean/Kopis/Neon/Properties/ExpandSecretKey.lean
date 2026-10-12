@@ -317,10 +317,15 @@ theorem expand_secret_key_spec (L MU : Usize) (sk : Array U8 32#usize)
   let* ⟨mat_a, hmata, hmatbnd⟩ ←
     spec_and (gen_matrix_from_seed_spec L (to_slice_mut_back s3) hLsq)
     (gen_matrix_uniformBounded (to_slice_mut_back s3) hLsq)
+  let* ⟨ a3, ha3 ⟩ ← zeroizing_deref_spec
+  rw [a1_post2] at ha3; subst a3
   let* ⟨vec_s, hvecs, hvecbnd⟩ ←
     spec_and (gen_secret_from_seed_spec L MU (to_slice_mut_back1 s5) hMU hL0 hL4)
     (gen_secret_secretBounded (to_slice_mut_back1 s5) hMU hL0 hL4)
+  let* ⟨ vec_s_z, hvec_s_z ⟩ ← zeroizing_new_spec
   let* ⟨mat_a_ntt, hmata_ntt⟩ ← from_uniform_matrix_spec mat_a
+  let* ⟨ m1, hm1 ⟩ ← zeroizing_deref_spec
+  rw [hvec_s_z] at hm1; subst m1
   have hsb : ((MU.val / 2 : ℕ) : ℤ) ≤ 3840 := by
     rcases hMU with h | h | h <;> rw [h] <;> norm_num
   have hsm : SecretSmall vec_s := secretSmall_of_bounded hvecbnd hsb

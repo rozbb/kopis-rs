@@ -16,6 +16,7 @@ use super::intrinsics::{
     srl_epi16, srli_epi16, store_u16, sub_epi16,
 };
 use super::{keccak::xof4, ser};
+use zeroize::Zeroizing;
 
 /// TurboSHAKE128's rate, used for matrix expansion
 const RATE_128: usize = 168;
@@ -174,8 +175,8 @@ fn secret<const L: usize, const MU: usize, const N: usize>(seed: &[u8; 32]) -> M
         indices[lane][0] = core::cmp::min(lane, L - 1) as u8;
     }
 
-    let mut bufs = [[0u8; N]; 4];
-    xof4::<RATE_256, DOMSEP_GENSEC, 1, N>(seed, &indices, &mut bufs);
+    let mut bufs = Zeroizing::new([[0u8; N]; 4]);
+    xof4::<RATE_256, DOMSEP_GENSEC, 1, N>(seed, &indices, &mut *bufs);
 
     let mut secret = Matrix::default();
     for i in 0..L {

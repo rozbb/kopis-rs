@@ -120,10 +120,13 @@ theorem encap_deterministic_spec {L : Usize} (MU T : Usize)
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hk1val]; exact hkbytes
   have hr1bytes : arrayToBytes (to_slice_mut_back1 s5) = Spec.slice b 32 32 (by omega) := by
     apply Vector.toList_inj.mp; rw [arrayToBytes_toList, hr1val]; exact hrbytes
+  rw [a3_post2] at a5_post; subst a5
   -- run the PKE encryption on (msg = randomness, coins = r1)
   let* ⟨out_buf1, hlen1, hct1⟩ ← encrypt_deterministic_spec MU T kem_pk.pke_pk randomness
     (to_slice_mut_back1 s5) out_buf p hℓ hμ ht hMU hT hL0 hL4 hfit hlenout pk_bytes V Amat
     hpkvecfwd hpkmatfwd hpkvec hpkvecbnd hpkmat hpkmatbnd
+  let* ⟨ a7, ha7 ⟩ ← zeroizing_deref_spec
+  rw [a2_post2] at ha7; subst a7
   -- the FO squeeze matches the spec's `b = turboSHAKE256 (randomness ‖ pkh)`
   have hbspec : b = turboSHAKE256 (((arrayToBytes randomness).cast rfl)
       ‖ turboSHAKE256 pk_bytes DOMSEP_PKHASH 32) DOMSEP_FO 64 := by

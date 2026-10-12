@@ -54,3 +54,4 @@ import Kopis.Avx2.Properties.SerializeSpec
 import Kopis.Avx2.Properties.SerializeSpec2
 import Kopis.Avx2.Properties.SerializeTop
 import Kopis.Avx2.Properties.SubtleModel
+import Kopis.Avx2.Properties.ZeroizeModel

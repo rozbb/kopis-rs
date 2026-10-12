@@ -77,8 +77,10 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   let* ⟨randomness, hrand⟩ ← decrypt_spec T sk.pke_sk ciphertext p sk_seed ((MU.val / 2 : ℕ) : ℤ)
     hℓ ht hT hfit hfitex S hskfwd hskbnd
     (by rcases hMU with h | h | h <;> rw [h] <;> norm_num) hlenct hsk
+  let* ⟨ randomness_z, hrandomness_z ⟩ ← zeroizing_new_spec
   -- FO XOF: k / rprime windows from the 64-byte squeeze
   step*
+  rw [hrandomness_z] at a3_post; subst a3
   have habs : hasherAbsorbed hasher2 = randomness.val ++ sk.kem_pk.hash_pke_pk.val := by
     rw [hasher2_post, hasher1_post, hasher_post, s_post, s1_post]; simp [Array.to_slice]
   have hrm0 : readerModel xof = (5#u8, randomness.val ++ sk.kem_pk.hash_pke_pk.val) := by
@@ -115,6 +117,7 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   -- reconstructed ciphertext buffer (handled by step*)
   have hrclen : reconstructed_ct.length = Spec.Kopis.Explicit.ctSize p := by
     rw [reconstructed_ct_post2, hrvv]
+  rw [a5_post2] at a9_post; subst a9
   -- re-encrypt with (msg = randomness, coins = rprime)
   let* ⟨reconstructed_ct1, hrc1len, hrc1eq⟩ ← encrypt_deterministic_spec MU T sk.kem_pk.pke_pk randomness
     (to_slice_mut_back1 s5) reconstructed_ct p hℓ hμ ht hMU ⟨by omega, by omega⟩ hfit hrclen
@@ -123,8 +126,13 @@ theorem decap_spec {L : Usize} (MU T : Usize) (sk : kem.KemSecretKey L)
   rw [show (lift (Array.to_slice sk.z) : Result (Slice U8)) = ok (Array.to_slice sk.z) from rfl,
     bind_tc_ok]
   let* ⟨reject_val, hreject⟩ ← turboshake256_hash_spec 6#u8 (Array.to_slice sk.z) ciphertext
+  let* ⟨ reject_z, hreject_z ⟩ ← zeroizing_new_spec
   -- constant-time compare + select
   let* ⟨matched, hmatched⟩ ← ct_eq_slice_u8_spec reconstructed_ct1 ciphertext
+  let* ⟨ a11, ha11 ⟩ ← zeroizing_deref_spec
+  rw [hreject_z] at ha11; subst a11
+  let* ⟨ a13, ha13 ⟩ ← zeroizing_deref_spec
+  rw [a4_post2] at ha13; subst a13
   let* ⟨out, hout⟩ ← conditional_select_array_u8_spec reject_val (to_slice_mut_back s3) matched
   -- === final assembly ===
   -- structural fact: `pkh` component is the hash of the `pk` component

@@ -7,6 +7,7 @@ use crate::{
 
 use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::{CTurboShake128, CTurboShake256};
+use zeroize::Zeroizing;
 
 /// One CBD coefficient: popcount of the low `half_mu` bits of `raw`, minus popcount of
 /// the next `half_mu` bits
@@ -100,7 +101,7 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
     let mut secret = Matrix::default();
     // Buffer to hold XOF bytes. Can't do const math here, so we make it the max size
     // and cut it down
-    let mut backing_buf = [0u8; RING_DEG * MAX_MU / 8];
+    let mut backing_buf = Zeroizing::new([0u8; RING_DEG * MAX_MU / 8]);
     let buf = &mut backing_buf[..RING_DEG * MU / 8];
 
     // Sample the secret using the Centered Binomial Distribution. Both vector backends have

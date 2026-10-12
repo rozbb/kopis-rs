@@ -4,6 +4,7 @@ import ExtractedRustSerial
 import Kopis.Properties.RingArith
 import Kopis.Properties.Serialize
 import Kopis.Properties.GenMatrix
+import Kopis.Properties.ZeroizeModel
 import Kopis.Properties.MatrixArith
 import Kopis.Properties.Ntt
 import Kopis.Properties.NttCrtZeta

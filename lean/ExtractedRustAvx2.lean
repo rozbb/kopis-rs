@@ -331,6 +331,42 @@ def Array.Insts.ZeroizeZeroize {Z : Type} (N : Std.Usize) (ZeroizeInst :
   zeroize := Array.Insts.ZeroizeZeroize.zeroize ZeroizeInst
 }
 
+/-- [zeroize::Zeroizing]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 604:0-604:41
+    Name pattern: [zeroize::Zeroizing]
+    Visibility: public -/
+@[rust_type "zeroize::Zeroizing"]
+axiom zeroize.Zeroizing (Z : Type) : Type
+
+/-- [zeroize::{zeroize::Zeroizing<Z>}::new]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 613:4-613:32
+    Name pattern: [zeroize::{zeroize::Zeroizing<@Z>}::new]
+    Visibility: public -/
+@[rust_fun "zeroize::{zeroize::Zeroizing<@Z>}::new"]
+axiom zeroize.Zeroizing.new
+  {Z : Type} (ZeroizeInst : zeroize.Zeroize Z) :
+  Z → Result (zeroize.Zeroizing Z)
+
+/-- [zeroize::{impl core::ops::deref::Deref<Z> for zeroize::Zeroizing<Z>}::deref]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 648:4-648:25
+    Name pattern: [zeroize::{core::ops::deref::Deref<zeroize::Zeroizing<@Z>, @Z>}::deref]
+    Visibility: public -/
+@[rust_fun
+  "zeroize::{core::ops::deref::Deref<zeroize::Zeroizing<@Z>, @Z>}::deref"]
+axiom zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+  {Z : Type} (ZeroizeInst : zeroize.Zeroize Z) :
+  zeroize.Zeroizing Z → Result Z
+
+/-- [zeroize::{impl core::ops::deref::DerefMut<Z> for zeroize::Zeroizing<Z>}::deref_mut]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 658:4-658:37
+    Name pattern: [zeroize::{core::ops::deref::DerefMut<zeroize::Zeroizing<@Z>, @Z>}::deref_mut]
+    Visibility: public -/
+@[rust_fun
+  "zeroize::{core::ops::deref::DerefMut<zeroize::Zeroizing<@Z>, @Z>}::deref_mut"]
+axiom zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+  {Z : Type} (ZeroizeInst : zeroize.Zeroize Z) :
+  zeroize.Zeroizing Z → Result (Z × (Z → zeroize.Zeroizing Z))
+
 /-- [zeroize::__internal::{impl zeroize::__internal::AssertZeroize for T}::zeroize_or_on_drop]:
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.0/src/lib.rs', lines 846:8-846:40
     Name pattern: [zeroize::__internal::{zeroize::__internal::AssertZeroize<@T>}::zeroize_or_on_drop]
@@ -5374,29 +5410,29 @@ def backend.avx2.keccak.xof4
   backend.avx2.keccak.xof4_loop2 RATE out state2 0#usize
 
 /-- [kopis::backend::avx2::sample::RATE_128]
-    Source: 'src/backend/avx2/sample.rs', lines 21:0-21:28 -/
+    Source: 'src/backend/avx2/sample.rs', lines 22:0-22:28 -/
 @[global_simps, irreducible]
 def backend.avx2.sample.RATE_128 : Std.Usize := 168#usize
 
 /-- [kopis::backend::avx2::sample::RATE_256]
-    Source: 'src/backend/avx2/sample.rs', lines 23:0-23:28 -/
+    Source: 'src/backend/avx2/sample.rs', lines 24:0-24:28 -/
 @[global_simps, irreducible]
 def backend.avx2.sample.RATE_256 : Std.Usize := 136#usize
 
 /-- [kopis::backend::avx2::sample::MATRIX_ELEM_BYTES]
-    Source: 'src/backend/avx2/sample.rs', lines 26:0-26:51 -/
+    Source: 'src/backend/avx2/sample.rs', lines 27:0-27:51 -/
 @[global_simps, irreducible]
 def backend.avx2.sample.MATRIX_ELEM_BYTES : Result Std.Usize := do
   let i ← consts.RING_DEG * 13#usize
   i / 8#usize
 
 /-- [kopis::backend::avx2::sample::Nibbles]
-    Source: 'src/backend/avx2/sample.rs', lines 31:0-31:25 -/
+    Source: 'src/backend/avx2/sample.rs', lines 32:0-32:25 -/
 @[reducible]
 def backend.avx2.sample.Nibbles := Array Std.U8 32#usize
 
 /-- [kopis::backend::avx2::sample::NIBBLE_POPCOUNT]
-    Source: 'src/backend/avx2/sample.rs', lines 33:0-36:3 -/
+    Source: 'src/backend/avx2/sample.rs', lines 34:0-37:3 -/
 @[global_simps, irreducible]
 def backend.avx2.sample.NIBBLE_POPCOUNT : backend.avx2.sample.Nibbles :=
   Array.make 32#usize [
@@ -5406,7 +5442,7 @@ def backend.avx2.sample.NIBBLE_POPCOUNT : backend.avx2.sample.Nibbles :=
     ]
 
 /-- [kopis::backend::avx2::sample::popcount_small]:
-    Source: 'src/backend/avx2/sample.rs', lines 45:0-49:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 46:0-50:1 -/
 def backend.avx2.sample.popcount_small
   (v : backend.avx2.intrinsics.Vec256) (lut : backend.avx2.intrinsics.Vec256) :
   Result backend.avx2.intrinsics.Vec256
@@ -5420,7 +5456,7 @@ def backend.avx2.sample.popcount_small
   backend.avx2.intrinsics.add_epi16 low bit4
 
 /-- [kopis::backend::avx2::sample::shift_right_dynamic]:
-    Source: 'src/backend/avx2/sample.rs', lines 57:0-59:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 58:0-60:1 -/
 def backend.avx2.sample.shift_right_dynamic
   (v : backend.avx2.intrinsics.Vec256) (count : Std.Usize) :
   Result backend.avx2.intrinsics.Vec256
@@ -5430,7 +5466,7 @@ def backend.avx2.sample.shift_right_dynamic
   backend.avx2.intrinsics.srl_epi16 v v1
 
 /-- [kopis::backend::avx2::sample::cbd]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 79:4-86:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 80:4-87:5 -/
 @[rust_loop]
 def backend.avx2.sample.cbd_loop
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -5456,7 +5492,7 @@ def backend.avx2.sample.cbd_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::cbd]:
-    Source: 'src/backend/avx2/sample.rs', lines 72:0-88:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 73:0-89:1 -/
 def backend.avx2.sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) :
   Result arithmetic.plain_arith.RingElem
@@ -5475,7 +5511,7 @@ def backend.avx2.sample.cbd
     half_mask out
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/backend/avx2/sample.rs', lines 112:8-116:9 -/
+    Source: 'src/backend/avx2/sample.rs', lines 113:8-117:9 -/
 @[rust_loop]
 def backend.avx2.sample.gen_matrix_from_seed_loop0_loop0
   (L : Std.Usize) (iter : core.ops.range.Range Std.Usize) (entries : Std.Usize)
@@ -5505,7 +5541,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 2:
-    Source: 'src/backend/avx2/sample.rs', lines 120:8-126:9 -/
+    Source: 'src/backend/avx2/sample.rs', lines 121:8-127:9 -/
 @[rust_loop]
 def backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5541,7 +5577,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 107:4-129:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 108:4-130:5 -/
 @[rust_loop]
 def backend.avx2.sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (seed : Array Std.U8 32#usize)
@@ -5568,7 +5604,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]:
-    Source: 'src/backend/avx2/sample.rs', lines 102:0-132:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 103:0-133:1 -/
 def backend.avx2.sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L L)
@@ -5579,7 +5615,7 @@ def backend.avx2.sample.gen_matrix_from_seed
   backend.avx2.sample.gen_matrix_from_seed_loop0 seed mat entries 0#usize
 
 /-- [kopis::backend::avx2::sample::secret]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 173:4-175:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 174:4-176:5 -/
 @[rust_loop]
 def backend.avx2.sample.secret_loop0
   (L : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -5601,12 +5637,12 @@ def backend.avx2.sample.secret_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::secret]: loop 1:
-    Source: 'src/backend/avx2/sample.rs', lines 181:4-183:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 182:4-184:5 -/
 @[rust_loop]
 def backend.avx2.sample.secret_loop1
   {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
   (iter : core.ops.range.Range Std.Usize)
-  (bufs : Array (Array Std.U8 N) 4#usize)
+  (bufs : zeroize.Zeroizing (Array (Array Std.U8 N) 4#usize))
   (secret : arithmetic.plain_arith.Matrix L 1#usize) :
   Result (arithmetic.plain_arith.Matrix L 1#usize)
   := do
@@ -5615,22 +5651,26 @@ def backend.avx2.sample.secret_loop1
   match o with
   | none => ok secret
   | some i =>
-    let a ← Array.index_usize bufs i
+    let a ←
+      zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+        (Array.Insts.ZeroizeZeroize 4#usize (Array.Insts.ZeroizeZeroize N
+        (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes))) bufs
+    let a1 ← Array.index_usize a i
     let i1 ← consts.RING_DEG * MU
     let i2 ← i1 / 8#usize
     let s ←
       core.array.Array.index (core.ops.index.IndexSlice
-        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a
+        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a1
         { «end» := i2 }
     let re ← backend.avx2.sample.cbd MU s
-    let (a1, index_mut_back) ← Array.index_mut_usize secret i
-    let a2 ← Array.update a1 0#usize re
-    let a3 := index_mut_back a2
-    backend.avx2.sample.secret_loop1 MU iter1 bufs a3
+    let (a2, index_mut_back) ← Array.index_mut_usize secret i
+    let a3 ← Array.update a2 0#usize re
+    let a4 := index_mut_back a3
+    backend.avx2.sample.secret_loop1 MU iter1 bufs a4
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::secret]:
-    Source: 'src/backend/avx2/sample.rs', lines 164:0-185:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 165:0-186:1 -/
 def backend.avx2.sample.secret
   (L : Std.Usize) (MU : Std.Usize) (N : Std.Usize)
   (seed : Array Std.U8 32#usize) :
@@ -5643,15 +5683,24 @@ def backend.avx2.sample.secret
     backend.avx2.sample.secret_loop0 L { start := 0#usize, «end» := 4#usize }
       indices
   let a1 := Array.repeat N 0#u8
-  let bufs := Array.repeat 4#usize a1
-  let bufs1 ← backend.avx2.keccak.xof4 136#usize 3#u8 seed indices1 bufs
+  let a2 := Array.repeat 4#usize a1
+  let bufs ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 4#usize
+      (Array.Insts.ZeroizeZeroize N (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes))) a2
+  let (a3, deref_mut_back) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 4#usize (Array.Insts.ZeroizeZeroize N
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes))) bufs
+  let a4 ← backend.avx2.keccak.xof4 136#usize 3#u8 seed indices1 a3
   let secret ←
     arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
+  let bufs1 := deref_mut_back a4
   backend.avx2.sample.secret_loop1 MU { start := 0#usize, «end» := L } bufs1
     secret
 
 /-- [kopis::backend::avx2::sample::gen_secret_from_seed]:
-    Source: 'src/backend/avx2/sample.rs', lines 140:0-153:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 141:0-154:1 -/
 def backend.avx2.sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L 1#usize)
@@ -5855,7 +5904,7 @@ def impls.kopis1024.KOPIS1024_PUBKEY_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 4#usize
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/sample.rs', lines 147:8-157:9 -/
+    Source: 'src/sample.rs', lines 148:8-158:9 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5894,7 +5943,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 146:4-158:5 -/
+    Source: 'src/sample.rs', lines 147:4-159:5 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5914,7 +5963,7 @@ def sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]:
-    Source: 'src/sample.rs', lines 123:0-161:1 -/
+    Source: 'src/sample.rs', lines 124:0-162:1 -/
 def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L L)
@@ -5930,7 +5979,7 @@ def sample.gen_matrix_from_seed
       mat buf
 
 /-- [kopis::sample::cbd_diff]:
-    Source: 'src/sample.rs', lines 16:0-21:1 -/
+    Source: 'src/sample.rs', lines 17:0-22:1 -/
 def sample.cbd_diff (raw1 : Std.U16) (half_mu : Std.U32) : Result Std.U16 := do
   let i ← 1#u16 <<< half_mu
   let mask ← i - 1#u16
@@ -5944,7 +5993,7 @@ def sample.cbd_diff (raw1 : Std.U16) (half_mu : Std.U32) : Result Std.U16 := do
   ok (core.num.U16.wrapping_sub a b)
 
 /-- [kopis::sample::cbd]: loop 0:
-    Source: 'src/sample.rs', lines 32:8-36:9 -/
+    Source: 'src/sample.rs', lines 33:8-37:9 -/
 @[rust_loop]
 def sample.cbd_loop0
   (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
@@ -5970,7 +6019,7 @@ def sample.cbd_loop0
 partial_fixpoint
 
 /-- [kopis::sample::cbd]: loop 1:
-    Source: 'src/sample.rs', lines 41:8-56:9 -/
+    Source: 'src/sample.rs', lines 42:8-57:9 -/
 @[rust_loop]
 def sample.cbd_loop1
   (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
@@ -6026,7 +6075,7 @@ def sample.cbd_loop1
 partial_fixpoint
 
 /-- [kopis::sample::cbd]: loop 2:
-    Source: 'src/sample.rs', lines 60:8-73:9 -/
+    Source: 'src/sample.rs', lines 61:8-74:9 -/
 @[rust_loop]
 def sample.cbd_loop2
   (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
@@ -6072,7 +6121,7 @@ def sample.cbd_loop2
 partial_fixpoint
 
 /-- [kopis::sample::cbd]:
-    Source: 'src/sample.rs', lines 24:0-77:1 -/
+    Source: 'src/sample.rs', lines 25:0-78:1 -/
 def sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.plain_arith.RingElem)
   :
@@ -6113,7 +6162,7 @@ def sample.cbd
         fail panic
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 108:4-116:5 -/
+    Source: 'src/sample.rs', lines 109:4-117:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -6147,7 +6196,7 @@ def sample.gen_secret_from_seed_loop
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
-    Source: 'src/sample.rs', lines 81:0-119:1 -/
+    Source: 'src/sample.rs', lines 82:0-120:1 -/
 def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L 1#usize)
@@ -6158,12 +6207,19 @@ def sample.gen_secret_from_seed
   else
     let secret ←
       arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default L 1#usize
-    let backing_buf := Array.repeat 320#usize 0#u8
+    let a := Array.repeat 320#usize 0#u8
+    let backing_buf ←
+      zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 320#usize
+        (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a
+    let (a1, _) ←
+      zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+        (Array.Insts.ZeroizeZeroize 320#usize (zeroize.Zeroize.Blanket
+        U8.Insts.ZeroizeDefaultIsZeroes)) backing_buf
     let i ← consts.RING_DEG * MU
     let i1 ← i / 8#usize
     let (buf, _) ←
       core.array.Array.index_mut (core.ops.index.IndexMutSlice
-        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) backing_buf
+        (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a1
         { «end» := i1 }
     sample.gen_secret_from_seed_loop MU { start := 0#usize, «end» := L } seed
       secret buf
@@ -6260,7 +6316,10 @@ def pke.expand_secret_key
     L) × (Array Std.U8 32#usize))
   := do
   let mat_seed := Array.repeat 32#usize 0#u8
-  let secret_seed := Array.repeat 32#usize 0#u8
+  let a := Array.repeat 32#usize 0#u8
+  let secret_seed ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a
   let z := Array.repeat 32#usize 0#u8
   let hasher ←
     turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 1#u8
@@ -6275,7 +6334,11 @@ def pke.expand_secret_key
   let (s2, to_slice_mut_back) ← lift (Array.to_slice_mut mat_seed)
   let (xof1, s3) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof s2
-  let (s4, to_slice_mut_back1) ← lift (Array.to_slice_mut secret_seed)
+  let (a1, deref_mut_back) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) secret_seed
+  let (s4, to_slice_mut_back1) ← lift (Array.to_slice_mut a1)
   let (xof2, s5) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof1 s4
   let (s6, to_slice_mut_back2) ← lift (Array.to_slice_mut z)
@@ -6283,18 +6346,29 @@ def pke.expand_secret_key
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof2 s6
   let mat_seed1 := to_slice_mut_back s3
   let mat_a ← sample.gen_matrix_from_seed L mat_seed1
-  let secret_seed1 := to_slice_mut_back1 s5
-  let vec_s ← sample.gen_secret_from_seed L MU secret_seed1
+  let a2 := to_slice_mut_back1 s5
+  let secret_seed1 := deref_mut_back a2
+  let a3 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes))
+      secret_seed1
+  let m ← sample.gen_secret_from_seed L MU a3
+  let vec_s ←
+    zeroize.Zeroizing.new (arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize L
+      1#usize) m
   let mat_a_ntt ← arithmetic.ntt_arith.NttMatrix.from_uniform_matrix mat_a
-  let vec_s_ntt ← arithmetic.ntt_arith.NttMatrix.from_secret_matrix vec_s
+  let m1 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      (arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize L 1#usize) vec_s
+  let vec_s_ntt ← arithmetic.ntt_arith.NttMatrix.from_secret_matrix m1
   let prod ← arithmetic.ntt_arith.NttMatrix.mul_transpose mat_a_ntt vec_s_ntt
   let i1 ← pke.H1_VAL
   let prod1 ← arithmetic.plain_arith.Matrix.wrapping_add_to_all prod i1
   let i2 ← 13#usize - 10#usize
   let prod2 ← arithmetic.plain_arith.Matrix.shift_right prod1 i2
   let vec_ntt ← arithmetic.ntt_arith.NttMatrix.from_uniform_matrix prod2
-  let a := Array.repeat 320#usize 0#u8
-  let vec_bytes := Array.repeat L a
+  let a4 := Array.repeat 320#usize 0#u8
+  let vec_bytes := Array.repeat L a4
   let z1 := to_slice_mut_back2 s7
   let vec_bytes1 ←
     pke.expand_secret_key_loop { start := 0#usize, «end» := L } prod2
@@ -6658,25 +6732,46 @@ def pke.encrypt_deterministic
   let left_val := Slice.len out_buf
   let right_val ← pke.ciphertext_len L T
   massert (left_val = right_val)
-  let vec_sprime ← sample.gen_secret_from_seed L MU randomness
+  let m ← sample.gen_secret_from_seed L MU randomness
+  let vec_sprime ←
+    zeroize.Zeroizing.new (arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize L
+      1#usize) m
+  let m1 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      (arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize L 1#usize) vec_sprime
+  let nm ← arithmetic.ntt_arith.NttMatrix.from_secret_matrix m1
   let sprime_ntt ←
-    arithmetic.ntt_arith.NttMatrix.from_secret_matrix vec_sprime
-  let prod ← arithmetic.ntt_arith.NttMatrix.mul pk.mat_a_ntt sprime_ntt
+    zeroize.Zeroizing.new (arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize
+      L 1#usize) nm
+  let nm1 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      (arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize L 1#usize)
+      sprime_ntt
+  let prod ← arithmetic.ntt_arith.NttMatrix.mul pk.mat_a_ntt nm1
   let i ← pke.H1_VAL
   let prod1 ← arithmetic.plain_arith.Matrix.wrapping_add_to_all prod i
   let i1 ← 13#usize - 10#usize
   let prod2 ← arithmetic.plain_arith.Matrix.shift_right prod1 i1
-  let vprime ←
-    arithmetic.ntt_arith.NttMatrix.mul_transpose pk.vec_ntt sprime_ntt
+  let vprime ← arithmetic.ntt_arith.NttMatrix.mul_transpose pk.vec_ntt nm1
   let a ← Array.index_usize vprime 0#usize
   let vprime1 ← Array.index_usize a 0#usize
   let s ← lift (Array.to_slice msg)
   let a1 ← ser.deserialize_generic 256#usize 1#usize s
+  let msg_polyn ←
+    zeroize.Zeroizing.new arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize
+      a1
+  let (re, deref_mut_back) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize msg_polyn
   let i2 ← 10#usize - 1#usize
-  let msg_polyn ← arithmetic.plain_arith.RingElem.shift_left a1 i2
+  let re1 ← arithmetic.plain_arith.RingElem.shift_left re i2
+  let msg_polyn1 := deref_mut_back re1
+  let re2 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize msg_polyn1
   let c ←
     SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub vprime1
-      msg_polyn
+      re2
   let c1 ← arithmetic.plain_arith.RingElem.wrapping_add_to_all c i
   let i3 ← 10#usize - T
   let c2 ← arithmetic.plain_arith.RingElem.shift_right c1 i3
@@ -6698,8 +6793,14 @@ def kem.encap_deterministic
   (out_buf : Slice Std.U8) :
   Result (kem.SharedSecret × (Slice Std.U8))
   := do
-  let k := Array.repeat 32#usize 0#u8
-  let r := Array.repeat 32#usize 0#u8
+  let a := Array.repeat 32#usize 0#u8
+  let k ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a
+  let a1 := Array.repeat 32#usize 0#u8
+  let r ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a1
   let hasher ←
     turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 5#u8
   let s ← lift (Array.to_slice randomness)
@@ -6709,17 +6810,33 @@ def kem.encap_deterministic
   let xof ←
     turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
       hasher2
-  let (s2, to_slice_mut_back) ← lift (Array.to_slice_mut k)
+  let (a2, deref_mut_back) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) k
+  let (s2, to_slice_mut_back) ← lift (Array.to_slice_mut a2)
   let (xof1, s3) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof s2
-  let (s4, to_slice_mut_back1) ← lift (Array.to_slice_mut r)
+  let (a3, deref_mut_back1) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) r
+  let (s4, to_slice_mut_back1) ← lift (Array.to_slice_mut a3)
   let (_, s5) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof1 s4
-  let r1 := to_slice_mut_back1 s5
+  let a4 := to_slice_mut_back1 s5
+  let r1 := deref_mut_back1 a4
+  let a5 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) r1
   let out_buf1 ←
-    pke.encrypt_deterministic MU T kem_pk.pke_pk randomness r1 out_buf
-  let k1 := to_slice_mut_back s3
-  ok (k1, out_buf1)
+    pke.encrypt_deterministic MU T kem_pk.pke_pk randomness a5 out_buf
+  let a6 := to_slice_mut_back s3
+  let k1 := deref_mut_back a6
+  let a7 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) k1
+  ok (a7, out_buf1)
 
 /-- [kopis::kem::{impl core::ops::drop::Drop for kopis::kem::SharedSecret}::drop]:
     Source: 'src/kem.rs', lines 48:9-48:22
@@ -6848,11 +6965,26 @@ def pke.decrypt
   let c ← arithmetic.plain_arith.RingElem.deserialize T c_bytes
   let i3 ← 10#usize - T
   let c1 ← arithmetic.plain_arith.RingElem.shift_left c i3
-  let v ← arithmetic.ntt_arith.NttMatrix.mul_transpose bprime_ntt sk
-  let a ← Array.index_usize v 0#usize
-  let v1 ← Array.index_usize a 0#usize
+  let m ← arithmetic.ntt_arith.NttMatrix.mul_transpose bprime_ntt sk
+  let v ←
+    zeroize.Zeroizing.new (arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize
+      1#usize 1#usize) m
+  let m1 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      (arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize 1#usize 1#usize) v
+  let a ← Array.index_usize m1 0#usize
+  let re ← Array.index_usize a 0#usize
+  let v1 ←
+    zeroize.Zeroizing.new arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize
+      re
+  let re1 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize v1
+  let re2 ←
+    SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub re1 c1
   let mprime ←
-    SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub v1 c1
+    zeroize.Zeroizing.new arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize
+      re2
   let i4 ← 10#i32 - 2#i32
   let i5 ← 1#u16 <<< i4
   let i6 ← i3 - 1#usize
@@ -6862,13 +6994,23 @@ def pke.decrypt
   let i10 ← i9 - 1#i32
   let i11 ← 1#u16 <<< i10
   let h2_val ← i8 + i11
-  let mprime1 ←
-    arithmetic.plain_arith.RingElem.wrapping_add_to_all mprime h2_val
+  let (re3, deref_mut_back) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize mprime
+  let re4 ← arithmetic.plain_arith.RingElem.wrapping_add_to_all re3 h2_val
+  let mprime1 := deref_mut_back re4
+  let (re5, deref_mut_back1) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize mprime1
   let i12 ← 10#usize - 1#usize
-  let mprime2 ← arithmetic.plain_arith.RingElem.shift_right mprime1 i12
-  let m := Array.repeat 32#usize 0#u8
-  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut m)
-  let s1 ← arithmetic.plain_arith.RingElem.serialize 1#usize mprime2 s
+  let re6 ← arithmetic.plain_arith.RingElem.shift_right re5 i12
+  let m2 := Array.repeat 32#usize 0#u8
+  let mprime2 := deref_mut_back1 re6
+  let re7 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref
+      arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize mprime2
+  let (s, to_slice_mut_back) ← lift (Array.to_slice_mut m2)
+  let s1 ← arithmetic.plain_arith.RingElem.serialize 1#usize re7 s
   ok (to_slice_mut_back s1)
 
 /-- [kopis::turboshake256_hash]:
@@ -6902,43 +7044,85 @@ def kem.decap
   let left_val := Slice.len ciphertext
   let right_val ← pke.ciphertext_len L T
   massert (left_val = right_val)
-  let randomness ← pke.decrypt T sk.pke_sk ciphertext
-  let k := Array.repeat 32#usize 0#u8
-  let rprime := Array.repeat 32#usize 0#u8
+  let a ← pke.decrypt T sk.pke_sk ciphertext
+  let randomness ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a
+  let a1 := Array.repeat 32#usize 0#u8
+  let k ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a1
+  let a2 := Array.repeat 32#usize 0#u8
+  let rprime ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a2
   let hasher ←
     turboshake.TurboShake.Insts.CoreDefaultDefault.default 136#usize 5#u8
-  let s ← lift (Array.to_slice randomness)
+  let a3 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes))
+      randomness
+  let s ← lift (Array.to_slice a3)
   let hasher1 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher s
   let s1 ← lift (Array.to_slice sk.kem_pk.hash_pke_pk)
   let hasher2 ← turboshake.TurboShake.Insts.DigestUpdate.update hasher1 s1
   let xof ←
     turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof
       hasher2
-  let (s2, to_slice_mut_back) ← lift (Array.to_slice_mut k)
+  let (a4, deref_mut_back) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) k
+  let (s2, to_slice_mut_back) ← lift (Array.to_slice_mut a4)
   let (xof1, s3) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof s2
-  let (s4, to_slice_mut_back1) ← lift (Array.to_slice_mut rprime)
+  let (a5, deref_mut_back1) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 32#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) rprime
+  let (s4, to_slice_mut_back1) ← lift (Array.to_slice_mut a5)
   let (_, s5) ←
     turboshake.TurboShakeReader.Insts.DigestXofReader.read xof1 s4
-  let buf := Array.repeat 1472#usize 0#u8
+  let a6 := Array.repeat 1472#usize 0#u8
+  let buf ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 1472#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a6
+  let (a7, _) ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
+      (Array.Insts.ZeroizeZeroize 1472#usize (zeroize.Zeroize.Blanket
+      U8.Insts.ZeroizeDefaultIsZeroes)) buf
   let (reconstructed_ct, _) ←
     core.array.Array.index_mut (core.ops.index.IndexMutSlice
-      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) buf
+      (core.slice.index.SliceIndexRangeToUsizeSlice Std.U8)) a7
       { «end» := right_val }
-  let rprime1 := to_slice_mut_back1 s5
+  let a8 := to_slice_mut_back1 s5
+  let rprime1 := deref_mut_back1 a8
+  let a9 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes))
+      rprime1
   let reconstructed_ct1 ←
-    pke.encrypt_deterministic MU T sk.kem_pk.pke_pk randomness rprime1
-      reconstructed_ct
+    pke.encrypt_deterministic MU T sk.kem_pk.pke_pk a3 a9 reconstructed_ct
   let s6 ← lift (Array.to_slice sk.z)
-  let reject_val ← turboshake256_hash 6#u8 s6 ciphertext
+  let a10 ← turboshake256_hash 6#u8 s6 ciphertext
+  let reject_val ←
+    zeroize.Zeroizing.new (Array.Insts.ZeroizeZeroize 32#usize
+      (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) a10
   let reconstruction_matched ←
     Slice.Insts.SubtleConstantTimeEq.ct_eq U8.Insts.SubtleConstantTimeEq
       reconstructed_ct1 ciphertext
-  let k1 := to_slice_mut_back s3
+  let a11 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes))
+      reject_val
+  let a12 := to_slice_mut_back s3
+  let k1 := deref_mut_back a12
+  let a13 ←
+    zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref (Array.Insts.ZeroizeZeroize
+      32#usize (zeroize.Zeroize.Blanket U8.Insts.ZeroizeDefaultIsZeroes)) k1
   let ss ←
     Array.Insts.SubtleConditionallySelectable.conditional_select
-      U8.Insts.SubtleConditionallySelectable reject_val k1
-      reconstruction_matched
+      U8.Insts.SubtleConditionallySelectable a11 a13 reconstruction_matched
   ok ss
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::decapsulate]:

@@ -54,3 +54,4 @@ import Kopis.Neon.Properties.SerializeSpec
 import Kopis.Neon.Properties.SerializeSpec2
 import Kopis.Neon.Properties.SerializeTop
 import Kopis.Neon.Properties.SubtleModel
+import Kopis.Neon.Properties.ZeroizeModel

@@ -115,10 +115,17 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
       toRingElem ((v.val[j]!).val[k]!) = ∑ ii ∈ Finset.range L.val,
         toRingElem ((bprime.val[ii]!).val[j]!) * toRingElem ((S.val[ii]!).val[k]!) := by
     intro j hj k hk; exact hv0 j hj k hk
+  let* ⟨ v_z, hv_z ⟩ ← zeroizing_new_spec
+  let* ⟨ m1, hm1 ⟩ ← zeroizing_deref_spec
+  rw [hv_z] at hm1; subst m1
   let* ⟨arow, harow⟩ ← Array.index_usize_spec v 0#usize (by have := v.property; scalar_tac)
   let* ⟨v1, hv1⟩ ← Array.index_usize_spec arow 0#usize (by have := arow.property; scalar_tac)
   -- mprime = v1 - c1
+  let* ⟨ v1_z, hv1_z ⟩ ← zeroizing_new_spec
+  let* ⟨ re1, hre1 ⟩ ← zeroizing_deref_spec
+  rw [hv1_z] at hre1; subst re1
   let* ⟨mprime, hmprime⟩ ← sub_spec v1 c1
+  let* ⟨ mprime_z, hmprime_z ⟩ ← zeroizing_new_spec
   -- h2_val = 2⁸ - 2⁹⁻ᵀ + 4.  The two constant shifts are closed `i32` arithmetic now, so
   -- evaluate them; only the `10 - T - 1` shift still depends on the parameter.
   have e1 : (10#i32 - 2#i32 : Result I32) = ok 8#i32 := rfl
@@ -151,12 +158,18 @@ theorem decrypt_spec {L : Usize} (T : Usize) (sk : pke.PkeSecretKey L)
     omega)
   have hh2v : h2.val = 2 ^ 8 - 2 ^ (9 - T.val) + 4 := by rw [hh2, hj8v]
   -- mprime1 = mprime + h2_val
+  let* ⟨ re3, back, hre3, hback ⟩ ← zeroizing_deref_mut_spec
+  rw [hmprime_z] at hre3; subst re3
   let* ⟨mprime1, hmprime1⟩ ← wrapping_add_to_all_spec mprime h2
+  let* ⟨ re5, back1, hre5, hback1 ⟩ ← zeroizing_deref_mut_spec
+  rw [hback] at hre5; subst re5
   -- mprime2 = mprime1 >> 9
   let* ⟨i12, hi12, _⟩ ← Std.Usize.sub_spec (x := 10#usize) (y := 1#usize) (by scalar_tac)
   have hi12v : i12.val = 9 := by scalar_tac
   let* ⟨mprime2, hmprime2⟩ ← shift_right_spec mprime1 i12 (by scalar_tac)
   -- serialize mprime2 (1 bit) into a fresh 32-byte array
+  let* ⟨ re7, hre7 ⟩ ← zeroizing_deref_spec
+  rw [hback1] at hre7; subst re7
   let* ⟨s, to_slice_mut_back, hs_val, hto_back⟩ ← Array.to_slice_mut_spec
   have hslen : s.val.length = 32 * 1 := by
     rw [hs_val]; show (Array.repeat 32#usize 0#u8).val.length = 32 * 1

@@ -23,8 +23,8 @@ def commonAxioms : List String :=
    "Aeneas.Std.core.fmt.Formatter"]
 
 /--
-The serial backend needs some axiomatized integer intrinsics, `subtle` crate axioms, and
-`turboshake` crate axioms.
+The serial backend needs some axiomatized integer intrinsics, `subtle` crate axioms, `turboshake`
+crate axioms, and `zeroize` crate axioms.
 -/
 def serialAudited : List String := commonAxioms ++
   ["Kopis.Properties.U16.count_ones_spec",
@@ -36,7 +36,12 @@ def serialAudited : List String := commonAxioms ++
    "Kopis.Properties.hasher_update_spec",
    "Kopis.Properties.reader_read136_spec",
    "Kopis.Properties.reader_read168_spec",
+   "Kopis.Properties.zeroizingVal",
+   "Kopis.Properties.zeroizing_deref_mut_spec",
+   "Kopis.Properties.zeroizing_deref_spec",
+   "Kopis.Properties.zeroizing_new_spec",
    "RustKopisSerial.Array.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisSerial.Array.Insts.ZeroizeZeroize.zeroize",
    "RustKopisSerial.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisSerial.U8.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisSerial.U8.Insts.SubtleConstantTimeEq.ct_eq",
@@ -48,7 +53,12 @@ def serialAudited : List String := commonAxioms ++
    "RustKopisSerial.turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof",
    "RustKopisSerial.turboshake.TurboShake.Insts.DigestUpdate.update",
    "RustKopisSerial.turboshake.TurboShakeReader",
-   "RustKopisSerial.turboshake.TurboShakeReader.Insts.DigestXofReader.read"]
+   "RustKopisSerial.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
+   "RustKopisSerial.zeroize.Zeroize.Blanket.zeroize",
+   "RustKopisSerial.zeroize.Zeroizing",
+   "RustKopisSerial.zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref",
+   "RustKopisSerial.zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut",
+   "RustKopisSerial.zeroize.Zeroizing.new"]
 
 /--
 The AVX2 crate needs lots of axiomatized SIMD intrinsics. In addition it also needs `turboshake` and
@@ -67,6 +77,10 @@ def avx2Audited : List String := commonAxioms ++
    "Kopis.Avx2.Properties.hasher_update_spec",
    "Kopis.Avx2.Properties.reader_read136_spec",
    "Kopis.Avx2.Properties.reader_read168_spec",
+   "Kopis.Avx2.Properties.zeroizingVal",
+   "Kopis.Avx2.Properties.zeroizing_deref_mut_spec",
+   "Kopis.Avx2.Properties.zeroizing_deref_spec",
+   "Kopis.Avx2.Properties.zeroizing_new_spec",
    "Kopis.Avx2.add_epi16_spec",
    "Kopis.Avx2.add_epi32_spec",
    "Kopis.Avx2.and_si256_spec",
@@ -121,6 +135,7 @@ def avx2Audited : List String := commonAxioms ++
    "Kopis.Avx2.unpacklo_epi64_spec",
    "Kopis.Avx2.xor_si256_spec",
    "RustKopisAvx2.Array.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisAvx2.Array.Insts.ZeroizeZeroize.zeroize",
    "RustKopisAvx2.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisAvx2.U8.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisAvx2.U8.Insts.SubtleConstantTimeEq.ct_eq",
@@ -185,6 +200,11 @@ def avx2Audited : List String := commonAxioms ++
    "RustKopisAvx2.turboshake.TurboShake.Insts.DigestUpdate.update",
    "RustKopisAvx2.turboshake.TurboShakeReader",
    "RustKopisAvx2.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
+   "RustKopisAvx2.zeroize.Zeroize.Blanket.zeroize",
+   "RustKopisAvx2.zeroize.Zeroizing",
+   "RustKopisAvx2.zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref",
+   "RustKopisAvx2.zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut",
+   "RustKopisAvx2.zeroize.Zeroizing.new",
    "_private.Kopis.Avx2.NttMulLane.0.Kopis.Avx2.join_prod._native.bv_decide.ax_1_5",
    "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.and_low16._native.bv_decide.ax_1_5",
    "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.sar_eq._native.bv_decide.ax_1_5",
@@ -205,6 +225,10 @@ def neonAudited : List String := commonAxioms ++
    "Kopis.Neon.Properties.hasher_update_spec",
    "Kopis.Neon.Properties.reader_read136_spec",
    "Kopis.Neon.Properties.reader_read168_spec",
+   "Kopis.Neon.Properties.zeroizingVal",
+   "Kopis.Neon.Properties.zeroizing_deref_mut_spec",
+   "Kopis.Neon.Properties.zeroizing_deref_spec",
+   "Kopis.Neon.Properties.zeroizing_new_spec",
    "Kopis.Neon.add_16_spec",
    "Kopis.Neon.add_32_spec",
    "Kopis.Neon.and_spec",
@@ -253,6 +277,7 @@ def neonAudited : List String := commonAxioms ++
    "Kopis.Neon.xar_spec",
    "Kopis.Neon.xtn_pair_32_spec",
    "RustKopisNeon.Array.Insts.SubtleConditionallySelectable.conditional_select",
+   "RustKopisNeon.Array.Insts.ZeroizeZeroize.zeroize",
    "RustKopisNeon.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisNeon.U8.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisNeon.U8.Insts.SubtleConstantTimeEq.ct_eq",
@@ -313,7 +338,12 @@ def neonAudited : List String := commonAxioms ++
    "RustKopisNeon.turboshake.TurboShake.Insts.DigestExtendableOutputTurboShakeReader.finalize_xof",
    "RustKopisNeon.turboshake.TurboShake.Insts.DigestUpdate.update",
    "RustKopisNeon.turboshake.TurboShakeReader",
-   "RustKopisNeon.turboshake.TurboShakeReader.Insts.DigestXofReader.read"]
+   "RustKopisNeon.turboshake.TurboShakeReader.Insts.DigestXofReader.read",
+   "RustKopisNeon.zeroize.Zeroize.Blanket.zeroize",
+   "RustKopisNeon.zeroize.Zeroizing",
+   "RustKopisNeon.zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref",
+   "RustKopisNeon.zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut",
+   "RustKopisNeon.zeroize.Zeroizing.new"]
 
 /- Go through everything declared in the backend's namespace and dump its axioms. Make sure every
 axiom is on the list, and that the list has no unnecessary axioms. Otherwise throw an error -/

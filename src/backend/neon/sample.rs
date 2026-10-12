@@ -20,6 +20,7 @@ use super::intrinsics::{
 use super::ser;
 
 use super::keccak::{WAYS, xof2};
+use zeroize::Zeroizing;
 use crate::{
     arithmetic::Matrix,
     consts::{DOMSEP_GENMAT, DOMSEP_GENSEC, MAX_MU},
@@ -166,8 +167,8 @@ fn secret<const L: usize, const MU: usize, const N: usize>(seed: &[u8; 32]) -> M
             indices[lane][0] = core::cmp::min(first + lane, L - 1) as u8;
         }
 
-        let mut bufs = [[0u8; N]; WAYS];
-        xof2::<RATE_256, DOMSEP_GENSEC, 1, N>(seed, &indices, &mut bufs);
+        let mut bufs = Zeroizing::new([[0u8; N]; WAYS]);
+        xof2::<RATE_256, DOMSEP_GENSEC, 1, N>(seed, &indices, &mut *bufs);
 
         for lane in 0..WAYS {
             let i = first + lane;
