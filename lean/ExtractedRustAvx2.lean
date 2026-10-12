@@ -49,13 +49,6 @@ axiom core.num.U16.count_ones : Std.U16 → Result Std.U32
 @[rust_fun "core::num::{u8}::count_ones"]
 axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 
-/-- [core::num::{u8}::max_value]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 4153:8-4153:40
-    Name pattern: [core::num::{u8}::max_value]
-    Visibility: public -/
-@[rust_fun "core::num::{u8}::max_value"]
-axiom core.num.U8.max_value : Result Std.U8
-
 /-- Trait declaration: [core::ops::arith::Sub]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 188:0-188:31
     Name pattern: [core::ops::arith::Sub]
@@ -377,29 +370,28 @@ axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::UNINIT]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 40:12-40:47 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 40:12-40:39 -/
 @[global_simps, irreducible]
-def backend.avx2.cpu.cpuid_avx2.UNINIT : Result Std.U8 := core.num.U8.max_value
+def backend.avx2.cpu.cpuid_avx2.UNINIT : Std.U8 := core.num.U8.MAX
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::STORAGE]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 41:12-41:61 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 41:12-41:61 -/
 @[global_simps, irreducible]
 def backend.avx2.cpu.cpuid_avx2.STORAGE
   :
   Result (core.sync.atomic.Atomic Std.U8 (core.sync.atomic.private.Align1
     Std.U8))
-  := do
-  let i ← backend.avx2.cpu.cpuid_avx2.UNINIT
-  core.sync.atomic.AtomicU8Align1U8.new i
+  :=
+  core.sync.atomic.AtomicU8Align1U8.new backend.avx2.cpu.cpuid_avx2.UNINIT
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::InitToken]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 45:12-45:37
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 45:12-45:37
     Visibility: public -/
 @[reducible]
 def backend.avx2.cpu.cpuid_avx2.InitToken := Unit
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::clone::Clone for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::clone]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:27-44:32
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone.clone
   (self : backend.avx2.cpu.cpuid_avx2.InitToken) :
@@ -408,7 +400,7 @@ def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone.clone
   ok self
 
 /-- Trait implementation: [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::clone::Clone for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:27-44:32 -/
 @[reducible]
 def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone :
   core.clone.Clone backend.avx2.cpu.cpuid_avx2.InitToken := {
@@ -416,7 +408,7 @@ def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreCloneClone :
 }
 
 /-- Trait implementation: [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::marker::Copy for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:21-44:25 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:21-44:25 -/
 @[reducible]
 def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreMarkerCopy :
   core.marker.Copy backend.avx2.cpu.cpuid_avx2.InitToken := {
@@ -424,7 +416,7 @@ def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreMarkerCopy :
 }
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::fmt::Debug for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::fmt]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:34-44:39
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug.fmt
   (self : backend.avx2.cpu.cpuid_avx2.InitToken) (f : core.fmt.Formatter) :
@@ -434,7 +426,7 @@ def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "InitToken") dyn
 
 /-- Trait implementation: [kopis::backend::avx2::cpu::cpuid_avx2::{impl core::fmt::Debug for kopis::backend::avx2::cpu::cpuid_avx2::InitToken}]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:34-44:39 -/
 @[reducible]
 def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug : core.fmt.Debug
   backend.avx2.cpu.cpuid_avx2.InitToken := {
@@ -442,14 +434,14 @@ def backend.avx2.cpu.cpuid_avx2.InitToken.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::init_get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 72:12-94:13
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 72:12-94:13
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.init_get
   : Result (backend.avx2.cpu.cpuid_avx2.InitToken × Bool) := do
   ok ((), true)
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::init]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 98:12-100:13
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 98:12-100:13
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.init
   : Result backend.avx2.cpu.cpuid_avx2.InitToken := do
@@ -457,28 +449,28 @@ def backend.avx2.cpu.cpuid_avx2.init
   ok it
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::{kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::init]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 49:16-51:17
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 49:16-51:17
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.InitToken.init
   : Result backend.avx2.cpu.cpuid_avx2.InitToken := do
   backend.avx2.cpu.cpuid_avx2.init
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::{kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::init_get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 54:16-56:17
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 54:16-56:17
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.InitToken.init_get
   : Result (backend.avx2.cpu.cpuid_avx2.InitToken × Bool) := do
   backend.avx2.cpu.cpuid_avx2.init_get
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::{kopis::backend::avx2::cpu::cpuid_avx2::InitToken}::get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 60:16-66:17
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 60:16-66:17
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.InitToken.get
   (self : backend.avx2.cpu.cpuid_avx2.InitToken) : Result Bool := do
   ok true
 
 /-- [kopis::backend::avx2::cpu::cpuid_avx2::get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 104:12-106:13
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 104:12-106:13
     Visibility: public -/
 def backend.avx2.cpu.cpuid_avx2.get : Result Bool := do
   let (_, b) ← backend.avx2.cpu.cpuid_avx2.init_get

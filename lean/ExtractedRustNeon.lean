@@ -63,13 +63,6 @@ axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 @[rust_fun "core::num::{usize}::div_ceil"]
 axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
 
-/-- [core::num::{u8}::max_value]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 4153:8-4153:40
-    Name pattern: [core::num::{u8}::max_value]
-    Visibility: public -/
-@[rust_fun "core::num::{u8}::max_value"]
-axiom core.num.U8.max_value : Result Std.U8
-
 /-- Trait declaration: [core::ops::arith::Sub]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 188:0-188:31
     Name pattern: [core::ops::arith::Sub]
@@ -391,29 +384,28 @@ axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::UNINIT]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 40:12-40:47 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 40:12-40:39 -/
 @[global_simps, irreducible]
-def backend.neon.cpu.cpuid_sha3.UNINIT : Result Std.U8 := core.num.U8.max_value
+def backend.neon.cpu.cpuid_sha3.UNINIT : Std.U8 := core.num.U8.MAX
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::STORAGE]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 41:12-41:61 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 41:12-41:61 -/
 @[global_simps, irreducible]
 def backend.neon.cpu.cpuid_sha3.STORAGE
   :
   Result (core.sync.atomic.Atomic Std.U8 (core.sync.atomic.private.Align1
     Std.U8))
-  := do
-  let i ← backend.neon.cpu.cpuid_sha3.UNINIT
-  core.sync.atomic.AtomicU8Align1U8.new i
+  :=
+  core.sync.atomic.AtomicU8Align1U8.new backend.neon.cpu.cpuid_sha3.UNINIT
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::InitToken]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 45:12-45:37
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 45:12-45:37
     Visibility: public -/
 @[reducible]
 def backend.neon.cpu.cpuid_sha3.InitToken := Unit
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::{impl core::clone::Clone for kopis::backend::neon::cpu::cpuid_sha3::InitToken}::clone]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:27-44:32
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone.clone
   (self : backend.neon.cpu.cpuid_sha3.InitToken) :
@@ -422,7 +414,7 @@ def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone.clone
   ok self
 
 /-- Trait implementation: [kopis::backend::neon::cpu::cpuid_sha3::{impl core::clone::Clone for kopis::backend::neon::cpu::cpuid_sha3::InitToken}]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:27-44:32 -/
 @[reducible]
 def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone :
   core.clone.Clone backend.neon.cpu.cpuid_sha3.InitToken := {
@@ -430,7 +422,7 @@ def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone :
 }
 
 /-- Trait implementation: [kopis::backend::neon::cpu::cpuid_sha3::{impl core::marker::Copy for kopis::backend::neon::cpu::cpuid_sha3::InitToken}]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:21-44:25 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:21-44:25 -/
 @[reducible]
 def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreMarkerCopy :
   core.marker.Copy backend.neon.cpu.cpuid_sha3.InitToken := {
@@ -438,7 +430,7 @@ def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreMarkerCopy :
 }
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::{impl core::fmt::Debug for kopis::backend::neon::cpu::cpuid_sha3::InitToken}::fmt]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:34-44:39
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug.fmt
   (self : backend.neon.cpu.cpuid_sha3.InitToken) (f : core.fmt.Formatter) :
@@ -448,7 +440,7 @@ def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug.fmt
   core.fmt.Formatter.debug_tuple_field1_finish f (toStr "InitToken") dyn
 
 /-- Trait implementation: [kopis::backend::neon::cpu::cpuid_sha3::{impl core::fmt::Debug for kopis::backend::neon::cpu::cpuid_sha3::InitToken}]
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39 -/
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 44:34-44:39 -/
 @[reducible]
 def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug : core.fmt.Debug
   backend.neon.cpu.cpuid_sha3.InitToken := {
@@ -456,14 +448,14 @@ def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug : core.fmt.Debug
 }
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::init_get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 72:12-94:13
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 72:12-94:13
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.init_get
   : Result (backend.neon.cpu.cpuid_sha3.InitToken × Bool) := do
   ok ((), true)
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::init]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 98:12-100:13
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 98:12-100:13
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.init
   : Result backend.neon.cpu.cpuid_sha3.InitToken := do
@@ -471,28 +463,28 @@ def backend.neon.cpu.cpuid_sha3.init
   ok it
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::{kopis::backend::neon::cpu::cpuid_sha3::InitToken}::init]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 49:16-51:17
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 49:16-51:17
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.InitToken.init
   : Result backend.neon.cpu.cpuid_sha3.InitToken := do
   backend.neon.cpu.cpuid_sha3.init
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::{kopis::backend::neon::cpu::cpuid_sha3::InitToken}::init_get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 54:16-56:17
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 54:16-56:17
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.InitToken.init_get
   : Result (backend.neon.cpu.cpuid_sha3.InitToken × Bool) := do
   backend.neon.cpu.cpuid_sha3.init_get
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::{kopis::backend::neon::cpu::cpuid_sha3::InitToken}::get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 60:16-66:17
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 60:16-66:17
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.InitToken.get
   (self : backend.neon.cpu.cpuid_sha3.InitToken) : Result Bool := do
   ok true
 
 /-- [kopis::backend::neon::cpu::cpuid_sha3::get]:
-    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 104:12-106:13
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/src/lib.rs', lines 104:12-106:13
     Visibility: public -/
 def backend.neon.cpu.cpuid_sha3.get : Result Bool := do
   let (_, b) ← backend.neon.cpu.cpuid_sha3.init_get
