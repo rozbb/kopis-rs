@@ -370,7 +370,7 @@ pub(crate) fn broadcastsi128_si256(a: Vec128) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_i16<const N: usize>(src: &[i16; N], i: usize) -> Vec256 {
-    assert!(16 * (i + 1) <= N);
+    assert!(i < N / 16);
     // SAFETY: the assert puts all 16 elements in bounds; the load is unaligned.
     Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(16 * i).cast()) })
 }
@@ -379,7 +379,7 @@ pub(crate) fn load_i16<const N: usize>(src: &[i16; N], i: usize) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn store_i16<const N: usize>(dst: &mut [i16; N], i: usize, v: Vec256) {
-    assert!(16 * (i + 1) <= N);
+    assert!(i < N / 16);
     // SAFETY: the assert puts all 16 elements in bounds; the store is unaligned.
     unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(16 * i).cast(), v.0) }
 }
@@ -388,7 +388,7 @@ pub(crate) fn store_i16<const N: usize>(dst: &mut [i16; N], i: usize, v: Vec256)
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_u16<const N: usize>(src: &[u16; N], i: usize) -> Vec256 {
-    assert!(16 * (i + 1) <= N);
+    assert!(i < N / 16);
     // SAFETY: the assert puts all 16 elements in bounds; the load is unaligned.
     Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(16 * i).cast()) })
 }
@@ -397,7 +397,7 @@ pub(crate) fn load_u16<const N: usize>(src: &[u16; N], i: usize) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn store_u16<const N: usize>(dst: &mut [u16; N], i: usize, v: Vec256) {
-    assert!(16 * (i + 1) <= N);
+    assert!(i < N / 16);
     // SAFETY: the assert puts all 16 elements in bounds; the store is unaligned.
     unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(16 * i).cast(), v.0) }
 }
@@ -406,7 +406,7 @@ pub(crate) fn store_u16<const N: usize>(dst: &mut [u16; N], i: usize, v: Vec256)
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_i32<const N: usize>(src: &[i32; N], i: usize) -> Vec256 {
-    assert!(8 * (i + 1) <= N);
+    assert!(i < N / 8);
     // SAFETY: the assert puts all 8 elements in bounds; the load is unaligned.
     Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(8 * i).cast()) })
 }
@@ -415,7 +415,7 @@ pub(crate) fn load_i32<const N: usize>(src: &[i32; N], i: usize) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn store_i32<const N: usize>(dst: &mut [i32; N], i: usize, v: Vec256) {
-    assert!(8 * (i + 1) <= N);
+    assert!(i < N / 8);
     // SAFETY: the assert puts all 8 elements in bounds; the store is unaligned.
     unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(8 * i).cast(), v.0) }
 }
@@ -424,7 +424,7 @@ pub(crate) fn store_i32<const N: usize>(dst: &mut [i32; N], i: usize, v: Vec256)
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_u8<const N: usize>(src: &[u8; N], i: usize) -> Vec256 {
-    assert!(32 * (i + 1) <= N);
+    assert!(i < N / 32);
     // SAFETY: the assert puts all 32 bytes in bounds; the load is unaligned.
     Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(32 * i).cast()) })
 }
@@ -436,7 +436,7 @@ pub(crate) fn load_u8<const N: usize>(src: &[u8; N], i: usize) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
-    assert!(offset + 16 <= src.len());
+    assert!(offset <= src.len() && src.len() - offset >= 16);
     // SAFETY: the assert puts all 16 bytes in bounds; the load is unaligned.
     Vec128(unsafe { _mm_loadu_si128(src.as_ptr().add(offset).cast()) })
 }
@@ -449,7 +449,7 @@ pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_u8x32<const N: usize>(src: &[u8; N], offset: usize) -> Vec256 {
-    assert!(offset + 32 <= N);
+    assert!(offset <= N && N - offset >= 32);
     // SAFETY: the assert puts all 32 bytes in bounds; the load is unaligned.
     Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(offset).cast()) })
 }
@@ -458,7 +458,48 @@ pub(crate) fn load_u8x32<const N: usize>(src: &[u8; N], offset: usize) -> Vec256
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn store_u8x32<const N: usize>(dst: &mut [u8; N], offset: usize, v: Vec256) {
-    assert!(offset + 32 <= N);
+    assert!(offset <= N && N - offset >= 32);
     // SAFETY: the assert puts all 32 bytes in bounds; the store is unaligned.
     unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(offset).cast(), v.0) }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // Indices whose naive bound `16 * (i + 1)` or `offset + 16` wraps must still be rejected.
+    // Without AVX2 these can't run, so they fail the `available()` assert instead.
+
+    #[test]
+    #[should_panic]
+    fn load_i16_wrapping_index() {
+        assert!(super::super::available());
+        // SAFETY: guarded by the `available()` check above.
+        unsafe { load_i16(&[0i16; 16], usize::MAX / 16) };
+    }
+
+    #[test]
+    #[should_panic]
+    fn load_u8x16_wrapping_offset() {
+        assert!(super::super::available());
+        // SAFETY: guarded by the `available()` check above.
+        unsafe { load_u8x16(&[0u8; 16], usize::MAX - 15) };
+    }
+
+    #[test]
+    #[should_panic]
+    fn load_u8x32_wrapping_offset() {
+        assert!(super::super::available());
+        // SAFETY: guarded by the `available()` check above.
+        unsafe { load_u8x32(&[0u8; 32], usize::MAX - 31) };
+    }
+
+    #[test]
+    #[should_panic]
+    fn store_u8x32_wrapping_offset() {
+        assert!(super::super::available());
+        let mut b = [0u8; 32];
+        // SAFETY: guarded by the `available()` check above.
+        unsafe { store_u8x32(&mut b, usize::MAX - 31, load_u8(&[0u8; 32], 0)) };
+    }
 }

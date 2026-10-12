@@ -498,7 +498,7 @@ pub(crate) fn xar<const IMM: i32>(a: Vec128, b: Vec128) -> Vec128 {
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn load_i16<const N: usize>(src: &[i16; N], i: usize) -> Vec128 {
-    assert!(8 * (i + 1) <= N);
+    assert!(i < N / 8);
     // SAFETY: the assert puts all 8 elements in bounds; the load is unaligned.
     Vec128(unsafe { vld1q_u8(src.as_ptr().add(8 * i).cast()) })
 }
@@ -507,7 +507,7 @@ pub(crate) fn load_i16<const N: usize>(src: &[i16; N], i: usize) -> Vec128 {
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn store_i16<const N: usize>(dst: &mut [i16; N], i: usize, v: Vec128) {
-    assert!(8 * (i + 1) <= N);
+    assert!(i < N / 8);
     // SAFETY: the assert puts all 8 elements in bounds; the store is unaligned.
     unsafe { vst1q_u8(dst.as_mut_ptr().add(8 * i).cast(), v.0) }
 }
@@ -516,7 +516,7 @@ pub(crate) fn store_i16<const N: usize>(dst: &mut [i16; N], i: usize, v: Vec128)
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn load_u16<const N: usize>(src: &[u16; N], i: usize) -> Vec128 {
-    assert!(8 * (i + 1) <= N);
+    assert!(i < N / 8);
     // SAFETY: the assert puts all 8 elements in bounds; the load is unaligned.
     Vec128(unsafe { vld1q_u8(src.as_ptr().add(8 * i).cast()) })
 }
@@ -525,7 +525,7 @@ pub(crate) fn load_u16<const N: usize>(src: &[u16; N], i: usize) -> Vec128 {
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn store_u16<const N: usize>(dst: &mut [u16; N], i: usize, v: Vec128) {
-    assert!(8 * (i + 1) <= N);
+    assert!(i < N / 8);
     // SAFETY: the assert puts all 8 elements in bounds; the store is unaligned.
     unsafe { vst1q_u8(dst.as_mut_ptr().add(8 * i).cast(), v.0) }
 }
@@ -534,7 +534,7 @@ pub(crate) fn store_u16<const N: usize>(dst: &mut [u16; N], i: usize, v: Vec128)
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn load_i32<const N: usize>(src: &[i32; N], i: usize) -> Vec128 {
-    assert!(4 * (i + 1) <= N);
+    assert!(i < N / 4);
     // SAFETY: the assert puts all 4 elements in bounds; the load is unaligned.
     Vec128(unsafe { vld1q_u8(src.as_ptr().add(4 * i).cast()) })
 }
@@ -543,7 +543,7 @@ pub(crate) fn load_i32<const N: usize>(src: &[i32; N], i: usize) -> Vec128 {
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn store_i32<const N: usize>(dst: &mut [i32; N], i: usize, v: Vec128) {
-    assert!(4 * (i + 1) <= N);
+    assert!(i < N / 4);
     // SAFETY: the assert puts all 4 elements in bounds; the store is unaligned.
     unsafe { vst1q_u8(dst.as_mut_ptr().add(4 * i).cast(), v.0) }
 }
@@ -557,7 +557,7 @@ pub(crate) fn store_i32<const N: usize>(dst: &mut [i32; N], i: usize, v: Vec128)
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
-    assert!(offset + 16 <= src.len());
+    assert!(offset <= src.len() && src.len() - offset >= 16);
     // SAFETY: the assert puts all 16 bytes in bounds; the load is unaligned.
     Vec128(unsafe { vld1q_u8(src.as_ptr().add(offset)) })
 }
@@ -569,7 +569,36 @@ pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn store_u8x16(dst: &mut [u8], offset: usize, v: Vec128) {
-    assert!(offset + 16 <= dst.len());
+    assert!(offset <= dst.len() && dst.len() - offset >= 16);
     // SAFETY: the assert puts all 16 bytes in bounds; the store is unaligned.
     unsafe { vst1q_u8(dst.as_mut_ptr().add(offset), v.0) }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // Indices whose naive bound `8 * (i + 1)` or `offset + 16` wraps must still be rejected
+
+    #[test]
+    #[should_panic]
+    fn load_i16_wrapping_index() {
+        // SAFETY: NEON is always available where this module is compiled.
+        unsafe { load_i16(&[0i16; 8], usize::MAX / 8) };
+    }
+
+    #[test]
+    #[should_panic]
+    fn load_u8x16_wrapping_offset() {
+        // SAFETY: NEON is always available where this module is compiled.
+        unsafe { load_u8x16(&[0u8; 16], usize::MAX - 15) };
+    }
+
+    #[test]
+    #[should_panic]
+    fn store_u8x16_wrapping_offset() {
+        let mut b = [0u8; 16];
+        // SAFETY: NEON is always available where this module is compiled.
+        unsafe { store_u8x16(&mut b, usize::MAX - 15, load_u8x16(&[0u8; 16], 0)) };
+    }
 }
