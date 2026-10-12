@@ -29,7 +29,7 @@ LAKE ?= lake
 # the names differ — so the per-backend copies are generated from it by swapping
 # the backend-bearing identifiers, and an auditor reads one file rather than one
 # per backend.  There are two copies, AVX2 and NEON, and both are in the build
-# graph.  `TrustBase.lean` holds the part that genuinely *does* differ per
+# graph.  `AxiomCheck.lean` holds the part that genuinely *does* differ per
 # backend (the assumptions), and is hand-written.
 #
 # The copies are checked in, so `lake build`, CI and the editor all work without
@@ -107,7 +107,7 @@ generated: $(GENERATED_AUDIT) twins
 # know when a patch anchor moves.
 #
 # The serial and AVX2 proof targets both depend on this, not just the AVX2 one:
-# `TrustBase.lean` carries a row per backend, so it imports both of the audit
+# `AxiomCheck.lean` carries a row per backend, so it imports both of the audit
 # surfaces that compile.  `prove-kopis-neon` does not — there is no NEON twin
 # stack yet.
 .PHONY: twins
@@ -127,14 +127,14 @@ prove-kopis: prove-kopis-serial prove-kopis-avx2 prove-kopis-neon
 # The portable backend: the extracted ExtractedRustSerial.lean plus every
 # Kopis/Properties/*.lean, then
 # TopLevelTheoremsSerial.lean, which restates the top-level results, and
-# TrustBase.lean, which re-checks their axiom footprint against the audited list.
-# A green build IS the machine-checked proof.  Note that TrustBase now holds both
+# AxiomCheck.lean, which re-checks their axiom footprint against the audited list.
+# A green build IS the machine-checked proof.  Note that AxiomCheck now holds both
 # backends' rows, so this target builds the AVX2 stack too — hence the generated
 # prerequisites; for the serial proofs alone, run
 # `lake build KopisSerial TopLevelTheoremsSerial`.
 .PHONY: prove-kopis-serial
 prove-kopis-serial: $(GENERATED_AUDIT) twins
-	$(LAKE) build KopisSerial TopLevelTheoremsSerial TrustBase
+	$(LAKE) build KopisSerial TopLevelTheoremsSerial AxiomCheck
 
 # The AVX2 backend.  This builds the second extraction (ExtractedRustAvx2.lean,
 # from an `--cfg kopis_backend="avx2"` build), Kopis/Avx2/Intrinsics.lean — which
@@ -150,11 +150,11 @@ prove-kopis-serial: $(GENERATED_AUDIT) twins
 # Two notes on the generated audit copy.  It inherits `import Kopis`, the *serial*
 # aggregator, which no backend-name substitution reaches, and it refers to this
 # stack's own namespace as `Properties.…`; the two sed rules above rewrite those
-# specially.  `TrustBase.lean` now carries a second `backends` row for
+# specially.  `AxiomCheck.lean` now carries a second `backends` row for
 # RustKopisAvx2, so the AVX2 audit list is enforced, not merely documented.
 .PHONY: prove-kopis-avx2
 prove-kopis-avx2: $(GENERATED_AUDIT) twins
-	$(LAKE) build KopisAvx2 TopLevelTheoremsAvx2 TrustBase
+	$(LAKE) build KopisAvx2 TopLevelTheoremsAvx2 AxiomCheck
 
 # The NEON backend.  This builds the third extraction (ExtractedRustNeon.lean, from an
 # `--cfg kopis_backend="neon" -C target-feature=+sha3` build cross-compiled for
@@ -164,12 +164,12 @@ prove-kopis-avx2: $(GENERATED_AUDIT) twins
 # The twin proof stack exists and every twin is discharged, so this target is no longer
 # aspirational: a green build means the same thing here as for the other two backends.
 # `TopLevelTheoremsNeon` restates the top-level results against the third extraction, and
-# `TrustBase` — which now carries a third `backends` row for RustKopisNeon — re-checks their
+# `AxiomCheck` — which now carries a third `backends` row for RustKopisNeon — re-checks their
 # axiom footprint against `neonAudited`.  The 46 intrinsic axioms are additionally checked
 # against silicon by `make test-neon-model`.
 .PHONY: prove-kopis-neon
 prove-kopis-neon: $(GENERATED_AUDIT) twins
-	$(LAKE) build KopisNeon TopLevelTheoremsNeon TrustBase
+	$(LAKE) build KopisNeon TopLevelTheoremsNeon AxiomCheck
 
 # ---------------------------------------------------------------------------
 # Spec tests

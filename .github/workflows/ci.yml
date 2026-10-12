@@ -196,7 +196,7 @@ jobs:
         run: |
           make -C lean twins
           git diff --exit-code -- lean/Kopis/Avx2/Properties lean/Kopis/Neon/Properties
-      # Proves all three backends and runs TrustBase, which fails if the axiom footprint is not
+      # Proves all three backends and runs AxiomCheck, which fails if the axiom footprint is not
       # exactly the audited list. Also fails if the generated audit surfaces are out of date.
       - name: Prove
         working-directory: lean

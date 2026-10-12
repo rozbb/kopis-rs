@@ -64,7 +64,7 @@ lean_lib «TopLevelTheoremsNeon»
 
 -- Contains all the axioms we need in our proofs
 @[default_target]
-lean_lib «TrustBase»
+lean_lib «AxiomCheck»
 
 -- Library with all the known-answer tests for the Lean impls of Kopis and TurboSHAKE
 lean_lib «SpecTests» where

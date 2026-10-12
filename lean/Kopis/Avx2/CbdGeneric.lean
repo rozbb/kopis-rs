@@ -42,7 +42,7 @@ the two `count_ones` axioms (`Kopis/Properties/GenSecret.lean`).
 
 The `count_ones` axioms are genuinely new *assumptions* for this backend —
 `RustKopisAvx2.core.num.{U8,U16}.count_ones` are different opaque constants from the serial
-ones — so they belong in the AVX2 row of `TrustBase.lean` exactly as their serial twins are in
+ones — so they belong in the AVX2 row of `AxiomCheck.lean` exactly as their serial twins are in
 the serial row. -/
 
 

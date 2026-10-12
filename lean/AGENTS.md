@@ -5,9 +5,9 @@
 # When modifying proofs
 
 * Do NOT modify `TopLevelTheoremsSerial.lean` unless it's absolutely necessary, or you were explicitly asked to. And if you do modify it, highlight it in your summary to your human.
-* Ditto for `TrustBase.lean`
+* Ditto for `AxiomCheck.lean`
 
-# When modifying `TopLevelTheoremsSerial.lean` or `TrustBase.lean`
+# When modifying `TopLevelTheoremsSerial.lean` or `AxiomCheck.lean`
 
 * Modify as few things as possible
 * If you must write prose, write it using the style of the rest of the file

@@ -364,6 +364,6 @@ run_cmd do
     let unexpected := found.filter (fun a => !audited.contains a)
     let unused := audited.filter (fun a => !found.contains a)
     unless unexpected.isEmpty && unused.isEmpty do
-      throwError "TRUST BASE CHANGED for {label} — TrustBase.lean is out of date.\n\
+      throwError "TRUST BASE CHANGED for {label} — AxiomCheck.lean is out of date.\n\
         New assumptions not in the audited list: {unexpected.toList}\n\
         Audited assumptions no longer used: {unused}"

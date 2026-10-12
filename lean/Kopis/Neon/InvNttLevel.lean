@@ -38,7 +38,7 @@ does.  It negates the ζ at run time and multiplies by `crt::qinv`:
 `wrapping_mul` is an ordinary aeneas definition, but **`core::num::{i16}::wrapping_neg` extracts
 as an opaque axiom** — charon does not lower it — so its meaning has to be assumed, exactly as
 `count_ones` does in `Kopis/Neon/CbdGeneric.lean`.  It is therefore a genuinely new item in this
-backend's trust base and belongs in the NEON row of `TrustBase.lean` alongside the `count_ones`
+backend's trust base and belongs in the NEON row of `AxiomCheck.lean` alongside the `count_ones`
 pair, not a lemma that could be proved.
 
 What is assumed is the obvious thing: two's-complement negation, i.e. the negation taken

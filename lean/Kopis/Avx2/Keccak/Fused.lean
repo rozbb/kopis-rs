@@ -83,7 +83,7 @@ is the flat index of lane `(x + 3y, x)` and the rotation is that lane's ρ offse
 `decide +kernel` rather than `decide`: `ρ.Offsets` is built by a `for` loop inside `Id.run`,
 which the ordinary whnf-based `Decidable` evaluator does not reduce.  Kernel reduction does, and
 unlike `native_decide` it adds no axiom: this theorem's footprint is `propext`,
-`Classical.choice`, `Quot.sound`, which is what `TrustBase.lean` expects. -/
+`Classical.choice`, `Quot.sound`, which is what `AxiomCheck.lean` expects. -/
 theorem rustTable_eq (y x : Fin 5) :
     (rustTable[y][x]).1 = idx (x + 3 * y) x ∧
     (rustTable[y][x]).2 = ρ.Offsets[x + 3 * y][x] % 64 := by
