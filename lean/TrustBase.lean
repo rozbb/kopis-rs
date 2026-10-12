@@ -62,8 +62,7 @@ def serialAudited : List String := commonAxioms ++
 
 /--
 The AVX2 crate needs lots of axiomatized SIMD intrinsics. In addition it also needs `turboshake` and
-`sutble` axioms. It also needs `bv_decide`, which decides theorems by running programs natively and
-producing a receipt that is validated by a Lean program.
+`sutble` axioms.
 -/
 def avx2Audited : List String := commonAxioms ++
   ["Kopis.Avx2.CbdGeneric.U16.count_ones_spec",
@@ -203,11 +202,7 @@ def avx2Audited : List String := commonAxioms ++
    "RustKopisAvx2.zeroize.Zeroizing",
    "RustKopisAvx2.zeroize.Zeroizing.Insts.CoreOpsDerefDeref.deref",
    "RustKopisAvx2.zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut",
-   "RustKopisAvx2.zeroize.Zeroizing.new",
-   "_private.Kopis.Avx2.NttMulLane.0.Kopis.Avx2.join_prod._native.bv_decide.ax_1_5",
-   "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.and_low16._native.bv_decide.ax_1_5",
-   "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.sar_eq._native.bv_decide.ax_1_5",
-   "_private.Kopis.Avx2.Reduce.0.Kopis.Avx2.shl_sar_eq._native.bv_decide.ax_1_5"]
+   "RustKopisAvx2.zeroize.Zeroizing.new"]
 
 /-- Axioms required by the NEON backend. Same genres here as avx2Audited -/
 def neonAudited : List String := commonAxioms ++

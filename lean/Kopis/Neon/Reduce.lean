@@ -1106,8 +1106,8 @@ negative — then forms `t = (a₂ − a₁)·q₁⁻¹ mod q₂`, lifts that to
 /- Proved bit by bit rather than by `bv_decide`: every `bv_decide` call mints a
 `…_native.bv_decide.ax_…` axiom asserting the result of running the LRAT checker under the
 *compiled* evaluator, which would put the Lean compiler and runtime in this backend's trust base
-for no gain — see group (h) in `TrustBase.lean`.  Both sides are `x.msb` at every bit: at bit 0
-because `15 + 0 < 16` reads bit 15, and above it because the shift has run off the top. -/
+for no gain.  Both sides are `x.msb` at every bit: at bit 0 because `15 + 0 < 16` reads bit 15,
+and above it because the shift has run off the top. -/
 theorem sshr15_bits (x : BitVec 16) :
     x.sshiftRight 15 = if x.msb then BitVec.allOnes 16 else 0#16 := by
   apply BitVec.eq_of_getLsbD_eq

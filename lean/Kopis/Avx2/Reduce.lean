@@ -30,14 +30,29 @@ Both halves land inside the `i16` range, so `vpackssdw` never actually saturates
 
 /-- Shifting left 16 then arithmetically right 16 sign-extends the low half. -/
 private theorem shl_sar_eq (x : BitVec 32) :
-    (x <<< (16 : ℕ)).sshiftRight 16 = (BitVec.extractLsb' 0 16 x).signExtend 32 := by bv_decide
+    (x <<< (16 : ℕ)).sshiftRight 16 = (BitVec.extractLsb' 0 16 x).signExtend 32 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [BitVec.getLsbD_sshiftRight, BitVec.getLsbD_signExtend, BitVec.getLsbD_extractLsb',
+    BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_shiftLeft]
+  by_cases h : i < 16
+  · rw [if_pos (by omega), if_pos h]
+    simp [hi, h, show 16 + i < 32 by omega, show ¬ 16 + i < 16 by omega, show ¬ 32 ≤ i by omega]
+  · rw [if_neg (by omega), if_neg h]; simp [hi]
 
 /-- Shifting arithmetically right 16 sign-extends the high half. -/
 private theorem sar_eq (x : BitVec 32) :
-    x.sshiftRight 16 = (BitVec.extractLsb' 16 16 x).signExtend 32 := by bv_decide
+    x.sshiftRight 16 = (BitVec.extractLsb' 16 16 x).signExtend 32 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [BitVec.getLsbD_sshiftRight, BitVec.getLsbD_signExtend, BitVec.getLsbD_extractLsb',
+    BitVec.msb_eq_getLsbD_last]
+  by_cases h : i < 16
+  · rw [if_pos (by omega), if_pos h]; simp [hi, h]
+  · rw [if_neg (by omega), if_neg h]; simp [hi]
 
 private theorem setWidth_signExtend (y : BitVec 16) :
-    BitVec.setWidth 16 (y.signExtend 32) = y := by bv_decide
+    BitVec.setWidth 16 (y.signExtend 32) = y := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp [BitVec.getLsbD_signExtend, hi]; omega
 
 /-- Signed saturation is the identity on a value that came from an `i16`. -/
 theorem satS_signExtend (y : BitVec 16) : satS (y.signExtend 32) = y := by
@@ -354,8 +369,9 @@ private theorem toInt_eq_zero_or_neg_one (x : BitVec 16) :
   norm_num
   omega
 
-private theorem and_zero16 (y : BitVec 16) : (0#16) &&& y = 0#16 := by bv_decide
-private theorem and_neg_one16 (y : BitVec 16) : (-1#16) &&& y = y := by bv_decide
+private theorem and_zero16 (y : BitVec 16) : (0#16) &&& y = 0#16 := BitVec.zero_and
+private theorem and_neg_one16 (y : BitVec 16) : (-1#16) &&& y = y := by
+  rw [BitVec.neg_one_eq_allOnes, BitVec.allOnes_and]
 
 /-- **One canonicalisation lane.**  `hQlt` is what keeps the wrapping addition exact: `r + q`
 stays inside an `i16` because `2q` does. -/
@@ -449,10 +465,14 @@ theorem cmpgt32_lane (a b c : Vec256) (hc : bits c = Model.cmpgtEpi32 (bits a) (
   rw [hl, BitVec.slt_eq_decide]
   split <;> rename_i h <;> simp only [decide_eq_true_eq] at h <;> [rw [if_pos h]; rw [if_neg h]]
 
-private theorem and32_zero (y : BitVec 32) : (0#32) &&& y = 0#32 := by bv_decide
-private theorem and32_allOnes (y : BitVec 32) : y &&& (BitVec.allOnes 32) = y := by bv_decide
+private theorem and32_zero (y : BitVec 32) : (0#32) &&& y = 0#32 := BitVec.zero_and
+private theorem and32_allOnes (y : BitVec 32) : y &&& (BitVec.allOnes 32) = y := BitVec.and_allOnes
 private theorem and_low16 (v : BitVec 32) :
-    v &&& 0xFFFF#32 = BitVec.setWidth 32 (BitVec.setWidth 16 v) := by bv_decide
+    v &&& 0xFFFF#32 = BitVec.setWidth 32 (BitVec.setWidth 16 v) := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_setWidth, BitVec.getLsbD_ofNat,
+    show Nat.testBit 65535 i = decide (i < 16) from Nat.testBit_two_pow_sub_one 16 i]
+  cases v.getLsbD i <;> simp [hi, Bool.and_comm]
 
 /-! ## The combine
 

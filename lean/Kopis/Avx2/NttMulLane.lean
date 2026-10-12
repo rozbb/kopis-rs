@@ -50,7 +50,18 @@ in the order `hi ++ lo`, which is the 32-bit product. -/
 
 private theorem join_prod (a b : BitVec 16) :
     BitVec.extractLsb' 16 16 (a.signExtend 32 * b.signExtend 32) ++ (a * b)
-      = a.signExtend 32 * b.signExtend 32 := by bv_decide
+      = a.signExtend 32 * b.signExtend 32 := by
+  have hs (y : BitVec 16) : (y.signExtend 32).setWidth 16 = y := by
+    apply BitVec.eq_of_getLsbD_eq; intro i hi
+    simp [BitVec.getLsbD_signExtend, hi]; omega
+  generalize hp : a.signExtend 32 * b.signExtend 32 = p
+  have hlo : a * b = p.setWidth 16 := by rw [← hp, BitVec.setWidth_mul _ _ (by omega), hs, hs]
+  rw [hlo]
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [BitVec.getLsbD_append, BitVec.getLsbD_extractLsb', BitVec.getLsbD_setWidth]
+  by_cases h : i < 16
+  · simp [h]
+  · simp [h, hi, show i - 16 < 16 by omega, show 16 + (i - 16) = i by omega]
 
 /-- The first output vector holds the 32-bit products of `i16` lanes `0 … 8`. -/
 theorem prod_lane_first (l r : BitVec 256) (k : ℕ) (hk : k < 8) :
