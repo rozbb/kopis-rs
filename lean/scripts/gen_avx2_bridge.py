@@ -15,7 +15,7 @@ transform now uses the same two-prime scheme and the same `[i16; 512]` layout, s
 branches prove *the same postcondition* and the patch is four case splits.
 
 Each is `obtain ⟨b, hb⟩ := available_ok; cases b`, with the portable proof unchanged on `false`
-and `Kopis/Avx2/Reduce.lean`'s corresponding theorem on `true`.  `available_ok` assumes only that
+and `Kopis/Avx2/Reduce.lean`'s corresponding theorem on `true`.  `available_ok` states only that
 the probe returns, not what it returns.
 
 Every edit is anchored on exact serial text and asserted to apply exactly `n` times, so a change

@@ -14,8 +14,13 @@ Two failure modes are worth knowing about, because both fail *toward* a clean re
 
   * the host `objdump` is usually built for one architecture and prints nothing at all for the
     others, exiting 0 while doing so. We use `llvm-objdump` and assert we actually saw code.
-  * `libkopis.rlib` on its own holds no instantiated KEM code, because the API is const-generic.
-    That is what `ct-check/probe` is for; we disassemble it alongside the kopis rlib.
+  * the API is const-generic, so `libkopis.rlib` on its own need not hold every instantiation.
+    That is what `ct-check/probe` is for; we disassemble it alongside kopis and every dependency
+    that ends up in the target binary.
+
+Calls to compiler-rt division helpers (`__udivti3`, `__aeabi_uldivmod`, ...) are flagged too: a
+divide too wide for the hardware becomes one of these instead of a `div`. They are found through
+the call's relocation, since the callee is not in the rlib.
 """
 
 import json
@@ -36,6 +41,13 @@ MIN_PLAUSIBLE_INSNS = 2000
 # Deliberately absent, because they are constant-time on every CPU this crate targets and would
 # only add noise: variable-count shifts, POPCNT/LZCNT/TZCNT/BSF/BSR (kopis calls `count_ones()` on
 # secret bytes in `sample.rs` and that is fine), integer MUL/IMUL, and CMOV/CSEL.
+DIV_LIBCALL = (
+    "div-libcall",
+    r"^R_\S+ (__u?(div|mod|divmod)[sdt]i[34]|__aeabi_u?l?div(mod)?|__aeabi_u?idiv(mod)?)\b",
+    "Call to a software divide: as variable-time as the instruction it replaces",
+    None,
+)
+
 CATEGORIES = {
     "x86": [
         ("int-div", r"^i?div[bwlq]?\b", "DIV/IDIV: latency depends on the operands", None),
@@ -46,11 +58,13 @@ CATEGORIES = {
         ("rep-string-cmp", r"^rep[a-z]*\s+(cmps|scas)",
          "REP CMPS/SCAS: terminates early depending on the data", None),
         ("gather", r"^v?p?gather", "Gather: timing follows the address pattern", None),
+        DIV_LIBCALL,
     ],
     "aarch64": [
         ("int-div", r"^[us]div\b",
          "UDIV/SDIV: early-terminating on Cortex-A and Neoverse", None),
         ("fp-div-sqrt", r"^(fdiv|fsqrt)\b", "FP divide/sqrt: variable latency", None),
+        DIV_LIBCALL,
     ],
     # A32/T32. Long multiply is deliberately absent: `UMULL` and friends early-terminate on
     # Cortex-M3 and below, but the crate does not claim constant time on those cores, and on the
@@ -60,6 +74,7 @@ CATEGORIES = {
          "UDIV/SDIV: early-terminating on Cortex-M (suffix allows IT-block forms like `udivne`)",
          None),
         ("fp-div-sqrt", r"^(vdiv|vsqrt)[a-z]*", "FP divide/sqrt: variable latency", None),
+        DIV_LIBCALL,
     ],
 }
 
@@ -119,8 +134,8 @@ def find_llvm_objdump() -> str:
     )
 
 
-def configs(host: str, installed: set):
-    """Every (label, target, backend, rustflags) worth scanning on this machine."""
+def all_configs(host: str):
+    """Every (label, target, backend, rustflags) worth scanning from this host."""
     out = []
     fam = arch_family(host)
     if fam == "x86":
@@ -140,10 +155,14 @@ def configs(host: str, installed: set):
          '-C target-feature=+neon,+sha3 --cfg kopis_backend="neon"'),
         ("thumbv7em/serial", "thumbv7em-none-eabi", "serial", '--cfg kopis_backend="serial"'),
     ]
-    for label, target, backend, flags in cross:
-        if target == host:
-            continue
-        if target in installed:
+    return out + [c for c in cross if c[1] != host]
+
+
+def configs(host: str, installed: set):
+    """The subset of `all_configs` whose target is installed."""
+    out = []
+    for label, target, backend, flags in all_configs(host):
+        if target == host or target in installed:
             out.append((label, target, backend, flags))
         else:
             print(f"  skipping {label}: target {target} not installed "
@@ -152,7 +171,9 @@ def configs(host: str, installed: set):
 
 
 def build(target: str, rustflags: str) -> list:
-    """Builds the probe for one configuration; returns the rlibs holding kopis code."""
+    """Builds the probe for one configuration; returns its rlib and those of every dependency
+    compiled for `target` (build-time dependencies such as proc macros are built for the host and
+    never reach the binary)."""
     # The allowlist matches on symbol names, so the mangling is pinned rather than left to the
     # toolchain's default: rustc 1.98 emits v0, 1.96 emitted the legacy scheme, and an entry
     # written for one spelling stops covering its divide under the other, failing the scan on a
@@ -178,15 +199,15 @@ def build(target: str, rustflags: str) -> list:
             continue
         if msg.get("reason") != "compiler-artifact":
             continue
-        if msg.get("target", {}).get("name") not in ("kopis", "ct-scan-probe"):
-            continue
-        rlibs += [f for f in msg.get("filenames", []) if f.endswith(".rlib")]
+        rlibs += [f for f in msg.get("filenames", [])
+                  if f.endswith(".rlib") and f"/{target}/" in f]
     return rlibs
 
 
 def disassemble(objdump: str, rlibs: list):
-    """Yields (symbol, instruction-text) and the total instruction count."""
-    proc = subprocess.run([objdump, "-d", "--demangle", "--no-show-raw-insn", *rlibs],
+    """Yields (symbol, instruction-text) and the total instruction count. Relocations are yielded
+    as rows too, as `R_<type> <target>`, but not counted."""
+    proc = subprocess.run([objdump, "-d", "-r", "--demangle", "--no-show-raw-insn", *rlibs],
                           capture_output=True, text=True)
     sym, total, rows = None, 0, []
     for line in proc.stdout.splitlines():
@@ -197,8 +218,10 @@ def disassemble(objdump: str, rlibs: list):
         insn = re.match(r"^\s*[0-9a-f]+:\s+(\S.*)$", line)
         if not insn or sym is None:
             continue
-        total += 1
-        rows.append((sym, " ".join(insn.group(1).split())))
+        text = " ".join(insn.group(1).split())
+        if not text.startswith("R_"):
+            total += 1
+        rows.append((sym, text))
     return rows, total
 
 
@@ -248,6 +271,9 @@ MATCHER_CASES = [
     ("x86", "cmovel %eax, %ecx", None),
     ("x86", "tzcntl %eax, %ecx", None),
     ("x86", "vpmullw %ymm1, %ymm2, %ymm3", None),
+    ("x86", "R_X86_64_PLT32 __udivti3-0x4", "div-libcall"),
+    ("x86", "R_X86_64_PLT32 __umodti3-0x4", "div-libcall"),
+    ("x86", "R_X86_64_PLT32 memcpy-0x4", None),
 
     ("aarch64", "udiv w8, w9, w10", "int-div"),
     ("aarch64", "sdiv x0, x1, x2", "int-div"),
@@ -258,6 +284,8 @@ MATCHER_CASES = [
     ("aarch64", "csel x0, x1, x2, eq", None),
     ("aarch64", "cnt v0.8b, v1.8b", None),
     ("aarch64", "eor3 v0.16b, v1.16b, v2.16b, v3.16b", None),
+    ("aarch64", "R_AARCH64_CALL26 __udivti3", "div-libcall"),
+    ("aarch64", "R_AARCH64_CALL26 __divti3", "div-libcall"),
 
     ("arm", "udiv r0, r1, r2", "int-div"),
     # Conditional forms: a plain `a / b` on thumbv7em compiles to `udivne` inside an IT block.
@@ -271,6 +299,9 @@ MATCHER_CASES = [
     ("arm", "umull r0, r1, r2, r3", None),
     ("arm", "muls r0, r1", None),
     ("arm", "lsls r0, r1, #2", None),
+    ("arm", "R_ARM_THM_CALL __aeabi_uldivmod", "div-libcall"),
+    ("arm", "R_ARM_THM_CALL __aeabi_idivmod", "div-libcall"),
+    ("arm", "R_ARM_THM_CALL __aeabi_memcpy", None),
 ]
 
 # Symbols that must never be covered by an allowlist entry. If one is, someone has written a
@@ -283,11 +314,20 @@ ALLOWLIST_MUST_NOT_COVER = [
     "kopis::backend::avx2::keccak::xof4",
 ]
 
-# A 32-bit divide, because that is the width every target we scan has a hardware divide for.
-# (A 64-bit one becomes a `__aeabi_uldivmod` libcall on thumb and would never appear as `udiv`.)
+# A 32-bit divide, because that is the width every target we scan has a hardware divide for, and
+# the narrowest one that is not: 64-bit on 32-bit Arm (`__aeabi_uldivmod`), 128-bit on the 64-bit
+# targets (`__udivti3`). Thumb inlines a 128-bit divide as a loop rather than calling out.
 PLANTED_SRC = """#![no_std]
 #[no_mangle]
 pub extern "C" fn kopis_ct_planted_divide(a: u32, b: u32) -> u32 {
+    a / b
+}
+#[no_mangle]
+pub extern "C" fn kopis_ct_planted_libcall64(a: u64, b: u64) -> u64 {
+    a / b
+}
+#[no_mangle]
+pub extern "C" fn kopis_ct_planted_libcall128(a: u128, b: u128) -> u128 {
     a / b
 }
 """
@@ -339,19 +379,21 @@ def selftest(objdump: str, allowlist) -> int:
                 failures.append(f"{label}: could not compile the planted divide\n{proc.stderr}")
                 continue
             rows, total = disassemble(objdump, [str(obj)])
-            hit = any(
-                name == "int-div" and rx.match(text) and "planted" in sym
-                for sym, text in rows
-                for name, rx, _ in categories_for(fam, target)
-            )
             checked += 1
-            if not hit:
-                failures.append(
-                    f"{label}: the planted divide was NOT reported "
-                    f"({total} instructions disassembled). The scan would pass vacuously here."
+            libcall = "planted_libcall64" if fam == "arm" else "planted_libcall128"
+            for want, fn in [("int-div", "planted_divide"), ("div-libcall", libcall)]:
+                hit = any(
+                    name == want and rx.match(text) and fn in sym
+                    for sym, text in rows
+                    for name, rx, _ in categories_for(fam, target)
                 )
-    print(f"  end-to-end: {checked} target(s), {checked - (len(failures) - before)} reported "
-          f"the planted divide")
+                if not hit:
+                    failures.append(
+                        f"{label}: the planted {want} was NOT reported "
+                        f"({total} instructions disassembled). The scan would pass vacuously here."
+                    )
+    print(f"  end-to-end: {checked} target(s), {len(failures) - before} missed a planted "
+          f"divide or divide libcall")
 
     if failures:
         print("\nFAIL: the instruction scan is not working as intended:\n")
@@ -383,6 +425,7 @@ def main():
         raise SystemExit("scan-instrs: no scannable configurations")
 
     findings, scanned = [], []
+    used = set()
     for label, target, backend, flags in cfgs:
         fam = arch_family(target)
         cats = categories_for(fam, target)
@@ -401,7 +444,10 @@ def main():
                     continue
                 # Matched a variable-latency category. Either the allowlist says the operands are
                 # public, in which case it only gets counted, or it is a finding.
-                if any(a_cat == name and a_sym in sym for a_cat, a_sym, _ in allow):
+                covering = [(a_cat, a_sym) for a_cat, a_sym, _ in allow
+                            if a_cat == name and a_sym in sym]
+                if covering:
+                    used.update(covering)
                     allowed += 1
                     continue
                 findings.append((label, name, desc, text, sym))
@@ -412,6 +458,17 @@ def main():
     print("\n    config                instructions   allowlisted")
     for label, total, allowed in scanned:
         print(f"    {label:<19} {total:>12}   {allowed:>11}")
+
+    # Error if the allowlist contains stale entries
+    unused = [(c, a) for c, a, _ in allow if (c, a) not in used]
+    if unused and len(cfgs) == len(all_configs(host)):
+        print(f"\nFAIL: {len(unused)} allowlist entr(y/ies) matched nothing; remove them:\n")
+        for cat, pattern in unused:
+            print(f"  {cat} | {pattern}")
+        return 1
+    elif unused:
+        print(f"\nnote: {len(unused)} allowlist entr(y/ies) matched nothing, but some "
+              "configurations were skipped, so they may be needed there")
 
     if findings:
         print(f"\nFAIL: {len(findings)} variable-latency instruction(s) not in the allowlist:\n")

@@ -1,10 +1,9 @@
 #![no_std]
 //! Forces monomorphisation of every kopis operation.
 //!
-//! The crate's whole API is const-generic, so a `libkopis.rlib` built on its own contains no
-//! instantiated KEM code at all — a disassembler pointed at it would report a clean bill for an
-//! empty file. `scan-instrs.py` builds this crate instead, for each target and backend, and
-//! disassembles both rlibs: kopis code ends up spread across the two.
+//! The crate's whole API is const-generic, so a `libkopis.rlib` built on its own need not contain
+//! every instantiation of the KEM code. `scan-instrs.py` builds this crate instead, for each
+//! target and backend, and disassembles it along with kopis and its dependencies.
 //!
 //! Nothing here needs to run, or even to link. It only needs to exist in the object code.
 

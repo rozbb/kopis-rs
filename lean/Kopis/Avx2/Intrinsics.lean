@@ -31,10 +31,9 @@ that bound the wrapper panics, and nothing is claimed.
 
 ## The CPU probe
 
-`cpu::available` is opaque for the same reason as the intrinsics, but nothing about *what it
-returns* is assumed: every dispatch point is proved on both branches, so the result holds
-whatever CPUID says. The only thing assumed is that the probe terminates without failing —
-`available_ok` below — which is far weaker than "it correctly detects AVX2".
+`cpu::available` is extracted normally. The extraction is a forced `+avx2` build, so it comes
+out as `ok true` and needs no assumption. Every dispatch point is still proved on both branches,
+via `available_ok` below, so the proofs do not depend on that.
 
 ## What is *not* assumed here
 
@@ -79,10 +78,8 @@ that no theorem needs is one an auditor has to think about for nothing. -/
 axiom bits : Vec256 → BitVec 256
 axiom bits' : Vec128 → BitVec 128
 
-/-- The CPU probe terminates and does not fail.  Nothing is assumed about *which* answer it
-gives: every dispatch point is proved on both branches.  This is the whole of `cpu::available`'s
-contribution to the trust base. -/
-axiom available_ok : ∃ b, RustKopisAvx2.backend.avx2.cpu.available = ok b
+/-- The CPU probe terminates and does not fail. -/
+theorem available_ok : ∃ b, RustKopisAvx2.backend.avx2.cpu.available = ok b := ⟨true, rfl⟩
 
 /- Lane `i` of width `w`, counting from the least significant end — the lane numbering the
 Intel manuals use, so `lane16 v 0` is `v[15:0]`.  Defined in `Kopis/Bits/Lanes.lean`, which both

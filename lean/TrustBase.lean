@@ -85,7 +85,6 @@ def avx2Audited : List String := commonAxioms ++
    "Kopis.Avx2.add_epi32_spec",
    "Kopis.Avx2.and_si256_spec",
    "Kopis.Avx2.andnot_si256_spec",
-   "Kopis.Avx2.available_ok",
    "Kopis.Avx2.bits",  -- Shows that an opaque AVX2 register is equivalent to a bitvec
    "Kopis.Avx2.bits'", -- Ditto
    "Kopis.Avx2.broadcastsi128_si256_spec",

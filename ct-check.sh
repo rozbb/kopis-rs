@@ -149,7 +149,8 @@ rm -f "$BIN"
 
 echo "==> building ct-check (backend: $BACKEND)"
 BUILD_LOG="$(mktemp)"
-trap 'rm -f "$BUILD_LOG"' EXIT
+VG_LOG="$(mktemp)"
+trap 'rm -f "$BUILD_LOG" "$VG_LOG"' EXIT
 if cargo build --profile ct -p ct-check >"$BUILD_LOG" 2>&1; then
     grep -Ev '^\s*(Compiling|Finished)' "$BUILD_LOG" || true
 else
@@ -183,15 +184,18 @@ printf '==> %s\n' "${CMD[*]}"
 
 echo "==> running under valgrind (this takes a couple of minutes)"
 set +e
-"${CMD[@]}"
-STATUS=$?
+"${CMD[@]}" 2>&1 | tee "$VG_LOG"
+STATUS=${PIPESTATUS[0]}
 set -e
 
 echo
 if [[ $SELFTEST -eq 1 ]]; then
     # Inverted: the control leaks on purpose, so silence means the tagging never took effect and
-    # every other run of this script has been passing vacuously.
-    if [[ $STATUS -ne 0 ]]; then
+    # every other run of this script has been passing vacuously. Require both kinds of report
+    # rather than any failure, so a crash or SIGILL is not mistaken for detection.
+    if [[ $STATUS -eq 1 ]] \
+        && grep -q "Conditional jump or move depends on uninitialised value" "$VG_LOG" \
+        && grep -q "Use of uninitialised value of size" "$VG_LOG"; then
         echo "PASS: the harness detects a secret-dependent branch and a secret-dependent load"
         STATUS=0
     else

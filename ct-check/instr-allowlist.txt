@@ -11,17 +11,6 @@
 # symbol from a FAIL report rather than writing it out, and if a line ever stops matching, the
 # scan fails loudly with the symbol it did see.
 
-# `let tail_groups = 15 / bits;` — the count of trailing groups that would read past the end of
-# the buffer. `bits` is the serialisation width: 13 for the public-key vector, T for ciphertexts.
-# Both are parameter-set constants, known to anyone who knows which variant is in use.
-int-div | kopis::backend::avx2::ser::deserialize | serialisation width `bits`, a public parameter
-int-div | kopis::backend::neon::ser::deserialize | serialisation width `bits`, a public parameter
-
-# Same instruction as above, attributed to the caller after inlining. The portable path itself
-# divides only by compile-time constants (`13 * RING_DEG / 8` and friends), which never become a
-# `div`; a serial-only build shows no hit here at all.
-int-div | <kopis::arithmetic::ring_arith::RingElem>::deserialize | inlined backend `15 / bits`
-
 # `core`'s Zip adapter divides to compute a shortest-of-two length. The operands are slice
 # lengths, which are fixed by the parameter set. The module path matches both `Zip::new` and
 # `TrustedRandomAccessNoCoerce::size`, which are the two that show up.

@@ -16,8 +16,7 @@
   reachable paths are shown to compute the same bit stream.
 
   That is the whole of §1(a)'s promised simplification here.  Where `Kopis/Avx2/SerDispatch.lean`
-  has three reachable paths and consumes `available_ok`, this file has two and consumes no
-  assumption about the CPU at all.
+  has three reachable paths and case-splits on `available_ok`, this file has two.
 
   ## Why this lives in its own module
 
