@@ -59,6 +59,15 @@ jobs:
           components: clippy
       - run: cargo clippy -- -D warnings
 
+  # Fail on any RustSec advisory against a crate in Cargo.lock
+  advisories:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories
+
   # Build every backend for a nostd target
   build-nostd:
     name: Build no_std (${{ matrix.backend }}, ${{ matrix.target }})
