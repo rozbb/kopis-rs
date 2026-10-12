@@ -45,9 +45,9 @@ level. So there is one `bits` here rather than one per arrangement, and no axiom
 
 ## What is *not* assumed here
 
-* **The CPU probe.** Unlike the AVX2 backend, `backend::neon::cpu` is extracted normally:
-  `available()` is `cfg!(target_arch = "aarch64")`, which is a compile-time `true` on the target
-  this is extracted for, so it comes out as `def … : Result Bool := ok true` and needs no
+* **The CPU probe.** `backend::neon::cpu` is extracted normally: `available()` is
+  `cfg!(kopis_neon_assume) || cpuid_sha3::get()`, and the extraction is a forced `+sha3` build,
+  so the probe folds away and it comes out as `def … : Result Bool := ok true`, needing no
   assumption. The dispatch points therefore reduce to their NEON branch rather than needing a
   proof on both, which is a real simplification over `TopLevelTheoremsAvx2`.
 * **Any relation between this model and the portable code.** That is what the correspondence

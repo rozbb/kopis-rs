@@ -55,12 +55,11 @@ We have implemented benchmarks for key generation, encapsulation, and decapsulat
 
 # Backend selection
 
-This crate supports three backends:
+This crate supports three backends. By default, this crate will look at the target architecture, pick the right backend, and do CPU feature support testing at runtime as needed. The backends are:
+
 * Portable — No special hardware necessary
 * AVX2 — x86-64 CPUs with AVX2
-* NEON — aarch64 CPUs with NEON _and also SHA3_ (meaning presence of `+sha3` in the target features)
-
-By default, this crate will look at the target architecture, pick the right backend, and do CPU feature support testing as needed.
+* NEON — aarch64 CPUs with NEON and SHA3. Feature detection on aarch64 is OS-dependent, so it only works on Linux, Android, and Apple platforms. Elsewhere, NEON will only build if `+sha3` in the target features.
 
 If you want to **force a specific backend** to be used, you can do so via CFG flags:
 ```sh

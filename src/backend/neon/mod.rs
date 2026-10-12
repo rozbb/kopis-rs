@@ -9,9 +9,9 @@
 //!
 //! [`keccak`] is a two-way TurboSHAKE: two independent sponges, one per 64-bit lane, which is
 //! the shape Kopis samples in (ℓ² independent XOF calls for the matrix, ℓ more for the secret).
-//! It needs the ARMv8.2 SHA3 extension, which `build.rs` makes a condition on the *whole*
-//! module: there is exactly one NEON configuration, the `+sha3` one, and every other target
-//! falls back to the portable code.
+//! It needs the ARMv8.2 SHA3 extension, which [`available`] makes a condition on the *whole*
+//! module: there is exactly one NEON configuration, the SHA3 one, and every other CPU falls back
+//! to the portable code.
 //!
 //! # Safety
 //!
@@ -20,10 +20,8 @@
 //! * SIMD intrinsics require the `neon` target feature (and `sha3` for the four FEAT_SHA3
 //!   instructions [`keccak`] uses). Every function that uses them carries
 //!   `#[target_feature(enable = "neon")]`, so calling one from outside is unsafe: the caller
-//!   must know the CPU has NEON. On AArch64 that is unconditional, and [`available`] is what
-//!   states it; every entry point is reached through a call site guarded by it. FEAT_SHA3 is
-//!   not baseline, which is why it is a build-time condition on the whole module rather than
-//!   something [`available`] could check.
+//!   must know the CPU has NEON (and SHA3, for the functions that enable it). [`available`]
+//!   checks both, and every entry point is reached through a call site guarded by it.
 //! * Unaligned loads and stores over fixed-size arrays. These are [`intrinsics`]' memory
 //!   accessors, which take an array or slice reference and an index and bounds-check it, so
 //!   [`ntt`], [`ser`], [`sample`] and [`keccak`] contain no `unsafe` and no raw pointers at all.
@@ -31,9 +29,8 @@
 //! # Extraction
 //!
 //! [`intrinsics`] is the one module charon is told to keep opaque; the Lean side supplies its
-//! semantics by hand. Unlike the AVX2 backend, [`cpu`] is
-//! not kept opaque: on AArch64 `available()` is a compile-time constant `true`, so it extracts
-//! as an ordinary definition.
+//! semantics by hand. The extraction is a `+sha3` build, so `available()` is a compile-time
+//! constant `true` there and extracts as an ordinary definition.
 
 mod cpu;
 mod intrinsics;

@@ -63,6 +63,13 @@ axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
 @[rust_fun "core::num::{usize}::div_ceil"]
 axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
 
+/-- [core::num::{u8}::max_value]:
+    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 4153:8-4153:40
+    Name pattern: [core::num::{u8}::max_value]
+    Visibility: public -/
+@[rust_fun "core::num::{u8}::max_value"]
+axiom core.num.U8.max_value : Result Std.U8
+
 /-- Trait declaration: [core::ops::arith::Sub]
     Source: '/rustc/library/core/src/ops/arith.rs', lines 188:0-188:31
     Name pattern: [core::ops::arith::Sub]
@@ -71,6 +78,31 @@ axiom core.num.Usize.div_ceil : Std.Usize → Std.Usize → Result Std.Usize
 structure core.ops.arith.Sub (Self : Type) (Rhs : Type) (Self_Output : Type)
   where
   sub : Self → Rhs → Result Self_Output
+
+/-- [core::sync::atomic::private::Align1]
+    Source: '/rustc/library/core/src/sync/atomic.rs', lines 264:4-264:24
+    Name pattern: [core::sync::atomic::private::Align1]
+    Visibility: public -/
+@[rust_type "core::sync::atomic::private::Align1"]
+axiom core.sync.atomic.private.Align1 (T : Type) : Type
+
+/-- [core::sync::atomic::Atomic]
+    Source: '/rustc/library/core/src/sync/atomic.rs', lines 366:0-366:37
+    Name pattern: [core::sync::atomic::Atomic]
+    Visibility: public -/
+@[rust_type "core::sync::atomic::Atomic"]
+axiom core.sync.atomic.Atomic (T : Type) (Clause0_Storage : Type) : Type
+
+/-- [core::sync::atomic::{core::sync::atomic::Atomic<u8, core::sync::atomic::private::Align1<u8>>}::new]:
+    Source: '/rustc/library/core/src/sync/atomic.rs', lines 2628:12-2628:50
+    Name pattern: [core::sync::atomic::{core::sync::atomic::Atomic<u8, core::sync::atomic::private::Align1<u8>>}::new]
+    Visibility: public -/
+@[rust_fun
+  "core::sync::atomic::{core::sync::atomic::Atomic<u8, core::sync::atomic::private::Align1<u8>>}::new"]
+axiom core.sync.atomic.AtomicU8Align1U8.new
+  :
+  Std.U8 → Result (core.sync.atomic.Atomic Std.U8
+    (core.sync.atomic.private.Align1 Std.U8))
 
 /-- Trait declaration: [rand_core::RngCore]
     Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.9.5/src/lib.rs', lines 130:0-130:17
@@ -357,6 +389,114 @@ axiom zeroize.Zeroizing.Insts.CoreOpsDerefDerefMut.deref_mut
   "zeroize::__internal::{zeroize::__internal::AssertZeroize<@T>}::zeroize_or_on_drop"]
 axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::UNINIT]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 40:12-40:47 -/
+@[global_simps, irreducible]
+def backend.neon.cpu.cpuid_sha3.UNINIT : Result Std.U8 := core.num.U8.max_value
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::STORAGE]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 41:12-41:61 -/
+@[global_simps, irreducible]
+def backend.neon.cpu.cpuid_sha3.STORAGE
+  :
+  Result (core.sync.atomic.Atomic Std.U8 (core.sync.atomic.private.Align1
+    Std.U8))
+  := do
+  let i ← backend.neon.cpu.cpuid_sha3.UNINIT
+  core.sync.atomic.AtomicU8Align1U8.new i
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::InitToken]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 45:12-45:37
+    Visibility: public -/
+@[reducible]
+def backend.neon.cpu.cpuid_sha3.InitToken := Unit
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::{impl core::clone::Clone for kopis::backend::neon::cpu::cpuid_sha3::InitToken}::clone]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone.clone
+  (self : backend.neon.cpu.cpuid_sha3.InitToken) :
+  Result backend.neon.cpu.cpuid_sha3.InitToken
+  := do
+  ok self
+
+/-- Trait implementation: [kopis::backend::neon::cpu::cpuid_sha3::{impl core::clone::Clone for kopis::backend::neon::cpu::cpuid_sha3::InitToken}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:27-44:32 -/
+@[reducible]
+def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone :
+  core.clone.Clone backend.neon.cpu.cpuid_sha3.InitToken := {
+  clone := backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone.clone
+}
+
+/-- Trait implementation: [kopis::backend::neon::cpu::cpuid_sha3::{impl core::marker::Copy for kopis::backend::neon::cpu::cpuid_sha3::InitToken}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:21-44:25 -/
+@[reducible]
+def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreMarkerCopy :
+  core.marker.Copy backend.neon.cpu.cpuid_sha3.InitToken := {
+  cloneInst := backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreCloneClone
+}
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::{impl core::fmt::Debug for kopis::backend::neon::cpu::cpuid_sha3::InitToken}::fmt]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug.fmt
+  (self : backend.neon.cpu.cpuid_sha3.InitToken) (f : core.fmt.Formatter) :
+  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
+  := do
+  let dyn := Dyn.mk _ (core.fmt.DebugShared core.fmt.DebugUnit) ()
+  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "InitToken") dyn
+
+/-- Trait implementation: [kopis::backend::neon::cpu::cpuid_sha3::{impl core::fmt::Debug for kopis::backend::neon::cpu::cpuid_sha3::InitToken}]
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 44:34-44:39 -/
+@[reducible]
+def backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug : core.fmt.Debug
+  backend.neon.cpu.cpuid_sha3.InitToken := {
+  fmt := backend.neon.cpu.cpuid_sha3.InitToken.Insts.CoreFmtDebug.fmt
+}
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::init_get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 72:12-94:13
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.init_get
+  : Result (backend.neon.cpu.cpuid_sha3.InitToken × Bool) := do
+  ok ((), true)
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::init]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 98:12-100:13
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.init
+  : Result backend.neon.cpu.cpuid_sha3.InitToken := do
+  let (it, _) ← backend.neon.cpu.cpuid_sha3.init_get
+  ok it
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::{kopis::backend::neon::cpu::cpuid_sha3::InitToken}::init]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 49:16-51:17
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.InitToken.init
+  : Result backend.neon.cpu.cpuid_sha3.InitToken := do
+  backend.neon.cpu.cpuid_sha3.init
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::{kopis::backend::neon::cpu::cpuid_sha3::InitToken}::init_get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 54:16-56:17
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.InitToken.init_get
+  : Result (backend.neon.cpu.cpuid_sha3.InitToken × Bool) := do
+  backend.neon.cpu.cpuid_sha3.init_get
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::{kopis::backend::neon::cpu::cpuid_sha3::InitToken}::get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 60:16-66:17
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.InitToken.get
+  (self : backend.neon.cpu.cpuid_sha3.InitToken) : Result Bool := do
+  ok true
+
+/-- [kopis::backend::neon::cpu::cpuid_sha3::get]:
+    Source: '/cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.0/src/lib.rs', lines 104:12-106:13
+    Visibility: public -/
+def backend.neon.cpu.cpuid_sha3.get : Result Bool := do
+  let (_, b) ← backend.neon.cpu.cpuid_sha3.init_get
+  ok b
 
 /-- [kopis::arithmetic::ntt_arith::NttElem]
     Source: 'src/arithmetic/ntt_arith.rs', lines 41:0-41:58 -/
@@ -1532,7 +1672,7 @@ def backend.neon.ntt.from_uniform
   backend.neon.ntt.from_ring_elem true elem
 
 /-- [kopis::backend::neon::cpu::available]:
-    Source: 'src/backend/neon/cpu.rs', lines 16:0-18:1 -/
+    Source: 'src/backend/neon/cpu.rs', lines 17:0-19:1 -/
 def backend.neon.cpu.available : Result Bool := do
   ok true
 
@@ -4844,22 +4984,22 @@ axiom backend.neon.intrinsics.store_u8x16
     (Slice Std.U8)
 
 /-- [kopis::backend::neon::keccak::PLEN]
-    Source: 'src/backend/neon/keccak.rs', lines 43:0-43:23 -/
+    Source: 'src/backend/neon/keccak.rs', lines 42:0-42:23 -/
 @[global_simps, irreducible]
 def backend.neon.keccak.PLEN : Std.Usize := 25#usize
 
 /-- [kopis::backend::neon::keccak::ROUNDS]
-    Source: 'src/backend/neon/keccak.rs', lines 46:0-46:25 -/
+    Source: 'src/backend/neon/keccak.rs', lines 45:0-45:25 -/
 @[global_simps, irreducible]
 def backend.neon.keccak.ROUNDS : Std.Usize := 12#usize
 
 /-- [kopis::backend::neon::keccak::WAYS]
-    Source: 'src/backend/neon/keccak.rs', lines 49:0-49:33 -/
+    Source: 'src/backend/neon/keccak.rs', lines 48:0-48:33 -/
 @[global_simps, irreducible]
 def backend.neon.keccak.WAYS : Std.Usize := 2#usize
 
 /-- [kopis::backend::neon::keccak::RC]
-    Source: 'src/backend/neon/keccak.rs', lines 53:0-60:2 -/
+    Source: 'src/backend/neon/keccak.rs', lines 52:0-59:2 -/
 @[global_simps, irreducible]
 def backend.neon.keccak.RC : Array Std.U64 24#usize :=
   Array.make 24#usize [
@@ -4873,7 +5013,7 @@ def backend.neon.keccak.RC : Array Std.U64 24#usize :=
     ]
 
 /-- [kopis::backend::neon::keccak::round_const]:
-    Source: 'src/backend/neon/keccak.rs', lines 104:0-108:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 103:0-107:1 -/
 def backend.neon.keccak.round_const
   (round : Std.Usize) : Result backend.neon.intrinsics.Vec128 := do
   massert (round < backend.neon.keccak.ROUNDS)
@@ -4883,7 +5023,7 @@ def backend.neon.keccak.round_const
   backend.neon.intrinsics.dup_n_u64 i2
 
 /-- [kopis::backend::neon::keccak::round]:
-    Source: 'src/backend/neon/keccak.rs', lines 117:0-145:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 116:0-144:1 -/
 def backend.neon.keccak.round
   (src : Array backend.neon.intrinsics.Vec128 25#usize)
   (dst : Array backend.neon.intrinsics.Vec128 25#usize)
@@ -5110,7 +5250,7 @@ def backend.neon.keccak.round
   Array.update dst25 0#usize v86
 
 /-- [kopis::backend::neon::keccak::permute]: loop 0:
-    Source: 'src/backend/neon/keccak.rs', lines 161:4-164:5 -/
+    Source: 'src/backend/neon/keccak.rs', lines 160:4-163:5 -/
 @[rust_loop]
 def backend.neon.keccak.permute_loop
   (iter : core.ops.range.Range Std.Usize)
@@ -5133,7 +5273,7 @@ def backend.neon.keccak.permute_loop
 partial_fixpoint
 
 /-- [kopis::backend::neon::keccak::permute]:
-    Source: 'src/backend/neon/keccak.rs', lines 149:0-165:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 148:0-164:1 -/
 def backend.neon.keccak.permute
   (state : Array backend.neon.intrinsics.Vec128 25#usize) :
   Result (Array backend.neon.intrinsics.Vec128 25#usize)
@@ -5145,7 +5285,7 @@ def backend.neon.keccak.permute
     scratch
 
 /-- [kopis::backend::neon::keccak::pad_block]:
-    Source: 'src/backend/neon/keccak.rs', lines 173:0-183:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 172:0-182:1 -/
 def backend.neon.keccak.pad_block
   (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize}
   (prefix1 : Array Std.U8 32#usize) (suffix : Array Std.U8 S) :
@@ -5174,7 +5314,7 @@ def backend.neon.keccak.pad_block
   Array.update bytes3 i1 i3
 
 /-- [kopis::backend::neon::keccak::load_words]:
-    Source: 'src/backend/neon/keccak.rs', lines 191:0-193:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 190:0-192:1 -/
 def backend.neon.keccak.load_words
   {RATE : Std.Usize} (block : Array Std.U8 RATE) (word : Std.Usize) :
   Result backend.neon.intrinsics.Vec128
@@ -5184,7 +5324,7 @@ def backend.neon.keccak.load_words
   backend.neon.intrinsics.load_u8x16 s i
 
 /-- [kopis::backend::neon::keccak::read8]:
-    Source: 'src/backend/neon/keccak.rs', lines 307:0-311:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 306:0-310:1 -/
 def backend.neon.keccak.read8
   {RATE : Std.Usize} (block : Array Std.U8 RATE) (offset : Std.Usize) :
   Result (Array Std.U8 8#usize)
@@ -5200,7 +5340,7 @@ def backend.neon.keccak.read8
   ok (to_slice_mut_back s2)
 
 /-- [kopis::backend::neon::keccak::xof2]: loop 0:
-    Source: 'src/backend/neon/keccak.rs', lines 241:4-248:5 -/
+    Source: 'src/backend/neon/keccak.rs', lines 240:4-247:5 -/
 @[rust_loop]
 def backend.neon.keccak.xof2_loop0
   {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
@@ -5223,7 +5363,7 @@ def backend.neon.keccak.xof2_loop0
 partial_fixpoint
 
 /-- [kopis::backend::neon::keccak::xof2]: loop 1:
-    Source: 'src/backend/neon/keccak.rs', lines 249:4-255:5 -/
+    Source: 'src/backend/neon/keccak.rs', lines 248:4-254:5 -/
 @[rust_loop]
 def backend.neon.keccak.xof2_loop1
   {RATE : Std.Usize} (b0 : Array Std.U8 RATE) (b1 : Array Std.U8 RATE)
@@ -5246,7 +5386,7 @@ def backend.neon.keccak.xof2_loop1
 partial_fixpoint
 
 /-- [kopis::backend::neon::keccak::xof2]: loop 3:
-    Source: 'src/backend/neon/keccak.rs', lines 272:8-281:9 -/
+    Source: 'src/backend/neon/keccak.rs', lines 271:8-280:9 -/
 @[rust_loop]
 def backend.neon.keccak.xof2_loop2_loop0
   {N : Std.Usize} (state : Array backend.neon.intrinsics.Vec128 25#usize)
@@ -5281,7 +5421,7 @@ def backend.neon.keccak.xof2_loop2_loop0
 partial_fixpoint
 
 /-- [kopis::backend::neon::keccak::xof2]: loop 4:
-    Source: 'src/backend/neon/keccak.rs', lines 285:8-296:9 -/
+    Source: 'src/backend/neon/keccak.rs', lines 284:8-295:9 -/
 @[rust_loop]
 def backend.neon.keccak.xof2_loop2_loop1
   {N : Std.Usize} (state : Array backend.neon.intrinsics.Vec128 25#usize)
@@ -5328,7 +5468,7 @@ def backend.neon.keccak.xof2_loop2_loop1
 partial_fixpoint
 
 /-- [kopis::backend::neon::keccak::xof2]: loop 2:
-    Source: 'src/backend/neon/keccak.rs', lines 263:4-299:5 -/
+    Source: 'src/backend/neon/keccak.rs', lines 262:4-298:5 -/
 @[rust_loop]
 def backend.neon.keccak.xof2_loop2
   (RATE : Std.Usize) {N : Std.Usize}
@@ -5352,7 +5492,7 @@ def backend.neon.keccak.xof2_loop2
 partial_fixpoint
 
 /-- [kopis::backend::neon::keccak::xof2]:
-    Source: 'src/backend/neon/keccak.rs', lines 207:0-300:1 -/
+    Source: 'src/backend/neon/keccak.rs', lines 206:0-299:1 -/
 def backend.neon.keccak.xof2
   (RATE : Std.Usize) (DS : Std.U8) {S : Std.Usize} {N : Std.Usize}
   (prefix1 : Array Std.U8 32#usize) (suffixes : Array (Array Std.U8 S) 2#usize)

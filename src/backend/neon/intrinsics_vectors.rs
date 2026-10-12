@@ -12,9 +12,9 @@
 //! Model disagrees with silicon ⇒ an axiom is wrong ⇒ the runner fails. It is a test, not a
 //! proof: agreement on ~1000 inputs per operation is evidence, not a demonstration.
 //!
-//! The recorded file assumes a `+sha3` build, which is the only build there is — `build.rs`
-//! compiles this backend only where the extension is confirmed, and `../extract_rust_to_lean.sh`
-//! extracts it with `-C target-feature=+sha3`.
+//! The recorded file assumes a CPU with the SHA3 extension, which is the only place this backend
+//! runs — `available()` checks for it, and `../extract_rust_to_lean.sh` extracts with
+//! `-C target-feature=+sha3`.
 //!
 //! # Reading a vector back out
 //!
@@ -645,8 +645,7 @@ fn vectors_match_this_cpu() {
     if !super::available() {
         return;
     }
-    // SAFETY: guarded by the `available()` check above; the backend is compiled only when
-    // `build.rs` confirmed the SHA3 extension for the target.
+    // SAFETY: guarded by the `available()` check above.
     let produced = unsafe { build() };
     let path = vectors_path();
 

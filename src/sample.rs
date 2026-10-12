@@ -94,7 +94,7 @@ pub(crate) fn gen_secret_from_seed<const L: usize, const MU: usize>(
     #[cfg(kopis_neon)]
     #[allow(unsafe_code)]
     if crate::backend::neon_available() {
-        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
+        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON and SHA3.
         return unsafe { crate::backend::neon::sample::gen_secret_from_seed::<L, MU>(seed) };
     }
 
@@ -134,7 +134,7 @@ pub(crate) fn gen_matrix_from_seed<const L: usize>(seed: &[u8; 32]) -> Matrix<L,
     #[cfg(kopis_neon)]
     #[allow(unsafe_code)]
     if crate::backend::neon_available() {
-        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON.
+        // SAFETY: `neon_available()` has just confirmed this CPU supports NEON and SHA3.
         return unsafe { crate::backend::neon::sample::gen_matrix_from_seed::<L>(seed) };
     }
 

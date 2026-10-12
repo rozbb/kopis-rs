@@ -426,9 +426,9 @@ pub(crate) fn tbl1_u8(table: Vec128, idx: Vec128) -> Vec128 {
 // ---------------------------------------------------------------------------------------
 // FEAT_SHA3
 //
-// The four instructions `super::keccak` is built around. `build.rs` compiles this backend only
-// where it has confirmed the ARMv8.2 SHA3 extension for the target, so they are always available
-// here; a target without the extension gets the portable code instead.
+// The four instructions `super::keccak` is built around. `super::available` checks for the
+// ARMv8.2 SHA3 extension, so they are available wherever this backend runs; a CPU without the
+// extension gets the portable code instead.
 // ---------------------------------------------------------------------------------------
 
 /// `eor3.16b`: bitwise exclusive or of all three arguments, over all 128 bits

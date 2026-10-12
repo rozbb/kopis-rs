@@ -1,18 +1,19 @@
-//! Runtime NEON detection
+//! Runtime NEON + SHA3 detection
 //!
-//! On AArch64, Advanced SIMD (NEON) is part of the base ISA — every AArch64 CPU has it, and it
-//! needs no OS opt-in the way x86's YMM state does — so there is nothing to probe. The backend
-//! is only ever compiled when `build.rs` has confirmed the *target* enables the `neon` feature
-//! with a non-softfloat ABI (the architecture alone is not enough; softfloat AArch64 targets
-//! get only the serial backend), so this check is a compile-time constant `true`, and every
-//! dispatch site that consults it folds away exactly as it does under
-//! `--cfg kopis_backend="neon"`.
+//! NEON is part of the AArch64 base ISA, and `build.rs` only compiles this backend for targets
+//! that enable it with a non-softfloat ABI, so there is nothing to probe for NEON. The ARMv8.2
+//! SHA3 extension the backend's Keccak needs is not baseline, so that is checked at runtime via
+//! `cpufeatures`, which asks the OS (`getauxval` on Linux and Android, `sysctlbyname` on Apple
+//! platforms) and reports `false` on any other OS.
+
+cpufeatures::new!(cpuid_sha3, "sha3");
 
 /// Whether the NEON backend may be used on this CPU.
 ///
-/// Always `true`: `kopis_neon` is only set for AArch64 targets whose feature set and ABI
-/// `build.rs` has verified, and every such CPU has NEON.
+/// When the target already enables `sha3` (always the case with `--cfg kopis_backend="neon"`)
+/// the build script sets `kopis_neon_assume`, so this collapses to a constant `true` and every
+/// dispatch site folds away.
 #[inline(always)]
 pub(crate) fn available() -> bool {
-    cfg!(target_arch = "aarch64")
+    cfg!(kopis_neon_assume) || cpuid_sha3::get()
 }

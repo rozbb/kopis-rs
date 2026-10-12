@@ -19,9 +19,8 @@
 //! That takes a round to 10 `eor3` + 5 `rax1` + 25 `xar` + 25 `bcax` + 1 `eor` — 66 vector
 //! instructions covering two sponges. Without the extension each rotate would have to be spelled
 //! as shift-shift-or, which does not clearly beat two scalar sponges, so the extension is a
-//! condition on the whole backend rather than on this module alone: `build.rs` decides at build
-//! time — the crate is `no_std` and `core` has no AArch64 run-time feature detection — and a
-//! target without it gets the portable serial code.
+//! condition on the whole backend rather than on this module alone: `super::available` checks
+//! for it, and a CPU without it gets the portable serial code.
 //!
 //! # Scope
 //!
@@ -342,8 +341,7 @@ mod test {
             scalar: impl Fn(&[u8], &[u8], &mut [u8; N]),
         ) {
             let mut vector = [[0u8; N]; WAYS];
-            // SAFETY: guarded by the `available()` check above, and this module is only compiled
-            // when `build.rs` has confirmed the SHA3 extension for the target.
+            // SAFETY: guarded by the `available()` check above.
             unsafe { xof2::<RATE, DS, S, N>(prefix, suffixes, &mut vector) };
 
             for lane in 0..WAYS {

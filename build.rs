@@ -7,8 +7,8 @@
 //!
 //! By default the choice is automatic:
 //! * If the target CPU is x86/x86-64, the AVX2 backend is unconditionally compiled in alongside the serial one and selected at runtime via `cpufeatures`
-//! * If the target CPU is AArch64 with the `neon` and `sha3` target features with a hardfloat ABI, then the NEON backend is compiled in and always used at runtime
-//! * For any other architectures or AArch64 without SHA3 or with softfloat, the serial backend is used.
+//! * If the target CPU is AArch64 with the `neon` target feature and a hardfloat ABI, the NEON backend is compiled in alongside the serial one and selected at runtime if the CPU has the SHA3 extension (always, if `sha3` is a target feature)
+//! * For any other architectures or softfloat AArch64, the serial backend is used.
 //!
 //! The choice can be overridden with the `kopis_backend` cfg:
 //!
@@ -66,7 +66,7 @@ fn main() {
                     arch
                 );
             }
-            if !avx2_is_available_on_target() {
+            if !target_has_feature("avx2") {
                 panic!(
                     "kopis: --cfg kopis_backend=\"avx2\" requires `avx2` in the target \
                      features. Build with `-C target-feature=+avx2` (or a `-C target-cpu` that \
@@ -80,7 +80,7 @@ fn main() {
         // Forced NEON: verify it is actually available, then compile it in with no runtime
         // check. A failed verification is a hard build error, as requested.
         Some(Override::Neon) => {
-            if !neon_is_available_on_target(is_aarch64) {
+            if !(neon_is_sound_on_target(is_aarch64) && target_has_feature("sha3")) {
                 panic!(
                     "kopis: --cfg kopis_backend=\"neon\" requires an AArch64 target with the \
                      `neon` and `sha3` target features and a non-softfloat ABI, but the target \
@@ -97,45 +97,40 @@ fn main() {
         }
 
         // Autodetect: compile in the accelerated backend for the target's architecture and pick
-        // at runtime. On x86 that is AVX2 behind a CPUID check; on AArch64 it is NEON whenever
-        // the target's feature set and ABI actually permit it (see `neon_is_available_on_target`),
-        // in which case the runtime check is a constant `true`.
+        // at runtime. On x86 that is AVX2 behind a CPUID check. On AArch64 it is NEON whenever
+        // the target's ABI permits it (see `neon_is_sound_on_target`), behind a check for the
+        // ARMv8.2 SHA3 extension its Keccak needs; that check is a constant `true` if the target
+        // already enables `sha3`.
         None => {
             if is_x86 {
                 println!("cargo::rustc-cfg=kopis_avx2");
-            } else if neon_is_available_on_target(is_aarch64) {
+            } else if neon_is_sound_on_target(is_aarch64) {
                 println!("cargo::rustc-cfg=kopis_neon");
+                if target_has_feature("sha3") {
+                    println!("cargo::rustc-cfg=kopis_neon_assume");
+                }
             }
         }
     }
 }
 
-/// Whether the NEON backend can be used for the target being built. Two things have to hold:
+/// Whether the NEON backend can be compiled for the target being built.
 ///
-/// **NEON, soundly.** AArch64 mandates NEON in the base ISA, but rustc also supports softfloat
-/// AArch64 targets (e.g. `aarch64-unknown-none-softfloat`) whose ABI is incompatible with the
-/// vector registers, where enabling the `neon` target feature is unsound and slated to become a
-/// hard error (rust-lang/rust#134375). So require the target to actually enable `neon` *and* to
-/// not use the softfloat ABI.
-///
-/// **The ARMv8.2 SHA3 extension.** The batched XOF is the bulk of what this backend is for, and
-/// without FEAT_SHA3 a two-way NEON permutation is not clearly better than the two scalar sponges
-/// it would replace; see `src/backend/neon/keccak.rs`. Rather than carry a second, weaker NEON
-/// configuration, targets without the extension get the portable serial backend.
-///
-/// `aarch64-apple-darwin` enables `sha3` by default, so a plain `cargo build` picks the backend up.
-/// Generic targets such as `aarch64-unknown-linux-gnu` do not, and stay serial unless the caller
-/// opts in with `-C target-feature=+sha3` or `-C target-cpu=native`.
-fn neon_is_available_on_target(is_aarch64: bool) -> bool {
-    if !is_aarch64 {
-        return false;
-    }
-
-    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
-    let has_neon = features.split(',').any(|feature| feature == "neon");
-    let has_sha3 = features.split(',').any(|feature| feature == "sha3");
+/// AArch64 mandates NEON in the base ISA, but rustc also supports softfloat AArch64 targets (e.g.
+/// `aarch64-unknown-none-softfloat`) whose ABI is incompatible with the vector registers, where
+/// enabling the `neon` target feature is unsound and slated to become a hard error
+/// (rust-lang/rust#134375). So require the target to actually enable `neon` *and* to not use the
+/// softfloat ABI. This is a property of the target, not the CPU, so unlike the ARMv8.2 SHA3
+/// extension the backend also needs, it cannot be checked at runtime.
+fn neon_is_sound_on_target(is_aarch64: bool) -> bool {
     let softfloat = env::var("CARGO_CFG_TARGET_ABI").unwrap_or_default() == "softfloat";
-    has_neon && has_sha3 && !softfloat
+    is_aarch64 && target_has_feature("neon") && !softfloat
+}
+
+/// Whether `feature` is in the target feature set the crate is compiled with
+fn target_has_feature(feature: &str) -> bool {
+    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+    features.split(',').any(|f| f == feature)
 }
 
 /// The cfgs this script emits. Passing them in directly would bypass its checks.
@@ -208,11 +203,4 @@ fn backend_override() -> Option<Override> {
     }
 
     requested
-}
-
-/// Whether AVX2 can be assumed present for the target being built, i.e., it is in the target
-/// feature set the crate is compiled with
-fn avx2_is_available_on_target() -> bool {
-    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
-    features.split(',').any(|feature| feature == "avx2")
 }
