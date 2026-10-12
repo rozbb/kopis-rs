@@ -20,8 +20,8 @@
 //!
 //! * `serial` compiles only the portable backend
 //! * `avx2` and `neon` assert at build time that the target is compatible with the selected backend
-//! (panicking if false), then compile that backend unconditionally with no runtime check and no
-//! fallback.
+//!   (panicking if false), then compile that backend unconditionally with no runtime check and no
+//!   fallback.
 //!
 //! Finally, the build panics if any internal-only cfgs are passed in (`kopis_avx2`, `kopis_neon`,
 //! and their `_assume` forms).
