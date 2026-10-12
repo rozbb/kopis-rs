@@ -2,7 +2,9 @@
 
 set -eux
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+# Lives in lean/, but charon and the output paths below expect the crate root
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "${REPO_ROOT}"
 
 # The aeneas version we use is dictated by AENEAS_VERSION.txt in the crate root
 AENEAS_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/AENEAS_VERSION.txt")"

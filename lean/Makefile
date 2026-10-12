@@ -2,7 +2,7 @@
 #
 # Run from this directory (kopis-rs/lean).  These wrap the `lake` invocations
 # for the Kopis KEM correspondence proofs and the spec test-vector runner.
-# Extraction (Rust -> Lean) lives in `../extract_rust_to_lean.sh`, which
+# Extraction (Rust -> Lean) lives in `extract_rust_to_lean.sh`, which
 # regenerates `ExtractedRustSerial.lean`, `ExtractedRustAvx2.lean` and
 # `ExtractedRustNeon.lean`; this file only builds/checks what is already
 # extracted, plus the files it generates itself (see "Generated audit files"

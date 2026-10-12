@@ -13,7 +13,7 @@
 //! proof: agreement on ~1000 inputs per operation is evidence, not a demonstration.
 //!
 //! The recorded file assumes a CPU with the SHA3 extension, which is the only place this backend
-//! runs — `available()` checks for it, and `../extract_rust_to_lean.sh` extracts with
+//! runs — `available()` checks for it, and `lean/extract_rust_to_lean.sh` extracts with
 //! `-C target-feature=+sha3`.
 //!
 //! # Reading a vector back out

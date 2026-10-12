@@ -5,7 +5,7 @@ import Kopis.Bits.Lanes
 
 This file is the **entire trusted base** the NEON backend adds to the Kopis proofs. Everything
 in `src/backend/neon/` other than `intrinsics.rs` is extracted to Lean by
-`../extract_rust_to_lean.sh` and proved; that one module is extracted *opaquely*, which aeneas
+`extract_rust_to_lean.sh` and proved; that one module is extracted *opaquely*, which aeneas
 emits as the uninterpreted constants
 
     axiom RustKopisNeon.backend.neon.intrinsics.Vec128 : Type
@@ -365,7 +365,7 @@ axiom tbl1_u8_spec (table idx : Vec128) :
 /-! ## FEAT_SHA3
 
 Four instructions, each of which is a Keccak step rather than a general bit trick. They exist in
-the extraction only because `../extract_rust_to_lean.sh` extracts this backend with
+the extraction only because `extract_rust_to_lean.sh` extracts this backend with
 `-C target-feature=+sha3`; see the note there about what that does and does not cover. -/
 
 /-- `eor3.16b` — bitwise exclusive or of all three arguments, over all 128 bits. -/

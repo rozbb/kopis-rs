@@ -5,7 +5,7 @@ import Kopis.Bits.Lanes
 
 This file is the **entire trusted base** the AVX2 backend adds to the Kopis proofs. Everything
 in `src/backend/avx2/` other than `intrinsics.rs` and `cpu.rs` is extracted to Lean by
-`../extract_rust_to_lean.sh` and proved; those two modules are extracted *opaquely*, which
+`extract_rust_to_lean.sh` and proved; those two modules are extracted *opaquely*, which
 aeneas emits as the uninterpreted constants
 
     axiom RustKopisAvx2.backend.avx2.intrinsics.Vec256 : Type
