@@ -85,23 +85,30 @@ def arch_family(target: str) -> str:
 
 
 # x86 instructions that are not on Intel's list but are accepted anyway. Each is a claim that the
-# instruction's timing does not depend on its data; keep it to what the build actually emits.
+# instruction's timing does not depend on its data. The scan fails if an entry stops being needed.
+#
+# Where kopis's own code produced a non-DOIT instruction, it has been changed not to: the AVX2
+# intrinsics that LLVM would rewrite are pinned with inline assembly, and `cbd_diff` is always
+# inlined so it never needs BZHI. What is left is chosen by LLVM regardless of the source.
 X86_EXTRA = {
-    "call": "control flow: a secret-dependent branch is phase 1's to find",
-    "ret": "control flow: a secret-dependent branch is phase 1's to find",
+    # Control flow. A secret-dependent branch is phase 1's to find.
+    "call": "control flow",
+    "ret": "control flow",
     "nop": "no operands",
     "ud2": "no operands",
+    # LLVM's default encodings for copying and zeroing vectors: every register-to-register copy,
+    # every `memcpy`/`memset` it inlines (including in dependencies), and the zeroing idiom. No
+    # source change reaches these, and the legacy forms MOVAPS, MOVUPS, and XORPS are listed.
     "vmovaps": "VEX form of MOVAPS, which is listed",
     "vmovups": "VEX form of MOVUPS, which is listed",
     "vxorps": "VEX form of XORPS, which is listed",
+    # The serial backend's vectorized loops on baseline x86-64. SSE2 has no integer instruction
+    # that blends the 64-bit halves of two registers, so LLVM uses these.
     "movsd(sse)": "legacy-SSE form of VMOVSD, which is listed",
     "movupd": "MOVUPS with a 66 prefix; the same move",
-    "shufps": "fixed lane shuffle; the integer-domain equivalent PSHUFD is listed",
-    "vshufps": "fixed lane shuffle; the integer-domain equivalent VPSHUFD is listed",
-    "vunpcklpd": "fixed lane shuffle; the integer-domain equivalent VPUNPCKLQDQ is listed",
-    "vunpckhpd": "fixed lane shuffle; the integer-domain equivalent VPUNPCKHQDQ is listed",
-    "vmovlhps": "fixed lane shuffle; the integer-domain equivalent VPUNPCKLQDQ is listed",
+    "shufps": "fixed lane shuffle; PSHUFD, the one-source integer equivalent, is listed",
 }
+X86_EXTRA_USED = set()
 X86_BRANCH = re.compile(r"^j[a-z]+$")
 
 # Non-DOIT x86 instructions that get a readable category. Anything else not on the list reports as
@@ -170,7 +177,10 @@ def classifier(fam: str, target: str):
         if text.startswith("R_"):
             return by_regex(text)
         m = x86_mnemonic(text)
-        if m in doit or m in X86_EXTRA or X86_BRANCH.match(m):
+        if m in X86_EXTRA:
+            X86_EXTRA_USED.add(m)
+            return []
+        if m in doit or X86_BRANCH.match(m):
             return []
         for name, rx, desc in named:
             if rx.match(m):
@@ -224,6 +234,10 @@ def all_configs(host: str):
         out.append(("host/serial", host, 'serial', '--cfg kopis_backend="serial"'))
         out.append(("host/avx2", host, "avx2",
                     '-C target-feature=+avx2 --cfg kopis_backend="avx2"'))
+        # A modern CPU and a size-optimized build. The configs above have no POPCNT/LZCNT/TZCNT,
+        # and at opt-level 3 LLVM vectorizes the loops that would use them, so a `count_ones` on
+        # secret data passes both. This is the build where it shows up.
+        out.append(("host/v3-size", host, "native", "-C target-cpu=x86-64-v3 -C opt-level=s"))
     elif fam == "aarch64":
         out.append(("host/serial", host, "serial", '--cfg kopis_backend="serial"'))
         out.append(("host/neon", host, "neon",
@@ -364,10 +378,13 @@ MATCHER_CASES = [
     ("x86", "movsd dword ptr es:[rdi], dword ptr [rsi]", None),
     ("x86", "vpmullw ymm3, ymm2, ymm1", None),
     ("x86", "nop word ptr cs:[rax + rax]", None),
-    # In X86_EXTRA.
+    # In X86_EXTRA, or a branch.
     ("x86", "jne 0x40", None),
     ("x86", "movsd xmm0, qword ptr [rax]", None),
     ("x86", "vxorps xmm0, xmm0, xmm0", None),
+    # FP-domain shuffles kopis no longer emits, so no longer excused.
+    ("x86", "vshufps ymm0, ymm0, ymm1, 0x88", "non-doit:vshufps"),
+    ("x86", "vunpcklpd ymm0, ymm0, ymm1", "non-doit:vunpcklpd"),
     ("x86", "R_X86_64_PLT32 __udivti3-0x4", "div-libcall"),
     ("x86", "R_X86_64_PLT32 __umodti3-0x4", "div-libcall"),
     ("x86", "R_X86_64_PLT32 memcpy-0x4", None),
@@ -565,6 +582,14 @@ def main():
     elif unused:
         print(f"\nnote: {len(unused)} allowlist entr(y/ies) matched nothing, but some "
               "configurations were skipped, so they may be needed there")
+
+    # Likewise X86_EXTRA. The x86 configs are host-only, so either all of them ran or none did.
+    unused_extra = sorted(set(X86_EXTRA) - X86_EXTRA_USED)
+    if arch_family(host) == "x86" and unused_extra:
+        print(f"\nFAIL: {len(unused_extra)} X86_EXTRA entr(y/ies) matched nothing; remove them:\n")
+        for m in unused_extra:
+            print(f"  {m}")
+        return 1
 
     if findings:
         print(f"\nFAIL: {len(findings)} variable-latency instruction(s) not in the allowlist:\n")

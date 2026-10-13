@@ -535,46 +535,46 @@ def arithmetic.ntt_arith.ACC_ZERO : Array Std.I32 512#usize :=
   Array.repeat 512#usize 0#i32
 
 /-- [kopis::backend::avx2::intrinsics::Vec256]
-    Source: 'src/backend/avx2/intrinsics.rs', lines 43:0-43:34 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 67:0-67:34 -/
 axiom backend.avx2.intrinsics.Vec256 : Type
 
 /-- [kopis::backend::avx2::intrinsics::unpackhi_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 297:0-299:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 321:0-323:1 -/
 axiom backend.avx2.intrinsics.unpackhi_epi64
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpacklo_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 290:0-292:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 314:0-316:1 -/
 axiom backend.avx2.intrinsics.unpacklo_epi64
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpackhi_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 283:0-285:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 307:0-309:1 -/
 axiom backend.avx2.intrinsics.unpackhi_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpacklo_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 276:0-278:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 300:0-302:1 -/
 axiom backend.avx2.intrinsics.unpacklo_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpackhi_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 269:0-271:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 293:0-295:1 -/
 axiom backend.avx2.intrinsics.unpackhi_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::unpacklo_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 262:0-264:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 286:0-288:1 -/
 axiom backend.avx2.intrinsics.unpacklo_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -628,20 +628,20 @@ def backend.avx2.ntt.inlane_transpose8
   Array.update v22 7#usize v23
 
 /-- [kopis::backend::avx2::intrinsics::store_i16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 381:0-385:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 405:0-409:1 -/
 axiom backend.avx2.intrinsics.store_i16
   {N : Std.Usize} :
   Array Std.I16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
     (Array Std.I16 N)
 
 /-- [kopis::backend::avx2::intrinsics::load_i16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 372:0-376:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 396:0-400:1 -/
 axiom backend.avx2.intrinsics.load_i16
   {N : Std.Usize} :
   Array Std.I16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::permute2x128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 305:0-307:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 329:0-331:1 -/
 axiom backend.avx2.intrinsics.permute2x128_si256
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -740,34 +740,34 @@ def backend.avx2.ntt.transpose16
     scratch1
 
 /-- [kopis::backend::avx2::intrinsics::srai_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 187:0-189:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 211:0-213:1 -/
 axiom backend.avx2.intrinsics.srai_epi16
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::mulhi_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 162:0-164:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 186:0-188:1 -/
 axiom backend.avx2.intrinsics.mulhi_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::mullo_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 155:0-157:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 179:0-181:1 -/
 axiom backend.avx2.intrinsics.mullo_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::sub_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 134:0-136:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 158:0-160:1 -/
 axiom backend.avx2.intrinsics.sub_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::add_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 127:0-129:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 151:0-153:1 -/
 axiom backend.avx2.intrinsics.add_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -1094,7 +1094,7 @@ def backend.avx2.ntt.FWD8_Q1 : Result (backend.avx2.ntt.Tbl 16#usize) :=
     arithmetic.ntt_crt.Q1_INV 16#isize 0#isize 1#isize false
 
 /-- [kopis::backend::avx2::intrinsics::set1_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 57:0-59:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 81:0-83:1 -/
 axiom backend.avx2.intrinsics.set1_epi16
   : Std.I16 → Result backend.avx2.intrinsics.Vec256
 
@@ -1475,7 +1475,7 @@ def backend.avx2.ntt.ntt_block
   backend.avx2.ntt.barrett_block b8 bm round q
 
 /-- [kopis::backend::avx2::intrinsics::load_u16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 390:0-394:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 414:0-418:1 -/
 axiom backend.avx2.intrinsics.load_u16
   {N : Std.Usize} :
   Array Std.U16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
@@ -1911,20 +1911,20 @@ def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
 }
 
 /-- [kopis::backend::avx2::intrinsics::store_i32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 417:0-421:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 441:0-445:1 -/
 axiom backend.avx2.intrinsics.store_i32
   {N : Std.Usize} :
   Array Std.I32 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
     (Array Std.I32 N)
 
 /-- [kopis::backend::avx2::intrinsics::load_i32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 408:0-412:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 432:0-436:1 -/
 axiom backend.avx2.intrinsics.load_i32
   {N : Std.Usize} :
   Array Std.I32 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::add_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 141:0-143:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 165:0-167:1 -/
 axiom backend.avx2.intrinsics.add_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
@@ -2445,26 +2445,26 @@ def backend.avx2.ntt.invntt_block
     b9 q scale scale_q
 
 /-- [kopis::backend::avx2::intrinsics::packs_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 320:0-322:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 344:0-346:1 -/
 axiom backend.avx2.intrinsics.packs_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::permute4x64_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 312:0-314:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 336:0-338:1 -/
 axiom backend.avx2.intrinsics.permute4x64_epi64
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::slli_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 208:0-210:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 232:0-234:1 -/
 axiom backend.avx2.intrinsics.slli_epi32
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srai_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 194:0-196:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 218:0-220:1 -/
 axiom backend.avx2.intrinsics.srai_epi32
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
@@ -2524,69 +2524,69 @@ def backend.avx2.ntt.reduce_block
   backend.avx2.ntt.invntt_block SECOND b1
 
 /-- [kopis::backend::avx2::intrinsics::store_u16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 399:0-403:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 423:0-427:1 -/
 axiom backend.avx2.intrinsics.store_u16
   {N : Std.Usize} :
   Array Std.U16 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
     (Array Std.U16 N)
 
 /-- [kopis::backend::avx2::intrinsics::Vec128]
-    Source: 'src/backend/avx2/intrinsics.rs', lines 48:0-48:34 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 72:0-72:34 -/
 axiom backend.avx2.intrinsics.Vec128 : Type
 
 /-- [kopis::backend::avx2::intrinsics::extracti128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 349:0-351:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 373:0-375:1 -/
 axiom backend.avx2.intrinsics.extracti128_si256
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::castsi256_si128]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 342:0-344:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 366:0-368:1 -/
 axiom backend.avx2.intrinsics.castsi256_si128
   : backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::cvtepu16_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 335:0-337:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 359:0-361:1 -/
 axiom backend.avx2.intrinsics.cvtepu16_epi32
   : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::packus_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 328:0-330:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 352:0-354:1 -/
 axiom backend.avx2.intrinsics.packus_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::cmpgt_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 176:0-178:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 200:0-202:1 -/
 axiom backend.avx2.intrinsics.cmpgt_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::mullo_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 169:0-171:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 193:0-195:1 -/
 axiom backend.avx2.intrinsics.mullo_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::sub_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 148:0-150:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 172:0-174:1 -/
 axiom backend.avx2.intrinsics.sub_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::and_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 92:0-94:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 116:0-118:1 -/
 axiom backend.avx2.intrinsics.and_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::set1_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 64:0-66:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 88:0-90:1 -/
 axiom backend.avx2.intrinsics.set1_epi32
   : Std.I32 → Result backend.avx2.intrinsics.Vec256
 
@@ -3739,37 +3739,37 @@ def backend.avx2.ser.PLANS : Result (Array backend.avx2.ser.Plan 14#usize) :=
 def backend.avx2.ser.GROUPS : Result Std.Usize := consts.RING_DEG / 8#usize
 
 /-- [kopis::backend::avx2::intrinsics::load_u8x16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 438:0-442:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 462:0-466:1 -/
 axiom backend.avx2.intrinsics.load_u8x16
   : Slice Std.U8 → Std.Usize → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::load_u8]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 426:0-430:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 450:0-454:1 -/
 axiom backend.avx2.intrinsics.load_u8
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::broadcastsi128_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 356:0-358:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 380:0-382:1 -/
 axiom backend.avx2.intrinsics.broadcastsi128_si256
   : backend.avx2.intrinsics.Vec128 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::shuffle_epi8]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 255:0-257:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 279:0-281:1 -/
 axiom backend.avx2.intrinsics.shuffle_epi8
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srlv_epi32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 243:0-245:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 267:0-269:1 -/
 axiom backend.avx2.intrinsics.srlv_epi32
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::setzero_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 78:0-80:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 102:0-104:1 -/
 axiom backend.avx2.intrinsics.setzero_si256
   : Result backend.avx2.intrinsics.Vec256
 
@@ -4635,69 +4635,69 @@ def arithmetic.plain_arith.Matrix.deserialize_10
     { start := 0#usize, «end» := X } bytes result chunk_len
 
 /-- [kopis::backend::avx2::intrinsics::set1_epi64x]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 71:0-73:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 95:0-97:1 -/
 axiom backend.avx2.intrinsics.set1_epi64x
   : Std.I64 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::cvtsi32_si128]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 85:0-87:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 109:0-111:1 -/
 axiom backend.avx2.intrinsics.cvtsi32_si128
   : Std.I32 → Result backend.avx2.intrinsics.Vec128
 
 /-- [kopis::backend::avx2::intrinsics::xor_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 99:0-101:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 123:0-125:1 -/
 axiom backend.avx2.intrinsics.xor_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::or_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 106:0-108:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 130:0-132:1 -/
 axiom backend.avx2.intrinsics.or_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::andnot_si256]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 116:0-118:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 140:0-142:1 -/
 axiom backend.avx2.intrinsics.andnot_si256
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec256 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srli_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 201:0-203:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 225:0-227:1 -/
 axiom backend.avx2.intrinsics.srli_epi16
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::slli_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 218:0-220:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 242:0-244:1 -/
 axiom backend.avx2.intrinsics.slli_epi64
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srli_epi64]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 227:0-229:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 251:0-253:1 -/
 axiom backend.avx2.intrinsics.srli_epi64
   (IMM : Std.I32) :
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::srl_epi16]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 236:0-238:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 260:0-262:1 -/
 axiom backend.avx2.intrinsics.srl_epi16
   :
   backend.avx2.intrinsics.Vec256 → backend.avx2.intrinsics.Vec128 → Result
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::load_u8x32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 451:0-455:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 475:0-490:1 -/
 axiom backend.avx2.intrinsics.load_u8x32
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::intrinsics::store_u8x32]:
-    Source: 'src/backend/avx2/intrinsics.rs', lines 460:0-464:1 -/
+    Source: 'src/backend/avx2/intrinsics.rs', lines 495:0-507:1 -/
 axiom backend.avx2.intrinsics.store_u8x32
   {N : Std.Usize} :
   Array Std.U8 N → Std.Usize → backend.avx2.intrinsics.Vec256 → Result
@@ -5882,7 +5882,7 @@ def impls.kopis1024.KOPIS1024_PUBKEY_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 4#usize
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/sample.rs', lines 163:8-173:9 -/
+    Source: 'src/sample.rs', lines 165:8-175:9 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5921,7 +5921,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 162:4-174:5 -/
+    Source: 'src/sample.rs', lines 164:4-176:5 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5941,7 +5941,7 @@ def sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]:
-    Source: 'src/sample.rs', lines 139:0-177:1 -/
+    Source: 'src/sample.rs', lines 141:0-179:1 -/
 def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L L)
@@ -5983,7 +5983,7 @@ def sample.popcount_u16 (x : Std.U16) : Result Std.U32 := do
   i1 + i4
 
 /-- [kopis::sample::cbd_diff]:
-    Source: 'src/sample.rs', lines 32:0-37:1 -/
+    Source: 'src/sample.rs', lines 34:0-39:1 -/
 def sample.cbd_diff (raw1 : Std.U16) (half_mu : Std.U32) : Result Std.U16 := do
   let i ← 1#u16 <<< half_mu
   let mask ← i - 1#u16
@@ -5997,7 +5997,7 @@ def sample.cbd_diff (raw1 : Std.U16) (half_mu : Std.U32) : Result Std.U16 := do
   ok (core.num.U16.wrapping_sub a b)
 
 /-- [kopis::sample::cbd]: loop 0:
-    Source: 'src/sample.rs', lines 48:8-52:9 -/
+    Source: 'src/sample.rs', lines 50:8-54:9 -/
 @[rust_loop]
 def sample.cbd_loop0
   (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
@@ -6023,7 +6023,7 @@ def sample.cbd_loop0
 partial_fixpoint
 
 /-- [kopis::sample::cbd]: loop 1:
-    Source: 'src/sample.rs', lines 57:8-72:9 -/
+    Source: 'src/sample.rs', lines 59:8-74:9 -/
 @[rust_loop]
 def sample.cbd_loop1
   (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
@@ -6079,7 +6079,7 @@ def sample.cbd_loop1
 partial_fixpoint
 
 /-- [kopis::sample::cbd]: loop 2:
-    Source: 'src/sample.rs', lines 76:8-89:9 -/
+    Source: 'src/sample.rs', lines 78:8-91:9 -/
 @[rust_loop]
 def sample.cbd_loop2
   (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
@@ -6125,7 +6125,7 @@ def sample.cbd_loop2
 partial_fixpoint
 
 /-- [kopis::sample::cbd]:
-    Source: 'src/sample.rs', lines 40:0-93:1 -/
+    Source: 'src/sample.rs', lines 42:0-95:1 -/
 def sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.plain_arith.RingElem)
   :
@@ -6166,7 +6166,7 @@ def sample.cbd
         fail panic
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 124:4-132:5 -/
+    Source: 'src/sample.rs', lines 126:4-134:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -6200,7 +6200,7 @@ def sample.gen_secret_from_seed_loop
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
-    Source: 'src/sample.rs', lines 97:0-135:1 -/
+    Source: 'src/sample.rs', lines 99:0-137:1 -/
 def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L 1#usize)

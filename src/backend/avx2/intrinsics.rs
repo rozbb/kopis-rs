@@ -25,14 +25,38 @@
 //!
 //! Every function is `#[target_feature(enable = "avx2")]`, so it is safe to call from any other
 //! `avx2` function — all of this backend — and unsafe to call from outside one, exactly as the
-//! intrinsics themselves are. The unaligned loads and stores are the only `unsafe` here; each is
-//! preceded by a bounds check that makes the access in-range for *any* arguments, which is what
-//! the Lean preconditions mirror.
+//! intrinsics themselves are. The unaligned loads and stores are the only `unsafe` memory accesses
+//! here; each is preceded by a bounds check that makes the access in-range for *any* arguments,
+//! which is what the Lean preconditions mirror. The rest of the `unsafe` is register-only inline
+//! assembly (see `asm_binop`).
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
+
+/// `$insn r, a, b` on three `ymm` registers, as inline assembly rather than an intrinsic.
+///
+/// For the wrappers whose intrinsic LLVM would otherwise rewrite: it folds packs and permutes into
+/// `vshufps`, and turns integer unpacks into `vunpcklpd` when no integer instruction is nearby.
+/// Those floating-point forms are not on Intel's list of data-independent-timing instructions
+/// (`ct-check/x86-doit.txt`). Inline assembly is the one thing LLVM does not rewrite.
+macro_rules! asm_binop {
+    ($insn:literal, $a:expr, $b:expr) => {{
+        let r: __m256i;
+        // SAFETY: a register-only instruction from AVX2, which every caller has enabled.
+        unsafe {
+            core::arch::asm!(
+                concat!($insn, " {r}, {a}, {b}"),
+                r = lateout(ymm_reg) r,
+                a = in(ymm_reg) $a.0,
+                b = in(ymm_reg) $b.0,
+                options(pure, nomem, nostack, preserves_flags),
+            );
+        }
+        Vec256(r)
+    }};
+}
 
 /// A 256-bit AVX2 vector (`ymm`).
 ///
@@ -288,14 +312,14 @@ pub(crate) fn unpackhi_epi32(a: Vec256, b: Vec256) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn unpacklo_epi64(a: Vec256, b: Vec256) -> Vec256 {
-    Vec256(_mm256_unpacklo_epi64(a.0, b.0))
+    asm_binop!("vpunpcklqdq", a, b)
 }
 
 /// `vpunpckhqdq`: the high 64-bit lane of each 128-bit half of `a`, then that of `b`
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn unpackhi_epi64(a: Vec256, b: Vec256) -> Vec256 {
-    Vec256(_mm256_unpackhi_epi64(a.0, b.0))
+    asm_binop!("vpunpckhqdq", a, b)
 }
 
 /// `vperm2i128`: each 128-bit half of the result selected from the four halves of `a`, `b` by a
@@ -318,7 +342,7 @@ pub(crate) fn permute4x64_epi64<const IMM: i32>(a: Vec256) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn packs_epi32(a: Vec256, b: Vec256) -> Vec256 {
-    Vec256(_mm256_packs_epi32(a.0, b.0))
+    asm_binop!("vpackssdw", a, b)
 }
 
 /// `vpackusdw`: the 32-bit lanes of `a` then `b`, *unsigned*-saturated to 16 bits, interleaved
@@ -326,7 +350,7 @@ pub(crate) fn packs_epi32(a: Vec256, b: Vec256) -> Vec256 {
 #[inline]
 #[target_feature(enable = "avx2")]
 pub(crate) fn packus_epi32(a: Vec256, b: Vec256) -> Vec256 {
-    Vec256(_mm256_packus_epi32(a.0, b.0))
+    asm_binop!("vpackusdw", a, b)
 }
 
 /// `vpmovzxwd`: the eight 16-bit lanes of a half, zero-extended to 32 bits
@@ -450,8 +474,19 @@ pub(crate) fn load_u8x16(src: &[u8], offset: usize) -> Vec128 {
 #[target_feature(enable = "avx2")]
 pub(crate) fn load_u8x32<const N: usize>(src: &[u8; N], offset: usize) -> Vec256 {
     assert!(offset <= N && N - offset >= 32);
-    // SAFETY: the assert puts all 32 bytes in bounds; the load is unaligned.
-    Vec256(unsafe { _mm256_loadu_si256(src.as_ptr().add(offset).cast()) })
+    let r: __m256i;
+    // SAFETY: the assert puts all 32 bytes in bounds; the load is unaligned. Inline assembly
+    // rather than `_mm256_loadu_si256` for the reason given at `asm_binop`: LLVM otherwise builds
+    // this vector from the bytes the caller just wrote, with `vmovlhps`.
+    unsafe {
+        core::arch::asm!(
+            "vmovdqu {r}, ymmword ptr [{p}]",
+            r = out(ymm_reg) r,
+            p = in(reg) src.as_ptr().add(offset),
+            options(pure, readonly, nostack, preserves_flags),
+        );
+    }
+    Vec256(r)
 }
 
 /// Stores 32 bytes at `dst[offset ..]`
@@ -459,8 +494,16 @@ pub(crate) fn load_u8x32<const N: usize>(src: &[u8; N], offset: usize) -> Vec256
 #[target_feature(enable = "avx2")]
 pub(crate) fn store_u8x32<const N: usize>(dst: &mut [u8; N], offset: usize, v: Vec256) {
     assert!(offset <= N && N - offset >= 32);
-    // SAFETY: the assert puts all 32 bytes in bounds; the store is unaligned.
-    unsafe { _mm256_storeu_si256(dst.as_mut_ptr().add(offset).cast(), v.0) }
+    // SAFETY: the assert puts all 32 bytes in bounds; the store is unaligned. Inline assembly
+    // for the same reason as `load_u8x32`.
+    unsafe {
+        core::arch::asm!(
+            "vmovdqu ymmword ptr [{p}], {v}",
+            p = in(reg) dst.as_mut_ptr().add(offset),
+            v = in(ymm_reg) v.0,
+            options(nostack, preserves_flags),
+        );
+    }
 }
 
 #[cfg(test)]

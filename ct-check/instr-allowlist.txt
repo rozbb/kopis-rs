@@ -15,3 +15,8 @@
 # lengths, which are fixed by the parameter set. The module path matches both `Zip::new` and
 # `TrustedRandomAccessNoCoerce::size`, which are the two that show up.
 int-div | core::iter::adapters::zip | slice lengths, fixed by the parameter set
+
+# `core`'s ChunksExactMut, instantiated in `rand_core` (`SeedableRng::seed_from_u64`), divides the
+# slice length by the chunk size for a size hint. Both are fixed by the seed type, not secret. Only
+# the size-optimized x86-64-v3 build emits it.
+int-div | core::slice::iter::ChunksExactMut | slice length and chunk size, fixed by the seed type

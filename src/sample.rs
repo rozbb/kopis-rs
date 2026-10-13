@@ -28,7 +28,9 @@ fn popcount_u16(x: u16) -> u32 {
 /// the next `half_mu` bits
 ///
 /// This is a standalone function because aeneas doesn't like when it's a lambda inside a
-/// const-generic function.
+/// const-generic function. Always inlined so that `half_mu` is a constant: out of line, the mask
+/// compiles to BZHI, which is not on Intel's list of data-independent-timing instructions.
+#[inline(always)]
 fn cbd_diff(raw: u16, half_mu: u32) -> u16 {
     let mask = (1 << half_mu) - 1;
     let a = popcount_u16(raw & mask) as u16;
