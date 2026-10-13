@@ -21,6 +21,10 @@ Two failure modes are worth knowing about, because both fail *toward* a clean re
 Calls to compiler-rt division helpers (`__udivti3`, `__aeabi_uldivmod`, ...) are flagged too: a
 divide too wide for the hardware becomes one of these instead of a `div`. They are found through
 the call's relocation, since the callee is not in the rlib.
+
+x86 is checked against an allowlist rather than a denylist: Intel's published DOIT instructions
+(`x86-doit.txt`) plus the few in `X86_EXTRA`. Anything else is reported, including instructions
+nobody thought to put on a denylist. The Arm families still use a denylist.
 """
 
 import json
@@ -32,15 +36,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 ALLOWLIST = Path(__file__).resolve().parent / "instr-allowlist.txt"
+X86_DOIT = Path(__file__).resolve().parent / "x86-doit.txt"
 
 # If a disassembly yields fewer instructions than this, something went wrong with the tooling
 # rather than the code being small; treat it as an error instead of a pass.
 MIN_PLAUSIBLE_INSNS = 2000
 
-# Instruction classes whose timing can depend on operand *values*, per architecture family.
+# Instruction classes whose timing can depend on operand *values*, for the Arm families.
 # Deliberately absent, because they are constant-time on every CPU this crate targets and would
-# only add noise: variable-count shifts, POPCNT/LZCNT/TZCNT/BSF/BSR (kopis calls `count_ones()` on
-# secret bytes in `sample.rs` and that is fine), integer MUL/IMUL, and CMOV/CSEL.
+# only add noise: variable-count shifts, CLZ/CNT, integer MUL, and CSEL.
 DIV_LIBCALL = (
     "div-libcall",
     r"^R_\S+ (__u?(div|mod|divmod)[sdt]i[34]|__aeabi_u?l?div(mod)?|__aeabi_u?idiv(mod)?)\b",
@@ -49,17 +53,8 @@ DIV_LIBCALL = (
 )
 
 CATEGORIES = {
-    "x86": [
-        ("int-div", r"^i?div[bwlq]?\b", "DIV/IDIV: latency depends on the operands", None),
-        ("pext-pdep", r"^(pext|pdep)[lq]?\b",
-         "BMI2: microcoded and mask-dependent on AMD Zen 1/2", None),
-        ("fp-div-sqrt", r"^(v?div[sp][sd]|v?sqrt)",
-         "FP divide/sqrt: variable latency, plus subnormal penalties", None),
-        ("rep-string-cmp", r"^rep[a-z]*\s+(cmps|scas)",
-         "REP CMPS/SCAS: terminates early depending on the data", None),
-        ("gather", r"^v?p?gather", "Gather: timing follows the address pattern", None),
-        DIV_LIBCALL,
-    ],
+    # Only the relocation check: x86 instructions go through `classify_x86`.
+    "x86": [DIV_LIBCALL],
     "aarch64": [
         ("int-div", r"^[us]div\b",
          "UDIV/SDIV: early-terminating on Cortex-A and Neoverse", None),
@@ -89,13 +84,100 @@ def arch_family(target: str) -> str:
     return ""
 
 
-def categories_for(fam: str, target: str):
-    """The compiled categories that apply to one target."""
-    return [
+# x86 instructions that are not on Intel's list but are accepted anyway. Each is a claim that the
+# instruction's timing does not depend on its data; keep it to what the build actually emits.
+X86_EXTRA = {
+    "call": "control flow: a secret-dependent branch is phase 1's to find",
+    "ret": "control flow: a secret-dependent branch is phase 1's to find",
+    "nop": "no operands",
+    "ud2": "no operands",
+    "vmovaps": "VEX form of MOVAPS, which is listed",
+    "vmovups": "VEX form of MOVUPS, which is listed",
+    "vxorps": "VEX form of XORPS, which is listed",
+    "movsd(sse)": "legacy-SSE form of VMOVSD, which is listed",
+    "movupd": "MOVUPS with a 66 prefix; the same move",
+    "shufps": "fixed lane shuffle; the integer-domain equivalent PSHUFD is listed",
+    "vshufps": "fixed lane shuffle; the integer-domain equivalent VPSHUFD is listed",
+    "vunpcklpd": "fixed lane shuffle; the integer-domain equivalent VPUNPCKLQDQ is listed",
+    "vunpckhpd": "fixed lane shuffle; the integer-domain equivalent VPUNPCKHQDQ is listed",
+    "vmovlhps": "fixed lane shuffle; the integer-domain equivalent VPUNPCKLQDQ is listed",
+}
+X86_BRANCH = re.compile(r"^j[a-z]+$")
+
+# Non-DOIT x86 instructions that get a readable category. Anything else not on the list reports as
+# `non-doit:<mnemonic>`, so an allowlist entry has to name the mnemonic it excuses.
+X86_NAMED = [
+    ("int-div", r"^i?div$", "DIV/IDIV: latency depends on the operands"),
+    ("pext-pdep", r"^(pext|pdep)$", "BMI2: microcoded and mask-dependent on AMD Zen 1/2"),
+    ("fp-div-sqrt", r"^v?(div|sqrt)[ps][sd]$",
+     "FP divide/sqrt: variable latency, plus subnormal penalties"),
+    ("rep-string-cmp", r"^rep[a-z]*_(cmps|scas)",
+     "REP CMPS/SCAS: terminates early depending on the data"),
+    ("gather", r"^v?p?gather", "Gather: timing follows the address pattern"),
+]
+
+X86_IGNORED_PREFIXES = {"data16", "cs", "ds", "es", "fs", "gs", "ss", "notrack", "lock"}
+X86_REP_PREFIXES = {"rep", "repe", "repz", "repne", "repnz"}
+# LLVM's condition-code spellings, mapped to the ones Intel's list uses.
+X86_CC = {"e": "z", "ne": "nz", "ae": "nb", "nae": "b", "c": "b", "nc": "nb", "a": "nbe",
+          "na": "be", "ge": "nl", "nge": "l", "g": "nle", "ng": "le", "pe": "p", "po": "np"}
+
+
+def x86_mnemonic(text: str) -> str:
+    """The mnemonic of an Intel-syntax instruction, spelled as Intel's DOIT list spells it."""
+    words = text.split()
+    while words and words[0] in X86_IGNORED_PREFIXES:
+        words = words[1:]
+    if not words:
+        return ""
+    m = words[0]
+    if m in X86_REP_PREFIXES and len(words) > 1:
+        return f"{m}_{words[1]}"
+    if m == "movabs":
+        return "mov"
+    # MOVSD is both a string move (listed) and an SSE scalar move (not).
+    if m == "movsd" and "xmm" in text:
+        return "movsd(sse)"
+    cc = re.match(r"^(cmov|set)([a-z]+)$", m)
+    if cc and cc.group(2) in X86_CC:
+        return cc.group(1) + X86_CC[cc.group(2)]
+    return m
+
+
+def load_doit(path: Path) -> set:
+    return {line.strip().lower() for line in path.read_text().splitlines()
+            if line.strip() and not line.startswith("#")}
+
+
+def classifier(fam: str, target: str):
+    """A function from one disassembled row to the [(category, description)] it falls under."""
+    cats = [
         (name, re.compile(pattern), desc)
         for name, pattern, desc, only_on in CATEGORIES[fam]
         if only_on is None or re.match(only_on, target)
     ]
+
+    def by_regex(text):
+        return [(name, desc) for name, rx, desc in cats if rx.match(text)]
+
+    if fam != "x86":
+        return by_regex
+
+    doit = load_doit(X86_DOIT)
+    named = [(name, re.compile(pattern), desc) for name, pattern, desc in X86_NAMED]
+
+    def classify_x86(text):
+        if text.startswith("R_"):
+            return by_regex(text)
+        m = x86_mnemonic(text)
+        if m in doit or m in X86_EXTRA or X86_BRANCH.match(m):
+            return []
+        for name, rx, desc in named:
+            if rx.match(m):
+                return [(name, desc)]
+        return [(f"non-doit:{m}", "not on Intel's DOIT list (ct-check/x86-doit.txt)")]
+
+    return classify_x86
 
 
 def host_target() -> str:
@@ -204,11 +286,13 @@ def build(target: str, rustflags: str) -> list:
     return rlibs
 
 
-def disassemble(objdump: str, rlibs: list):
+def disassemble(objdump: str, rlibs: list, fam: str):
     """Yields (symbol, instruction-text) and the total instruction count. Relocations are yielded
-    as rows too, as `R_<type> <target>`, but not counted."""
-    proc = subprocess.run([objdump, "-d", "-r", "--demangle", "--no-show-raw-insn", *rlibs],
-                          capture_output=True, text=True)
+    as rows too, as `R_<type> <target>`, but not counted. x86 is in Intel syntax, whose mnemonics
+    carry no operand-size suffix and so match Intel's DOIT list directly."""
+    syntax = ["-M", "intel"] if fam == "x86" else []
+    proc = subprocess.run([objdump, "-d", "-r", "--demangle", "--no-show-raw-insn", *syntax,
+                           *rlibs], capture_output=True, text=True)
     sym, total, rows = None, 0, []
     for line in proc.stdout.splitlines():
         header = re.match(r"^[0-9a-f]+ <(.+)>:", line)
@@ -252,25 +336,38 @@ def load_allowlist(path: Path):
 
 # (arch family, instruction text, category it must be reported as, or None for "must stay silent")
 MATCHER_CASES = [
-    ("x86", "divl %ecx", "int-div"),
-    ("x86", "idivq %rbx", "int-div"),
-    ("x86", "divb %r14b", "int-div"),
-    ("x86", "pextq %rax, %rbx, %rcx", "pext-pdep"),
-    ("x86", "pdep %edx, %ecx, %eax", "pext-pdep"),
-    ("x86", "divss %xmm1, %xmm0", "fp-div-sqrt"),
-    ("x86", "vsqrtpd %ymm1, %ymm0", "fp-div-sqrt"),
-    ("x86", "sqrtsd %xmm1, %xmm0", "fp-div-sqrt"),
-    ("x86", "vdivps %ymm2, %ymm1, %ymm0", "fp-div-sqrt"),
-    ("x86", "rep cmpsb %es:(%rdi), %ds:(%rsi)", "rep-string-cmp"),
-    ("x86", "repz scasb %es:(%rdi), %al", "rep-string-cmp"),
-    ("x86", "vpgatherdd %ymm2, (%rax,%ymm1,4), %ymm0", "gather"),
-    # Constant-time on every x86 this crate targets; flagging them would be noise.
-    ("x86", "popcntl %eax, %ecx", None),
-    ("x86", "shlq %cl, %rax", None),
-    ("x86", "imulq %rbx, %rax", None),
-    ("x86", "cmovel %eax, %ecx", None),
-    ("x86", "tzcntl %eax, %ecx", None),
-    ("x86", "vpmullw %ymm1, %ymm2, %ymm3", None),
+    ("x86", "div ecx", "int-div"),
+    ("x86", "idiv rbx", "int-div"),
+    ("x86", "div r14b", "int-div"),
+    ("x86", "pext rcx, rbx, rax", "pext-pdep"),
+    ("x86", "pdep eax, ecx, edx", "pext-pdep"),
+    ("x86", "divss xmm0, xmm1", "fp-div-sqrt"),
+    ("x86", "vsqrtpd ymm0, ymm1", "fp-div-sqrt"),
+    ("x86", "sqrtsd xmm0, xmm1", "fp-div-sqrt"),
+    ("x86", "vdivps ymm0, ymm1, ymm2", "fp-div-sqrt"),
+    ("x86", "rep cmpsb byte ptr [rsi], byte ptr es:[rdi]", "rep-string-cmp"),
+    ("x86", "repe scasb al, byte ptr es:[rdi]", "rep-string-cmp"),
+    ("x86", "vpgatherdd ymm0, ymmword ptr [rax + 4*ymm1], ymm2", "gather"),
+    # Not on Intel's list, so reported even though no denylist names them.
+    ("x86", "popcnt ecx, eax", "non-doit:popcnt"),
+    ("x86", "tzcnt ecx, eax", "non-doit:tzcnt"),
+    ("x86", "rep stosq qword ptr es:[rdi], rax", "non-doit:rep_stosq"),
+    ("x86", "lock cmpxchg qword ptr [rdi], rsi", "non-doit:cmpxchg"),
+    # On the list, possibly under another spelling.
+    ("x86", "shl rax, cl", None),
+    ("x86", "imul rax, rbx", None),
+    ("x86", "cmove ecx, eax", None),
+    ("x86", "cmovae ecx, eax", None),
+    ("x86", "sete al", None),
+    ("x86", "movabs rax, 0x123456789", None),
+    ("x86", "rep movsb byte ptr es:[rdi], byte ptr [rsi]", None),
+    ("x86", "movsd dword ptr es:[rdi], dword ptr [rsi]", None),
+    ("x86", "vpmullw ymm3, ymm2, ymm1", None),
+    ("x86", "nop word ptr cs:[rax + rax]", None),
+    # In X86_EXTRA.
+    ("x86", "jne 0x40", None),
+    ("x86", "movsd xmm0, qword ptr [rax]", None),
+    ("x86", "vxorps xmm0, xmm0, xmm0", None),
     ("x86", "R_X86_64_PLT32 __udivti3-0x4", "div-libcall"),
     ("x86", "R_X86_64_PLT32 __umodti3-0x4", "div-libcall"),
     ("x86", "R_X86_64_PLT32 memcpy-0x4", None),
@@ -342,7 +439,7 @@ def selftest(objdump: str, allowlist) -> int:
     for fam, text, want in MATCHER_CASES:
         target = {"x86": "x86_64-unknown-linux-gnu", "aarch64": "aarch64-unknown-none",
                   "arm": "thumbv7em-none-eabi"}[fam]
-        got = [n for n, rx, _ in categories_for(fam, target) if rx.match(text)]
+        got = [n for n, _ in classifier(fam, target)(text)]
         if want is None and got:
             failures.append(f"{fam}: {text!r} should not be flagged, but matched {got}")
         elif want is not None and want not in got:
@@ -378,14 +475,15 @@ def selftest(objdump: str, allowlist) -> int:
             if proc.returncode != 0:
                 failures.append(f"{label}: could not compile the planted divide\n{proc.stderr}")
                 continue
-            rows, total = disassemble(objdump, [str(obj)])
+            rows, total = disassemble(objdump, [str(obj)], fam)
             checked += 1
+            classify = classifier(fam, target)
             libcall = "planted_libcall64" if fam == "arm" else "planted_libcall128"
             for want, fn in [("int-div", "planted_divide"), ("div-libcall", libcall)]:
                 hit = any(
-                    name == want and rx.match(text) and fn in sym
+                    name == want and fn in sym
                     for sym, text in rows
-                    for name, rx, _ in categories_for(fam, target)
+                    for name, _ in classify(text)
                 )
                 if not hit:
                     failures.append(
@@ -428,9 +526,9 @@ def main():
     used = set()
     for label, target, backend, flags in cfgs:
         fam = arch_family(target)
-        cats = categories_for(fam, target)
+        classify = classifier(fam, target)
         rlibs = build(target, flags)
-        rows, total = disassemble(objdump, rlibs)
+        rows, total = disassemble(objdump, rlibs, fam)
         if total < MIN_PLAUSIBLE_INSNS:
             raise SystemExit(
                 f"scan-instrs: {label} disassembled to only {total} instructions, which cannot be "
@@ -439,9 +537,7 @@ def main():
             )
         allowed = 0
         for sym, text in rows:
-            for name, rx, desc in cats:
-                if not rx.match(text):
-                    continue
+            for name, desc in classify(text):
                 # Matched a variable-latency category. Either the allowlist says the operands are
                 # public, in which case it only gets counted, or it is a finding.
                 covering = [(a_cat, a_sym) for a_cat, a_sym, _ in allow
@@ -477,7 +573,8 @@ def main():
             print(f"      in {sym}")
             print(f"      {desc}")
         print("\nIf the operands are public, add a line to "
-              f"{ALLOWLIST.relative_to(REPO)} saying why.")
+              f"{ALLOWLIST.relative_to(REPO)} saying why. If a non-doit instruction is "
+              "data-independent everywhere, add it to X86_EXTRA instead.")
         return 1
 
     print("\nPASS: no unexpected variable-latency instructions")

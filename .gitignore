@@ -1,8 +1,6 @@
 /target
 *.llbc
-
-# Python bytecode cache from lean/scripts/.
-/lean/scripts/__pycache__/
+__pycache__
 
 # Prebuilt aeneas/charon, fetched by lean/extract_rust_to_lean.sh.
 /.aeneas-bin/

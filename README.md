@@ -84,7 +84,7 @@ Read [`lean/README.md`](lean/README.md) for more info on what is proved, what is
 To ensure that we don't accidentally introduce timing side channels in the code, we perform two checks in `ct-check.sh`:
 
 1. Run Valgrind with memory tainting to see if any functions branch on secrets. This is done in `ct-check/src/main.rs`.
-2. Compile the library and search the resulting binary for non-constant-time instructions. The list of non-constant-time instructions is in `ct-check/scan-instrs.py`. The list of known false positives is in `ct-check/instr-allowlist.txt`.
+2. Compile the library and search the resulting binary for non-constant-time instructions. On x86, any instruction not on Intel's [DOIT list](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/resources/data-operand-independent-timing-instructions.html) (`ct-check/x86-doit.txt`) is reported, apart from a few exceptions in `ct-check/scan-instrs.py`. On Arm, the list of non-constant-time instructions is in `ct-check/scan-instrs.py`. The list of known false positives is in `ct-check/instr-allowlist.txt`.
 
 Unlike ML-KEM, Kopis algorithms are constant time in _all_ inputs, not just the secret ones. So, in taint testing, when we test public key `from_bytes`, we taint the bytes. Similarly, we taint the randomness and public key bytes for `encapsulate`, and the secret key and ciphertext bytes in `decapsulate`.
 
