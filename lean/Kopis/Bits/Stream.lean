@@ -285,4 +285,21 @@ theorem cbdX_eq_bitSum_of_le (bytes : Slice U8) (half p n : ℕ) (h : half ≤ n
 def cbdU16 (buf : Slice U8) (half p : ℕ) : ℕ :=
   (cbdX buf half p + 2 ^ 16 - cbdX buf half (p + half)) % 2 ^ 16
 
+/-! ## Byte popcount
+
+The portable sampler counts bits with `sample::popcount_u8`, which sums adjacent bit fields rather
+than calling `count_ones` (that compiles to POPCNT, which is not on Intel's DOIT list). -/
+
+/-- What `sample::popcount_u8` computes, on naturals. -/
+def popcount8 (n : ℕ) : ℕ :=
+  let x := (n &&& 85) + ((n >>> 1) &&& 85)
+  let x := (x &&& 51) + ((x >>> 2) &&& 51)
+  (x &&& 15) + (x >>> 4)
+
+/-- `popcount8` is the number of set bits, checked on all 256 bytes. -/
+theorem popcount8_eq (n : ℕ) (h : n < 256) :
+    popcount8 n = ∑ i ∈ Finset.range 8, (n.testBit i).toNat := by
+  simp only [Finset.sum_range_succ, Finset.sum_range_zero, zero_add]
+  revert n; decide +kernel
+
 end Kopis.Properties

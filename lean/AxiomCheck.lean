@@ -23,13 +23,11 @@ def commonAxioms : List String :=
    "Aeneas.Std.core.fmt.Formatter"]
 
 /--
-The serial backend needs some axiomatized integer intrinsics, `subtle` crate axioms, `turboshake`
-crate axioms, and `zeroize` crate axioms.
+The serial backend needs `subtle` crate axioms, `turboshake` crate axioms, and `zeroize` crate
+axioms.
 -/
 def serialAudited : List String := commonAxioms ++
-  ["Kopis.Properties.U16.count_ones_spec",
-   "Kopis.Properties.U8.count_ones_spec",
-   "Kopis.Properties.conditional_select_array_u8_spec",
+  ["Kopis.Properties.conditional_select_array_u8_spec",
    "Kopis.Properties.ct_eq_slice_u8_spec",
    "Kopis.Properties.hasher_default_spec",
    "Kopis.Properties.hasher_finalize_spec",
@@ -45,8 +43,6 @@ def serialAudited : List String := commonAxioms ++
    "RustKopisSerial.Slice.Insts.SubtleConstantTimeEq.ct_eq",
    "RustKopisSerial.U8.Insts.SubtleConditionallySelectable.conditional_select",
    "RustKopisSerial.U8.Insts.SubtleConstantTimeEq.ct_eq",
-   "RustKopisSerial.core.num.U16.count_ones",
-   "RustKopisSerial.core.num.U8.count_ones",
    "RustKopisSerial.subtle.Choice",
    "RustKopisSerial.turboshake.TurboShake",
    "RustKopisSerial.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
@@ -65,11 +61,7 @@ The AVX2 crate needs lots of axiomatized SIMD intrinsics. In addition it also ne
 `sutble` axioms.
 -/
 def avx2Audited : List String := commonAxioms ++
-  ["Kopis.Avx2.CbdGeneric.U16.count_ones_spec",
-   "Kopis.Avx2.CbdGeneric.U8.count_ones_spec",
-   "Kopis.Avx2.Properties.U16.count_ones_spec",
-   "Kopis.Avx2.Properties.U8.count_ones_spec",
-   "Kopis.Avx2.Properties.conditional_select_array_u8_spec",
+  ["Kopis.Avx2.Properties.conditional_select_array_u8_spec",
    "Kopis.Avx2.Properties.ct_eq_slice_u8_spec",
    "Kopis.Avx2.Properties.hasher_default_spec",
    "Kopis.Avx2.Properties.hasher_finalize_spec",
@@ -189,8 +181,6 @@ def avx2Audited : List String := commonAxioms ++
    "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi32",
    "RustKopisAvx2.backend.avx2.intrinsics.unpacklo_epi64",
    "RustKopisAvx2.backend.avx2.intrinsics.xor_si256",
-   "RustKopisAvx2.core.num.U16.count_ones",
-   "RustKopisAvx2.core.num.U8.count_ones",
    "RustKopisAvx2.subtle.Choice",
    "RustKopisAvx2.turboshake.TurboShake",
    "RustKopisAvx2.turboshake.TurboShake.Insts.CoreDefaultDefault.default",
@@ -206,12 +196,8 @@ def avx2Audited : List String := commonAxioms ++
 
 /-- Axioms required by the NEON backend. Same genres here as avx2Audited -/
 def neonAudited : List String := commonAxioms ++
-  ["Kopis.Neon.CbdGeneric.U16.count_ones_spec",
-   "Kopis.Neon.CbdGeneric.U8.count_ones_spec",
-   "Kopis.Neon.I16.wrapping_neg_spec",
+  ["Kopis.Neon.I16.wrapping_neg_spec",
    "Kopis.Neon.Keccak.Usize.div_ceil_spec",
-   "Kopis.Neon.Properties.U16.count_ones_spec",
-   "Kopis.Neon.Properties.U8.count_ones_spec",
    "Kopis.Neon.Properties.conditional_select_array_u8_spec",
    "Kopis.Neon.Properties.ct_eq_slice_u8_spec",
    "Kopis.Neon.Properties.hasher_default_spec",
@@ -323,8 +309,6 @@ def neonAudited : List String := commonAxioms ++
    "RustKopisNeon.backend.neon.intrinsics.xar",
    "RustKopisNeon.backend.neon.intrinsics.xtn_pair_32",
    "RustKopisNeon.core.num.I16.wrapping_neg",
-   "RustKopisNeon.core.num.U16.count_ones",
-   "RustKopisNeon.core.num.U8.count_ones",
    "RustKopisNeon.core.num.Usize.div_ceil",
    "RustKopisNeon.subtle.Choice",
    "RustKopisNeon.turboshake.TurboShake",

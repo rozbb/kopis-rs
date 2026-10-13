@@ -10,20 +10,66 @@ open Aeneas Aeneas.Std Result RustKopisNeon
 open scoped BigOperators
 namespace Kopis.Neon.Properties
 
-open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
+open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16 popcount8 popcount8_eq)
 
 set_option maxHeartbeats 1000000
 
-/-! ## `count_ones` (popcount) — opaque compiler intrinsics, axiomatized as the
-number of set bits (= sum of the bit values). -/
+/-! ## Popcount — `sample::popcount_{u8,u16}` return the number of set bits (= sum of the bit
+values). -/
 
-@[step] axiom U16.count_ones_spec (x : U16) :
-    core.num.U16.count_ones x
-      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 16, (x.bv.getLsbD i).toNat ⦄
+@[step] theorem U8.popcount_spec (x : U8) :
+    sample.popcount_u8 x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 8, (x.bv.getLsbD i).toNat ⦄ := by
+  unfold sample.popcount_u8
+  have hx : x.val < 256 := by scalar_tac
+  step as ⟨ x1, hx1 ⟩
+  have hx1v : x1.val = x.val := by
+    rw [hx1, UScalar.cast_val_eq]; exact Nat.mod_eq_of_lt (by simp; omega)
+  step as ⟨ i, hi, _ ⟩
+  step as ⟨ i1, hi1, _ ⟩
+  step as ⟨ i2, hi2, _ ⟩
+  have : i.val ≤ 85 := by rw [hi, UScalar.val_and]; exact Nat.and_le_right
+  have : i2.val ≤ 85 := by rw [hi2, UScalar.val_and]; exact Nat.and_le_right
+  step as ⟨ x2, hx2 ⟩
+  step as ⟨ i3, hi3, _ ⟩
+  step as ⟨ i4, hi4, _ ⟩
+  step as ⟨ i5, hi5, _ ⟩
+  have : i3.val ≤ 51 := by rw [hi3, UScalar.val_and]; exact Nat.and_le_right
+  have : i5.val ≤ 51 := by rw [hi5, UScalar.val_and]; exact Nat.and_le_right
+  step as ⟨ x3, hx3 ⟩
+  step as ⟨ i6, hi6, _ ⟩
+  step as ⟨ i7, hi7, _ ⟩
+  have : i6.val ≤ 15 := by rw [hi6, UScalar.val_and]; exact Nat.and_le_right
+  have : i7.val ≤ 255 := by rw [hi7]; have : x3.val ≤ 102 := by omega
+                            exact Nat.le_trans (Nat.shiftRight_le _ _) (by omega)
+  step as ⟨ r, hr ⟩
+  rw [hr, hi6, hi7, UScalar.val_and, hx3, hi3, hi5, UScalar.val_and, UScalar.val_and, hi4, hx2,
+    hi, hi2, UScalar.val_and, UScalar.val_and, hi1, hx1v]
+  exact popcount8_eq x.val hx
 
-@[step] axiom U8.count_ones_spec (x : U8) :
-    core.num.U8.count_ones x
-      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 8, (x.bv.getLsbD i).toNat ⦄
+@[step] theorem U16.popcount_spec (x : U16) :
+    sample.popcount_u16 x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 16, (x.bv.getLsbD i).toNat ⦄ := by
+  unfold sample.popcount_u16
+  step*
+  · have h8 : ∀ b : U8, ∑ j ∈ Finset.range 8, (b.bv.getLsbD j).toNat ≤ 8 := fun b =>
+      (Finset.sum_le_sum fun j _ => Bool.toNat_le _).trans (by simp)
+    have := h8 i; have := h8 i3; scalar_tac
+  have hlo : ∀ j < 8, i.bv.getLsbD j = x.bv.getLsbD j := by
+    intro j hj
+    rw [← BitVec.testBit_toNat, ← BitVec.testBit_toNat, UScalar.bv_toNat, UScalar.bv_toNat, i_post,
+      UScalar.cast_val_eq, Nat.testBit_mod_two_pow]
+    simp [hj]
+  have hhi : ∀ j < 8, i3.bv.getLsbD j = x.bv.getLsbD (8 + j) := by
+    intro j hj
+    rw [← BitVec.testBit_toNat, ← BitVec.testBit_toNat, UScalar.bv_toNat, UScalar.bv_toNat, i3_post,
+      UScalar.cast_val_eq, Nat.testBit_mod_two_pow, i2_post1, Nat.testBit_shiftRight]
+    simp [hj]
+  rw [r_post, i1_post, i4_post, show Finset.range 16 = Finset.range (8 + 8) from rfl,
+    Finset.sum_range_add]
+  congr 1 <;> refine Finset.sum_congr rfl fun j hj => ?_ <;> simp only [Finset.mem_range] at hj
+  · rw [hlo j hj]
+  · rw [hhi j hj]
 
 /-- Popcount of `w` masked to its low `h` bits (`mask = 2^h - 1`) is the sum of
 the low `h` bits of `w`. -/

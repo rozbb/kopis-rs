@@ -6,7 +6,7 @@ import Kopis.Avx2.Properties.SerializeTop
 open Aeneas Aeneas.Std Result
 namespace Kopis.Avx2.Properties
 
-open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16)
+open Kopis.Properties (streamBit streamNat streamNat_zero streamNat_succ streamBit_le_one streamNat_lt streamNat_split lor_add_of_lt lor_mul_of_lt sum_testBit_eq_mod streamNat_byte streamByte streamByte_lt sum_base256 testBit_sum_bytes streamNat_of_byteWindow cbdX cbdX_le testBit_streamNat cbdX_eq_bitSum streamNat_mod streamNat_shiftRight cbdX_eq_bitSum_of_le cbdU16 popcount8 popcount8_eq)
 
 /-- **CompressToR10 per-coefficient bridge.**  The 16-bit physical rounding
 `(((c+4) mod 2¹⁶) >>> 3) mod 2¹⁰` depends only on the low 13 bits of `c`, matching the

@@ -9,6 +9,21 @@ use turboshake::digest::{ExtendableOutput, Update, XofReader};
 use turboshake::{CTurboShake128, CTurboShake256};
 use zeroize::Zeroizing;
 
+/// Popcount of a byte, by summing adjacent bit fields. We don't use `count_ones`, because it
+/// compiles to POPCNT where the target has it, and POPCNT is not on Intel's list of
+/// data-independent-timing instructions.
+fn popcount_u8(x: u8) -> u32 {
+    let x = x as u32;
+    let x = (x & 0x55) + ((x >> 1) & 0x55);
+    let x = (x & 0x33) + ((x >> 2) & 0x33);
+    (x & 0x0F) + (x >> 4)
+}
+
+/// Popcount of a `u16`, one byte at a time
+fn popcount_u16(x: u16) -> u32 {
+    popcount_u8(x as u8) + popcount_u8((x >> 8) as u8)
+}
+
 /// One CBD coefficient: popcount of the low `half_mu` bits of `raw`, minus popcount of
 /// the next `half_mu` bits
 ///
@@ -16,8 +31,8 @@ use zeroize::Zeroizing;
 /// const-generic function.
 fn cbd_diff(raw: u16, half_mu: u32) -> u16 {
     let mask = (1 << half_mu) - 1;
-    let a = (raw & mask).count_ones() as u16;
-    let b = ((raw >> half_mu) & mask).count_ones() as u16;
+    let a = popcount_u16(raw & mask) as u16;
+    let b = popcount_u16((raw >> half_mu) & mask) as u16;
     a.wrapping_sub(b)
 }
 
@@ -31,8 +46,8 @@ pub(crate) fn cbd<const MU: usize>(buf: &[u8], out: &mut RingElem) {
         // and the high nibble as the negative half. So we don't need a buffer to read
         // bits
         for (i, &byte) in buf.iter().enumerate() {
-            let a = (byte & 0x0F).count_ones() as u16;
-            let b = (byte >> 4).count_ones() as u16;
+            let a = popcount_u8(byte & 0x0F) as u16;
+            let b = popcount_u8(byte >> 4) as u16;
             out.0[i] = a.wrapping_sub(b);
         }
     } else if MU == 10 {
@@ -203,5 +218,12 @@ mod test {
         check::<6>(&mut rng);
         check::<8>(&mut rng);
         check::<10>(&mut rng);
+    }
+
+    #[test]
+    fn popcount_matches_count_ones() {
+        for x in 0..=u16::MAX {
+            assert_eq!(popcount_u16(x), x.count_ones());
+        }
     }
 }

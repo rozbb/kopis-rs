@@ -38,26 +38,67 @@ private theorem usize_max_ge_1024 : 1024 ≤ Usize.max := by scalar_tac
 
 Three things `GenSecretLoops.lean` inherits from its imports, reproduced here for the NEON
 extraction's constants: the two `IterMut` step lemmas (`Kopis/Properties/RingArith.lean`) and
-the two `count_ones` axioms (`Kopis/Properties/GenSecret.lean`).
-
-The `count_ones` axioms are genuinely new *assumptions* for this backend —
-`RustKopisNeon.core.num.{U8,U16}.count_ones` are different opaque constants from the serial
-ones — so they belong in the NEON row of `AxiomCheck.lean` exactly as their serial twins are in
-the serial row. -/
+the two popcount specs (`Kopis/Properties/GenSecret.lean`). -/
 
 
 set_option maxHeartbeats 1000000
 
-/-! ## `count_ones` (popcount) — opaque compiler intrinsics, axiomatized as the
-number of set bits (= sum of the bit values). -/
+/-! ## Popcount — `sample::popcount_{u8,u16}` return the number of set bits (= sum of the bit
+values). -/
 
-@[step] axiom U16.count_ones_spec (x : U16) :
-    core.num.U16.count_ones x
-      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 16, (x.bv.getLsbD i).toNat ⦄
+@[step] theorem U8.popcount_spec (x : U8) :
+    sample.popcount_u8 x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 8, (x.bv.getLsbD i).toNat ⦄ := by
+  unfold sample.popcount_u8
+  have hx : x.val < 256 := by scalar_tac
+  step as ⟨ x1, hx1 ⟩
+  have hx1v : x1.val = x.val := by
+    rw [hx1, UScalar.cast_val_eq]; exact Nat.mod_eq_of_lt (by simp; omega)
+  step as ⟨ i, hi, _ ⟩
+  step as ⟨ i1, hi1, _ ⟩
+  step as ⟨ i2, hi2, _ ⟩
+  have : i.val ≤ 85 := by rw [hi, UScalar.val_and]; exact Nat.and_le_right
+  have : i2.val ≤ 85 := by rw [hi2, UScalar.val_and]; exact Nat.and_le_right
+  step as ⟨ x2, hx2 ⟩
+  step as ⟨ i3, hi3, _ ⟩
+  step as ⟨ i4, hi4, _ ⟩
+  step as ⟨ i5, hi5, _ ⟩
+  have : i3.val ≤ 51 := by rw [hi3, UScalar.val_and]; exact Nat.and_le_right
+  have : i5.val ≤ 51 := by rw [hi5, UScalar.val_and]; exact Nat.and_le_right
+  step as ⟨ x3, hx3 ⟩
+  step as ⟨ i6, hi6, _ ⟩
+  step as ⟨ i7, hi7, _ ⟩
+  have : i6.val ≤ 15 := by rw [hi6, UScalar.val_and]; exact Nat.and_le_right
+  have : i7.val ≤ 255 := by rw [hi7]; have : x3.val ≤ 102 := by omega
+                            exact Nat.le_trans (Nat.shiftRight_le _ _) (by omega)
+  step as ⟨ r, hr ⟩
+  rw [hr, hi6, hi7, UScalar.val_and, hx3, hi3, hi5, UScalar.val_and, UScalar.val_and, hi4, hx2,
+    hi, hi2, UScalar.val_and, UScalar.val_and, hi1, hx1v]
+  exact popcount8_eq x.val hx
 
-@[step] axiom U8.count_ones_spec (x : U8) :
-    core.num.U8.count_ones x
-      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 8, (x.bv.getLsbD i).toNat ⦄
+@[step] theorem U16.popcount_spec (x : U16) :
+    sample.popcount_u16 x
+      ⦃ (r : U32) => r.val = ∑ i ∈ Finset.range 16, (x.bv.getLsbD i).toNat ⦄ := by
+  unfold sample.popcount_u16
+  step*
+  · have h8 : ∀ b : U8, ∑ j ∈ Finset.range 8, (b.bv.getLsbD j).toNat ≤ 8 := fun b =>
+      (Finset.sum_le_sum fun j _ => Bool.toNat_le _).trans (by simp)
+    have := h8 i; have := h8 i3; scalar_tac
+  have hlo : ∀ j < 8, i.bv.getLsbD j = x.bv.getLsbD j := by
+    intro j hj
+    rw [← BitVec.testBit_toNat, ← BitVec.testBit_toNat, UScalar.bv_toNat, UScalar.bv_toNat, i_post,
+      UScalar.cast_val_eq, Nat.testBit_mod_two_pow]
+    simp [hj]
+  have hhi : ∀ j < 8, i3.bv.getLsbD j = x.bv.getLsbD (8 + j) := by
+    intro j hj
+    rw [← BitVec.testBit_toNat, ← BitVec.testBit_toNat, UScalar.bv_toNat, UScalar.bv_toNat, i3_post,
+      UScalar.cast_val_eq, Nat.testBit_mod_two_pow, i2_post1, Nat.testBit_shiftRight]
+    simp [hj]
+  rw [r_post, i1_post, i4_post, show Finset.range 16 = Finset.range (8 + 8) from rfl,
+    Finset.sum_range_add]
+  congr 1 <;> refine Finset.sum_congr rfl fun j hj => ?_ <;> simp only [Finset.mem_range] at hj
+  · rw [hlo j hj]
+  · rw [hhi j hj]
 
 /-- Popcount of `w` masked to its low `h` bits (`mask = 2^h - 1`) is the sum of
 the low `h` bits of `w`. -/
@@ -291,7 +332,7 @@ theorem cbd_diff_bd (raw : U16) (half_mu : U32) (half : ℕ)
   have hmaskv : mask.val = 2 ^ half - 1 := by rw [hmask, hiv]
   have hmaskbits := mask_getLsbD mask half hmaskv
   rw [show lift (raw &&& mask) = ok (raw &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i2, hi2 ⟩ ← U16.count_ones_spec
+  let* ⟨ i2, hi2 ⟩ ← U16.popcount_spec
   have ha_le : i2.val ≤ half := by
     rw [hi2, popcount_low_mask raw mask half (by omega) hmaskbits]
     calc ∑ i ∈ Finset.range half, (raw.bv.getLsbD i).toNat
@@ -303,7 +344,7 @@ theorem cbd_diff_bd (raw : U16) (half_mu : U32) (half : ℕ)
   let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i2 hx_le
   let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U16.ShiftRight_spec raw half_mu (by omega)
   rw [show lift (i3 &&& mask) = ok (i3 &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i5, hi5 ⟩ ← U16.count_ones_spec
+  let* ⟨ i5, hi5 ⟩ ← U16.popcount_spec
   have hb_le : i5.val ≤ half := by
     rw [hi5, popcount_low_mask i3 mask half (by omega) hmaskbits]
     calc ∑ i ∈ Finset.range half, (i3.bv.getLsbD i).toNat
@@ -342,10 +383,10 @@ theorem cbd_loop0_spec
     generalize hbdef : iter.iter.slice[iter.iter.i] = byte
     show (do
         let i1 ← lift (byte &&& 15#u8)
-        let i2 ← core.num.U8.count_ones i1
+        let i2 ← sample.popcount_u8 i1
         let a ← lift (UScalar.cast UScalarTy.U16 i2)
         let i3 ← byte >>> 4#i32
-        let i4 ← core.num.U8.count_ones i3
+        let i4 ← sample.popcount_u8 i3
         let b ← lift (UScalar.cast UScalarTy.U16 i4)
         let i5 ← lift (core.num.U16.wrapping_sub a b)
         let a1 ← Array.update out iter.count i5
@@ -372,7 +413,7 @@ theorem cbd_loop0_spec
         show (8 * iter.iter.i + 4 + j) % 8 = 4 + j from by omega]
     -- x = popcount(byte & 15)
     rw [show lift (byte &&& 15#u8) = ok (byte &&& 15#u8) from rfl, bind_tc_ok]
-    let* ⟨ i2, hi2 ⟩ ← U8.count_ones_spec
+    let* ⟨ i2, hi2 ⟩ ← U8.popcount_spec
     have hx : i2.val = cbdX buf 4 (8 * iter.iter.i) := by rw [hi2, cbd_nibble_low, hstream_low]
     have hx_le : i2.val ≤ UScalar.max UScalarTy.U16 := by
       rw [hx]; have := cbdX_le buf 4 (8 * iter.iter.i)
@@ -380,7 +421,7 @@ theorem cbd_loop0_spec
     let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i2 hx_le
     -- y = popcount(byte >> 4)
     let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U8.ShiftRight_IScalar_spec byte 4#i32 (by decide) (by decide)
-    let* ⟨ i4, hi4 ⟩ ← U8.count_ones_spec
+    let* ⟨ i4, hi4 ⟩ ← U8.popcount_spec
     have hy : i4.val = cbdX buf 4 (8 * iter.iter.i + 4) := by
       rw [hi4, cbd_nibble_high byte i3 hi3, hstream_high]
     have hy_le : i4.val ≤ UScalar.max UScalarTy.U16 := by
@@ -451,10 +492,10 @@ theorem cbd_loop0_bd
     generalize hbdef : iter.iter.slice[iter.iter.i] = byte
     show (do
         let i1 ← lift (byte &&& 15#u8)
-        let i2 ← core.num.U8.count_ones i1
+        let i2 ← sample.popcount_u8 i1
         let a ← lift (UScalar.cast UScalarTy.U16 i2)
         let i3 ← byte >>> 4#i32
-        let i4 ← core.num.U8.count_ones i3
+        let i4 ← sample.popcount_u8 i3
         let b ← lift (UScalar.cast UScalarTy.U16 i4)
         let i5 ← lift (core.num.U16.wrapping_sub a b)
         let a1 ← Array.update out iter.count i5
@@ -479,14 +520,14 @@ theorem cbd_loop0_bd
       rw [show (8 * iter.iter.i + 4 + j) / 8 = iter.iter.i from by omega,
         show (8 * iter.iter.i + 4 + j) % 8 = 4 + j from by omega]
     rw [show lift (byte &&& 15#u8) = ok (byte &&& 15#u8) from rfl, bind_tc_ok]
-    let* ⟨ i2, hi2 ⟩ ← U8.count_ones_spec
+    let* ⟨ i2, hi2 ⟩ ← U8.popcount_spec
     have hx : i2.val = cbdX buf 4 (8 * iter.iter.i) := by rw [hi2, cbd_nibble_low, hstream_low]
     have hx_le : i2.val ≤ UScalar.max UScalarTy.U16 := by
       rw [hx]; have := cbdX_le buf 4 (8 * iter.iter.i)
       simp only [UScalar.max, UScalarTy.numBits]; omega
     let* ⟨ a, ha ⟩ ← UScalar.cast_inBounds_spec .U16 i2 hx_le
     let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U8.ShiftRight_IScalar_spec byte 4#i32 (by decide) (by decide)
-    let* ⟨ i4, hi4 ⟩ ← U8.count_ones_spec
+    let* ⟨ i4, hi4 ⟩ ← U8.popcount_spec
     have hy : i4.val = cbdX buf 4 (8 * iter.iter.i + 4) := by
       rw [hi4, cbd_nibble_high byte i3 hi3, hstream_high]
     have hy_le : i4.val ≤ UScalar.max UScalarTy.U16 := by
@@ -595,7 +636,7 @@ theorem cbd_diff_spec (buf : Slice U8) (base : ℕ) (raw : U16) (half_mu : U32) 
   have hmaskbits := mask_getLsbD mask half hmaskv
   -- a = popcount (raw &&& mask)
   rw [show lift (raw &&& mask) = ok (raw &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i2, hi2 ⟩ ← U16.count_ones_spec
+  let* ⟨ i2, hi2 ⟩ ← U16.popcount_spec
   have hx : i2.val = cbdX buf half base := by
     rw [hi2, popcount_low_mask raw mask half (by omega) hmaskbits]
     unfold cbdX
@@ -607,7 +648,7 @@ theorem cbd_diff_spec (buf : Slice U8) (base : ℕ) (raw : U16) (half_mu : U32) 
   -- b = popcount ((raw >>> half_mu) &&& mask)
   let* ⟨ i3, hi3, hi3bv ⟩ ← Std.U16.ShiftRight_spec raw half_mu (by omega)
   rw [show lift (i3 &&& mask) = ok (i3 &&& mask) from rfl, bind_tc_ok]
-  let* ⟨ i5, hi5 ⟩ ← U16.count_ones_spec
+  let* ⟨ i5, hi5 ⟩ ← U16.popcount_spec
   have hy : i5.val = cbdX buf half (base + half) := by
     rw [hi5, popcount_low_mask i3 mask half (by omega) hmaskbits]
     unfold cbdX

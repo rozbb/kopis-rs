@@ -42,20 +42,6 @@ def Usize.Insts.CoreFmtDisplay : core.fmt.Display Std.Usize := {
 @[rust_fun "core::num::{i16}::wrapping_neg"]
 axiom core.num.I16.wrapping_neg : Std.I16 → Result Std.I16
 
-/-- [core::num::{u16}::count_ones]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
-    Name pattern: [core::num::{u16}::count_ones]
-    Visibility: public -/
-@[rust_fun "core::num::{u16}::count_ones"]
-axiom core.num.U16.count_ones : Std.U16 → Result Std.U32
-
-/-- [core::num::{u8}::count_ones]:
-    Source: '/rustc/library/core/src/num/uint_macros.rs', lines 84:8-84:44
-    Name pattern: [core::num::{u8}::count_ones]
-    Visibility: public -/
-@[rust_fun "core::num::{u8}::count_ones"]
-axiom core.num.U8.count_ones : Std.U8 → Result Std.U32
-
 /-- [core::num::{usize}::div_ceil]:
     Source: '/rustc/library/core/src/num/uint_macros.rs', lines 3755:8-3755:54
     Name pattern: [core::num::{usize}::div_ceil]
@@ -5694,22 +5680,48 @@ def backend.neon.sample.gen_matrix_from_seed
   let bufs := Array.repeat 2#usize a
   backend.neon.sample.gen_matrix_from_seed_loop0 seed mat entries bufs 0#usize
 
+/-- [kopis::sample::popcount_u8]:
+    Source: 'src/sample.rs', lines 15:0-20:1 -/
+def sample.popcount_u8 (x : Std.U8) : Result Std.U32 := do
+  let x1 ← lift (UScalar.cast .U32 x)
+  let i ← lift (x1 &&& 85#u32)
+  let i1 ← x1 >>> 1#i32
+  let i2 ← lift (i1 &&& 85#u32)
+  let x2 ← i + i2
+  let i3 ← lift (x2 &&& 51#u32)
+  let i4 ← x2 >>> 2#i32
+  let i5 ← lift (i4 &&& 51#u32)
+  let x3 ← i3 + i5
+  let i6 ← lift (x3 &&& 15#u32)
+  let i7 ← x3 >>> 4#i32
+  i6 + i7
+
+/-- [kopis::sample::popcount_u16]:
+    Source: 'src/sample.rs', lines 23:0-25:1 -/
+def sample.popcount_u16 (x : Std.U16) : Result Std.U32 := do
+  let i ← lift (UScalar.cast .U8 x)
+  let i1 ← sample.popcount_u8 i
+  let i2 ← x >>> 8#i32
+  let i3 ← lift (UScalar.cast .U8 i2)
+  let i4 ← sample.popcount_u8 i3
+  i1 + i4
+
 /-- [kopis::sample::cbd_diff]:
-    Source: 'src/sample.rs', lines 17:0-22:1 -/
+    Source: 'src/sample.rs', lines 32:0-37:1 -/
 def sample.cbd_diff (raw1 : Std.U16) (half_mu : Std.U32) : Result Std.U16 := do
   let i ← 1#u16 <<< half_mu
   let mask ← i - 1#u16
   let i1 ← lift (raw1 &&& mask)
-  let i2 ← core.num.U16.count_ones i1
+  let i2 ← sample.popcount_u16 i1
   let a ← lift (UScalar.cast .U16 i2)
   let i3 ← raw1 >>> half_mu
   let i4 ← lift (i3 &&& mask)
-  let i5 ← core.num.U16.count_ones i4
+  let i5 ← sample.popcount_u16 i4
   let b ← lift (UScalar.cast .U16 i5)
   ok (core.num.U16.wrapping_sub a b)
 
 /-- [kopis::sample::cbd]: loop 0:
-    Source: 'src/sample.rs', lines 33:8-37:9 -/
+    Source: 'src/sample.rs', lines 48:8-52:9 -/
 @[rust_loop]
 def sample.cbd_loop0
   (iter : core.iter.adapters.enumerate.Enumerate (core.slice.iter.Iter Std.U8))
@@ -5724,10 +5736,10 @@ def sample.cbd_loop0
   | some p =>
     let (i, byte) := p
     let i1 ← lift (byte &&& 15#u8)
-    let i2 ← core.num.U8.count_ones i1
+    let i2 ← sample.popcount_u8 i1
     let a ← lift (UScalar.cast .U16 i2)
     let i3 ← byte >>> 4#i32
-    let i4 ← core.num.U8.count_ones i3
+    let i4 ← sample.popcount_u8 i3
     let b ← lift (UScalar.cast .U16 i4)
     let i5 ← lift (core.num.U16.wrapping_sub a b)
     let a1 ← Array.update out i i5
@@ -5735,7 +5747,7 @@ def sample.cbd_loop0
 partial_fixpoint
 
 /-- [kopis::sample::cbd]: loop 1:
-    Source: 'src/sample.rs', lines 42:8-57:9 -/
+    Source: 'src/sample.rs', lines 57:8-72:9 -/
 @[rust_loop]
 def sample.cbd_loop1
   (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
@@ -5791,7 +5803,7 @@ def sample.cbd_loop1
 partial_fixpoint
 
 /-- [kopis::sample::cbd]: loop 2:
-    Source: 'src/sample.rs', lines 61:8-74:9 -/
+    Source: 'src/sample.rs', lines 76:8-89:9 -/
 @[rust_loop]
 def sample.cbd_loop2
   (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize) (buf : Slice Std.U8)
@@ -5837,7 +5849,7 @@ def sample.cbd_loop2
 partial_fixpoint
 
 /-- [kopis::sample::cbd]:
-    Source: 'src/sample.rs', lines 25:0-78:1 -/
+    Source: 'src/sample.rs', lines 40:0-93:1 -/
 def sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) (out : arithmetic.plain_arith.RingElem)
   :
@@ -6200,7 +6212,7 @@ def impls.kopis1024.KOPIS1024_PUBKEY_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 4#usize
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/sample.rs', lines 148:8-158:9 -/
+    Source: 'src/sample.rs', lines 163:8-173:9 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -6239,7 +6251,7 @@ def sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 147:4-159:5 -/
+    Source: 'src/sample.rs', lines 162:4-174:5 -/
 @[rust_loop]
 def sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -6259,7 +6271,7 @@ def sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::sample::gen_matrix_from_seed]:
-    Source: 'src/sample.rs', lines 124:0-162:1 -/
+    Source: 'src/sample.rs', lines 139:0-177:1 -/
 def sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L L)
@@ -6275,7 +6287,7 @@ def sample.gen_matrix_from_seed
       mat buf
 
 /-- [kopis::sample::gen_secret_from_seed]: loop 0:
-    Source: 'src/sample.rs', lines 109:4-117:5 -/
+    Source: 'src/sample.rs', lines 124:4-132:5 -/
 @[rust_loop]
 def sample.gen_secret_from_seed_loop
   {L : Std.Usize} (MU : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -6309,7 +6321,7 @@ def sample.gen_secret_from_seed_loop
 partial_fixpoint
 
 /-- [kopis::sample::gen_secret_from_seed]:
-    Source: 'src/sample.rs', lines 82:0-120:1 -/
+    Source: 'src/sample.rs', lines 97:0-135:1 -/
 def sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L 1#usize)
