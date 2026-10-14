@@ -90,8 +90,7 @@ theorem keygen_then_to_bytes : ∀ (s : Size) (sk : Array U8 32#usize),
         let kpk ← s.publicKey ksk
         s.toBytes kpk)
       ⦃ (r : Array U8 s.pkLen) =>
-          let (_, _, pk, _) := Spec.Kopis.ExpandSecretKey s.ps (arrayToBytes sk)
-          (arrayToBytes r).toList = pk.toList ⦄
+          (arrayToBytes r).toList = (Spec.Kopis.SkToPk s.ps (arrayToBytes sk)).toList ⦄
   | .k512, sk => Kopis.Properties.kopis512_keygen_to_bytes_spec sk
   | .k768, sk => Kopis.Properties.kopis768_keygen_to_bytes_spec sk
   | .k1024, sk => Kopis.Properties.kopis1024_keygen_to_bytes_spec sk
