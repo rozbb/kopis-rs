@@ -87,8 +87,8 @@ theorem keygen_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
         let kpk ← s.publicKey ksk
         s.toBytes kpk)
       ⦃ (r : Array U8 s.pkLen) =>
-          (arrayToBytes r).toList
-            = (Spec.Kopis.ExpandSecretKey s.ps (arrayToBytes seed)).2.2.1.toList ⦄
+          let (_, _, pk, _) := Spec.Kopis.ExpandSecretKey s.ps (arrayToBytes seed)
+          (arrayToBytes r).toList = pk.toList ⦄
   | .k512, seed => Kopis.Avx2.Properties.kopis512_keygen_to_bytes_spec seed
   | .k768, seed => Kopis.Avx2.Properties.kopis768_keygen_to_bytes_spec seed
   | .k1024, seed => Kopis.Avx2.Properties.kopis1024_keygen_to_bytes_spec seed
@@ -99,10 +99,10 @@ theorem keygen_then_encapsulate : ∀ (s : Size) (seed randomness : Array U8 32#
         let kpk ← s.publicKey ksk
         s.encap kpk randomness)
       ⦃ (ct : Array U8 s.ctLen) (ss : RustKopisAvx2.kem.SharedSecret) =>
-          let spec := Spec.Kopis.KemEncap s.ps (arrayToBytes randomness)
-                        (Spec.Kopis.SkToPk s.ps (arrayToBytes seed))
-          arrayToBytes ct = s.ctSize ▸ spec.2 ∧
-          arrayToBytes ss = spec.1 ⦄
+          let (spec_ss, spec_ct) := Spec.Kopis.KemEncap s.ps (arrayToBytes randomness)
+                                      (Spec.Kopis.SkToPk s.ps (arrayToBytes seed))
+          arrayToBytes ct = s.ctSize ▸ spec_ct ∧
+          arrayToBytes ss = spec_ss ⦄
   | .k512, seed, randomness => Kopis.Avx2.Properties.kopis512_keygen_encap_spec seed randomness
   | .k768, seed, randomness => Kopis.Avx2.Properties.kopis768_keygen_encap_spec seed randomness
   | .k1024, seed, randomness => Kopis.Avx2.Properties.kopis1024_keygen_encap_spec seed randomness
@@ -113,10 +113,10 @@ theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
     (do let kpk ← s.fromBytes pk_bytes
         s.encap kpk randomness)
       ⦃ (ct : Array U8 s.ctLen) (ss : RustKopisAvx2.kem.SharedSecret) =>
-          let spec := Spec.Kopis.KemEncap s.ps (arrayToBytes randomness)
-                        (s.pkSize ▸ arrayToBytes pk_bytes)
-          arrayToBytes ct = s.ctSize ▸ spec.2 ∧
-          arrayToBytes ss = spec.1 ⦄
+          let (spec_ss, spec_ct) := Spec.Kopis.KemEncap s.ps (arrayToBytes randomness)
+                                      (s.pkSize ▸ arrayToBytes pk_bytes)
+          arrayToBytes ct = s.ctSize ▸ spec_ct ∧
+          arrayToBytes ss = spec_ss ⦄
   | .k512, pk, r => Kopis.Avx2.Properties.kopis512_from_bytes_encap_spec pk r
   | .k768, pk, r => Kopis.Avx2.Properties.kopis768_from_bytes_encap_spec pk r
   | .k1024, pk, r => Kopis.Avx2.Properties.kopis1024_from_bytes_encap_spec pk r
