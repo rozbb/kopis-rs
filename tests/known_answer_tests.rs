@@ -74,6 +74,9 @@ macro_rules! kat_test {
             let path_str = format!("tests/test_vectors-kopis{}.jsonl", $level);
             let path = Path::new(&path_str);
             let vectors = read_vectors(path);
+            if vectors.is_empty() {
+                panic!("Kopis-{}: Test vector file empty", $level)
+            }
             for vector in vectors {
                 let failed = test_vector(&vector).is_err();
                 assert_eq!(failed, vector.malformed);
