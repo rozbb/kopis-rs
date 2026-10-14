@@ -5444,7 +5444,7 @@ def backend.avx2.sample.shift_right_dynamic
   backend.avx2.intrinsics.srl_epi16 v v1
 
 /-- [kopis::backend::avx2::sample::cbd]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 80:4-87:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 87:4-94:5 -/
 @[rust_loop]
 def backend.avx2.sample.cbd_loop
   (i : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -5470,26 +5470,30 @@ def backend.avx2.sample.cbd_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::cbd]:
-    Source: 'src/backend/avx2/sample.rs', lines 73:0-89:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 73:0-96:1 -/
 def backend.avx2.sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) :
   Result arithmetic.plain_arith.RingElem
   := do
+  let i ← MU % 2#usize
+  massert (i = 0#usize)
+  massert (2#usize <= MU)
+  massert (MU <= 10#usize)
   let fields ← backend.avx2.ser.deserialize MU buf
   let a := backend.avx2.sample.NIBBLE_POPCOUNT
   let lut ← backend.avx2.intrinsics.load_u8 a 0#usize
-  let i ← MU / 2#usize
-  let i1 ← 1#u16 <<< i
-  let i2 ← i1 - 1#u16
-  let i3 ← lift (UScalar.hcast .I16 i2)
-  let half_mask ← backend.avx2.intrinsics.set1_epi16 i3
+  let i1 ← MU / 2#usize
+  let i2 ← 1#u16 <<< i1
+  let i3 ← i2 - 1#u16
+  let i4 ← lift (UScalar.hcast .I16 i3)
+  let half_mask ← backend.avx2.intrinsics.set1_epi16 i4
   let out ← arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-  let i4 ← consts.RING_DEG / 16#usize
-  backend.avx2.sample.cbd_loop i { start := 0#usize, «end» := i4 } fields lut
-    half_mask out
+  let i5 ← consts.RING_DEG / 16#usize
+  backend.avx2.sample.cbd_loop i1 { start := 0#usize, «end» := i5 } fields
+    lut half_mask out
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 1:
-    Source: 'src/backend/avx2/sample.rs', lines 113:8-117:9 -/
+    Source: 'src/backend/avx2/sample.rs', lines 120:8-124:9 -/
 @[rust_loop]
 def backend.avx2.sample.gen_matrix_from_seed_loop0_loop0
   (L : Std.Usize) (iter : core.ops.range.Range Std.Usize) (entries : Std.Usize)
@@ -5519,7 +5523,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 2:
-    Source: 'src/backend/avx2/sample.rs', lines 121:8-127:9 -/
+    Source: 'src/backend/avx2/sample.rs', lines 128:8-134:9 -/
 @[rust_loop]
 def backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
   {L : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -5555,7 +5559,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 108:4-130:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 115:4-137:5 -/
 @[rust_loop]
 def backend.avx2.sample.gen_matrix_from_seed_loop0
   {L : Std.Usize} (seed : Array Std.U8 32#usize)
@@ -5582,7 +5586,7 @@ def backend.avx2.sample.gen_matrix_from_seed_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]:
-    Source: 'src/backend/avx2/sample.rs', lines 103:0-133:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 110:0-140:1 -/
 def backend.avx2.sample.gen_matrix_from_seed
   (L : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L L)
@@ -5593,7 +5597,7 @@ def backend.avx2.sample.gen_matrix_from_seed
   backend.avx2.sample.gen_matrix_from_seed_loop0 seed mat entries 0#usize
 
 /-- [kopis::backend::avx2::sample::secret]: loop 0:
-    Source: 'src/backend/avx2/sample.rs', lines 174:4-176:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 181:4-183:5 -/
 @[rust_loop]
 def backend.avx2.sample.secret_loop0
   (L : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -5615,7 +5619,7 @@ def backend.avx2.sample.secret_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::secret]: loop 1:
-    Source: 'src/backend/avx2/sample.rs', lines 182:4-184:5 -/
+    Source: 'src/backend/avx2/sample.rs', lines 189:4-191:5 -/
 @[rust_loop]
 def backend.avx2.sample.secret_loop1
   {L : Std.Usize} (MU : Std.Usize) {N : Std.Usize}
@@ -5648,7 +5652,7 @@ def backend.avx2.sample.secret_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::sample::secret]:
-    Source: 'src/backend/avx2/sample.rs', lines 165:0-186:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 172:0-193:1 -/
 def backend.avx2.sample.secret
   (L : Std.Usize) (MU : Std.Usize) (N : Std.Usize)
   (seed : Array Std.U8 32#usize) :
@@ -5678,7 +5682,7 @@ def backend.avx2.sample.secret
     secret
 
 /-- [kopis::backend::avx2::sample::gen_secret_from_seed]:
-    Source: 'src/backend/avx2/sample.rs', lines 141:0-154:1 -/
+    Source: 'src/backend/avx2/sample.rs', lines 148:0-161:1 -/
 def backend.avx2.sample.gen_secret_from_seed
   (L : Std.Usize) (MU : Std.Usize) (seed : Array Std.U8 32#usize) :
   Result (arithmetic.plain_arith.Matrix L 1#usize)

@@ -359,6 +359,14 @@ theorem cbd_streamNat (buf : Slice U8) (mu half : ℕ) (hmu : mu = 2 * half) (hh
           (r.val[j]!).val = Kopis.Properties.cbdU16 buf half (mu * j) ⦄ := by
   have hmu13 : mu ≤ 13 := by omega
   unfold backend.avx2.sample.cbd
+  -- the `const` assert on `MU`
+  let* ⟨ r, hr ⟩ ← Std.Usize.rem_spec
+  rw [show massert (r = 0#usize) = ok () from by
+        simp only [massert, if_pos (show r = 0#usize by scalar_tac)], bind_tc_ok]
+  rw [show massert (2#usize <= MU) = ok () from by
+        simp only [massert, if_pos (show 2#usize <= MU by scalar_tac)], bind_tc_ok]
+  rw [show massert (MU <= 10#usize) = ok () from by
+        simp only [massert, if_pos (show MU <= 10#usize by scalar_tac)], bind_tc_ok]
   -- the fields: Phase C
   apply WP.spec_bind (deserialize_streamNat buf mu (by omega) hmu13 hlen MU hMU)
   intro fields hfields

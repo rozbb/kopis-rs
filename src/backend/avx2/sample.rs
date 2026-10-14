@@ -68,9 +68,16 @@ fn shift_right_dynamic(v: Vec256, count: usize) -> Vec256 {
 ///
 /// # Safety
 ///
-/// Requires AVX2. `buf.len()` must be `RING_DEG * MU / 8` and `MU` must be even and in `2..=13`.
+/// Requires AVX2. `buf.len()` must be `RING_DEG * MU / 8` and `MU` must be even and in `2..=10`.
 #[target_feature(enable = "avx2")]
 fn cbd<const MU: usize>(buf: &[u8]) -> RingElem {
+    const {
+        assert!(
+            MU % 2 == 0 && 2 <= MU && MU <= 10,
+            "each half of the field must be below 32 for `popcount_small`"
+        );
+    }
+
     let fields = ser::deserialize::<MU>(buf);
 
     let lut = load_u8(&NIBBLE_POPCOUNT.0, 0);
