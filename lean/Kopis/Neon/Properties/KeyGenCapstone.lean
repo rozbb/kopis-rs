@@ -388,7 +388,7 @@ theorem kopis1024_keygen_to_bytes_spec (seed : Array U8 32#usize) :
   simp only [Spec.Kopis.Equiv.ExpandSecretKey_eq_1024]
   exact kopis1024_keygen_to_bytes_spec_explicit seed
 /-- **Kopis-512: key generation then `as_bytes()` returns the seed it was handed.** -/
-theorem kopis512_expand_seed_spec (seed : Array U8 32#usize) :
+theorem kopis512_sk_from_bytes_to_bytes_spec (seed : Array U8 32#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 2#usize 10#usize seed
         kem.KemSecretKey.as_bytes ksk)
       ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes seed ⦄ :=
@@ -396,7 +396,7 @@ theorem kopis512_expand_seed_spec (seed : Array U8 32#usize) :
     (by scalar_tac) (by decide) (by decide)
 
 /-- **Kopis-768: key generation then `as_bytes()` returns the seed it was handed.** -/
-theorem kopis768_expand_seed_spec (seed : Array U8 32#usize) :
+theorem kopis768_sk_from_bytes_to_bytes_spec (seed : Array U8 32#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 3#usize 8#usize seed
         kem.KemSecretKey.as_bytes ksk)
       ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes seed ⦄ :=
@@ -404,7 +404,7 @@ theorem kopis768_expand_seed_spec (seed : Array U8 32#usize) :
     (by scalar_tac) (by decide) (by decide)
 
 /-- **Kopis-1024: key generation then `as_bytes()` returns the seed it was handed.** -/
-theorem kopis1024_expand_seed_spec (seed : Array U8 32#usize) :
+theorem kopis1024_sk_from_bytes_to_bytes_spec (seed : Array U8 32#usize) :
     (do let ksk ← kem.KemSecretKey.expand_from_seed 4#usize 6#usize seed
         kem.KemSecretKey.as_bytes ksk)
       ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes seed ⦄ :=

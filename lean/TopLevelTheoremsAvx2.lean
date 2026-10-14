@@ -27,8 +27,6 @@ namespace Size
 
 /-- The Rust const generic `ℓ`: the module rank. -/
 def L : Size → Usize | .k512 => 2#usize | .k768 => 3#usize | .k1024 => 4#usize
-/-- The Rust const generic `μ`: the CBD parameter. -/
-def MU : Size → Usize | .k512 => 10#usize | .k768 => 8#usize | .k1024 => 6#usize
 /-- The spec's name for the same parameter set. -/
 def ps : Size → Spec.Kopis.ParameterSet
   | .k512 => .Kopis_512 | .k768 => .Kopis_768 | .k1024 => .Kopis_1024
@@ -36,6 +34,13 @@ def ps : Size → Spec.Kopis.ParameterSet
 def pkLen : Size → Usize | .k512 => 672#usize | .k768 => 992#usize | .k1024 => 1312#usize
 /-- Ciphertext, in bytes. -/
 def ctLen : Size → Usize | .k512 => 736#usize | .k768 => 1088#usize | .k1024 => 1472#usize
+
+/-- `KemSecretKey::from` at each size. -/
+noncomputable def skFrom : (s : Size) →
+    Array U8 32#usize → Result (RustKopisAvx2.kem.KemSecretKey s.L)
+  | .k512 => RustKopisAvx2.kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832.from
+  | .k768 => RustKopisAvx2.kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832.from
+  | .k1024 => RustKopisAvx2.kem.KemSecretKey4.Insts.CoreConvertFromShared0ArrayU832.from
 
 /-- `KemSecretKey::public_key` at each size. -/
 noncomputable def publicKey : (s : Size) →
@@ -82,30 +87,30 @@ theorem ctSize (s : Size) : s.ps.CT_SIZE = s.ctLen.val := by cases s <;> rfl
 end Size
 
 /-- keygen → pubkey → to_bytes matches the spec -/
-theorem keygen_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
-    (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
+theorem keygen_then_to_bytes : ∀ (s : Size) (sk : Array U8 32#usize),
+    (do let ksk ← s.skFrom sk
         let kpk ← s.publicKey ksk
         s.toBytes kpk)
       ⦃ (r : Array U8 s.pkLen) =>
-          let (_, _, pk, _) := Spec.Kopis.ExpandSecretKey s.ps (arrayToBytes seed)
+          let (_, _, pk, _) := Spec.Kopis.ExpandSecretKey s.ps (arrayToBytes sk)
           (arrayToBytes r).toList = pk.toList ⦄
-  | .k512, seed => Kopis.Avx2.Properties.kopis512_keygen_to_bytes_spec seed
-  | .k768, seed => Kopis.Avx2.Properties.kopis768_keygen_to_bytes_spec seed
-  | .k1024, seed => Kopis.Avx2.Properties.kopis1024_keygen_to_bytes_spec seed
+  | .k512, sk => Kopis.Avx2.Properties.kopis512_keygen_to_bytes_spec sk
+  | .k768, sk => Kopis.Avx2.Properties.kopis768_keygen_to_bytes_spec sk
+  | .k1024, sk => Kopis.Avx2.Properties.kopis1024_keygen_to_bytes_spec sk
 
 /-- keygen → pubkey → encapsulate matches the spec -/
-theorem keygen_then_encapsulate : ∀ (s : Size) (seed randomness : Array U8 32#usize),
-    (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
+theorem keygen_then_encapsulate : ∀ (s : Size) (sk randomness : Array U8 32#usize),
+    (do let ksk ← s.skFrom sk
         let kpk ← s.publicKey ksk
         s.encap kpk randomness)
       ⦃ (ct : Array U8 s.ctLen) (ss : RustKopisAvx2.kem.SharedSecret) =>
           let (spec_ss, spec_ct) := Spec.Kopis.KemEncap s.ps (arrayToBytes randomness)
-                                      (Spec.Kopis.SkToPk s.ps (arrayToBytes seed))
+                                      (Spec.Kopis.SkToPk s.ps (arrayToBytes sk))
           arrayToBytes ct = s.ctSize ▸ spec_ct ∧
           arrayToBytes ss = spec_ss ⦄
-  | .k512, seed, randomness => Kopis.Avx2.Properties.kopis512_keygen_encap_spec seed randomness
-  | .k768, seed, randomness => Kopis.Avx2.Properties.kopis768_keygen_encap_spec seed randomness
-  | .k1024, seed, randomness => Kopis.Avx2.Properties.kopis1024_keygen_encap_spec seed randomness
+  | .k512, sk, randomness => Kopis.Avx2.Properties.kopis512_keygen_encap_spec sk randomness
+  | .k768, sk, randomness => Kopis.Avx2.Properties.kopis768_keygen_encap_spec sk randomness
+  | .k1024, sk, randomness => Kopis.Avx2.Properties.kopis1024_keygen_encap_spec sk randomness
 
 /-- from_bytes → encapsulate matches the spec -/
 theorem from_bytes_then_encapsulate : ∀ (s : Size) (pk_bytes : Array U8 s.pkLen)
@@ -135,25 +140,25 @@ theorem pk_from_bytes_then_to_bytes : ∀ (s : Size) (pk_bytes : Array U8 s.pkLe
 
 /-- sk from_bytes → to_bytes is the identity on bytes. Similar to above, this doesn't make any
 reference to the spec because the spec only ever represents sk as a 32B bytestring. -/
-theorem sk_from_bytes_then_to_bytes : ∀ (s : Size) (seed : Array U8 32#usize),
-    (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
+theorem sk_from_bytes_then_to_bytes : ∀ (s : Size) (sk : Array U8 32#usize),
+    (do let ksk ← s.skFrom sk
         RustKopisAvx2.kem.KemSecretKey.as_bytes ksk)
-      ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes seed ⦄
-  | .k512, seed => Kopis.Avx2.Properties.kopis512_expand_seed_spec seed
-  | .k768, seed => Kopis.Avx2.Properties.kopis768_expand_seed_spec seed
-  | .k1024, seed => Kopis.Avx2.Properties.kopis1024_expand_seed_spec seed
+      ⦃ (r : Array U8 32#usize) => arrayToBytes r = arrayToBytes sk ⦄
+  | .k512, sk => Kopis.Avx2.Properties.kopis512_sk_from_bytes_to_bytes_spec sk
+  | .k768, sk => Kopis.Avx2.Properties.kopis768_sk_from_bytes_to_bytes_spec sk
+  | .k1024, sk => Kopis.Avx2.Properties.kopis1024_sk_from_bytes_to_bytes_spec sk
 
 /-- keygen → decapsulate matches the spec -/
-theorem keygen_then_decapsulate : ∀ (s : Size) (seed : Array U8 32#usize)
+theorem keygen_then_decapsulate : ∀ (s : Size) (sk : Array U8 32#usize)
     (ek : Array U8 s.ctLen),
-    (do let ksk ← RustKopisAvx2.kem.KemSecretKey.expand_from_seed s.L s.MU seed
+    (do let ksk ← s.skFrom sk
         s.decap ksk ek)
       ⦃ (r : RustKopisAvx2.kem.SharedSecret) =>
           arrayToBytes r
-            = Spec.Kopis.KemDecap s.ps (arrayToBytes seed)
+            = Spec.Kopis.KemDecap s.ps (arrayToBytes sk)
                 (s.ctSize ▸ arrayToBytes ek) ⦄
-  | .k512, seed, ek => Kopis.Avx2.Properties.kopis512_keygen_decap_spec seed ek
-  | .k768, seed, ek => Kopis.Avx2.Properties.kopis768_keygen_decap_spec seed ek
-  | .k1024, seed, ek => Kopis.Avx2.Properties.kopis1024_keygen_decap_spec seed ek
+  | .k512, sk, ek => Kopis.Avx2.Properties.kopis512_keygen_decap_spec sk ek
+  | .k768, sk, ek => Kopis.Avx2.Properties.kopis768_keygen_decap_spec sk ek
+  | .k1024, sk, ek => Kopis.Avx2.Properties.kopis1024_keygen_decap_spec sk ek
 
 end Kopis.TopLevelAvx2
