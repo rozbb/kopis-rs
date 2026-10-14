@@ -9,7 +9,8 @@ set_option maxRecDepth 4000
 /-- Reusable spec for the generic two-input turboSHAKE256 hash: absorbing `input0`
 then `input1` under domain separator `DS` and squeezing 32 bytes yields exactly
 `turboSHAKE256` applied to the concatenated inputs. -/
-theorem turboshake256_hash_spec (DS : Std.U8) (input0 input1 : Slice U8) :
+theorem turboshake256_hash_spec (DS : Std.U8) (input0 input1 : Slice U8)
+    (hDS : 1 ≤ DS.val ∧ DS.val ≤ 0x7F) :
     turboshake256_hash DS input0 input1
       ⦃ (r : Array U8 32#usize) =>
           arrayToBytes r = turboSHAKE256

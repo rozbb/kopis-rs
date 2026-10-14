@@ -1,7 +1,7 @@
 /-
   # Kopis/Avx2/SerDispatch.lean — the `RingElem::deserialize` dispatch point.
 
-  This is the first of the six runtime-dispatch points of `AVX2_VERIFICATION_PLAN.md` §E3.  The
+  This is the first of the six runtime-dispatch points.  The
   AVX2 extraction guards the vector path with
 
       if (1..=13).contains(&bits) && avx2_available() { … } else { …portable… }

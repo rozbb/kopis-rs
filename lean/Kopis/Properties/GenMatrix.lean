@@ -63,8 +63,10 @@ opaque readerModel {RATE : Usize} : turboshake.TurboShakeReader RATE → U8 × L
 squeezed.  A freshly-finalized reader has offset `0`; each `read` advances it. -/
 opaque readerOffset {RATE : Usize} : turboshake.TurboShakeReader RATE → ℕ
 
-/-- `default` yields a hasher with nothing absorbed. -/
-@[step] axiom hasher_default_spec (RATE : Usize) (DS : U8) :
+/-- `default` yields a hasher with nothing absorbed.  The preconditions are the crate's own
+`const` assertion, so nothing is claimed of a hasher that would not compile. -/
+@[step] axiom hasher_default_spec (RATE : Usize) (DS : U8)
+    (hRATE : RATE.val = 168 ∨ RATE.val = 136) (hDS : 1 ≤ DS.val ∧ DS.val ≤ 0x7F) :
     turboshake.TurboShake.Insts.CoreDefaultDefault.default RATE DS
       ⦃ (h : turboshake.TurboShake RATE DS) => hasherAbsorbed h = [] ⦄
 

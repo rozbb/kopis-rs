@@ -803,8 +803,8 @@ theorem INV4_Q2_spec :
 /-! ## Loading a group's twiddles
 
 `ld_tbl` reads entries `[8g, 8g+8)` of a table into a pair of vectors, and the six accessors
-`fwd4` … `inv4` pick which table.  They exist because of aeneas trap 4 in
-`NEON_VERIFICATION_PLAN.md` §4 — a `let (x, y) = if …` at statement level does not translate —
+`fwd4` … `inv4` pick which table.  They exist because a `let (x, y) = if …` at statement level
+does not translate through aeneas —
 and they must return the loaded pair *by value*, which is why the specs below are about lanes
 rather than about a `&'static Tbl`. -/
 

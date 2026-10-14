@@ -15,8 +15,7 @@
   sign-extension error would be invisible at the bit level.
 
   With these, a `mont_mul` or `barrett` lane spec is ordinary integer arithmetic in the same
-  shape as `Kopis/Properties/NttReduce*.lean`.  See the Phase F notes in
-  `AVX2_VERIFICATION_PLAN.md`.
+  shape as `Kopis/Properties/NttReduce*.lean`.
 -/
 import Kopis.Avx2.Model
 

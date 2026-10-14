@@ -1,7 +1,7 @@
 /-
   # Kopis/Neon/SerDispatch.lean — the `RingElem::deserialize` dispatch point.
 
-  This is the first of the eight runtime-dispatch points of `NEON_VERIFICATION_PLAN.md` §3.  The
+  This is the first of the eight runtime-dispatch points.  The
   NEON extraction guards the vector path with
 
       if (1..=13).contains(&bits) && neon_available() { … } else { …portable… }

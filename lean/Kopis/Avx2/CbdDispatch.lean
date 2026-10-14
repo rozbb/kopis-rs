@@ -1,7 +1,7 @@
 /-
   # Kopis/Avx2/CbdDispatch.lean — the `gen_secret_from_seed_loop` dispatch point.
 
-  The second of the six runtime-dispatch points of `AVX2_VERIFICATION_PLAN.md` §E3.  The AVX2
+  The second of the six runtime-dispatch points.  The AVX2
   extraction of `sample::gen_secret_from_seed_loop` has three reachable bodies:
 
   * `MU` byte-aligned (`MU % 8 == 0`, i.e. `MU = 8`) — the portable sampler;

@@ -57,7 +57,7 @@ $AENEAS kopis.llbc -backend lean -loops-to-rec -namespace RustKopisAvx2
 mv Kopis.lean ./lean/ExtractedRustAvx2.lean
 rm kopis.llbc
 
-# Extract the AVX2 backend. We omit extraction of our NEON intrinsics, since
+# Extract the NEON backend. We omit extraction of our NEON intrinsics, since
 # they're not supported by aeneas
 export RUSTFLAGS='--cfg kopis_backend="neon" -C target-feature=+sha3'
 $CHARON cargo --preset=aeneas \

@@ -602,6 +602,119 @@ theorem broadcastsi128_si256_model (a : Vec128) :
   exact ⟨c, hc, eq_of_lane128_bv fun i hi => by
     simpa [Model.broadcastsi128Si256, laneOf_ofLanes128 _ hi] using h i hi⟩
 
+/-! ### Memory
+
+The memory axioms are about the crate's buffers rather than a register, so the equivalence is
+stated over the buffer's element words: a load's register is the model applied to them, and a
+store's new buffer is the model's.  That is the form the differential runner evaluates. -/
+
+private theorem getElem!_map_of_lt {α : Type} [Inhabited α] {w : Nat} (f : α → BitVec w)
+    (l : List α) {n : Nat} (h : n < l.length) : (l.map f)[n]! = f l[n]! := by
+  simp [getElem!_pos, h]
+
+theorem load_i16_model {N : Std.Usize} (src : Array Std.I16 N) (i : Std.Usize)
+    (h : 16 * (i.val + 1) ≤ N.val) :
+    ∃ c, load_i16 src i = ok c ∧ bits c = Model.loadW16 (src.val.map (·.bv)) i.val := by
+  obtain ⟨c, hc, hl⟩ := load_i16_spec src i h
+  have hlen := src.property
+  exact ⟨c, hc, eq_of_lane16_bv fun k hk => by
+    rw [Model.loadW16, laneOf_ofLanes16 _ hk, getElem!_map_of_lt _ _ (by omega)]
+    exact hl k hk⟩
+
+theorem store_i16_model {N : Std.Usize} (dst : Array Std.I16 N) (i : Std.Usize) (v : Vec256)
+    (h : 16 * (i.val + 1) ≤ N.val) :
+    ∃ dst', store_i16 dst i v = ok dst' ∧
+      dst'.val.map (·.bv) = Model.storeW16 (dst.val.map (·.bv)) i.val (bits v) := by
+  obtain ⟨dst', hd, hl⟩ := store_i16_spec dst i v h
+  have hlen := dst.property
+  have hlen' := dst'.property
+  refine ⟨dst', hd, List.ext_getElem (by simp [Model.storeW16, hlen, hlen']) fun j h1 _ => ?_⟩
+  have hj : j < N.val := by simpa [hlen'] using h1
+  rw [List.getElem_map, ← getElem!_pos dst'.val j (by simpa using h1), hl j hj]
+  simp [Model.storeW16, List.getElem?_eq_getElem (show j < dst.val.length by omega)]
+
+theorem load_u16_model {N : Std.Usize} (src : Array Std.U16 N) (i : Std.Usize)
+    (h : 16 * (i.val + 1) ≤ N.val) :
+    ∃ c, load_u16 src i = ok c ∧ bits c = Model.loadW16 (src.val.map (·.bv)) i.val := by
+  obtain ⟨c, hc, hl⟩ := load_u16_spec src i h
+  have hlen := src.property
+  exact ⟨c, hc, eq_of_lane16_bv fun k hk => by
+    rw [Model.loadW16, laneOf_ofLanes16 _ hk, getElem!_map_of_lt _ _ (by omega)]
+    exact hl k hk⟩
+
+theorem store_u16_model {N : Std.Usize} (dst : Array Std.U16 N) (i : Std.Usize) (v : Vec256)
+    (h : 16 * (i.val + 1) ≤ N.val) :
+    ∃ dst', store_u16 dst i v = ok dst' ∧
+      dst'.val.map (·.bv) = Model.storeW16 (dst.val.map (·.bv)) i.val (bits v) := by
+  obtain ⟨dst', hd, hl⟩ := store_u16_spec dst i v h
+  have hlen := dst.property
+  have hlen' := dst'.property
+  refine ⟨dst', hd, List.ext_getElem (by simp [Model.storeW16, hlen, hlen']) fun j h1 _ => ?_⟩
+  have hj : j < N.val := by simpa [hlen'] using h1
+  rw [List.getElem_map, ← getElem!_pos dst'.val j (by simpa using h1), hl j hj]
+  simp [Model.storeW16, List.getElem?_eq_getElem (show j < dst.val.length by omega)]
+
+theorem load_i32_model {N : Std.Usize} (src : Array Std.I32 N) (i : Std.Usize)
+    (h : 8 * (i.val + 1) ≤ N.val) :
+    ∃ c, load_i32 src i = ok c ∧ bits c = Model.loadW32 (src.val.map (·.bv)) i.val := by
+  obtain ⟨c, hc, hl⟩ := load_i32_spec src i h
+  have hlen := src.property
+  exact ⟨c, hc, eq_of_lane32_bv fun k hk => by
+    rw [Model.loadW32, laneOf_ofLanes32 _ hk, getElem!_map_of_lt _ _ (by omega)]
+    exact hl k hk⟩
+
+theorem store_i32_model {N : Std.Usize} (dst : Array Std.I32 N) (i : Std.Usize) (v : Vec256)
+    (h : 8 * (i.val + 1) ≤ N.val) :
+    ∃ dst', store_i32 dst i v = ok dst' ∧
+      dst'.val.map (·.bv) = Model.storeW32 (dst.val.map (·.bv)) i.val (bits v) := by
+  obtain ⟨dst', hd, hl⟩ := store_i32_spec dst i v h
+  have hlen := dst.property
+  have hlen' := dst'.property
+  refine ⟨dst', hd, List.ext_getElem (by simp [Model.storeW32, hlen, hlen']) fun j h1 _ => ?_⟩
+  have hj : j < N.val := by simpa [hlen'] using h1
+  rw [List.getElem_map, ← getElem!_pos dst'.val j (by simpa using h1), hl j hj]
+  simp [Model.storeW32, List.getElem?_eq_getElem (show j < dst.val.length by omega)]
+
+theorem load_u8_model {N : Std.Usize} (src : Array Std.U8 N) (i : Std.Usize)
+    (h : 32 * (i.val + 1) ≤ N.val) :
+    ∃ c, load_u8 src i = ok c ∧ bits c = Model.loadW8 (src.val.map (·.bv)) i.val := by
+  obtain ⟨c, hc, hl⟩ := load_u8_spec src i h
+  have hlen := src.property
+  exact ⟨c, hc, eq_of_lane8_bv fun k hk => by
+    rw [Model.loadW8, laneOf_ofLanes8 _ hk, getElem!_map_of_lt _ _ (by omega)]
+    exact hl k hk⟩
+
+theorem load_u8x16_model (src : Aeneas.Std.Slice Std.U8) (offset : Std.Usize)
+    (h : offset.val + 16 ≤ src.val.length) :
+    ∃ c, load_u8x16 src offset = ok c ∧
+      bits' c = Model.loadW8x16 (src.val.map (·.bv)) offset.val := by
+  obtain ⟨c, hc, hl⟩ := load_u8x16_spec src offset h
+  exact ⟨c, hc, eq_of_laneOf_eq 8 16 rfl fun k hk => by
+    rw [Model.loadW8x16, ofLanes8', laneOf_concatLanes 8 _ 16 k hk, getElem!_map_of_lt _ _ (by omega)]
+    exact hl k hk⟩
+
+theorem load_u8x32_model {N : Std.Usize} (src : Array Std.U8 N) (offset : Std.Usize)
+    (h : offset.val + 32 ≤ N.val) :
+    ∃ c, load_u8x32 src offset = ok c ∧
+      bits c = Model.loadW8x32 (src.val.map (·.bv)) offset.val := by
+  obtain ⟨c, hc, hl⟩ := load_u8x32_spec src offset h
+  have hlen := src.property
+  exact ⟨c, hc, eq_of_lane8_bv fun k hk => by
+    rw [Model.loadW8x32, laneOf_ofLanes8 _ hk, getElem!_map_of_lt _ _ (by omega)]
+    exact hl k hk⟩
+
+theorem store_u8x32_model {N : Std.Usize} (dst : Array Std.U8 N) (offset : Std.Usize) (v : Vec256)
+    (h : offset.val + 32 ≤ N.val) :
+    ∃ dst', store_u8x32 dst offset v = ok dst' ∧
+      dst'.val.map (·.bv) = Model.storeW8x32 (dst.val.map (·.bv)) offset.val (bits v) := by
+  obtain ⟨dst', hd, hl⟩ := store_u8x32_spec dst offset v h
+  have hlen := dst.property
+  have hlen' := dst'.property
+  refine ⟨dst', hd, List.ext_getElem (by simp [Model.storeW8x32, hlen, hlen']) fun j h1 _ => ?_⟩
+  have hj : j < N.val := by simpa [hlen'] using h1
+  rw [List.getElem_map, ← getElem!_pos dst'.val j (by simpa using h1), hl j hj]
+  simp [Model.storeW8x32, List.getElem?_eq_getElem (show j < dst.val.length by omega)]
+
 end
 
 end Kopis.Avx2

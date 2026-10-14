@@ -16,8 +16,7 @@
       mont_mul a z zq q  =  shsub(sqdmulh(a, z), sqdmulh(t, q))     where  t = a·zq
 
   — two doubled high halves subtracted and halved *once*, rather than each shifted down
-  separately.  `NEON_VERIFICATION_PLAN.md` §F1 calls the argument for that the first genuinely
-  new piece of mathematics in the plan, and `mont_mul_lane` below is it.
+  separately.  That needs an argument of its own, and `mont_mul_lane` below is it.
 
   The argument, which is the comment on the Rust wrapper made precise.  Write `A = a·ψ` and
   `T = t·q`.  Because `zq ≡ ψ·q⁻¹ (mod 2¹⁶)`, the two agree mod `2¹⁶`: `A = 2¹⁶p + r` and

@@ -9,8 +9,7 @@
 
   with no carry between the two halves of an `i64`.  That is the two-prime CRT representation:
   each `i32` holds one residue mod `q₁` and one mod `q₂`, and the two are multiplied
-  independently.  See the phase E/F notes in `AVX2_VERIFICATION_PLAN.md` for why this means the
-  serial spec cannot be transferred.
+  independently, which is why the serial spec cannot be transferred.
 
   This file proves the statement above.  The interesting step is the middle: `vpmullw` and
   `vpmulhw` give the low and high halves of each 16×16 product, and the `vpunpck`/`vperm2i128`

@@ -5,8 +5,7 @@
   transform is `src/arithmetic/ntt_crt.rs` and is shared by both vector backends — the file mentions no
   register width, no extracted constant and no instruction, which is exactly the test
   `Kopis/Bits/Lanes.lean` and `Kopis/Bits/Stream.lean` already pass.
-  `NEON_VERIFICATION_PLAN.md` §1(c) says so in as many words: what is genuinely new on a second
-  backend is the lane arrangement, not the mathematics.
+  What is genuinely new on a second backend is the lane arrangement, not the mathematics.
 
   This file re-exports it under `Kopis.Avx2` so that no proof below `Kopis/Avx2/` changes.  The
   NEON stack has no such history to preserve and should `import Kopis.Crt.Scheme` directly.

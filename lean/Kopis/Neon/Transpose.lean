@@ -15,7 +15,7 @@
 
   ## Why this is so much shorter than `Kopis/Avx2/Transpose.lean`
 
-  §1(b) of `NEON_VERIFICATION_PLAN.md` predicted it and the mechanism is visible below.  AArch64
+  The mechanism is visible below.  AArch64
   vectors are 128 bits and `TRN1`/`TRN2` act across the whole register, so each of the three
   stages is exactly "swap one bit of the vector index with one bit of the lane index":
 

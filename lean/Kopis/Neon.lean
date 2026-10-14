@@ -1,17 +1,12 @@
 /-
   # Kopis/Neon.lean — the NEON backend's aggregator.
 
-  Importing this pulls in the NEON extraction and the assumed intrinsic semantics.  `lake build
-  KopisNeon` (= `make prove-kopis-neon`) builds exactly this closure.
+  Importing this pulls in the NEON extraction, the assumed intrinsic semantics, the computable
+  models the differential test evaluates, and the correspondence results for each vector routine.
+  `lake build KopisNeon` builds exactly this closure.
 
-  **No correspondence proof exists yet.**  This is the scaffolding-complete state the AVX2
-  backend was in at commit `c5b9ad1`, and `NEON_VERIFICATION_PLAN.md` is the plan of work from
-  here; the phases there add `Kopis/Neon/Model.lean`, `Kopis/Neon/Lanes.lean` and then the
-  correspondence results, each of which gets an import below as it lands.
-
-  The generated twin proof stack (`Kopis.Neon.Properties.*`) will be a separate
-  `lean_lib KopisNeonProperties`, as the AVX2 one is, so that a twin which does not yet compile
-  cannot block this target.
+  The generated twin proof stack (`Kopis.Neon.Properties.*`) is a separate
+  `lean_lib KopisNeonProperties`, as the AVX2 one is; `TopLevelTheoremsNeon` imports it.
 -/
 import Kopis.Neon.Intrinsics
 import Kopis.Neon.Lanes

@@ -35,8 +35,7 @@ is strong evidence and not a proof.  What it rules out is the failure mode that 
 axiom that is simply *wrong* (a rotation that goes the wrong way, a complemented operand on the
 wrong side of `bcax`, a `shrn` that keeps the low half instead of the high) — which no other
 check in the tree would catch.  Each of those three was tried against the recorded vectors and
-each is caught by ~1000 of them; see the phase A2 entry in `NEON_VERIFICATION_PLAN.md` for the
-full sweep, including the one corruption that is *not* caught and why that is correct.
+each is caught by ~1000 of them.
 -/
 
 namespace Kopis.Neon.Test

@@ -1,8 +1,7 @@
 /-
   # Kopis/Neon/CbdDispatch.lean — the `gen_secret_from_seed_loop` dispatch point.
 
-  The second of the eight runtime-dispatch points of `NEON_VERIFICATION_PLAN.md` §3, and the one
-  §3 calls "the odd one": NEON keeps a *second* dispatch inside the portable loop, which AVX2 has
+  The second of the eight runtime-dispatch points, and the odd one: NEON keeps a *second* dispatch inside the portable loop, which AVX2 has
   no counterpart for because its batched path has already returned by then.  The extracted body
   has three reachable arms:
 

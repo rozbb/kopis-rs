@@ -58,7 +58,7 @@ def serialAudited : List String := commonAxioms ++
 
 /--
 The AVX2 crate needs lots of axiomatized SIMD intrinsics. In addition it also needs `turboshake` and
-`sutble` axioms.
+`subtle` axioms.
 -/
 def avx2Audited : List String := commonAxioms ++
   ["Kopis.Avx2.Properties.conditional_select_array_u8_spec",

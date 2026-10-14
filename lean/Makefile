@@ -139,7 +139,7 @@ prove-kopis-serial: $(GENERATED_AUDIT) twins
 # The AVX2 backend.  This builds the second extraction (ExtractedRustAvx2.lean,
 # from an `--cfg kopis_backend="avx2"` build), Kopis/Avx2/Intrinsics.lean — which
 # *assumes* the semantics of the opaque SIMD wrappers — and the AVX2 proofs
-# themselves.  See ../lean/AVX2_VERIFICATION_PLAN.md.
+# themselves.
 #
 # The generated twin proof stack is brought up to date by the `twins` prerequisite
 # above; `TopLevelTheoremsAvx2` then pulls it into the build.  Note that this means
@@ -159,7 +159,7 @@ prove-kopis-avx2: $(GENERATED_AUDIT) twins
 # The NEON backend.  This builds the third extraction (ExtractedRustNeon.lean, from an
 # `--cfg kopis_backend="neon" -C target-feature=+sha3` build cross-compiled for
 # aarch64-unknown-linux-gnu) and Kopis/Neon/Intrinsics.lean, which *assumes* the semantics of the
-# opaque SIMD wrappers.  See ../lean/NEON_VERIFICATION_PLAN.md.
+# opaque SIMD wrappers.
 #
 # The twin proof stack exists and every twin is discharged, so this target is no longer
 # aspirational: a green build means the same thing here as for the other two backends.
@@ -180,7 +180,7 @@ prove-kopis-neon: $(GENERATED_AUDIT) twins
 # leg matters because the serial backend *assumes* the `turboshake` crate implements that spec,
 # so a typo in it would be absorbed into the assumption rather than caught by a proof.
 # `lake exe` builds the executable first.
-# Must be run from this directory: the runner reads ../tests/ref_test_vectors-*.jsonl and
+# Must be run from this directory: the runner reads ../tests/test_vectors-*.jsonl and
 # ../tests/turboshake_vectors.jsonl relative to the current directory.
 .PHONY: test-kopis-spec
 test-kopis-spec:
@@ -188,7 +188,7 @@ test-kopis-spec:
 
 # Check the assumed AVX2 intrinsic semantics against real silicon.
 #
-# `Kopis/Avx2/Intrinsics.lean` is 42 axioms about what Intel instructions do; nothing in the
+# `Kopis/Avx2/Intrinsics.lean` is 50 axioms about what Intel instructions do; nothing in the
 # proof checks them, and a wrong one makes every AVX2 theorem worthless without any error.
 # `Kopis/Avx2/Model.lean` gives each a computable model and *proves* the axiom pins the result
 # down to exactly that model, so testing the model tests the axiom.  This target replays

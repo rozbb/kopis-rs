@@ -4,7 +4,7 @@ import Lean.Data.Json
 /-!
 # The AVX2 intrinsic model, checked against silicon
 
-`Kopis/Avx2/Intrinsics.lean` *assumes* what 42 SIMD instructions do; `Kopis/Avx2/Model.lean`
+`Kopis/Avx2/Intrinsics.lean` *assumes* what 50 SIMD instructions do; `Kopis/Avx2/Model.lean`
 turns each assumption into a computable `BitVec` function and **proves** the two agree — so a
 model that matched hardware would leave the axiom in the same position, and a model that did not
 would convict it.  This runner is the second half: it replays
@@ -178,8 +178,8 @@ def check (j : Json) : Except String Unit := do
 
 /-! ## Coverage
 
-The plan's acceptance bar is ≥ 1000 vectors per wrapper, and there are 42 of them.  A run that
-silently exercised 30 operations would otherwise look exactly like a run that exercised 42. -/
+The acceptance bar is ≥ 1000 vectors per wrapper, and there are 50 of them.  A run that
+silently exercised 40 operations would otherwise look exactly like a run that exercised 50. -/
 
 /-- Every wrapper in `src/backend/avx2/intrinsics.rs`.  `setzero_si256` takes no argument and
 has one possible result, so it is exempt from the vector count. -/

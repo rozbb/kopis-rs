@@ -2,13 +2,12 @@
   # Kopis/Avx2.lean — the AVX2 backend's aggregator.
 
   Importing this pulls in the AVX2 extraction, the assumed intrinsic semantics, the lane algebra
-  they are composed with, the computable models the differential test evaluates, and the two
-  correspondence results proved so far: `avx2_deserialize_eq` (phase C) and `avx2_cbd_eq`
-  (phase D).  `lake build KopisAvx2` (= `make prove-kopis-avx2`) builds exactly this closure.
+  they are composed with, the computable models the differential test evaluates, and the
+  correspondence results for each vector routine.  `lake build KopisAvx2` builds exactly this
+  closure.
 
-  The generated twin proof stack (`Kopis.Avx2.Properties.*`, phase E) is deliberately *not*
-  imported here: it is a separate `lean_lib KopisAvx2Properties`, so that a red twin cannot
-  block this target while phase E is in progress.
+  The generated twin proof stack (`Kopis.Avx2.Properties.*`) is a separate
+  `lean_lib KopisAvx2Properties`; `TopLevelTheoremsAvx2` imports it.
 -/
 import Kopis.Avx2.Intrinsics
 import Kopis.Avx2.Lanes
