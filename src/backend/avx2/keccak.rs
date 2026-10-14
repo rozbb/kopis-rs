@@ -14,7 +14,7 @@
 //!
 //! The permutation itself is a direct transliteration of the reference Keccak-p[1600, 12]:
 //! same θ, ρ, π, χ, ι in the same order, same rotation offsets, and the same round constants
-//! (TurboSHAKE's 12 rounds are the *last* 12 of Keccak-f[1600], per FIPS 202 §3.4). The
+//! (TurboSHAKE's 12 rounds are the *last* 12 of Keccak-f\[1600\], per FIPS 202 §3.4). The
 //! `matches_scalar` test checks the whole thing against the `turboshake` crate.
 
 use super::intrinsics::{
@@ -28,7 +28,7 @@ const PLEN: usize = 25;
 /// Rounds in Keccak-p[1600, 12], the permutation TurboSHAKE is built on
 const ROUNDS: usize = 12;
 
-/// Keccak-f[1600] round constants. Keccak-p[1600, n] uses the last `n` of them.
+/// Keccak-f\[1600\] round constants. Keccak-p[1600, n] uses the last `n` of them.
 #[rustfmt::skip]
 const RC: [u64; 24] = [
     0x0000000000000001, 0x0000000000008082, 0x800000000000808a, 0x8000000080008000,

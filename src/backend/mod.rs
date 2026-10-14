@@ -5,17 +5,17 @@
 //! built with `--cfg kopis_backend="serial"`. That is also the form that gets extracted to
 //! Lean, so it is deliberately left untouched by everything here.
 //!
-//! This module holds the accelerated alternatives — [`avx2`] on x86/x86-64 and [`neon`] on
+//! This module holds the accelerated alternatives — `avx2` on x86/x86-64 and `neon` on
 //! AArch64. Each serial entry point that has one starts with a small `#[cfg(kopis_avx2)]` /
 //! `#[cfg(kopis_neon)]` block that hands off to the backend when it is usable; with the
 //! accelerated backends disabled those blocks do not exist at all and the source reduces
 //! *exactly* to the portable code. At most one of the two is ever compiled, since a target is
 //! either x86 or AArch64.
 //!
-//! All the `unsafe` in the crate lives either in [`avx2`] / [`neon`] or in those dispatch
+//! All the `unsafe` in the crate lives either in `avx2` / `neon` or in those dispatch
 //! blocks, and the blocks contain nothing but the guarded call. Everything else is under a
 //! crate-level `deny(unsafe_code)`, which becomes `forbid` outright in a serial build. See
-//! [`avx2`] for the safety argument the calls rely on.
+//! `avx2` for the safety argument the calls rely on.
 
 #[cfg(kopis_avx2)]
 #[allow(unsafe_code)]

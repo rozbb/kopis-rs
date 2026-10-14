@@ -1,6 +1,6 @@
 //! This file defines and implements the crate's coefficient-domain arithmetic
 //!
-//! Kopis ring elements are ℤ[X]/(X^256 + 1) mod n, where n can be any power of two at most 2^16,
+//! Kopis ring elements are ℤ\[X\]/(X^256 + 1) mod n, where n can be any power of two at most 2^16,
 //! plus matrices over that ring.
 
 use crate::{
@@ -12,7 +12,7 @@ use core::ops::Sub;
 
 use zeroize::Zeroize;
 
-/// An element of the ring (Z/2^13 Z)[X] / (X^256 + 1)
+/// An element of the ring (Z/2^13 Z)\[X\] / (X^256 + 1)
 // The coefficients are in order of ascending powers, i.e., `self.0[0]` is the constant term
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Zeroize)]
 pub struct RingElem(pub(crate) [u16; RING_DEG]);

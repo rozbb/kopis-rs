@@ -1,6 +1,6 @@
 //! NEON bit-unpacking for ring-element deserialization
 //!
-//! Like [`super::super::avx2::ser`], this is a single routine that covers every width the crate
+//! Like `backend::avx2::ser`, this is a single routine that covers every width the crate
 //! uses (1..=13) with one instruction sequence, differing only in a table lookup.
 //!
 //! The observation that makes one routine enough: a group of 8 coefficients of `w` bits always

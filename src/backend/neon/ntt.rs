@@ -21,7 +21,7 @@
 //!
 //! Forward runs are 4, 4; inverse is a Barrett pass every second level. Four levels to a run
 //! rests on the multiplicative bound stated in [`crate::arithmetic::ntt_crt`], which
-//! [`test::forward_growth_fits_an_i16_lane`] re-derives. AVX2 uses runs of 3, 4, 1 on a
+//! `test::forward_growth_fits_an_i16_lane` re-derives. AVX2 uses runs of 3, 4, 1 on a
 //! table-dependent bound instead: growth bounds do not transfer between the two backends.
 
 // Explicit `for i in 0..N` index loops, as in the rest of the crate.

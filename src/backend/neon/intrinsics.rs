@@ -18,7 +18,7 @@
 //! * **The interface is the specification.** A wrapper's type is what the Lean model gets to
 //!   assume, which is why the memory accessors take array and slice references with an element
 //!   index rather than raw pointers: a bound the type system states is a bound the model can
-//!   state too. Same architecture as [`crate::backend::avx2::intrinsics`], and as libcrux.
+//!   state too. Same architecture as `backend::avx2::intrinsics`, and as libcrux.
 //! * **One vector type, not ten.** AArch64 spells `int16x8_t`, `uint16x8_t`, `int32x4_t`,
 //!   `uint8x16_t` and `uint64x2_t` as distinct types converted by `vreinterpretq_*`, which are
 //!   no-ops at the instruction level. Collapsing them into one [`Vec128`] removes that whole

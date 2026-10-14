@@ -4,7 +4,7 @@
 //! sponges side by side, one per 64-bit lane. Kopis samples in exactly that shape: the public
 //! matrix is ℓ² independent XOF calls that differ only in a two-byte index, and the secret is ℓ
 //! more. A `uint64x2_t` holds two lanes where AVX2's `Vec256` holds four, so this is the two-way
-//! counterpart of [`super::super::avx2::keccak`]: the same scheme, the same round constants, the
+//! counterpart of `backend::avx2::keccak`: the same scheme, the same round constants, the
 //! same fused round read by destination, half the batch.
 //!
 //! # Why the SHA3 extension
@@ -30,7 +30,7 @@
 //!
 //! The permutation is a direct transliteration of the reference Keccak-p[1600, 12]: same θ, ρ,
 //! π, χ, ι in the same order, same rotation offsets, and the same round constants (TurboSHAKE's
-//! 12 rounds are the *last* 12 of Keccak-f[1600], per FIPS 202 §3.4). `matches_scalar` checks
+//! 12 rounds are the *last* 12 of Keccak-f\[1600\], per FIPS 202 §3.4). `matches_scalar` checks
 //! every lane against the `turboshake` crate.
 
 use super::intrinsics::{
@@ -47,7 +47,7 @@ const ROUNDS: usize = 12;
 /// Sponges run side by side, one per 64-bit lane of a `uint64x2_t`
 pub(crate) const WAYS: usize = 2;
 
-/// Keccak-f[1600] round constants. Keccak-p[1600, n] uses the last `n` of them.
+/// Keccak-f\[1600\] round constants. Keccak-p[1600, n] uses the last `n` of them.
 #[rustfmt::skip]
 const RC: [u64; 24] = [
     0x0000000000000001, 0x0000000000008082, 0x800000000000808a, 0x8000000080008000,
