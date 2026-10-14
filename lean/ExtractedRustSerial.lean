@@ -3655,7 +3655,7 @@ def pke.encrypt_deterministic
   ok (split_at_mut_back (bprime_buf1, c_buf1))
 
 /-- [kopis::kem::encap_deterministic]:
-    Source: 'src/kem.rs', lines 114:0-141:1 -/
+    Source: 'src/kem.rs', lines 115:0-142:1 -/
 def kem.encap_deterministic
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize)
   (randomness : Array Std.U8 32#usize) (kem_pk : kem.KemPublicKey L)
@@ -3903,7 +3903,7 @@ def turboshake256_hash
   ok (to_slice_mut_back s1)
 
 /-- [kopis::kem::decap]:
-    Source: 'src/kem.rs', lines 146:0-185:1
+    Source: 'src/kem.rs', lines 147:0-186:1
     Visibility: public -/
 def kem.decap
   {L : Std.Usize} (MU : Std.Usize) (T : Std.Usize) (sk : kem.KemSecretKey L)
@@ -4120,7 +4120,7 @@ def kem.KemSecretKey.Insts.ZeroizeZeroizeOnDrop (L : Std.Usize) :
 }
 
 /-- [kopis::kem::{kopis::kem::KemSecretKey<L>}::as_bytes]:
-    Source: 'src/kem.rs', lines 107:4-109:5
+    Source: 'src/kem.rs', lines 108:4-110:5
     Visibility: public -/
 def kem.KemSecretKey.as_bytes
   {L : Std.Usize} (self : kem.KemSecretKey L) :

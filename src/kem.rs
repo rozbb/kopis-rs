@@ -104,6 +104,7 @@ impl<const L: usize> KemSecretKey<L> {
         out
     }
 
+    /// Returns the 32-byte serialized secret key
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.seed
     }
