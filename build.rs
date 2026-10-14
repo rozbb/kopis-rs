@@ -7,8 +7,8 @@
 //!
 //! By default the choice is automatic:
 //! * If the target CPU is x86/x86-64, the AVX2 backend is unconditionally compiled in alongside the serial one and selected at runtime via `cpufeatures`
-//! * If the target CPU is AArch64 with the `neon` target feature and a hardfloat ABI, the NEON backend is compiled in alongside the serial one and selected at runtime if the CPU has the SHA3 extension (always, if `sha3` is a target feature)
-//! * For any other architectures or softfloat AArch64, the serial backend is used.
+//! * If the target CPU is little-endian AArch64 with the `neon` target feature and a hardfloat ABI, the NEON backend is compiled in alongside the serial one and selected at runtime if the CPU has the SHA3 extension (always, if `sha3` is a target feature)
+//! * For any other architectures, softfloat AArch64 or big-endian AArch64, the serial backend is used.
 //!
 //! The choice can be overridden with the `kopis_backend` cfg:
 //!
@@ -82,9 +82,9 @@ fn main() {
         Some(Override::Neon) => {
             if !(neon_is_sound_on_target(is_aarch64) && target_has_feature("sha3")) {
                 panic!(
-                    "kopis: --cfg kopis_backend=\"neon\" requires an AArch64 target with the \
-                     `neon` and `sha3` target features and a non-softfloat ABI, but the target \
-                     is `{}`. (The backend's two-way TurboSHAKE needs the ARMv8.2 SHA3 \
+                    "kopis: --cfg kopis_backend=\"neon\" requires a little-endian AArch64 target \
+                     with the `neon` and `sha3` target features and a non-softfloat ABI, but the \
+                     target is `{}`. (The backend's two-way TurboSHAKE needs the ARMv8.2 SHA3 \
                      extension; build with `-C target-feature=+sha3` or `-C target-cpu=native` \
                      on a CPU that has it. On softfloat AArch64 targets enabling NEON is \
                      ABI-unsound; see rust-lang/rust#134375.) Remove the override to use the \
@@ -122,9 +122,13 @@ fn main() {
 /// (rust-lang/rust#134375). So require the target to actually enable `neon` *and* to not use the
 /// softfloat ABI. This is a property of the target, not the CPU, so unlike the ARMv8.2 SHA3
 /// extension the backend also needs, it cannot be checked at runtime.
+///
+/// Big-endian AArch64 (`aarch64_be`) is excluded too: the backend's loads, stores and lane
+/// indexing, and the Lean axioms that describe them, assume little-endian lane order.
 fn neon_is_sound_on_target(is_aarch64: bool) -> bool {
     let softfloat = env::var("CARGO_CFG_TARGET_ABI").unwrap_or_default() == "softfloat";
-    is_aarch64 && target_has_feature("neon") && !softfloat
+    let big_endian = env::var("CARGO_CFG_TARGET_ENDIAN").unwrap_or_default() == "big";
+    is_aarch64 && target_has_feature("neon") && !softfloat && !big_endian
 }
 
 /// Whether `feature` is in the target feature set the crate is compiled with
