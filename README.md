@@ -1,6 +1,6 @@
 # kopis-rs
 
-This crate is a pure-Rust, no-std implementation of the Kopis key encapsulation mechanism (KEM). Kopis is a lattice-based KEM that is designed to be secure against classical and quantum adversaries. Kopis has three security levels: Kopis-512, Kopis-768, and Kopis-1024. If you don't know what to use, just use Kopis-768.
+This crate is a pure-Rust, no-std implementation of the [Kopis](https://eprint.iacr.org/2026/2268) key encapsulation mechanism (KEM). Kopis is a lattice-based KEM that is designed to be secure against classical and quantum adversaries. Kopis has three security levels: Kopis-512, Kopis-768, and Kopis-1024. If you don't know what to use, just use Kopis-768.
 
 # Example code
 
@@ -83,14 +83,14 @@ Read [`lean/README.md`](lean/README.md) for more info on what is proved, what is
 
 To ensure that we don't accidentally introduce timing side channels in the code, we perform two checks in `ct-check.sh`:
 
-1. Run Valgrind with memory tainting to see if any functions branch on secrets. This is done in `ct-check/src/main.rs`.
+1. Run Valgrind with memory tainting to see if any functions branch on secrets. This is done in `ct-check/src/main.rs`. (macOS has no Valgrind implementation we can use, so this is skipped on Macs)
 2. Compile the library and search the resulting binary for non-constant-time instructions. On x86, any instruction not on Intel's [DOIT list](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/resources/data-operand-independent-timing-instructions.html) (`ct-check/x86-doit.txt`) is reported, apart from a few exceptions in `ct-check/scan-instrs.py`. AArch64 is checked the same way against Arm's [DIT list](https://developer.arm.com/documentation/ddi0601/latest/AArch64-Registers/DIT--Data-Independent-Timing) (`ct-check/aarch64-dit.txt`). 32-bit Arm has no such list, so there the list of non-constant-time instructions is in `ct-check/scan-instrs.py`. The list of known false positives is in `ct-check/instr-allowlist.txt`.
 
 Unlike ML-KEM, Kopis algorithms are constant time in _all_ inputs, not just the secret ones. So, in taint testing, when we test public key `from_bytes`, we taint the bytes. Similarly, we taint the randomness and public key bytes for `encapsulate`, and the secret key and ciphertext bytes in `decapsulate`.
 
 We can only guarantee constant-timeness for optimized builds on CPUs whose multipliers are constant-time. For example, debug builds are NOT constant time (`subtle` has debug assertions), nor are builds for Cortex-M3 and below, since they have multipliers that early-exit.
 
-macOS has no Valgrind implementation we can use. So on a Mac, only check 2 runs (`./ct-check.sh --scan-only`).
+Finally, technically, constant-timeness is only guaranteed if DOITM or PSTATE.DIT is enabled for x84 or AArch64, respectively. So if you really want to make sure that your instructions are constant-time, you need to enable those processor modes yourself.
 
 # License
 
