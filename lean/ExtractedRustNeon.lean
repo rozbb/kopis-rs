@@ -553,42 +553,42 @@ def arithmetic.ntt_arith.ACC_ZERO : Array Std.I32 512#usize :=
 axiom backend.neon.intrinsics.Vec128 : Type
 
 /-- [kopis::backend::neon::intrinsics::trn2_64]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 410:0-415:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 423:0-428:1 -/
 axiom backend.neon.intrinsics.trn2_64
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::trn1_64]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 400:0-405:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 413:0-418:1 -/
 axiom backend.neon.intrinsics.trn1_64
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::trn2_32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 390:0-395:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 403:0-408:1 -/
 axiom backend.neon.intrinsics.trn2_32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::trn1_32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 380:0-385:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 393:0-398:1 -/
 axiom backend.neon.intrinsics.trn1_32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::trn2_16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 370:0-375:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 383:0-388:1 -/
 axiom backend.neon.intrinsics.trn2_16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::trn1_16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 360:0-365:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 373:0-378:1 -/
 axiom backend.neon.intrinsics.trn1_16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -642,21 +642,21 @@ def backend.neon.ntt.transpose8
   Array.update v22 7#usize v23
 
 /-- [kopis::backend::neon::intrinsics::shsub_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 192:0-197:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 205:0-210:1 -/
 axiom backend.neon.intrinsics.shsub_s16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::sqdmulh_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 179:0-184:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 192:0-197:1 -/
 axiom backend.neon.intrinsics.sqdmulh_s16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::mul_16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 165:0-170:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 178:0-183:1 -/
 axiom backend.neon.intrinsics.mul_16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -675,14 +675,14 @@ def backend.neon.ntt.mont_mul
   backend.neon.intrinsics.shsub_s16 v v1
 
 /-- [kopis::backend::neon::intrinsics::sub_16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 155:0-160:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 168:0-173:1 -/
 axiom backend.neon.intrinsics.sub_16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::add_16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 145:0-150:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 158:0-163:1 -/
 axiom backend.neon.intrinsics.add_16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -702,7 +702,7 @@ def backend.neon.ntt.ct_butterfly
   ok (lo1, hi1)
 
 /-- [kopis::backend::neon::intrinsics::sshr_n_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 202:0-206:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 215:0-219:1 -/
 axiom backend.neon.intrinsics.sshr_n_s16
   (IMM : Std.I32) :
   backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
@@ -737,7 +737,7 @@ structure backend.neon.ntt.Tbl (N : Std.Usize) where
   zq : Array Std.I16 N
 
 /-- [kopis::backend::neon::intrinsics::load_i16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 502:0-506:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 515:0-519:1 -/
 axiom backend.neon.intrinsics.load_i16
   {N : Std.Usize} :
   Array Std.I16 N → Std.Usize → Result backend.neon.intrinsics.Vec128
@@ -1024,7 +1024,7 @@ def backend.neon.ntt.fwd4
 def backend.neon.ntt.VECS : Result Std.Usize := consts.RING_DEG / 8#usize
 
 /-- [kopis::backend::neon::intrinsics::store_i16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 511:0-515:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 524:0-528:1 -/
 axiom backend.neon.intrinsics.store_i16
   {N : Std.Usize} :
   Array Std.I16 N → Std.Usize → backend.neon.intrinsics.Vec128 → Result
@@ -1580,7 +1580,7 @@ def backend.neon.ntt.ntt_block
     { start := 0#usize, «end» := 4#usize } b1 base q bm round
 
 /-- [kopis::backend::neon::intrinsics::load_u16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 520:0-524:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 533:0-537:1 -/
 axiom backend.neon.intrinsics.load_u16
   {N : Std.Usize} :
   Array Std.U16 N → Std.Usize → Result backend.neon.intrinsics.Vec128
@@ -1975,34 +1975,34 @@ def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
 }
 
 /-- [kopis::backend::neon::intrinsics::store_i32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 547:0-551:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 560:0-564:1 -/
 axiom backend.neon.intrinsics.store_i32
   {N : Std.Usize} :
   Array Std.I32 N → Std.Usize → backend.neon.intrinsics.Vec128 → Result
     (Array Std.I32 N)
 
 /-- [kopis::backend::neon::intrinsics::load_i32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 538:0-542:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 551:0-555:1 -/
 axiom backend.neon.intrinsics.load_i32
   {N : Std.Usize} :
   Array Std.I32 N → Std.Usize → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::smull_high_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 301:0-306:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 314:0-319:1 -/
 axiom backend.neon.intrinsics.smull_high_s16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::smull_low_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 291:0-296:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 304:0-309:1 -/
 axiom backend.neon.intrinsics.smull_low_s16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::add_32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 229:0-234:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 242:0-247:1 -/
 axiom backend.neon.intrinsics.add_32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -2752,14 +2752,14 @@ def backend.neon.ntt.invntt_block
     scale scale_q
 
 /-- [kopis::backend::neon::intrinsics::shrn16_pair_s32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 346:0-351:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 359:0-364:1 -/
 axiom backend.neon.intrinsics.shrn16_pair_s32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::xtn_pair_32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 331:0-336:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 344:0-349:1 -/
 axiom backend.neon.intrinsics.xtn_pair_32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -2813,45 +2813,45 @@ def backend.neon.ntt.reduce_block
   backend.neon.ntt.invntt_block SECOND b1
 
 /-- [kopis::backend::neon::intrinsics::store_u16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 529:0-533:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 542:0-546:1 -/
 axiom backend.neon.intrinsics.store_u16
   {N : Std.Usize} :
   Array Std.U16 N → Std.Usize → backend.neon.intrinsics.Vec128 → Result
     (Array Std.U16 N)
 
 /-- [kopis::backend::neon::intrinsics::sxtl_high_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 320:0-324:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 333:0-337:1 -/
 axiom backend.neon.intrinsics.sxtl_high_s16
   : backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::sxtl_low_s16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 311:0-315:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 324:0-328:1 -/
 axiom backend.neon.intrinsics.sxtl_low_s16
   : backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::cmgt_s32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 260:0-265:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 273:0-278:1 -/
 axiom backend.neon.intrinsics.cmgt_s32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::mla_32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 249:0-255:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 262:0-268:1 -/
 axiom backend.neon.intrinsics.mla_32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 →
     backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::sub_32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 239:0-244:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 252:0-257:1 -/
 axiom backend.neon.intrinsics.sub_32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::and]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 118:0-120:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 131:0-133:1 -/
 axiom backend.neon.intrinsics.and
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -4035,19 +4035,19 @@ def backend.neon.ser.PLANS : Result (Array backend.neon.ser.Plan 14#usize) :=
 def backend.neon.ser.GROUPS : Result Std.Usize := consts.RING_DEG / 8#usize
 
 /-- [kopis::backend::neon::intrinsics::load_u8x16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 561:0-565:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 574:0-578:1 -/
 axiom backend.neon.intrinsics.load_u8x16
   : Slice Std.U8 → Std.Usize → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::tbl1_u8]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 424:0-426:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 437:0-439:1 -/
 axiom backend.neon.intrinsics.tbl1_u8
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::ushl_u32]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 273:0-278:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 286:0-291:1 -/
 axiom backend.neon.intrinsics.ushl_u32
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
@@ -4903,59 +4903,59 @@ axiom backend.neon.intrinsics.dup_n_u64
   : Std.U64 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::set_u64x2]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 104:0-109:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 107:0-122:1 -/
 axiom backend.neon.intrinsics.set_u64x2
   : Std.U64 → Std.U64 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::eor]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 127:0-129:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 140:0-142:1 -/
 axiom backend.neon.intrinsics.eor
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::cnt_u8]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 134:0-136:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 147:0-149:1 -/
 axiom backend.neon.intrinsics.cnt_u8
   : backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::ushl_u16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 215:0-220:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 228:0-233:1 -/
 axiom backend.neon.intrinsics.ushl_u16
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::eor3]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 439:0-445:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 452:0-458:1 -/
 axiom backend.neon.intrinsics.eor3
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 →
     backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::bcax]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 454:0-460:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 467:0-473:1 -/
 axiom backend.neon.intrinsics.bcax
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 →
     backend.neon.intrinsics.Vec128 → Result backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::rax1]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 465:0-470:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 478:0-483:1 -/
 axiom backend.neon.intrinsics.rax1
   :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::xar]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 478:0-483:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 491:0-496:1 -/
 axiom backend.neon.intrinsics.xar
   (IMM : Std.I32) :
   backend.neon.intrinsics.Vec128 → backend.neon.intrinsics.Vec128 → Result
     backend.neon.intrinsics.Vec128
 
 /-- [kopis::backend::neon::intrinsics::store_u8x16]:
-    Source: 'src/backend/neon/intrinsics.rs', lines 573:0-577:1 -/
+    Source: 'src/backend/neon/intrinsics.rs', lines 586:0-590:1 -/
 axiom backend.neon.intrinsics.store_u8x16
   :
   Slice Std.U8 → Std.Usize → backend.neon.intrinsics.Vec128 → Result

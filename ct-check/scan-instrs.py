@@ -22,9 +22,10 @@ Calls to compiler-rt division helpers (`__udivti3`, `__aeabi_uldivmod`, ...) are
 divide too wide for the hardware becomes one of these instead of a `div`. They are found through
 the call's relocation, since the callee is not in the rlib.
 
-x86 is checked against an allowlist rather than a denylist: Intel's published DOIT instructions
-(`x86-doit.txt`) plus the few in `X86_EXTRA`. Anything else is reported, including instructions
-nobody thought to put on a denylist. The Arm families still use a denylist.
+x86 and AArch64 are checked against an allowlist rather than a denylist: the vendor's published
+data-independent-timing instructions (Intel's DOIT list in `x86-doit.txt`, Arm's DIT list in
+`aarch64-dit.txt`) plus the few in `X86_EXTRA` / `AARCH64_EXTRA`. Anything else is reported.
+32-bit Arm still uses a denylist, since M-profile cores have no DIT list.
 """
 
 import json
@@ -37,14 +38,15 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 ALLOWLIST = Path(__file__).resolve().parent / "instr-allowlist.txt"
 X86_DOIT = Path(__file__).resolve().parent / "x86-doit.txt"
+AARCH64_DIT = Path(__file__).resolve().parent / "aarch64-dit.txt"
 
 # If a disassembly yields fewer instructions than this, something went wrong with the tooling
 # rather than the code being small; treat it as an error instead of a pass.
 MIN_PLAUSIBLE_INSNS = 2000
 
-# Instruction classes whose timing can depend on operand *values*, for the Arm families.
-# Deliberately absent, because they are constant-time on every CPU this crate targets and would
-# only add noise: variable-count shifts, CLZ/CNT, integer MUL, and CSEL.
+# Instruction classes whose timing can depend on operand *values*, for 32-bit Arm. Deliberately
+# absent, because they are constant-time on every CPU this crate targets and would only add noise:
+# variable-count shifts, CLZ, integer MUL, and conditional execution.
 DIV_LIBCALL = (
     "div-libcall",
     r"^R_\S+ (__u?(div|mod|divmod)[sdt]i[34]|__aeabi_u?l?div(mod)?|__aeabi_u?idiv(mod)?)\b",
@@ -53,14 +55,9 @@ DIV_LIBCALL = (
 )
 
 CATEGORIES = {
-    # Only the relocation check: x86 instructions go through `classify_x86`.
+    # Only the relocation check: x86 and AArch64 instructions go through their allowlists.
     "x86": [DIV_LIBCALL],
-    "aarch64": [
-        ("int-div", r"^[us]div\b",
-         "UDIV/SDIV: early-terminating on Cortex-A and Neoverse", None),
-        ("fp-div-sqrt", r"^(fdiv|fsqrt)\b", "FP divide/sqrt: variable latency", None),
-        DIV_LIBCALL,
-    ],
+    "aarch64": [DIV_LIBCALL],
     # A32/T32. Long multiply is deliberately absent: `UMULL` and friends early-terminate on
     # Cortex-M3 and below, but the crate does not claim constant time on those cores, and on the
     # Cortex-M4/M7 that `thumbv7em` targets the multiply is single-cycle.
@@ -108,7 +105,6 @@ X86_EXTRA = {
     "movupd": "MOVUPS with a 66 prefix; the same move",
     "shufps": "fixed lane shuffle; PSHUFD, the one-source integer equivalent, is listed",
 }
-X86_EXTRA_USED = set()
 X86_BRANCH = re.compile(r"^j[a-z]+$")
 
 # Non-DOIT x86 instructions that get a readable category. Anything else not on the list reports as
@@ -151,6 +147,74 @@ def x86_mnemonic(text: str) -> str:
     return m
 
 
+# AArch64 instructions that are not on Arm's list but are accepted anyway, as for X86_EXTRA. The
+# one in kopis's own code, an `fneg` LLVM used to build the Keccak padding word, was removed by
+# pinning `set_u64x2` with inline assembly; these come from LLVM regardless of the source.
+AARCH64_EXTRA = {
+    # Immediates with no data operand: constants and PC-relative addresses.
+    "adrp": "PC-relative address; no data operand",
+    "movz": "MOVZ/MOVN, or ORR (immediate), which is listed; no data operand",
+    "movk": "inserts an immediate field; the timing cannot depend on the other bits",
+    "movi": "Advanced SIMD modified immediate, like the listed BIC/ORR; no data operand",
+    "mvni": "Advanced SIMD modified immediate, like the listed BIC/ORR; no data operand",
+    # Moves between a general and a SIMD&FP register, which LLVM picks for 64-bit lanes. The
+    # same transfer as the listed INS and UMOV. Other FMOV forms are not covered.
+    "fmov(general)": "GPR to SIMD&FP register transfer, like the listed INS/UMOV",
+}
+AARCH64_BRANCH = re.compile(r"^(b|bl|br|blr|ret|cbn?z|tbn?z)(\.[a-z]+)?$")
+
+# Non-DIT AArch64 instructions that get a readable category, as for X86_NAMED.
+AARCH64_NAMED = [
+    ("int-div", r"^[us]div$", "UDIV/SDIV: early-terminating on Cortex-A and Neoverse"),
+    ("fp-div-sqrt", r"^(fdiv|fsqrt)$", "FP divide/sqrt: variable latency"),
+]
+
+# Aliases that llvm-objdump prints even under `-M no-aliases`, mapped to the instruction Arm lists.
+# Shifts by an immediate are bitfield moves; shifts by a register are the `*V` forms.
+AARCH64_ALIASES = {
+    "lsl": ("ubfm", "lslv"), "lsr": ("ubfm", "lsrv"), "asr": ("sbfm", "asrv"),
+    "ror": ("extr", "rorv"),
+    "bfi": ("bfm", None), "bfxil": ("bfm", None), "bfc": ("bfm", None),
+    "ubfiz": ("ubfm", None), "ubfx": ("ubfm", None), "uxtb": ("ubfm", None),
+    "uxth": ("ubfm", None),
+    "sbfiz": ("sbfm", None), "sbfx": ("sbfm", None), "sxtb": ("sbfm", None),
+    "sxth": ("sbfm", None), "sxtw": ("sbfm", None),
+}
+AARCH64_GPR = re.compile(r"^([wx]([0-9]+|zr)|w?sp)$")
+
+
+def aarch64_mnemonic(text: str) -> str:
+    """The mnemonic of a `-M no-aliases` A64 instruction, spelled as Arm's DIT list spells it."""
+    m, _, rest = text.partition(" ")
+    ops = [o.strip() for o in rest.split("//")[0].split(",")]
+    if m in AARCH64_ALIASES:
+        imm, reg = AARCH64_ALIASES[m]
+        return imm if reg is None or ops[-1].startswith("#") else reg
+    if m == "mov":
+        # The forms LLVM still prints as MOV: an immediate, or a vector element.
+        if ops[-1].startswith("#"):
+            return "movz"
+        if "[" in ops[0]:
+            return "ins"
+        if "[" in ops[-1]:
+            return "umov" if AARCH64_GPR.match(ops[0]) else "dup"
+        return "orr"
+    if m == "fmov" and len(ops) == 2 and sum(bool(AARCH64_GPR.match(o)) for o in ops) == 1:
+        return "fmov(general)"
+    return m
+
+
+# Per family: the vendor list, the extra exceptions, the mnemonic normalizer, the branch pattern,
+# and the readable categories for what is not on the list.
+ALLOWLISTED = {
+    "x86": (X86_DOIT, X86_EXTRA, x86_mnemonic, X86_BRANCH, X86_NAMED, "non-doit",
+            "not on Intel's DOIT list (ct-check/x86-doit.txt)"),
+    "aarch64": (AARCH64_DIT, AARCH64_EXTRA, aarch64_mnemonic, AARCH64_BRANCH, AARCH64_NAMED,
+                "non-dit", "not on Arm's DIT list (ct-check/aarch64-dit.txt)"),
+}
+EXTRA_USED = {fam: set() for fam in ALLOWLISTED}
+
+
 def load_doit(path: Path) -> set:
     return {line.strip().lower() for line in path.read_text().splitlines()
             if line.strip() and not line.startswith("#")}
@@ -167,27 +231,28 @@ def classifier(fam: str, target: str):
     def by_regex(text):
         return [(name, desc) for name, rx, desc in cats if rx.match(text)]
 
-    if fam != "x86":
+    if fam not in ALLOWLISTED:
         return by_regex
 
-    doit = load_doit(X86_DOIT)
-    named = [(name, re.compile(pattern), desc) for name, pattern, desc in X86_NAMED]
+    path, extra, mnemonic, branch, named, prefix, why = ALLOWLISTED[fam]
+    listed = load_doit(path)
+    named = [(name, re.compile(pattern), desc) for name, pattern, desc in named]
 
-    def classify_x86(text):
+    def classify_allowlisted(text):
         if text.startswith("R_"):
             return by_regex(text)
-        m = x86_mnemonic(text)
-        if m in X86_EXTRA:
-            X86_EXTRA_USED.add(m)
+        m = mnemonic(text)
+        if m in extra:
+            EXTRA_USED[fam].add(m)
             return []
-        if m in doit or X86_BRANCH.match(m):
+        if m in listed or branch.match(m):
             return []
         for name, rx, desc in named:
             if rx.match(m):
                 return [(name, desc)]
-        return [(f"non-doit:{m}", "not on Intel's DOIT list (ct-check/x86-doit.txt)")]
+        return [(f"{prefix}:{m}", why)]
 
-    return classify_x86
+    return classify_allowlisted
 
 
 def host_target() -> str:
@@ -303,8 +368,9 @@ def build(target: str, rustflags: str) -> list:
 def disassemble(objdump: str, rlibs: list, fam: str):
     """Yields (symbol, instruction-text) and the total instruction count. Relocations are yielded
     as rows too, as `R_<type> <target>`, but not counted. x86 is in Intel syntax, whose mnemonics
-    carry no operand-size suffix and so match Intel's DOIT list directly."""
-    syntax = ["-M", "intel"] if fam == "x86" else []
+    carry no operand-size suffix and so match Intel's DOIT list directly. AArch64 is printed
+    without aliases (`madd`, not `mul`), which is how Arm's DIT list names instructions."""
+    syntax = {"x86": ["-M", "intel"], "aarch64": ["-M", "no-aliases"]}.get(fam, [])
     proc = subprocess.run([objdump, "-d", "-r", "--demangle", "--no-show-raw-insn", *syntax,
                            *rlibs], capture_output=True, text=True)
     sym, total, rows = None, 0, []
@@ -393,11 +459,32 @@ MATCHER_CASES = [
     ("aarch64", "sdiv x0, x1, x2", "int-div"),
     ("aarch64", "fdiv d0, d1, d2", "fp-div-sqrt"),
     ("aarch64", "fsqrt s0, s1", "fp-div-sqrt"),
-    ("aarch64", "mul x0, x1, x2", None),
+    # Not on Arm's list, so reported even though no denylist names them.
+    ("aarch64", "fneg v0.2d, v0.2d", "non-dit:fneg"),
+    ("aarch64", "fadd d0, d1, d2", "non-dit:fadd"),
+    ("aarch64", "sqxtn v0.4h, v1.4s", "non-dit:sqxtn"),
+    ("aarch64", "fmov d0, #1.00000000", "non-dit:fmov"),
+    ("aarch64", "fmov s0, s1", "non-dit:fmov"),
+    # On the list, possibly under an alias llvm-objdump keeps.
+    ("aarch64", "madd x0, x1, x2, xzr", None),
     ("aarch64", "umulh x0, x1, x2", None),
-    ("aarch64", "csel x0, x1, x2, eq", None),
+    ("aarch64", "csinc w0, wzr, wzr, ne", None),
     ("aarch64", "cnt v0.8b, v1.8b", None),
     ("aarch64", "eor3 v0.16b, v1.16b, v2.16b, v3.16b", None),
+    ("aarch64", "sqdmulh v0.8h, v1.8h, v2.8h", None),
+    ("aarch64", "ldr q0, [x0, #0x10]", None),
+    ("aarch64", "lsl w0, w0, #16", None),
+    ("aarch64", "lsr x8, x9, x10", None),
+    ("aarch64", "ubfiz x9, x8, #3, #3", None),
+    ("aarch64", "mov h1, v1.h[1]", None),
+    ("aarch64", "mov w8, v0.s[1]", None),
+    # In AARCH64_EXTRA, or a branch.
+    ("aarch64", "b.ne 0x40", None),
+    ("aarch64", "ret", None),
+    ("aarch64", "mov w8, #0x1234               // =4660", None),
+    ("aarch64", "movi v0.2d, #0000000000000000", None),
+    ("aarch64", "fmov d0, x8", None),
+    ("aarch64", "fmov x14, d0", None),
     ("aarch64", "R_AARCH64_CALL26 __udivti3", "div-libcall"),
     ("aarch64", "R_AARCH64_CALL26 __divti3", "div-libcall"),
 
@@ -583,13 +670,17 @@ def main():
         print(f"\nnote: {len(unused)} allowlist entr(y/ies) matched nothing, but some "
               "configurations were skipped, so they may be needed there")
 
-    # Likewise X86_EXTRA. The x86 configs are host-only, so either all of them ran or none did.
-    unused_extra = sorted(set(X86_EXTRA) - X86_EXTRA_USED)
-    if arch_family(host) == "x86" and unused_extra:
-        print(f"\nFAIL: {len(unused_extra)} X86_EXTRA entr(y/ies) matched nothing; remove them:\n")
-        for m in unused_extra:
-            print(f"  {m}")
-        return 1
+    # Likewise the per-family extras, once every configuration of that family has run.
+    for fam, (_, extra, *_rest) in ALLOWLISTED.items():
+        fam_cfgs = [c for c in all_configs(host) if arch_family(c[1]) == fam]
+        ran = [c for c in cfgs if arch_family(c[1]) == fam]
+        unused_extra = sorted(set(extra) - EXTRA_USED[fam])
+        if ran and len(ran) == len(fam_cfgs) and unused_extra:
+            print(f"\nFAIL: {len(unused_extra)} {fam.upper()}_EXTRA entr(y/ies) matched nothing; "
+                  "remove them:\n")
+            for m in unused_extra:
+                print(f"  {m}")
+            return 1
 
     if findings:
         print(f"\nFAIL: {len(findings)} variable-latency instruction(s) not in the allowlist:\n")
@@ -598,8 +689,8 @@ def main():
             print(f"      in {sym}")
             print(f"      {desc}")
         print("\nIf the operands are public, add a line to "
-              f"{ALLOWLIST.relative_to(REPO)} saying why. If a non-doit instruction is "
-              "data-independent everywhere, add it to X86_EXTRA instead.")
+              f"{ALLOWLIST.relative_to(REPO)} saying why. If a non-doit/non-dit instruction is "
+              "data-independent everywhere, add it to X86_EXTRA / AARCH64_EXTRA instead.")
         return 1
 
     print("\nPASS: no unexpected variable-latency instructions")

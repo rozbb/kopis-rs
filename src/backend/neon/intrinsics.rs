@@ -37,9 +37,9 @@
 //! Every function is `#[target_feature(enable = "neon")]` (plus `sha3` for the four FEAT_SHA3
 //! instructions), so it is safe to call from any other function carrying the same feature — all
 //! of this backend — and unsafe to call from outside one, exactly as the intrinsics themselves
-//! are. The unaligned loads and stores are the only `unsafe` here; each is preceded by a bounds
-//! check that makes the access in-range for *any* arguments, which is what the Lean
-//! preconditions mirror.
+//! are. The `unsafe` here is the unaligned loads and stores, each preceded by a bounds check that
+//! makes the access in-range for *any* arguments, which is what the Lean preconditions mirror,
+//! and the inline assembly in [`set_u64x2`].
 
 use core::arch::aarch64::*;
 
@@ -96,16 +96,29 @@ pub(crate) fn dup_n_u64(a: u64) -> Vec128 {
 
 /// The vector whose low 64-bit lane is `lo` and whose high one is `hi`
 ///
-/// Two `fmov`s and an `ins` rather than one instruction — the only wrapper here that is not a
-/// single instruction, because building a vector from two scalars has no single-instruction form.
-/// Its meaning is still exactly one equation, which is what the axiom needs.
+/// `dup` then `ins` rather than one instruction — the only wrapper here that is not a single
+/// instruction, because building a vector from two scalars has no single-instruction form. Its
+/// meaning is still exactly one equation, which is what the axiom needs.
+///
+/// Pinned with inline assembly: given constant lanes, LLVM materializes the vector itself, and
+/// for the Keccak padding word it picks `movi` + `fneg`, which is not a DIT instruction.
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn set_u64x2(lo: u64, hi: u64) -> Vec128 {
-    Vec128(vreinterpretq_u8_u64(vcombine_u64(
-        vcreate_u64(lo),
-        vcreate_u64(hi),
-    )))
+    let r: uint8x16_t;
+    // SAFETY: register-only NEON instructions, which every caller has enabled. `r` is written
+    // before `hi` is read, so it is a plain `out` and cannot share `hi`'s register.
+    unsafe {
+        core::arch::asm!(
+            "dup {r:v}.2d, {lo:x}",
+            "ins {r:v}.d[1], {hi:x}",
+            r = out(vreg) r,
+            lo = in(reg) lo,
+            hi = in(reg) hi,
+            options(pure, nomem, nostack, preserves_flags),
+        );
+    }
+    Vec128(r)
 }
 
 // ---------------------------------------------------------------------------------------
