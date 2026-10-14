@@ -331,12 +331,12 @@ axiom zeroize.__internal.AssertZeroize.Blanket.zeroize_or_on_drop
   {T : Type} (ZeroizeInst : zeroize.Zeroize T) : T → Result T
 
 /-- [kopis::arithmetic::ntt_arith::NttElem]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 41:0-41:58 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 42:0-42:58 -/
 @[reducible]
 def arithmetic.ntt_arith.NttElem := Array Std.I16 512#usize
 
 /-- [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttElem}::clone]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 40:9-40:14
+    Source: 'src/arithmetic/ntt_arith.rs', lines 41:9-41:14
     Visibility: public -/
 def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone.clone
   (self : arithmetic.ntt_arith.NttElem) :
@@ -345,7 +345,7 @@ def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone.clone
   ok self
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 40:9-40:14 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 41:9-41:14 -/
 @[reducible]
 def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone : core.clone.Clone
   arithmetic.ntt_arith.NttElem := {
@@ -353,7 +353,7 @@ def arithmetic.ntt_arith.NttElem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::marker::Copy for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 40:16-40:20 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 41:16-41:20 -/
 @[reducible]
 def arithmetic.ntt_arith.NttElem.Insts.CoreMarkerCopy : core.marker.Copy
   arithmetic.ntt_arith.NttElem := {
@@ -361,7 +361,7 @@ def arithmetic.ntt_arith.NttElem.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttElem}::zeroize]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 40:22-40:29
+    Source: 'src/arithmetic/ntt_arith.rs', lines 41:22-41:29
     Visibility: public -/
 def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize.zeroize
   (self : arithmetic.ntt_arith.NttElem) :
@@ -373,7 +373,7 @@ def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 40:22-40:29 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 41:22-41:29 -/
 @[reducible]
 def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize : zeroize.Zeroize
   arithmetic.ntt_arith.NttElem := {
@@ -381,7 +381,7 @@ def arithmetic.ntt_arith.NttElem.Insts.ZeroizeZeroize : zeroize.Zeroize
 }
 
 /-- [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttElem}::default]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 44:4-46:5
+    Source: 'src/arithmetic/ntt_arith.rs', lines 45:4-47:5
     Visibility: public -/
 def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
   : Result arithmetic.ntt_arith.NttElem := do
@@ -389,7 +389,7 @@ def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault.default
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttElem}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 43:0-47:1 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 44:0-48:1 -/
 @[reducible]
 def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault :
   core.default.Default arithmetic.ntt_arith.NttElem := {
@@ -397,7 +397,7 @@ def arithmetic.ntt_arith.NttElem.Insts.CoreDefaultDefault :
 }
 
 /-- [kopis::arithmetic::ntt_arith::ACC_ZERO]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 54:0-54:54 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 55:0-55:54 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_arith.ACC_ZERO : Array Std.I32 512#usize :=
   Array.repeat 512#usize 0#i32
@@ -824,7 +824,7 @@ def arithmetic.ntt_crt.from_uniform
   arithmetic.ntt_crt.from_ring_elem true elem
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttElem}::from_uniform]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 59:4-77:5 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 60:4-78:5 -/
 def arithmetic.ntt_arith.NttElem.from_uniform
   (elem : arithmetic.plain_arith.RingElem) :
   Result arithmetic.ntt_arith.NttElem
@@ -839,7 +839,7 @@ def arithmetic.ntt_crt.from_secret
   arithmetic.ntt_crt.from_ring_elem false elem
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttElem}::from_secret]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 84:4-100:5 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 85:4-101:5 -/
 def arithmetic.ntt_arith.NttElem.from_secret
   (elem : arithmetic.plain_arith.RingElem) :
   Result arithmetic.ntt_arith.NttElem
@@ -848,13 +848,13 @@ def arithmetic.ntt_arith.NttElem.from_secret
   ok a
 
 /-- [kopis::arithmetic::ntt_arith::NttMatrix]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 105:0-105:90 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 106:0-106:90 -/
 @[reducible]
 def arithmetic.ntt_arith.NttMatrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.ntt_arith.NttElem Y) X
 
 /-- [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 104:9-104:14
+    Source: 'src/arithmetic/ntt_arith.rs', lines 105:9-105:14
     Visibility: public -/
 def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
@@ -866,7 +866,7 @@ def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone.clone
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::clone::Clone for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 104:9-104:14 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 105:9-105:14 -/
 @[reducible]
 def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
   Std.Usize) : core.clone.Clone (arithmetic.ntt_arith.NttMatrix X Y) := {
@@ -874,7 +874,7 @@ def arithmetic.ntt_arith.NttMatrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 104:16-104:23
+    Source: 'src/arithmetic/ntt_arith.rs', lines 105:16-105:23
     Visibility: public -/
 def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize.zeroize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.ntt_arith.NttMatrix X Y) :
@@ -886,7 +886,7 @@ def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl zeroize::Zeroize for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 104:16-104:23 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 105:16-105:23 -/
 @[reducible]
 def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
   Std.Usize) : zeroize.Zeroize (arithmetic.ntt_arith.NttMatrix X Y) := {
@@ -894,7 +894,7 @@ def arithmetic.ntt_arith.NttMatrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::default]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 108:4-110:5
+    Source: 'src/arithmetic/ntt_arith.rs', lines 109:4-111:5
     Visibility: public -/
 def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default
   (X : Std.Usize) (Y : Std.Usize) :
@@ -906,7 +906,7 @@ def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault.default
   ok a1
 
 /-- Trait implementation: [kopis::arithmetic::ntt_arith::{impl core::default::Default for kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}]
-    Source: 'src/arithmetic/ntt_arith.rs', lines 107:0-111:1 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 108:0-112:1 -/
 @[reducible]
 def arithmetic.ntt_arith.NttMatrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y
   : Std.Usize) : core.default.Default (arithmetic.ntt_arith.NttMatrix X Y) := {
@@ -950,7 +950,7 @@ def arithmetic.ntt_crt.pointwise_mul_acc
     acc lhs rhs
 
 /-- [kopis::arithmetic::ntt_arith::pointwise_mul_acc]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 118:0-136:1 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 119:0-137:1 -/
 def arithmetic.ntt_arith.pointwise_mul_acc
   (acc : Array Std.I32 512#usize) (lhs : arithmetic.ntt_arith.NttElem)
   (rhs : arithmetic.ntt_arith.NttElem) :
@@ -1208,7 +1208,7 @@ def arithmetic.ntt_crt.reduce_invntt
     { start := 0#usize, «end» := consts.RING_DEG } v12 v22 q1_inv_mont_q out
 
 /-- [kopis::arithmetic::ntt_arith::reduce_invntt_to_ring_elem]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 140:0-156:1 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 141:0-157:1 -/
 def arithmetic.ntt_arith.reduce_invntt_to_ring_elem
   (acc : Array Std.I32 512#usize) :
   Result arithmetic.plain_arith.RingElem
@@ -1223,7 +1223,7 @@ def arithmetic.plain_arith.Matrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.plain_arith.RingElem Y) X
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 163:12-165:13 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 164:12-166:13 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1248,7 +1248,7 @@ def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 162:8-166:9 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 163:8-167:9 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1268,7 +1268,7 @@ def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_uniform_matrix]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 160:4-168:5 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 161:4-169:5 -/
 def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix
   {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.plain_arith.Matrix X Y) :
   Result (arithmetic.ntt_arith.NttMatrix X Y)
@@ -1279,7 +1279,7 @@ def arithmetic.ntt_arith.NttMatrix.from_uniform_matrix
     { start := 0#usize, «end» := X } mat ret
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 174:12-176:13 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 175:12-177:13 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1304,7 +1304,7 @@ def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 173:8-177:9 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 174:8-178:9 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -1324,7 +1324,7 @@ def arithmetic.ntt_arith.NttMatrix.from_secret_matrix_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::from_secret_matrix]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 171:4-179:5 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 172:4-180:5 -/
 def arithmetic.ntt_arith.NttMatrix.from_secret_matrix
   {X : Std.Usize} {Y : Std.Usize} (mat : arithmetic.plain_arith.Matrix X Y) :
   Result (arithmetic.ntt_arith.NttMatrix X Y)
@@ -1359,7 +1359,7 @@ def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default
   ok a1
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 2:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 191:16-193:17 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 192:16-194:17 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -1385,7 +1385,7 @@ def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 189:12-195:13 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 190:12-196:13 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -1414,7 +1414,7 @@ def arithmetic.ntt_arith.NttMatrix.mul_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 188:8-196:9 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 189:8-197:9 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.mul_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -1436,7 +1436,7 @@ def arithmetic.ntt_arith.NttMatrix.mul_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 183:4-198:5 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 184:4-199:5 -/
 def arithmetic.ntt_arith.NttMatrix.mul
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.ntt_arith.NttMatrix X Y)
@@ -1450,7 +1450,7 @@ def arithmetic.ntt_arith.NttMatrix.mul
     self other result
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 2:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 210:16-212:17 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 211:16-213:17 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -1476,7 +1476,7 @@ def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 1:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 208:12-214:13 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 209:12-215:13 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -1506,7 +1506,7 @@ def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]: loop 0:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 207:8-215:9 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 208:8-216:9 -/
 @[rust_loop]
 def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
@@ -1529,7 +1529,7 @@ def arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_arith::{kopis::arithmetic::ntt_arith::NttMatrix<X, Y>}::mul_transpose]:
-    Source: 'src/arithmetic/ntt_arith.rs', lines 202:4-217:5 -/
+    Source: 'src/arithmetic/ntt_arith.rs', lines 203:4-218:5 -/
 def arithmetic.ntt_arith.NttMatrix.mul_transpose
   {X : Std.Usize} {Y : Std.Usize} {Z : Std.Usize}
   (self : arithmetic.ntt_arith.NttMatrix X Y)
@@ -2758,6 +2758,45 @@ def arithmetic.plain_arith.Matrix.deserialize_10
     Source: 'src/consts.rs', lines 35:0-35:44 -/
 @[global_simps, irreducible] def consts.DOMSEP_NOREJECT : Std.U8 := 6#u8
 
+/-- [kopis::impls::kopis512::_]
+    Source: 'src/impls.rs', lines 32:12-35:14 -/
+@[global_simps, irreducible]
+def impls.kopis512._ : Result Unit := do
+  let i ← consts.KOPIS512_L * consts.RING_DEG
+  let i1 ← 1#usize <<< 13#i32
+  let i2 ← i1 - 1#usize
+  let i3 ← i * i2
+  let i4 ← consts.KOPIS512_MU / 2#usize
+  let i5 ← i3 * i4
+  let i6 ← lift (IScalar.hcast .Usize arithmetic.ntt_crt.CRT_Q_HALF)
+  massert (i5 <= i6)
+
+/-- [kopis::impls::kopis768::_]
+    Source: 'src/impls.rs', lines 32:12-35:14 -/
+@[global_simps, irreducible]
+def impls.kopis768._ : Result Unit := do
+  let i ← consts.KOPIS768_L * consts.RING_DEG
+  let i1 ← 1#usize <<< 13#i32
+  let i2 ← i1 - 1#usize
+  let i3 ← i * i2
+  let i4 ← consts.KOPIS768_MU / 2#usize
+  let i5 ← i3 * i4
+  let i6 ← lift (IScalar.hcast .Usize arithmetic.ntt_crt.CRT_Q_HALF)
+  massert (i5 <= i6)
+
+/-- [kopis::impls::kopis1024::_]
+    Source: 'src/impls.rs', lines 32:12-35:14 -/
+@[global_simps, irreducible]
+def impls.kopis1024._ : Result Unit := do
+  let i ← consts.KOPIS1024_L * consts.RING_DEG
+  let i1 ← 1#usize <<< 13#i32
+  let i2 ← i1 - 1#usize
+  let i3 ← i * i2
+  let i4 ← consts.KOPIS1024_MU / 2#usize
+  let i5 ← i3 * i4
+  let i6 ← lift (IScalar.hcast .Usize arithmetic.ntt_crt.CRT_Q_HALF)
+  massert (i5 <= i6)
+
 /-- [kopis::pke::PkeSecretKey]
     Source: 'src/pke.rs', lines 22:0-22:64 -/
 @[reducible]
@@ -2801,21 +2840,21 @@ def pke.ciphertext_len (L : Std.Usize) (T : Std.Usize) : Result Std.Usize := do
   i2 + i4
 
 /-- [kopis::impls::kopis512::KOPIS512_CIPHERTEXT_LEN]
-    Source: 'src/impls.rs', lines 37:12-38:69
+    Source: 'src/impls.rs', lines 44:12-45:69
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis512.KOPIS512_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 2#usize 3#usize
 
 /-- [kopis::impls::kopis768::KOPIS768_CIPHERTEXT_LEN]
-    Source: 'src/impls.rs', lines 37:12-38:69
+    Source: 'src/impls.rs', lines 44:12-45:69
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis768.KOPIS768_CIPHERTEXT_LEN : Result Std.Usize :=
   pke.ciphertext_len 3#usize 4#usize
 
 /-- [kopis::impls::kopis1024::KOPIS1024_CIPHERTEXT_LEN]
-    Source: 'src/impls.rs', lines 37:12-38:69
+    Source: 'src/impls.rs', lines 44:12-45:69
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis1024.KOPIS1024_CIPHERTEXT_LEN : Result Std.Usize :=
@@ -2839,21 +2878,21 @@ def kem.KemPublicKey.SERIALIZED_LEN (L : Std.Usize) : Result Std.Usize :=
   pke.PkePublicKey.SERIALIZED_LEN L
 
 /-- [kopis::impls::kopis512::KOPIS512_PUBKEY_LEN]
-    Source: 'src/impls.rs', lines 41:12-41:93
+    Source: 'src/impls.rs', lines 48:12-48:93
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis512.KOPIS512_PUBKEY_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 2#usize
 
 /-- [kopis::impls::kopis768::KOPIS768_PUBKEY_LEN]
-    Source: 'src/impls.rs', lines 41:12-41:93
+    Source: 'src/impls.rs', lines 48:12-48:93
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis768.KOPIS768_PUBKEY_LEN : Result Std.Usize :=
   kem.KemPublicKey.SERIALIZED_LEN 3#usize
 
 /-- [kopis::impls::kopis1024::KOPIS1024_PUBKEY_LEN]
-    Source: 'src/impls.rs', lines 41:12-41:93
+    Source: 'src/impls.rs', lines 48:12-48:93
     Visibility: public -/
 @[global_simps, irreducible]
 def impls.kopis1024.KOPIS1024_PUBKEY_LEN : Result Std.Usize :=
@@ -3420,7 +3459,7 @@ def kem.KemSecretKey.generate_inner
   ok (out, rng1)
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::generate_from_rng]:
-    Source: 'src/impls.rs', lines 51:16-53:17
+    Source: 'src/impls.rs', lines 58:16-60:17
     Visibility: public -/
 def impls.kopis512.KemSecretKey2.generate_from_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0) (rng : T0) :
@@ -3429,7 +3468,7 @@ def impls.kopis512.KemSecretKey2.generate_from_rng
   kem.KemSecretKey.generate_inner 2#usize 10#usize rand_coreCryptoRngInst rng
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemSecretKey<3usize>}::generate_from_rng]:
-    Source: 'src/impls.rs', lines 51:16-53:17
+    Source: 'src/impls.rs', lines 58:16-60:17
     Visibility: public -/
 def impls.kopis768.KemSecretKey3.generate_from_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0) (rng : T0) :
@@ -3438,7 +3477,7 @@ def impls.kopis768.KemSecretKey3.generate_from_rng
   kem.KemSecretKey.generate_inner 3#usize 8#usize rand_coreCryptoRngInst rng
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemSecretKey<4usize>}::generate_from_rng]:
-    Source: 'src/impls.rs', lines 51:16-53:17
+    Source: 'src/impls.rs', lines 58:16-60:17
     Visibility: public -/
 def impls.kopis1024.KemSecretKey4.generate_from_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0) (rng : T0) :
@@ -3447,35 +3486,35 @@ def impls.kopis1024.KemSecretKey4.generate_from_rng
   kem.KemSecretKey.generate_inner 4#usize 6#usize rand_coreCryptoRngInst rng
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::public_key]:
-    Source: 'src/impls.rs', lines 56:16-58:17
+    Source: 'src/impls.rs', lines 63:16-65:17
     Visibility: public -/
 def impls.kopis512.KemSecretKey2.public_key
   (self : kem.KemSecretKey 2#usize) : Result (kem.KemPublicKey 2#usize) := do
   ok self.kem_pk
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemSecretKey<3usize>}::public_key]:
-    Source: 'src/impls.rs', lines 56:16-58:17
+    Source: 'src/impls.rs', lines 63:16-65:17
     Visibility: public -/
 def impls.kopis768.KemSecretKey3.public_key
   (self : kem.KemSecretKey 3#usize) : Result (kem.KemPublicKey 3#usize) := do
   ok self.kem_pk
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemSecretKey<4usize>}::public_key]:
-    Source: 'src/impls.rs', lines 56:16-58:17
+    Source: 'src/impls.rs', lines 63:16-65:17
     Visibility: public -/
 def impls.kopis1024.KemSecretKey4.public_key
   (self : kem.KemSecretKey 4#usize) : Result (kem.KemPublicKey 4#usize) := do
   ok self.kem_pk
 
 /-- [kopis::impls::kopis512::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<2usize>}::from]:
-    Source: 'src/impls.rs', lines 62:16-64:17
+    Source: 'src/impls.rs', lines 69:16-71:17
     Visibility: public -/
 def kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832.from
   (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 2#usize) := do
   kem.KemSecretKey.expand_from_seed 2#usize 10#usize bytes
 
 /-- Trait implementation: [kopis::impls::kopis512::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<2usize>}]
-    Source: 'src/impls.rs', lines 61:12-65:13 -/
+    Source: 'src/impls.rs', lines 68:12-72:13 -/
 @[reducible]
 def kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
   (kem.KemSecretKey 2#usize) (Array Std.U8 32#usize) := {
@@ -3483,14 +3522,14 @@ def kem.KemSecretKey2.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
 }
 
 /-- [kopis::impls::kopis768::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<3usize>}::from]:
-    Source: 'src/impls.rs', lines 62:16-64:17
+    Source: 'src/impls.rs', lines 69:16-71:17
     Visibility: public -/
 def kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832.from
   (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 3#usize) := do
   kem.KemSecretKey.expand_from_seed 3#usize 8#usize bytes
 
 /-- Trait implementation: [kopis::impls::kopis768::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<3usize>}]
-    Source: 'src/impls.rs', lines 61:12-65:13 -/
+    Source: 'src/impls.rs', lines 68:12-72:13 -/
 @[reducible]
 def kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
   (kem.KemSecretKey 3#usize) (Array Std.U8 32#usize) := {
@@ -3498,14 +3537,14 @@ def kem.KemSecretKey3.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
 }
 
 /-- [kopis::impls::kopis1024::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<4usize>}::from]:
-    Source: 'src/impls.rs', lines 62:16-64:17
+    Source: 'src/impls.rs', lines 69:16-71:17
     Visibility: public -/
 def kem.KemSecretKey4.Insts.CoreConvertFromShared0ArrayU832.from
   (bytes : Array Std.U8 32#usize) : Result (kem.KemSecretKey 4#usize) := do
   kem.KemSecretKey.expand_from_seed 4#usize 6#usize bytes
 
 /-- Trait implementation: [kopis::impls::kopis1024::{impl core::convert::From<&'_0 [u8; 32usize]> for kopis::kem::KemSecretKey<4usize>}]
-    Source: 'src/impls.rs', lines 61:12-65:13 -/
+    Source: 'src/impls.rs', lines 68:12-72:13 -/
 @[reducible]
 def kem.KemSecretKey4.Insts.CoreConvertFromShared0ArrayU832 : core.convert.From
   (kem.KemSecretKey 4#usize) (Array Std.U8 32#usize) := {
@@ -3577,7 +3616,7 @@ def kem.KemPublicKey.serialize
   pke.PkePublicKey.serialize self.pke_pk out_buf
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::to_bytes]:
-    Source: 'src/impls.rs', lines 69:16-73:17
+    Source: 'src/impls.rs', lines 76:16-80:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.to_bytes
   (self : kem.KemPublicKey 2#usize) : Result (Array Std.U8 672#usize) := do
@@ -3587,7 +3626,7 @@ def impls.kopis512.KemPublicKey2.to_bytes
   ok (to_slice_mut_back s1)
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::to_bytes]:
-    Source: 'src/impls.rs', lines 69:16-73:17
+    Source: 'src/impls.rs', lines 76:16-80:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.to_bytes
   (self : kem.KemPublicKey 3#usize) : Result (Array Std.U8 992#usize) := do
@@ -3597,7 +3636,7 @@ def impls.kopis768.KemPublicKey3.to_bytes
   ok (to_slice_mut_back s1)
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::to_bytes]:
-    Source: 'src/impls.rs', lines 69:16-73:17
+    Source: 'src/impls.rs', lines 76:16-80:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.to_bytes
   (self : kem.KemPublicKey 4#usize) : Result (Array Std.U8 1312#usize) := do
@@ -3666,7 +3705,7 @@ def kem.KemPublicKey.from_bytes_inner
   ok { pke_pk, hash_pke_pk }
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::from_bytes]:
-    Source: 'src/impls.rs', lines 77:16-79:17
+    Source: 'src/impls.rs', lines 84:16-86:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.from_bytes
   (bytes : Array Std.U8 672#usize) : Result (kem.KemPublicKey 2#usize) := do
@@ -3674,7 +3713,7 @@ def impls.kopis512.KemPublicKey2.from_bytes
   kem.KemPublicKey.from_bytes_inner 2#usize s
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::from_bytes]:
-    Source: 'src/impls.rs', lines 77:16-79:17
+    Source: 'src/impls.rs', lines 84:16-86:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.from_bytes
   (bytes : Array Std.U8 992#usize) : Result (kem.KemPublicKey 3#usize) := do
@@ -3682,7 +3721,7 @@ def impls.kopis768.KemPublicKey3.from_bytes
   kem.KemPublicKey.from_bytes_inner 3#usize s
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::from_bytes]:
-    Source: 'src/impls.rs', lines 77:16-79:17
+    Source: 'src/impls.rs', lines 84:16-86:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.from_bytes
   (bytes : Array Std.U8 1312#usize) : Result (kem.KemPublicKey 4#usize) := do
@@ -3824,7 +3863,7 @@ def kem.SharedSecret.Insts.CoreOpsDropDrop.drop
   ok __zeroize_field_0
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 97:16-109:17
+    Source: 'src/impls.rs', lines 104:16-116:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.encapsulate_deterministic
   (self : kem.KemPublicKey 2#usize) (randomness : Array Std.U8 32#usize) :
@@ -3837,7 +3876,7 @@ def impls.kopis512.KemPublicKey2.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemPublicKey<2usize>}::encapsulate_with_rng]:
-    Source: 'src/impls.rs', lines 82:16-92:17
+    Source: 'src/impls.rs', lines 89:16-99:17
     Visibility: public -/
 def impls.kopis512.KemPublicKey2.encapsulate_with_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -3856,7 +3895,7 @@ def impls.kopis512.KemPublicKey2.encapsulate_with_rng
   ok (out, rng1)
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 97:16-109:17
+    Source: 'src/impls.rs', lines 104:16-116:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.encapsulate_deterministic
   (self : kem.KemPublicKey 3#usize) (randomness : Array Std.U8 32#usize) :
@@ -3869,7 +3908,7 @@ def impls.kopis768.KemPublicKey3.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemPublicKey<3usize>}::encapsulate_with_rng]:
-    Source: 'src/impls.rs', lines 82:16-92:17
+    Source: 'src/impls.rs', lines 89:16-99:17
     Visibility: public -/
 def impls.kopis768.KemPublicKey3.encapsulate_with_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -3888,7 +3927,7 @@ def impls.kopis768.KemPublicKey3.encapsulate_with_rng
   ok (out, rng1)
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::encapsulate_deterministic]:
-    Source: 'src/impls.rs', lines 97:16-109:17
+    Source: 'src/impls.rs', lines 104:16-116:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.encapsulate_deterministic
   (self : kem.KemPublicKey 4#usize) (randomness : Array Std.U8 32#usize) :
@@ -3901,7 +3940,7 @@ def impls.kopis1024.KemPublicKey4.encapsulate_deterministic
   ok (ct1, ss)
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemPublicKey<4usize>}::encapsulate_with_rng]:
-    Source: 'src/impls.rs', lines 82:16-92:17
+    Source: 'src/impls.rs', lines 89:16-99:17
     Visibility: public -/
 def impls.kopis1024.KemPublicKey4.encapsulate_with_rng
   {T0 : Type} (rand_coreCryptoRngInst : rand_core.CryptoRng T0)
@@ -4100,7 +4139,7 @@ def kem.decap
   ok ss
 
 /-- [kopis::impls::kopis512::{kopis::kem::KemSecretKey<2usize>}::decapsulate]:
-    Source: 'src/impls.rs', lines 116:16-121:17
+    Source: 'src/impls.rs', lines 123:16-128:17
     Visibility: public -/
 def impls.kopis512.KemSecretKey2.decapsulate
   (self : kem.KemSecretKey 2#usize) (encapsulated_key : Array Std.U8 736#usize)
@@ -4111,7 +4150,7 @@ def impls.kopis512.KemSecretKey2.decapsulate
   kem.decap 10#usize 3#usize self s
 
 /-- [kopis::impls::kopis768::{kopis::kem::KemSecretKey<3usize>}::decapsulate]:
-    Source: 'src/impls.rs', lines 116:16-121:17
+    Source: 'src/impls.rs', lines 123:16-128:17
     Visibility: public -/
 def impls.kopis768.KemSecretKey3.decapsulate
   (self : kem.KemSecretKey 3#usize)
@@ -4122,7 +4161,7 @@ def impls.kopis768.KemSecretKey3.decapsulate
   kem.decap 8#usize 4#usize self s
 
 /-- [kopis::impls::kopis1024::{kopis::kem::KemSecretKey<4usize>}::decapsulate]:
-    Source: 'src/impls.rs', lines 116:16-121:17
+    Source: 'src/impls.rs', lines 123:16-128:17
     Visibility: public -/
 def impls.kopis1024.KemSecretKey4.decapsulate
   (self : kem.KemSecretKey 4#usize)

@@ -12,11 +12,12 @@
 //! coefficients of the *exact integer* product of such polynomials — even accumulated over an
 //! ℓ-term matrix-vector product — are bounded in magnitude by
 //!     ℓ · 256 · (2^13 - 1) · (μ/2) ≤ 3 · 256 · 8191 · 4 = 25_162_752,
-//! the maximum over all three parameter sets. Every modulus the transforms work over is picked
-//! so that this bound fits strictly inside it, so the product can be computed exactly: do the
-//! arithmetic mod that modulus, lift to the centered representative, and reduce mod 2^16. The
-//! result is bit-identical to schoolbook multiplication of the wrapping-u16 ring elements, which
-//! is what the tests below check it against.
+//! the maximum over all three parameter sets, which `crate::impls` asserts at compile time for
+//! each. Every modulus the transforms work over is picked so that this bound fits strictly inside
+//! it, so the product can be computed exactly: do the arithmetic mod that modulus, lift to the
+//! centered representative, and reduce mod 2^16. The result is bit-identical to schoolbook
+//! multiplication of the wrapping-u16 ring elements, which is what the tests below check it
+//! against.
 //!
 //! Each prime is ≡ 1 (mod 512), so ℤ/q has a primitive 512th root of unity ψ and X^256 + 1
 //! splits completely: a full 8-level negacyclic NTT applies, and products of transformed
@@ -182,7 +183,7 @@ impl<const X: usize, const Y: usize> NttMatrix<X, Y> {
     /// Equivalent to schoolbook multiplication of the corresponding coefficient-domain matrices.
     pub(crate) fn mul<const Z: usize>(&self, other: &NttMatrix<Y, Z>) -> Matrix<X, Z> {
         // The inner dimension bounds the pointwise accumulator (see pointwise_mul_acc)
-        debug_assert!(Y <= crate::consts::MAX_L);
+        const { assert!(Y <= crate::consts::MAX_L) };
 
         let mut result = Matrix::default();
         for i in 0..X {
@@ -201,7 +202,7 @@ impl<const X: usize, const Y: usize> NttMatrix<X, Y> {
     /// the coefficient domain. Equivalent to schoolbook multiplication by the transpose.
     pub(crate) fn mul_transpose<const Z: usize>(&self, other: &NttMatrix<X, Z>) -> Matrix<Y, Z> {
         // The inner dimension bounds the pointwise accumulator (see pointwise_mul_acc)
-        debug_assert!(X <= crate::consts::MAX_L);
+        const { assert!(X <= crate::consts::MAX_L) };
 
         let mut result = Matrix::default();
         for j in 0..Y {

@@ -27,6 +27,13 @@ macro_rules! variant_impl {
         pub mod $variant_name {
             use super::*;
 
+            // The NTT's products are exact only while ℓ·256·(2^13 − 1)·(μ/2) is within the CRT
+            // range; see `crate::arithmetic::ntt_arith`.
+            const _: () = assert!(
+                $variant_ell * RING_DEG * ((1 << 13) - 1) * ($variant_mu / 2)
+                    <= crate::arithmetic::ntt_crt::CRT_Q_HALF as usize
+            );
+
             /// A secret key for this KEM
             pub type $privkey_name = KemSecretKey<$variant_ell>;
 
