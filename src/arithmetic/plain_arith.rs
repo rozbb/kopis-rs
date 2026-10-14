@@ -14,7 +14,8 @@ use zeroize::Zeroize;
 
 /// An element of the ring (Z/2^13 Z)\[X\] / (X^256 + 1)
 // The coefficients are in order of ascending powers, i.e., `self.0[0]` is the constant term
-#[derive(Eq, PartialEq, Debug, Clone, Copy, Zeroize)]
+#[derive(Clone, Copy, Zeroize)]
+#[cfg_attr(test, derive(Eq, PartialEq, Debug))]
 pub struct RingElem(pub(crate) [u16; RING_DEG]);
 
 impl Default for RingElem {
@@ -152,7 +153,8 @@ impl<'a> Sub for &'a RingElem {
 /// An element of R^{x×y} where R is a [`RingElem`], stored in row-major order
 // We store the matrix in row-major order, so the outer array is the number of rows, i.e., the
 // height, i.e., X
-#[derive(Eq, PartialEq, Debug, Clone, Zeroize)]
+#[derive(Clone, Zeroize)]
+#[cfg_attr(test, derive(Eq, PartialEq, Debug))]
 pub(crate) struct Matrix<const X: usize, const Y: usize>(pub(crate) [[RingElem; Y]; X]);
 
 impl<const X: usize, const Y: usize> Default for Matrix<X, Y> {

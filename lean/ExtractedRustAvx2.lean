@@ -17,16 +17,6 @@ noncomputable section
 
 namespace RustKopisAvx2
 
-/-- Trait implementation: [core::array::equality::{impl core::cmp::PartialEq<[U; N]> for [T; N]}]
-    Source: '/rustc/library/core/src/array/equality.rs', lines 5:0-7:28
-    Name pattern: [core::cmp::PartialEq<[@T; @N], [@U; @N]>] -/
-@[reducible, rust_trait_impl "core::cmp::PartialEq<[@T; @N], [@U; @N]>"]
-def Array.Insts.CoreCmpPartialEqArray {T : Type} {U : Type} (N : Std.Usize)
-  (cmpPartialEqInst : core.cmp.PartialEq T U) : core.cmp.PartialEq (Array T N)
-  (Array U N) := {
-  eq := core.array.equality.PartialEqArray.eq cmpPartialEqInst
-}
-
 /-- Trait implementation: [core::fmt::num::imp::{impl core::fmt::Display for usize}]
     Source: '/rustc/library/core/src/fmt/num.rs', lines 134:8-134:39
     Name pattern: [core::fmt::Display<usize>] -/
@@ -1587,7 +1577,7 @@ def backend.avx2.cpu.available : Result Bool := do
   ok true
 
 /-- [kopis::arithmetic::plain_arith::RingElem]
-    Source: 'src/arithmetic/plain_arith.rs', lines 18:0-18:48
+    Source: 'src/arithmetic/plain_arith.rs', lines 19:0-19:48
     Visibility: public -/
 @[reducible]
 def arithmetic.plain_arith.RingElem := Array Std.U16 256#usize
@@ -2915,7 +2905,7 @@ def arithmetic.ntt_arith.reduce_invntt_to_ring_elem
        ok a
 
 /-- [kopis::arithmetic::plain_arith::Matrix]
-    Source: 'src/arithmetic/plain_arith.rs', lines 156:0-156:88 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 158:0-158:88 -/
 @[reducible]
 def arithmetic.plain_arith.Matrix (X : Std.Usize) (Y : Std.Usize) :=
   Array (Array arithmetic.plain_arith.RingElem Y) X
@@ -3037,7 +3027,7 @@ def arithmetic.ntt_arith.NttMatrix.from_secret_matrix
 @[global_simps, irreducible] def consts.MAX_L : Std.Usize := 4#usize
 
 /-- [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::RingElem}::default]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 21:4-23:5
+    Source: 'src/arithmetic/plain_arith.rs', lines 22:4-24:5
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
   : Result arithmetic.plain_arith.RingElem := do
@@ -3045,7 +3035,7 @@ def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
   ok a
 
 /-- [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::Matrix<X, Y>}::default]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 159:4-161:5
+    Source: 'src/arithmetic/plain_arith.rs', lines 161:4-163:5
     Visibility: public -/
 def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault.default
   (X : Std.Usize) (Y : Std.Usize) :
@@ -3240,72 +3230,8 @@ def arithmetic.ntt_arith.NttMatrix.mul_transpose
   arithmetic.ntt_arith.NttMatrix.mul_transpose_loop0
     { start := 0#usize, «end» := Y } self other result
 
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::RingElem> for kopis::arithmetic::plain_arith::RingElem}::eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:13-17:22
-    Visibility: public -/
-def arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
-  (self : arithmetic.plain_arith.RingElem)
-  (other : arithmetic.plain_arith.RingElem) :
-  Result Bool
-  := do
-  core.array.equality.PartialEqArray.eq core.cmp.PartialEqU16 self other
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::RingElem> for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:13-17:22 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem :
-  core.cmp.PartialEq arithmetic.plain_arith.RingElem
-  arithmetic.plain_arith.RingElem := {
-  eq := arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem.eq
-}
-
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::RingElem}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:9-17:11
-    Visibility: public -/
-def arithmetic.plain_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
-  (self : arithmetic.plain_arith.RingElem) : Result Unit := do
-  ok ()
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:9-17:11 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreCmpEq : core.cmp.Eq
-  arithmetic.plain_arith.RingElem := {
-  partialEqInst :=
-    arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem
-  assert_fields_are_eq :=
-    arithmetic.plain_arith.RingElem.Insts.CoreCmpEq.assert_fields_are_eq
-}
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:13-17:22 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreMarkerStructuralPartialEq :
-  core.marker.StructuralPartialEq arithmetic.plain_arith.RingElem := {
-}
-
-/-- [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::RingElem}::fmt]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:24-17:29
-    Visibility: public -/
-def arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug.fmt
-  (self : arithmetic.plain_arith.RingElem) (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn :=
-    Dyn.mk _ (core.fmt.DebugShared (Array.Insts.CoreFmtDebug 256#usize
-      core.fmt.DebugU16)) self
-  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "RingElem") dyn
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:24-17:29 -/
-@[reducible]
-def arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug : core.fmt.Debug
-  arithmetic.plain_arith.RingElem := {
-  fmt := arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug.fmt
-}
-
 /-- [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::RingElem}::clone]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:31-17:36
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:9-17:14
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone.clone
   (self : arithmetic.plain_arith.RingElem) :
@@ -3314,7 +3240,7 @@ def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone.clone
   ok self
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:31-17:36 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:9-17:14 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone : core.clone.Clone
   arithmetic.plain_arith.RingElem := {
@@ -3322,7 +3248,7 @@ def arithmetic.plain_arith.RingElem.Insts.CoreCloneClone : core.clone.Clone
 }
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::Copy for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:38-17:42 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:16-17:20 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.CoreMarkerCopy : core.marker.Copy
   arithmetic.plain_arith.RingElem := {
@@ -3330,7 +3256,7 @@ def arithmetic.plain_arith.RingElem.Insts.CoreMarkerCopy : core.marker.Copy
 }
 
 /-- [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::RingElem}::zeroize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:44-17:51
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:22-17:29
     Visibility: public -/
 def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize.zeroize
   (self : arithmetic.plain_arith.RingElem) :
@@ -3342,7 +3268,7 @@ def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 17:44-17:51 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 17:22-17:29 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize : zeroize.Zeroize
   arithmetic.plain_arith.RingElem := {
@@ -3350,7 +3276,7 @@ def arithmetic.plain_arith.RingElem.Insts.ZeroizeZeroize : zeroize.Zeroize
 }
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 20:0-24:1 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 21:0-25:1 -/
 @[reducible]
 def arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault :
   core.default.Default arithmetic.plain_arith.RingElem := {
@@ -3883,7 +3809,7 @@ def backend.avx2.ser.deserialize
     tail_start tail1 out
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::deserialize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 44:4-89:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 45:4-90:5 -/
 def arithmetic.plain_arith.RingElem.deserialize
   (BITS_PER_ELEM : Std.Usize) (bytes : Slice Std.U8) :
   Result arithmetic.plain_arith.RingElem
@@ -4057,7 +3983,7 @@ def ser.serialize_10
   ser.serialize_10_loop { start := 0#usize, «end» := 64#usize } data out_buf
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::serialize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 94:4-112:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 95:4-113:5 -/
 def arithmetic.plain_arith.RingElem.serialize
   (BITS_PER_ELEM : Std.Usize) (self : arithmetic.plain_arith.RingElem)
   (out_buf : Slice Std.U8) :
@@ -4084,7 +4010,7 @@ def arithmetic.plain_arith.RingElem.serialize
     ser.serialize_generic BITS_PER_ELEM s out_buf
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_right]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 118:8-120:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 119:8-121:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.RingElem.shift_right_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -4104,7 +4030,7 @@ def arithmetic.plain_arith.RingElem.shift_right_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_right]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 117:4-121:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 118:4-122:5 -/
 def arithmetic.plain_arith.RingElem.shift_right
   (self : arithmetic.plain_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.plain_arith.RingElem
@@ -4118,7 +4044,7 @@ def arithmetic.plain_arith.RingElem.shift_right
   ok a
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_left]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 127:8-129:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 128:8-130:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.RingElem.shift_left_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -4138,7 +4064,7 @@ def arithmetic.plain_arith.RingElem.shift_left_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::shift_left]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 126:4-130:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 127:4-131:5 -/
 def arithmetic.plain_arith.RingElem.shift_left
   (self : arithmetic.plain_arith.RingElem) (shift : Std.Usize) :
   Result arithmetic.plain_arith.RingElem
@@ -4152,7 +4078,7 @@ def arithmetic.plain_arith.RingElem.shift_left
   ok a
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 134:8-136:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 135:8-137:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop
   (iter : core.slice.iter.IterMut Std.U16)
@@ -4172,7 +4098,7 @@ def arithmetic.plain_arith.RingElem.wrapping_add_to_all_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::RingElem}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 133:4-137:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 134:4-138:5 -/
 def arithmetic.plain_arith.RingElem.wrapping_add_to_all
   (self : arithmetic.plain_arith.RingElem) (val : Std.U16) :
   Result arithmetic.plain_arith.RingElem
@@ -4187,7 +4113,7 @@ def arithmetic.plain_arith.RingElem.wrapping_add_to_all
   ok a
 
 /-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::sub]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 145:8-147:9
+    Source: 'src/arithmetic/plain_arith.rs', lines 146:8-148:9
     Visibility: public -/
 @[rust_loop]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
@@ -4211,7 +4137,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}::sub]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 143:4-149:5
+    Source: 'src/arithmetic/plain_arith.rs', lines 144:4-150:5
     Visibility: public -/
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
   (self : arithmetic.plain_arith.RingElem)
@@ -4223,7 +4149,7 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
     { start := 0#usize, «end» := consts.RING_DEG } self other ret
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::ops::arith::Sub<&'a kopis::arithmetic::plain_arith::RingElem, kopis::arithmetic::plain_arith::RingElem> for &'a kopis::arithmetic::plain_arith::RingElem}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 140:0-150:1 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 141:0-151:1 -/
 @[reducible]
 def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   core.ops.arith.Sub arithmetic.plain_arith.RingElem
@@ -4231,78 +4157,8 @@ def SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem :
   sub := SharedARingElem.Insts.CoreOpsArithSubSharedARingElemRingElem.sub
 }
 
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::Matrix<X, Y>> for kopis::arithmetic::plain_arith::Matrix<X, Y>}::eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:13-155:22
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (other : arithmetic.plain_arith.Matrix X Y) :
-  Result Bool
-  := do
-  core.array.equality.PartialEqArray.eq (Array.Insts.CoreCmpPartialEqArray Y
-    arithmetic.plain_arith.RingElem.Insts.CoreCmpPartialEqRingElem) self other
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::PartialEq<kopis::arithmetic::plain_arith::Matrix<X, Y>> for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:13-155:22 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix (X : Std.Usize)
-  (Y : Std.Usize) : core.cmp.PartialEq (arithmetic.plain_arith.Matrix X Y)
-  (arithmetic.plain_arith.Matrix X Y) := {
-  eq := arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix.eq
-}
-
-/-- [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::Matrix<X, Y>}::assert_fields_are_eq]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:9-155:11
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
-  Result Unit
-  := do
-  ok ()
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::cmp::Eq for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:9-155:11 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreCmpEq (X : Std.Usize) (Y :
-  Std.Usize) : core.cmp.Eq (arithmetic.plain_arith.Matrix X Y) := {
-  partialEqInst := arithmetic.plain_arith.Matrix.Insts.CoreCmpPartialEqMatrix X
-    Y
-  assert_fields_are_eq :=
-    arithmetic.plain_arith.Matrix.Insts.CoreCmpEq.assert_fields_are_eq
-}
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::marker::StructuralPartialEq for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:13-155:22 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreMarkerStructuralPartialEq (X :
-  Std.Usize) (Y : Std.Usize) : core.marker.StructuralPartialEq
-  (arithmetic.plain_arith.Matrix X Y) := {
-}
-
-/-- [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::Matrix<X, Y>}::fmt]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:24-155:29
-    Visibility: public -/
-def arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug.fmt
-  {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
-  (f : core.fmt.Formatter) :
-  Result ((core.result.Result Unit core.fmt.Error) × core.fmt.Formatter)
-  := do
-  let dyn :=
-    Dyn.mk _ (core.fmt.DebugShared (Array.Insts.CoreFmtDebug X
-      (Array.Insts.CoreFmtDebug Y
-      arithmetic.plain_arith.RingElem.Insts.CoreFmtDebug))) self
-  core.fmt.Formatter.debug_tuple_field1_finish f (toStr "Matrix") dyn
-
-/-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::fmt::Debug for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:24-155:29 -/
-@[reducible]
-def arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug (X : Std.Usize) (Y :
-  Std.Usize) : core.fmt.Debug (arithmetic.plain_arith.Matrix X Y) := {
-  fmt := arithmetic.plain_arith.Matrix.Insts.CoreFmtDebug.fmt
-}
-
 /-- [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::Matrix<X, Y>}::clone]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:31-155:36
+    Source: 'src/arithmetic/plain_arith.rs', lines 156:9-156:14
     Visibility: public -/
 def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
@@ -4314,7 +4170,7 @@ def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone.clone
   ok a
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::clone::Clone for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:31-155:36 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 156:9-156:14 -/
 @[reducible]
 def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
   Std.Usize) : core.clone.Clone (arithmetic.plain_arith.Matrix X Y) := {
@@ -4322,7 +4178,7 @@ def arithmetic.plain_arith.Matrix.Insts.CoreCloneClone (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::Matrix<X, Y>}::zeroize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:38-155:45
+    Source: 'src/arithmetic/plain_arith.rs', lines 156:16-156:23
     Visibility: public -/
 def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize.zeroize
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y) :
@@ -4334,7 +4190,7 @@ def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize.zeroize
   ok __zeroize_field_0
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl zeroize::Zeroize for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 155:38-155:45 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 156:16-156:23 -/
 @[reducible]
 def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
   Std.Usize) : zeroize.Zeroize (arithmetic.plain_arith.Matrix X Y) := {
@@ -4342,7 +4198,7 @@ def arithmetic.plain_arith.Matrix.Insts.ZeroizeZeroize (X : Std.Usize) (Y :
 }
 
 /-- Trait implementation: [kopis::arithmetic::plain_arith::{impl core::default::Default for kopis::arithmetic::plain_arith::Matrix<X, Y>}]
-    Source: 'src/arithmetic/plain_arith.rs', lines 158:0-162:1 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 160:0-164:1 -/
 @[reducible]
 def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
   Std.Usize) : core.default.Default (arithmetic.plain_arith.Matrix X Y) := {
@@ -4350,7 +4206,7 @@ def arithmetic.plain_arith.Matrix.Insts.CoreDefaultDefault (X : Std.Usize) (Y :
 }
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 168:12-170:13 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 170:12-172:13 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.shift_right_loop0_loop0
   (iter : core.slice.iter.IterMut arithmetic.plain_arith.RingElem)
@@ -4373,7 +4229,7 @@ def arithmetic.plain_arith.Matrix.shift_right_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 167:8-171:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 169:8-173:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.shift_right_loop0
   {Y : Std.Usize}
@@ -4403,7 +4259,7 @@ def arithmetic.plain_arith.Matrix.shift_right_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::shift_right]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 166:4-172:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 168:4-174:5 -/
 def arithmetic.plain_arith.Matrix.shift_right
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
   (shift : Std.Usize) :
@@ -4418,7 +4274,7 @@ def arithmetic.plain_arith.Matrix.shift_right
   ok a
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 177:12-179:13 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 179:12-181:13 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0
   (iter : core.slice.iter.IterMut arithmetic.plain_arith.RingElem)
@@ -4440,7 +4296,7 @@ def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 176:8-180:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 178:8-182:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0
   {Y : Std.Usize}
@@ -4470,7 +4326,7 @@ def arithmetic.plain_arith.Matrix.wrapping_add_to_all_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::wrapping_add_to_all]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 175:4-181:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 177:4-183:5 -/
 def arithmetic.plain_arith.Matrix.wrapping_add_to_all
   {X : Std.Usize} {Y : Std.Usize} (self : arithmetic.plain_arith.Matrix X Y)
   (val : Std.U16) :
@@ -4486,7 +4342,7 @@ def arithmetic.plain_arith.Matrix.wrapping_add_to_all
   ok a
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 200:12-204:13 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 202:12-206:13 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.serialize_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (BITS_PER_ELEM : Std.Usize)
@@ -4519,7 +4375,7 @@ def arithmetic.plain_arith.Matrix.serialize_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 199:8-205:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 201:8-207:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.serialize_loop0
   {X : Std.Usize} {Y : Std.Usize} (BITS_PER_ELEM : Std.Usize)
@@ -4541,7 +4397,7 @@ def arithmetic.plain_arith.Matrix.serialize_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::serialize]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 185:4-206:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 187:4-208:5 -/
 def arithmetic.plain_arith.Matrix.serialize
   {X : Std.Usize} {Y : Std.Usize} (BITS_PER_ELEM : Std.Usize)
   (self : arithmetic.plain_arith.Matrix X Y) (out_buf : Slice Std.U8) :
@@ -4562,7 +4418,7 @@ def arithmetic.plain_arith.Matrix.serialize
     { start := 0#usize, «end» := X } self out_buf chunk_len
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]: loop 1:
-    Source: 'src/arithmetic/plain_arith.rs', lines 227:12-231:13 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 229:12-233:13 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -4592,7 +4448,7 @@ def arithmetic.plain_arith.Matrix.deserialize_10_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]: loop 0:
-    Source: 'src/arithmetic/plain_arith.rs', lines 226:8-232:9 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 228:8-234:9 -/
 @[rust_loop]
 def arithmetic.plain_arith.Matrix.deserialize_10_loop0
   {X : Std.Usize} {Y : Std.Usize} (iter : core.ops.range.Range Std.Usize)
@@ -4613,7 +4469,7 @@ def arithmetic.plain_arith.Matrix.deserialize_10_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::plain_arith::{kopis::arithmetic::plain_arith::Matrix<X, Y>}::deserialize_10]:
-    Source: 'src/arithmetic/plain_arith.rs', lines 209:4-235:5 -/
+    Source: 'src/arithmetic/plain_arith.rs', lines 211:4-237:5 -/
 def arithmetic.plain_arith.Matrix.deserialize_10
   (X : Std.Usize) (Y : Std.Usize) (bytes : Slice Std.U8) :
   Result (arithmetic.plain_arith.Matrix X Y)
