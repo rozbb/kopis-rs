@@ -932,7 +932,7 @@ def backend.avx2.ntt.lane_tbl
   ok { z := z1, zq := zq1 }
 
 /-- [kopis::arithmetic::ntt_crt::ZETAS_Q2]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 106:0-123:2 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 108:0-125:2 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.ZETAS_Q2 : Array Std.I16 256#usize :=
   Array.make 256#usize [
@@ -980,7 +980,7 @@ def arithmetic.ntt_crt.ZETAS_Q2 : Array Std.I16 256#usize :=
     ]
 
 /-- [kopis::arithmetic::ntt_crt::Q2_INV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 61:0-61:38 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 63:0-63:38 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.Q2_INV : Std.I16 := (-10751)#i16
 
@@ -1013,7 +1013,7 @@ def backend.avx2.ntt.FWD8_Q2 : Result (backend.avx2.ntt.Tbl 16#usize) :=
     arithmetic.ntt_crt.Q2_INV 16#isize 0#isize 1#isize false
 
 /-- [kopis::arithmetic::ntt_crt::ZETAS_Q1]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 85:0-102:2 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 87:0-104:2 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.ZETAS_Q1 : Array Std.I16 256#usize :=
   Array.make 256#usize [
@@ -1061,7 +1061,7 @@ def arithmetic.ntt_crt.ZETAS_Q1 : Array Std.I16 256#usize :=
     ]
 
 /-- [kopis::arithmetic::ntt_crt::Q1_INV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 59:0-59:37 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 61:0-61:37 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.Q1_INV : Std.I16 := (-7679)#i16
 
@@ -1099,7 +1099,7 @@ axiom backend.avx2.intrinsics.set1_epi16
   : Std.I16 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::arithmetic::ntt_crt::zetas_qinv]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 130:4-133:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 132:4-135:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.zetas_qinv_loop
   (zetas : Array Std.I16 256#usize) (qinv : Std.I16)
@@ -1117,7 +1117,7 @@ def arithmetic.ntt_crt.zetas_qinv_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::zetas_qinv]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 127:0-135:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 129:0-137:1 -/
 def arithmetic.ntt_crt.zetas_qinv
   (zetas : Array Std.I16 256#usize) (qinv : Std.I16) :
   Result (Array Std.I16 256#usize)
@@ -1126,21 +1126,21 @@ def arithmetic.ntt_crt.zetas_qinv
   arithmetic.ntt_crt.zetas_qinv_loop zetas qinv table 0#usize
 
 /-- [kopis::arithmetic::ntt_crt::ZETAS_Q2_QINV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 138:0-138:75 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 140:0-140:75 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.ZETAS_Q2_QINV : Result (Array Std.I16 256#usize) :=
   arithmetic.ntt_crt.zetas_qinv arithmetic.ntt_crt.ZETAS_Q2
     arithmetic.ntt_crt.Q2_INV
 
 /-- [kopis::arithmetic::ntt_crt::ZETAS_Q1_QINV]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 137:0-137:75 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 139:0-139:75 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.ZETAS_Q1_QINV : Result (Array Std.I16 256#usize) :=
   arithmetic.ntt_crt.zetas_qinv arithmetic.ntt_crt.ZETAS_Q1
     arithmetic.ntt_crt.Q1_INV
 
 /-- [kopis::arithmetic::ntt_crt::zeta_q]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 174:0-180:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 176:0-182:1 -/
 def arithmetic.ntt_crt.zeta_q
   (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
   if SECOND
@@ -1150,7 +1150,7 @@ def arithmetic.ntt_crt.zeta_q
        Array.index_usize a k
 
 /-- [kopis::arithmetic::ntt_crt::zeta]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 169:0-171:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 171:0-173:1 -/
 def arithmetic.ntt_crt.zeta
   (SECOND : Bool) (k : Std.Usize) : Result Std.I16 := do
   if SECOND
@@ -1158,39 +1158,39 @@ def arithmetic.ntt_crt.zeta
   else Array.index_usize arithmetic.ntt_crt.ZETAS_Q1 k
 
 /-- [kopis::arithmetic::ntt_crt::Q2_BARRETT_M]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 65:0-65:43 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 67:0-67:43 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.Q2_BARRETT_M : Std.I16 := 12482#i16
 
 /-- [kopis::arithmetic::ntt_crt::Q1_BARRETT_M]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 63:0-63:43 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 65:0-65:43 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.Q1_BARRETT_M : Std.I16 := 17474#i16
 
 /-- [kopis::arithmetic::ntt_crt::barrett_m]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 155:0-157:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 157:0-159:1 -/
 def arithmetic.ntt_crt.barrett_m (SECOND : Bool) : Result Std.I16 := do
   if SECOND
   then ok arithmetic.ntt_crt.Q2_BARRETT_M
   else ok arithmetic.ntt_crt.Q1_BARRETT_M
 
 /-- [kopis::arithmetic::ntt_crt::Q2]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 57:0-57:33 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 59:0-59:33 -/
 @[global_simps, irreducible] def arithmetic.ntt_crt.Q2 : Std.I16 := 10753#i16
 
 /-- [kopis::arithmetic::ntt_crt::Q1]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 55:0-55:32 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 57:0-57:32 -/
 @[global_simps, irreducible] def arithmetic.ntt_crt.Q1 : Std.I16 := 7681#i16
 
 /-- [kopis::arithmetic::ntt_crt::q]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 145:0-147:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 147:0-149:1 -/
 def arithmetic.ntt_crt.q (SECOND : Bool) : Result Std.I16 := do
   if SECOND
   then ok arithmetic.ntt_crt.Q2
   else ok arithmetic.ntt_crt.Q1
 
 /-- [kopis::arithmetic::ntt_crt::BARRETT_SH]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 68:0-68:38 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 70:0-70:38 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.BARRETT_SH : Std.I32 := 11#i32
 
@@ -1481,7 +1481,7 @@ axiom backend.avx2.intrinsics.load_u16
   Array Std.U16 N → Std.Usize → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::split_and_transform]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 504:4-511:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 505:4-512:5 -/
 @[rust_loop]
 def backend.avx2.ntt.split_and_transform_loop
   (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -1504,7 +1504,7 @@ def backend.avx2.ntt.split_and_transform_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::split_and_transform]:
-    Source: 'src/backend/avx2/ntt.rs', lines 497:0-514:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 498:0-515:1 -/
 def backend.avx2.ntt.split_and_transform
   (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
   (b : Array Std.I16 256#usize) :
@@ -1523,7 +1523,7 @@ def backend.avx2.ntt.split_and_transform
   backend.avx2.ntt.ntt_block SECOND b1
 
 /-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 533:4-535:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 534:4-536:5 -/
 @[rust_loop]
 def backend.avx2.ntt.from_ring_elem_loop0
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
@@ -1541,7 +1541,7 @@ def backend.avx2.ntt.from_ring_elem_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::from_ring_elem]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 538:4-540:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 539:4-541:5 -/
 @[rust_loop]
 def backend.avx2.ntt.from_ring_elem_loop1
   (iter : core.ops.range.Range Std.Usize) (out : Array Std.I16 512#usize)
@@ -1560,7 +1560,7 @@ def backend.avx2.ntt.from_ring_elem_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::from_ring_elem]:
-    Source: 'src/backend/avx2/ntt.rs', lines 528:0-543:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 529:0-544:1 -/
 def backend.avx2.ntt.from_ring_elem
   (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
   Result (Array Std.I16 512#usize)
@@ -1576,7 +1576,7 @@ def backend.avx2.ntt.from_ring_elem
     { start := 0#usize, «end» := 16#usize } out1 b2
 
 /-- [kopis::backend::avx2::ntt::from_uniform]:
-    Source: 'src/backend/avx2/ntt.rs', lines 551:0-553:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 552:0-554:1 -/
 def backend.avx2.ntt.from_uniform
   (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
   backend.avx2.ntt.from_ring_elem true elem
@@ -1597,7 +1597,7 @@ def arithmetic.plain_arith.RingElem := Array Std.U16 256#usize
 @[global_simps, irreducible] def consts.RING_DEG : Std.Usize := 256#usize
 
 /-- [kopis::arithmetic::ntt_crt::mont_mul]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 197:0-202:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 199:0-204:1 -/
 def arithmetic.ntt_crt.mont_mul
   (a : Std.I16) (z : Std.I16) (zq : Std.I16) (q : Std.I16) :
   Result Std.I16
@@ -1616,7 +1616,7 @@ def arithmetic.ntt_crt.mont_mul
   ok (core.num.I16.wrapping_sub hi th)
 
 /-- [kopis::arithmetic::ntt_crt::ct_level]: loop 1:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 237:8-241:9 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 239:8-243:9 -/
 @[rust_loop]
 def arithmetic.ntt_crt.ct_level_loop0_loop0
   (LEN : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -1641,7 +1641,7 @@ def arithmetic.ntt_crt.ct_level_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::ct_level]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 233:4-243:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 235:4-245:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.ct_level_loop0
   (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
@@ -1664,7 +1664,7 @@ def arithmetic.ntt_crt.ct_level_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::ct_level]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 230:0-244:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 232:0-246:1 -/
 def arithmetic.ntt_crt.ct_level
   (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
   (k : Std.Usize) :
@@ -1674,7 +1674,7 @@ def arithmetic.ntt_crt.ct_level
   arithmetic.ntt_crt.ct_level_loop0 LEN SECOND b k q 0#usize
 
 /-- [kopis::arithmetic::ntt_crt::barrett]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 210:0-214:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 212:0-216:1 -/
 def arithmetic.ntt_crt.barrett
   (x : Std.I16) (m : Std.I16) (q : Std.I16) : Result Std.I16 := do
   let i ← lift (IScalar.cast .I32 x)
@@ -1690,7 +1690,7 @@ def arithmetic.ntt_crt.barrett
   ok (core.num.I16.wrapping_sub x i7)
 
 /-- [kopis::arithmetic::ntt_crt::barrett_block]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 220:4-222:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 222:4-224:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.barrett_block_loop
   (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
@@ -1709,7 +1709,7 @@ def arithmetic.ntt_crt.barrett_block_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::barrett_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 217:0-223:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 219:0-225:1 -/
 def arithmetic.ntt_crt.barrett_block
   (SECOND : Bool) (b : Array Std.I16 256#usize) :
   Result (Array Std.I16 256#usize)
@@ -1720,7 +1720,7 @@ def arithmetic.ntt_crt.barrett_block
     { start := 0#usize, «end» := consts.RING_DEG } b q m
 
 /-- [kopis::arithmetic::ntt_crt::ntt_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 271:0-286:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 273:0-288:1 -/
 def arithmetic.ntt_crt.ntt_block
   (SECOND : Bool) (b : Array Std.I16 256#usize) :
   Result (Array Std.I16 256#usize)
@@ -1738,7 +1738,7 @@ def arithmetic.ntt_crt.ntt_block
   arithmetic.ntt_crt.barrett_block SECOND b10
 
 /-- [kopis::arithmetic::ntt_crt::split_and_transform]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 327:4-330:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 329:4-332:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.split_and_transform_loop
   (REDUCE : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -1761,7 +1761,7 @@ def arithmetic.ntt_crt.split_and_transform_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::split_and_transform]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 321:0-332:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 323:0-334:1 -/
 def arithmetic.ntt_crt.split_and_transform
   (SECOND : Bool) (REDUCE : Bool) (elem : Array Std.U16 256#usize)
   (b : Array Std.I16 256#usize) :
@@ -1775,7 +1775,7 @@ def arithmetic.ntt_crt.split_and_transform
   arithmetic.ntt_crt.ntt_block SECOND b1
 
 /-- [kopis::arithmetic::ntt_crt::from_ring_elem]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 336:0-347:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 338:0-349:1 -/
 def arithmetic.ntt_crt.from_ring_elem
   (REDUCE : Bool) (elem : Array Std.U16 256#usize) :
   Result (Array Std.I16 512#usize)
@@ -1800,7 +1800,7 @@ def arithmetic.ntt_crt.from_ring_elem
   ok (index_mut_back1 s5)
 
 /-- [kopis::arithmetic::ntt_crt::from_uniform]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 350:0-352:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 352:0-354:1 -/
 def arithmetic.ntt_crt.from_uniform
   (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
   arithmetic.ntt_crt.from_ring_elem true elem
@@ -1819,13 +1819,13 @@ def arithmetic.ntt_arith.NttElem.from_uniform
        ok a
 
 /-- [kopis::backend::avx2::ntt::from_secret]:
-    Source: 'src/backend/avx2/ntt.rs', lines 561:0-563:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 562:0-564:1 -/
 def backend.avx2.ntt.from_secret
   (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
   backend.avx2.ntt.from_ring_elem false elem
 
 /-- [kopis::arithmetic::ntt_crt::from_secret]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 355:0-357:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 357:0-359:1 -/
 def arithmetic.ntt_crt.from_secret
   (elem : Array Std.U16 256#usize) : Result (Array Std.I16 512#usize) := do
   arithmetic.ntt_crt.from_ring_elem false elem
@@ -1931,7 +1931,7 @@ axiom backend.avx2.intrinsics.add_epi32
     backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 582:8-602:9 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 583:8-603:9 -/
 @[rust_loop]
 def backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
@@ -1969,7 +1969,7 @@ def backend.avx2.ntt.pointwise_mul_acc_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::pointwise_mul_acc]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 581:4-603:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 582:4-604:5 -/
 @[rust_loop]
 def backend.avx2.ntt.pointwise_mul_acc_loop0
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
@@ -1988,7 +1988,7 @@ def backend.avx2.ntt.pointwise_mul_acc_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::pointwise_mul_acc]:
-    Source: 'src/backend/avx2/ntt.rs', lines 576:0-604:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 577:0-605:1 -/
 @[reducible]
 def backend.avx2.ntt.pointwise_mul_acc
   (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
@@ -1999,7 +1999,7 @@ def backend.avx2.ntt.pointwise_mul_acc
     { start := 0#usize, «end» := 2#usize } acc lhs rhs
 
 /-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 369:4-371:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 371:4-373:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.pointwise_mul_acc_loop
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
@@ -2023,7 +2023,7 @@ def arithmetic.ntt_crt.pointwise_mul_acc_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::pointwise_mul_acc]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 364:0-372:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 366:0-374:1 -/
 def arithmetic.ntt_crt.pointwise_mul_acc
   (acc : Array Std.I32 512#usize) (lhs : Array Std.I16 512#usize)
   (rhs : Array Std.I16 512#usize) :
@@ -2115,31 +2115,31 @@ def backend.avx2.ntt.INV1_Q1 : Result (backend.avx2.ntt.Tbl 128#usize) :=
     arithmetic.ntt_crt.Q1_INV 255#isize (-1)#isize (-8)#isize true
 
 /-- [kopis::arithmetic::ntt_crt::INVNTT_SCALE_2]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 73:0-73:44 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 75:0-75:44 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.INVNTT_SCALE_2 : Std.I16 := 2536#i16
 
 /-- [kopis::arithmetic::ntt_crt::INVNTT_SCALE_1]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 71:0-71:44 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 73:0-73:44 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.INVNTT_SCALE_1 : Std.I16 := 1912#i16
 
 /-- [kopis::arithmetic::ntt_crt::invntt_scale]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 160:0-166:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 162:0-168:1 -/
 def arithmetic.ntt_crt.invntt_scale (SECOND : Bool) : Result Std.I16 := do
   if SECOND
   then ok arithmetic.ntt_crt.INVNTT_SCALE_2
   else ok arithmetic.ntt_crt.INVNTT_SCALE_1
 
 /-- [kopis::arithmetic::ntt_crt::qinv]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 150:0-152:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 152:0-154:1 -/
 def arithmetic.ntt_crt.qinv (SECOND : Bool) : Result Std.I16 := do
   if SECOND
   then ok arithmetic.ntt_crt.Q2_INV
   else ok arithmetic.ntt_crt.Q1_INV
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 403:62-419:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 404:62-420:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop0
   (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -2171,7 +2171,7 @@ def backend.avx2.ntt.invntt_block_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 2:
-    Source: 'src/backend/avx2/ntt.rs', lines 403:62-423:9 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 404:62-424:9 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop1_loop0
   (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -2208,7 +2208,7 @@ def backend.avx2.ntt.invntt_block_loop1_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 1:
-    Source: 'src/backend/avx2/ntt.rs', lines 403:62-424:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 404:62-425:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop1
   (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -2227,7 +2227,7 @@ def backend.avx2.ntt.invntt_block_loop1
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 4:
-    Source: 'src/backend/avx2/ntt.rs', lines 403:62-431:9 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 404:62-432:9 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop2_loop0
   (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -2264,7 +2264,7 @@ def backend.avx2.ntt.invntt_block_loop2_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 3:
-    Source: 'src/backend/avx2/ntt.rs', lines 403:62-432:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 404:62-433:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop2
   (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -2283,7 +2283,7 @@ def backend.avx2.ntt.invntt_block_loop2
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 5:
-    Source: 'src/backend/avx2/ntt.rs', lines 403:62-435:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 404:62-436:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop3
   (SECOND : Bool) (iter : core.ops.range.Range Std.Usize)
@@ -2315,7 +2315,7 @@ def backend.avx2.ntt.invntt_block_loop3
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 8:
-    Source: 'src/backend/avx2/ntt.rs', lines 456:12-463:13 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 457:12-464:13 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop4_loop0_loop0
   (b : Array Std.I16 256#usize) (q : backend.avx2.intrinsics.Vec256)
@@ -2338,7 +2338,7 @@ def backend.avx2.ntt.invntt_block_loop4_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 7:
-    Source: 'src/backend/avx2/ntt.rs', lines 446:8-465:9 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 447:8-466:9 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop4_loop0
   (SECOND : Bool) (b : Array Std.I16 256#usize)
@@ -2364,7 +2364,7 @@ def backend.avx2.ntt.invntt_block_loop4_loop0
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 6:
-    Source: 'src/backend/avx2/ntt.rs', lines 444:4-471:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 445:4-472:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop4
   (SECOND : Bool) (b : Array Std.I16 256#usize)
@@ -2386,7 +2386,7 @@ def backend.avx2.ntt.invntt_block_loop4
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]: loop 9:
-    Source: 'src/backend/avx2/ntt.rs', lines 476:4-478:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 477:4-479:5 -/
 @[rust_loop]
 def backend.avx2.ntt.invntt_block_loop5
   (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
@@ -2406,7 +2406,7 @@ def backend.avx2.ntt.invntt_block_loop5
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::invntt_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 395:0-479:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 396:0-480:1 -/
 def backend.avx2.ntt.invntt_block
   (SECOND : Bool) (b : Array Std.I16 256#usize) :
   Result (Array Std.I16 256#usize)
@@ -2470,7 +2470,7 @@ axiom backend.avx2.intrinsics.srai_epi32
   backend.avx2.intrinsics.Vec256 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::backend::avx2::ntt::reduce_block]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 619:4-634:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 620:4-635:5 -/
 @[rust_loop]
 def backend.avx2.ntt.reduce_block_loop
   (iter : core.ops.range.Range Std.Usize) (acc : Array Std.I32 512#usize)
@@ -2508,7 +2508,7 @@ def backend.avx2.ntt.reduce_block_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::reduce_block]:
-    Source: 'src/backend/avx2/ntt.rs', lines 615:0-638:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 616:0-639:1 -/
 def backend.avx2.ntt.reduce_block
   (SECOND : Bool) (acc : Array Std.I32 512#usize) (base : Std.Usize)
   (b : Array Std.I16 256#usize) :
@@ -2591,22 +2591,22 @@ axiom backend.avx2.intrinsics.set1_epi32
   : Std.I32 → Result backend.avx2.intrinsics.Vec256
 
 /-- [kopis::arithmetic::ntt_crt::CRT_Q1_INV_MONT]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 79:0-79:45 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 81:0-81:45 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.CRT_Q1_INV_MONT : Std.I16 := 3563#i16
 
 /-- [kopis::arithmetic::ntt_crt::CRT_Q_HALF]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 77:0-77:44 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 79:0-79:44 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.CRT_Q_HALF : Std.I32 := 41296896#i32
 
 /-- [kopis::arithmetic::ntt_crt::CRT_Q]
-    Source: 'src/arithmetic/ntt_crt.rs', lines 75:0-75:39 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 77:0-77:39 -/
 @[global_simps, irreducible]
 def arithmetic.ntt_crt.CRT_Q : Std.I32 := 82593793#i32
 
 /-- [kopis::backend::avx2::ntt::reduce_invntt]: loop 0:
-    Source: 'src/backend/avx2/ntt.rs', lines 671:16-705:5 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 672:16-706:5 -/
 @[rust_loop]
 def backend.avx2.ntt.reduce_invntt_loop
   (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
@@ -2666,7 +2666,7 @@ def backend.avx2.ntt.reduce_invntt_loop
 partial_fixpoint
 
 /-- [kopis::backend::avx2::ntt::reduce_invntt]:
-    Source: 'src/backend/avx2/ntt.rs', lines 647:0-707:1 -/
+    Source: 'src/backend/avx2/ntt.rs', lines 648:0-708:1 -/
 def backend.avx2.ntt.reduce_invntt
   (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
   let v1 := Array.repeat 256#usize 0#i16
@@ -2692,7 +2692,7 @@ def backend.avx2.ntt.reduce_invntt
     v11 v21 q1 q2 q1_inv_mont q1_inv_mont_q q1_wide crt_q crt_q_half low16 out
 
 /-- [kopis::arithmetic::ntt_crt::reduce_block]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 382:4-387:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 384:4-389:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.reduce_block_loop
   (iter : core.ops.range.Range Std.Usize) (acc : Slice Std.I32)
@@ -2720,7 +2720,7 @@ def arithmetic.ntt_crt.reduce_block_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::reduce_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 379:0-388:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 381:0-390:1 -/
 def arithmetic.ntt_crt.reduce_block
   (SECOND : Bool) (acc : Slice Std.I32) (b : Array Std.I16 256#usize) :
   Result (Array Std.I16 256#usize)
@@ -2731,7 +2731,7 @@ def arithmetic.ntt_crt.reduce_block
     { start := 0#usize, «end» := consts.RING_DEG } acc b q qinv
 
 /-- [kopis::arithmetic::ntt_crt::gs_level]: loop 1:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 260:8-265:9 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 262:8-267:9 -/
 @[rust_loop]
 def arithmetic.ntt_crt.gs_level_loop0_loop0
   (LEN : Std.Usize) (iter : core.ops.range.Range Std.Usize)
@@ -2755,7 +2755,7 @@ def arithmetic.ntt_crt.gs_level_loop0_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::gs_level]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 252:4-267:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 254:4-269:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.gs_level_loop0
   (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
@@ -2779,7 +2779,7 @@ def arithmetic.ntt_crt.gs_level_loop0
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::gs_level]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 248:0-268:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 250:0-270:1 -/
 def arithmetic.ntt_crt.gs_level
   (LEN : Std.Usize) (SECOND : Bool) (b : Array Std.I16 256#usize)
   (k : Std.Usize) :
@@ -2790,7 +2790,7 @@ def arithmetic.ntt_crt.gs_level
   arithmetic.ntt_crt.gs_level_loop0 LEN SECOND b k q qinv 0#usize
 
 /-- [kopis::arithmetic::ntt_crt::invntt_block]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 309:4-311:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 311:4-313:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.invntt_block_loop
   (iter : core.ops.range.Range Std.Usize) (b : Array Std.I16 256#usize)
@@ -2809,7 +2809,7 @@ def arithmetic.ntt_crt.invntt_block_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::invntt_block]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 289:0-312:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 291:0-314:1 -/
 def arithmetic.ntt_crt.invntt_block
   (SECOND : Bool) (b : Array Std.I16 256#usize) :
   Result (Array Std.I16 256#usize)
@@ -2833,7 +2833,7 @@ def arithmetic.ntt_crt.invntt_block
     { start := 0#usize, «end» := consts.RING_DEG } b11 q scale scale_q
 
 /-- [kopis::arithmetic::ntt_crt::reduce_invntt]: loop 0:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 407:4-423:5 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 409:4-425:5 -/
 @[rust_loop]
 def arithmetic.ntt_crt.reduce_invntt_loop
   (iter : core.ops.range.Range Std.Usize) (v1 : Array Std.I16 256#usize)
@@ -2877,7 +2877,7 @@ def arithmetic.ntt_crt.reduce_invntt_loop
 partial_fixpoint
 
 /-- [kopis::arithmetic::ntt_crt::reduce_invntt]:
-    Source: 'src/arithmetic/ntt_crt.rs', lines 392:0-425:1 -/
+    Source: 'src/arithmetic/ntt_crt.rs', lines 394:0-427:1 -/
 def arithmetic.ntt_crt.reduce_invntt
   (acc : Array Std.I32 512#usize) : Result (Array Std.U16 256#usize) := do
   let v1 := Array.repeat 256#usize 0#i16
@@ -5475,22 +5475,22 @@ def backend.avx2.sample.cbd
   (MU : Std.Usize) (buf : Slice Std.U8) :
   Result arithmetic.plain_arith.RingElem
   := do
-  let i ← MU % 2#usize
-  massert (i = 0#usize)
+  let b ← core.num.Usize.is_multiple_of MU 2#usize
+  massert b
   massert (2#usize <= MU)
   massert (MU <= 10#usize)
   let fields ← backend.avx2.ser.deserialize MU buf
   let a := backend.avx2.sample.NIBBLE_POPCOUNT
   let lut ← backend.avx2.intrinsics.load_u8 a 0#usize
-  let i1 ← MU / 2#usize
-  let i2 ← 1#u16 <<< i1
-  let i3 ← i2 - 1#u16
-  let i4 ← lift (UScalar.hcast .I16 i3)
-  let half_mask ← backend.avx2.intrinsics.set1_epi16 i4
+  let i ← MU / 2#usize
+  let i1 ← 1#u16 <<< i
+  let i2 ← i1 - 1#u16
+  let i3 ← lift (UScalar.hcast .I16 i2)
+  let half_mask ← backend.avx2.intrinsics.set1_epi16 i3
   let out ← arithmetic.plain_arith.RingElem.Insts.CoreDefaultDefault.default
-  let i5 ← consts.RING_DEG / 16#usize
-  backend.avx2.sample.cbd_loop i1 { start := 0#usize, «end» := i5 } fields
-    lut half_mask out
+  let i4 ← consts.RING_DEG / 16#usize
+  backend.avx2.sample.cbd_loop i { start := 0#usize, «end» := i4 } fields lut
+    half_mask out
 
 /-- [kopis::backend::avx2::sample::gen_matrix_from_seed]: loop 1:
     Source: 'src/backend/avx2/sample.rs', lines 120:8-124:9 -/

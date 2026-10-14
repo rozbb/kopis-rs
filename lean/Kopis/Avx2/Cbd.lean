@@ -360,9 +360,9 @@ theorem cbd_streamNat (buf : Slice U8) (mu half : ℕ) (hmu : mu = 2 * half) (hh
   have hmu13 : mu ≤ 13 := by omega
   unfold backend.avx2.sample.cbd
   -- the `const` assert on `MU`
-  let* ⟨ r, hr ⟩ ← Std.Usize.rem_spec
-  rw [show massert (r = 0#usize) = ok () from by
-        simp only [massert, if_pos (show r = 0#usize by scalar_tac)], bind_tc_ok]
+  rw [show core.num.Usize.is_multiple_of MU 2#usize = ok true from by
+        simp only [core.num.Usize.is_multiple_of, UScalar.is_multiple_of]; simp [hMU, hmu],
+      bind_tc_ok, show massert true = ok () from rfl, bind_tc_ok]
   rw [show massert (2#usize <= MU) = ok () from by
         simp only [massert, if_pos (show 2#usize <= MU by scalar_tac)], bind_tc_ok]
   rw [show massert (MU <= 10#usize) = ok () from by

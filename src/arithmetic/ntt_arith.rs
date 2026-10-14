@@ -36,7 +36,7 @@ use crate::{
 
 use zeroize::Zeroize;
 
-/// A ring element in the NTT domain. Coefficients are centered mod-q values, |·| ≤ q/2 + 41.
+/// A ring element in the NTT domain. Coefficients are centered mod-q values, |·| ≤ q/2.
 #[derive(Clone, Copy, Zeroize)]
 pub(crate) struct NttElem(pub(crate) [i16; 2 * RING_DEG]);
 
@@ -110,11 +110,11 @@ impl<const X: usize, const Y: usize> Default for NttMatrix<X, Y> {
     }
 }
 
-/// Adds the pointwise product lhs ∘ rhs into the i64 accumulator, without reducing.
+/// Adds the pointwise product lhs ∘ rhs into the `i32` accumulator, without reducing.
 ///
-/// Products of centered values are below (p/2 + 41)² and callers accumulate at most 4 (= MAX_L)
-/// of them, so the accumulator stays below 4·(p/2 + 41)² ≈ 2.54·10^15 < 2^52, comfortably
-/// within Montgomery reduction's valid input range of 2^31 · p.
+/// Products of centered values are at most (q/2)² and callers accumulate at most 4 (= MAX_L)
+/// of them, so each lane stays within 4·(q₂/2)² = 115_605_504 < 2^31. Montgomery reduction then
+/// leaves |r| ≤ 7_141, which the inverse transform requires.
 pub(crate) fn pointwise_mul_acc(acc: &mut Acc, lhs: &NttElem, rhs: &NttElem) {
     #[cfg(kopis_avx2)]
     #[allow(unsafe_code)]

@@ -207,8 +207,9 @@ pub(crate) fn sshr_n_s16<const IMM: i32>(a: Vec128) -> Vec128 {
 
 /// `ushl.8h`: 8 lanes of logical shift, each by the *signed* count in its own lane of `counts`
 ///
-/// A negative count shifts right, which is how the backend spells a variable right shift; a
-/// count of ±16 or beyond shifts the lane out entirely, giving zero.
+/// The count is the signed low byte of the lane, so 0x0100 shifts by 0. A negative count shifts
+/// right, which is how the backend spells a variable right shift; a count of ±16 or beyond shifts
+/// the lane out entirely, giving zero.
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn ushl_u16(a: Vec128, counts: Vec128) -> Vec128 {
@@ -265,7 +266,8 @@ pub(crate) fn cmgt_s32(a: Vec128, b: Vec128) -> Vec128 {
 
 /// `ushl.4s`: 4 lanes of logical shift, each by the *signed* count in its own lane of `counts`
 ///
-/// As with [`ushl_u16`], a negative count shifts right and a count of ±32 or beyond gives zero.
+/// As with [`ushl_u16`], the count is the signed low byte of the lane, a negative count shifts
+/// right, and a count of ±32 or beyond gives zero.
 #[inline]
 #[target_feature(enable = "neon")]
 pub(crate) fn ushl_u32(a: Vec128, counts: Vec128) -> Vec128 {

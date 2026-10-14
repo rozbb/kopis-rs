@@ -73,7 +73,7 @@ fn shift_right_dynamic(v: Vec256, count: usize) -> Vec256 {
 fn cbd<const MU: usize>(buf: &[u8]) -> RingElem {
     const {
         assert!(
-            MU % 2 == 0 && 2 <= MU && MU <= 10,
+            MU.is_multiple_of(2) && 2 <= MU && MU <= 10,
             "each half of the field must be below 32 for `popcount_small`"
         );
     }

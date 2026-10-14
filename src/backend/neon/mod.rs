@@ -3,7 +3,7 @@
 //! [`sample`] and [`ser`] are lane-parallel restatements of the portable routines and produce
 //! bit-identical output. [`ntt`] is not: it transforms over the same two primes as
 //! [`crate::arithmetic::ntt_crt`] but with its own per-lane ψ tables, so only the endpoints of
-//! the pipeline agree with the portable code and the Lean proof does not cover it. It differs
+//! the pipeline agree with the portable code. It differs
 //! from the AVX2 backend only in vector width — 8 `i16` here against 16 — so the NTT's
 //! whole-vector levels run down to `len = 8` and the last three live inside a vector.
 //!

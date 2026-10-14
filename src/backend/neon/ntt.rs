@@ -498,7 +498,8 @@ fn ntt_block<const SECOND: bool, const N: usize>(b: &mut [i16; N], base: usize) 
 ///
 /// # Safety
 ///
-/// Requires NEON. The block's values must satisfy `|a| < q`.
+/// Requires NEON. The block's values must satisfy `|a| ≤ 8_191`: the first two levels run
+/// before any reduction and can quadruple it. `|a| < q` is not enough for q₂.
 #[target_feature(enable = "neon")]
 fn invntt_block<const SECOND: bool>(b: &mut Block) {
     let q = dup_n_s16(crt::q::<SECOND>());
@@ -773,7 +774,7 @@ fn reduce_block<const SECOND: bool>(acc: &[i32; 2 * RING_DEG], base: usize, b: &
         store_i16(b, i, sub_16(hi, mulhi(t, q)));
     }
 
-    // The block now holds residues with |a| < q, as `invntt_block` requires.
+    // The block now holds residues with |a| ≤ 7_141, as `invntt_block` requires.
     invntt_block::<SECOND>(b);
 }
 

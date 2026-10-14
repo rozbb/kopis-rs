@@ -38,7 +38,9 @@
 //! the Montgomery quotient is an `i16`; from a centered start that reaches 2.95q after four
 //! levels and 3.19q after five, so at most four levels may run between reductions. Inverse, the
 //! Gentleman-Sande sum path doubles per level and both `lo ± hi` must fit, giving a usable bound
-//! of 1.52q that a Barrett pass every second level holds.
+//! of 1.52q that a Barrett pass every second level holds. The first run starts from the
+//! Montgomery-reduced accumulator, |a| ≤ 7_141, rather than from q/2; two levels take that to
+//! 28_564.
 //!
 //! Schedules are stated as *runs*: how many levels pass between reductions. The portable
 //! transform forward is 3, 3, 2 and inverse is a Barrett pass every second level. Each backend
@@ -443,6 +445,36 @@ mod test {
             exp >>= 1;
         }
         acc
+    }
+
+    // The inverse transform runs two Gentleman-Sande levels before its first Barrett pass, and
+    // the sum path doubles per level. Its input is the Montgomery-reduced accumulator, not a
+    // centered value, so check that this start bound, quadrupled, still fits an `i16` lane. This
+    // is the `|a| ≤ 8_191` every backend's `invntt_block` requires.
+    #[test]
+    fn inverse_growth_fits_an_i16_lane() {
+        for q in [Q1 as i64, Q2 as i64] {
+            // The forward transform ends centered, so each accumulated product is at most (q/2)².
+            let acc = crate::consts::MAX_L as i64 * (q / 2) * (q / 2);
+            assert!(
+                acc <= i32::MAX as i64,
+                "accumulator overflows an i32 lane for q = {q}"
+            );
+
+            // `reduce_block` returns `(a >> 16) − ((t·q) >> 16)` with `t` an `i16`
+            let start = (acc + 0xFFFF) / 0x10000 + (q + 1) / 2;
+            assert!(
+                start <= 8_191,
+                "Montgomery output reaches {start} for q = {q}"
+            );
+
+            // Later runs start from a Barrett pass, which centers to q/2
+            assert!(q / 2 <= 8_191);
+        }
+        assert!(4 * 8_191 <= i16::MAX as i64);
+
+        // Why the precondition is not `|a| < q`: for q₂ that would overflow.
+        assert!(4 * (Q2 as i64 - 1) > i16::MAX as i64);
     }
 
     // The constants that stand in for derived expressions must equal what they stand for.

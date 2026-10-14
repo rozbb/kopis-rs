@@ -8,7 +8,7 @@
 //!
 //! Only the endpoints of the pipeline agree with the portable code — the NTT-domain values are
 //! different integers — so `avx2_matches_serial` in [`crate::arithmetic::ntt_arith`] checks it
-//! end to end rather than stage by stage, and the Lean correspondence proof does not cover it.
+//! end to end rather than stage by stage.
 //!
 //! # Layout
 //!
@@ -390,7 +390,8 @@ fn ntt_block<const SECOND: bool>(b: &mut Block) {
 ///
 /// # Safety
 ///
-/// Requires AVX2. The block's values must satisfy `|a| < q`.
+/// Requires AVX2. The block's values must satisfy `|a| ≤ 8_191`: the first two levels run
+/// before any reduction and can quadruple it. `|a| < q` is not enough for q₂.
 #[target_feature(enable = "avx2")]
 fn invntt_block<const SECOND: bool>(b: &mut Block) {
     let q = set1_epi16(crt::q::<SECOND>());
@@ -633,7 +634,7 @@ fn reduce_block<const SECOND: bool>(acc: &[i32; 2 * RING_DEG], base: usize, b: &
         store_i16(b, i, sub_epi16(hi, mulhi_epi16(t, q)));
     }
 
-    // The block now holds residues with |a| < q, as `invntt_block` requires.
+    // The block now holds residues with |a| ≤ 7_141, as `invntt_block` requires.
     invntt_block::<SECOND>(b);
 }
 
